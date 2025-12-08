@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { removeToken } from "@/utils/auth";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/users/user";
+import { Switch } from "@/components/ui/switch";
 import {
   useInstitutions,
   useDefaultInstitutionUser,
@@ -37,7 +38,8 @@ import {
   UserRound,
   Percent,
   SquareAsterisk,
-  Sticker
+  Sticker,
+  Calculator,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAttendanceSettings } from "@/providers/attendance-settings";
@@ -56,6 +58,8 @@ export const Navbar = () => {
   const [selectedInstitution, setSelectedInstitution] = useState<string>("");
   const { targetPercentage, setTargetPercentage } = useAttendanceSettings();
 
+  const [showBunkCalc, setShowBunkCalc] = useState(true);
+
   const pathname = usePathname();
 
   useEffect(() => {
@@ -63,6 +67,42 @@ export const Navbar = () => {
       setSelectedInstitution(defaultInstitutionUser.toString());
     }
   }, [defaultInstitutionUser]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("showBunkCalc");
+    if (stored !== null) {
+      setShowBunkCalc(stored === "true");
+    }
+  }, []);
+
+  const handleBunkCalcToggle = (checked: boolean) => {
+    setShowBunkCalc(checked);
+    localStorage.setItem("showBunkCalc", checked.toString());
+
+    window.dispatchEvent(
+      new CustomEvent("bunkCalcToggle", { detail: checked })
+    );
+
+    if (checked) {
+      toast("Bunk Calculator Enabled", {
+        style: {
+          backgroundColor: "rgba(34, 197, 94, 0.1)",
+          color: "rgb(34, 197, 94)",
+          border: "1px solid rgba(34, 197, 94, 0.5)",
+          backdropFilter: "blur(5px)",
+        },
+      });
+    } else {
+      toast("Bunk Calculator Disabled", {
+        style: {
+          backgroundColor: "rgba(250, 204, 21, 0.1)",
+          color: "rgb(250, 204, 21)",
+          border: "1px solid rgba(250, 204, 21, 0.5)",
+          backdropFilter: "blur(5px)",
+        },
+      });
+    }
+  };
 
   const handleLogout = () => {
     removeToken();
@@ -144,46 +184,48 @@ export const Navbar = () => {
           )}
 
           {/* Attendance Target Percentage Selector */}
-          <div className="flex">
-            <Select
-              value={targetPercentage.toString()}
-              onValueChange={(value) => {
-                setTargetPercentage(Number(value));
-                toast("Attendance Target Updated", {
-                  description: (
-                    <span style={{ color: "#ffffffa6" }}>
-                      Your attendance target is now set to {value}%.
-                    </span>
-                  ),
-                  style: {
-                    backgroundColor: "rgba(34,197,94,0.08)",
-                    color: "#22c55e",
-                    border: "1px solid #22c55e33",
-                    backdropFilter: "blur(4px)",
-                  },
-                });
-              }}
-            >
-              <SelectTrigger className="w-[110px] custom-input cursor-pointer">
-                <SelectValue>
-                  <div className="flex items-center font-medium">
-                    <Percent className="mr-2 h-4 w-4" />
-                    <span>{targetPercentage}%</span>
-                  </div>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="custom-dropdown mt-1">
-                {[75, 80, 85, 90, 95].map((percentage) => (
-                  <SelectItem key={percentage} value={percentage.toString()}>
-                    <div className="flex items-center cursor-pointer">
-                      <Percent className="mr-2 h-4 w-4 flex-shrink-0" />
-                      <span className="font-medium">{percentage}%</span>
+          {showBunkCalc && (
+            <div className="flex">
+              <Select
+                value={targetPercentage.toString()}
+                onValueChange={(value) => {
+                  setTargetPercentage(Number(value));
+                  toast("Attendance Target Updated", {
+                    description: (
+                      <span style={{ color: "#ffffffa6" }}>
+                        Your attendance target is now set to {value}%
+                      </span>
+                    ),
+                    style: {
+                      backgroundColor: "rgba(34,197,94,0.08)",
+                      color: "#22c55e",
+                      border: "1px solid #22c55e33",
+                      backdropFilter: "blur(4px)",
+                    },
+                  });
+                }}
+              >
+                <SelectTrigger className="w-[110px] custom-input cursor-pointer">
+                  <SelectValue>
+                    <div className="flex items-center font-medium">
+                      <Percent className="mr-2 h-4 w-4" />
+                      <span>{targetPercentage}%</span>
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="custom-dropdown mt-1">
+                  {[75, 80, 85, 90, 95].map((percentage) => (
+                    <SelectItem key={percentage} value={percentage.toString()}>
+                      <div className="flex items-center cursor-pointer">
+                        <Percent className="mr-2 h-4 w-4 flex-shrink-0" />
+                        <span className="font-medium">{percentage}%</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {!institutionsLoading && institutions && institutions.length > 0 && (
             <div className="flex max-md:hidden">
@@ -231,7 +273,10 @@ export const Navbar = () => {
         <div className="flex items-center gap-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 rounded-full cursor-pointer">
+              <Button
+                variant="ghost"
+                className="relative h-9 w-9 rounded-full cursor-pointer"
+              >
                 <Avatar className="h-9 w-9 outline-2">
                   <AvatarFallback>
                     <Image src={User} alt="Avatar" width={40} height={40} />
@@ -276,12 +321,29 @@ export const Navbar = () => {
                 <span>Profile</span>
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => window.open("https://forms.gle/3JQvraVMqpkg2tp56")}
+                onClick={() =>
+                  window.open("https://forms.gle/3JQvraVMqpkg2tp56")
+                }
                 className="cursor-pointer"
               >
                 <Sticker className="mr-2 h-4 w-4" />
                 <span>Feedback</span>
               </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <div className="px-2 py-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-4 w-4" />
+                    <span className="text-sm">Bunk Calculator</span>
+                  </div>
+                  <Switch
+                    checked={showBunkCalc}
+                    onCheckedChange={handleBunkCalcToggle}
+                  />
+                </div>
+              </div>
 
               <DropdownMenuSeparator />
               <DropdownMenuItem

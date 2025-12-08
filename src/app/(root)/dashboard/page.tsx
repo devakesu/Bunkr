@@ -702,14 +702,14 @@ export default function Dashboard() {
                                   <td className="p-4 text-muted-foreground italic">
                                     No instructor assigned
                                   </td>
-                                  <td className="p-4 hidden md:table-cell">
+                                  {/* <td className="p-4 hidden md:table-cell">
                                     <div className="flex items-center">
                                       <span className="flex h-2 w-2 rounded-full bg-yellow-500 mr-2 ring-1 ring-yellow-500 ring-offset-1"></span>
                                       <span className="text-sm font-medium text-yellow-600 dark:text-yellow-500">
                                         Pending
                                       </span>
                                     </div>
-                                  </td>
+                                  </td> */}
                                 </tr>
                               );
                             }
@@ -814,7 +814,8 @@ export default function Dashboard() {
                 You are about to change the{" "}
                 {pendingChange?.type === "semester"
                   ? "semester"
-                  : "academic year"}{". "}
+                  : "academic year"}
+                {". "}
                 Are you sure you want to continue?
               </AlertDialogDescription>
             </AlertDialogHeader>
