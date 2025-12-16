@@ -9,6 +9,10 @@ import {
   ChevronRight,
   Calendar as CalendarIcon,
   ArrowUpRight,
+  Plus,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -600,19 +604,24 @@ export function AttendanceCalendar({
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden border border-border/40 shadow-md backdrop-blur-sm custom-container">
-        <CardHeader className="border-b border-border/40 pt-1.5">
-          <CardTitle className="text-base flex items-center gap-2 font-medium">
-            <CalendarIcon className="h-4 w-4 mr-1" />
-            {selectedDate.toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
+      {/* 2. EVENTS LIST CARD */}
+      <Card className="overflow-hidden border-border/40 shadow-sm bg-card/50 flex flex-col h-[500px] lg:h-auto">
+        <CardHeader className="border-b border-border/40 py-4 px-6 bg-muted/20">
+          <CardTitle className="text-sm flex items-center justify-between font-semibold">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4 text-primary" />
+              {selectedDate.toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </div>
+            <Badge variant="secondary" className="font-normal text-xs bg-background/80">
+              {selectedDateEvents.length} Sessions
+            </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 flex-1 relative">
           <AnimatePresence mode="wait">
             <motion.div
               key={selectedDate.toString()}
@@ -620,167 +629,143 @@ export function AttendanceCalendar({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="h-full"
+              className="h-full absolute inset-0"
             >
               {selectedDateEvents.length > 0 ? (
-                <ScrollArea className="h-[350px]">
-                  <div className="space-y-3 p-4">
+                <ScrollArea className="h-full">
+                  <div className="flex flex-col gap-3 p-4">
                     {selectedDateEvents.map((event, index) => {
-                      const colors: Record<string, string> = {
-                        Present:
-                          "bg-blue-500/10 border-blue-500/30 text-blue-400",
-                        Absent: "bg-red-500/10 border-red-500/30 text-red-400",
-                        "Duty Leave":
-                          "bg-yellow-500/10 border-yellow-500/30 text-yellow-400",
-                        "Other Leave":
-                          "bg-teal-500/10 border-teal-500/30 text-teal-400",
-                      };
+                      // --- STATUS & STYLE LOGIC START ---
+                      let badgeClass = "text-muted-foreground border-border";
+                      let Icon = Clock;
+                      
+                      // Default Card Style
+                      let cardStyle = "border-border/40 bg-card hover:bg-accent/30 hover:border-border/60";
 
-                      const colorClass =
-                        colors[event.status] || "bg-accent/50 border-border";
+                      if (event.status === "Present") {
+                        badgeClass = "text-green-500 border-green-500/20 bg-green-500/10";
+                        Icon = CheckCircle2;
+                        // Green Effect
+                        cardStyle = "border-green-500/50 bg-green-500/5 hover:bg-green-500/10 hover:border-green-500";
+                      } else if (event.status === "Absent") {
+                        badgeClass = "text-red-500 border-red-500/20 bg-red-500/10";
+                        Icon = AlertCircle;
+                        // Red Effect
+                        cardStyle = "border-red-500/50 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500"; 
+                      } else if (event.status === "Duty Leave") {
+                        badgeClass = "text-yellow-500 border-yellow-500/20 bg-yellow-500/10";
+                        // CHANGE: Yellow Effect for Duty Leave
+                        cardStyle = "border-yellow-500/50 bg-yellow-500/5 hover:bg-yellow-500/10 hover:border-yellow-500";
+                      } else if (event.status.includes("Leave")) {
+                        // Catch all for other leaves (Teal)
+                        badgeClass = "text-teal-500 border-teal-500/20 bg-teal-500/10";
+                        cardStyle = "border-teal-500/50 bg-teal-500/5 hover:bg-teal-500/10 hover:border-teal-500";
+                      }
+                      // --- STATUS & STYLE LOGIC END ---
+
+                      const isTracked = trackingData?.some(
+                        (data) =>
+                          data.course === event.title &&
+                          data.session === event.sessionName &&
+                          data.date === event.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) &&
+                          data.semester === semester &&
+                          data.year === year
+                      );
+
+                      const buttonKey = `${event.title}-${event.date.toISOString().split("T")[0]}-${event.sessionName}`;
+                      const uniqueLoadingKey = `${event.title}-${event.date.toLocaleDateString('en-IN', {timeZone: 'Asia/Kolkata'})}-${event.sessionName}`;
+                      const isLoading = loadingStates[uniqueLoadingKey];
 
                       return (
                         <motion.div
                           key={`event-${event.sessionKey}-${index}`}
-                          className={`p-4 rounded-lg border ${colorClass} hover:bg-opacity-20 transition-all`}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className={`group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all gap-4 ${cardStyle}`}
                         >
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="font-medium text-sm capitalize">
+                          {/* Info */}
+                          <div className="flex flex-col gap-1.5">
+                            <h4 className="font-semibold text-sm text-foreground leading-tight capitalize">
                               {event.title.toLowerCase()}
+                            </h4>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span className="bg-background/50 px-1.5 py-0.5 rounded border border-border/30">
+                                {event.sessionName ? formatSessionName(event.sessionName) : `Session ${event.sessionKey}`}
+                              </span>
+                              <Badge variant="outline" className={`h-5 px-1.5 gap-1 font-medium ${badgeClass}`}>
+                                <Icon className="w-3 h-3" />
+                                {event.status}
+                              </Badge>
                             </div>
-                            <Badge
-                              className={`
-                                ${
-                                  event.status === "Present"
-                                    ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
-                                    : ""
-                                }
-                                ${
-                                  event.status === "Absent"
-                                    ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                                    : ""
-                                }
-                                ${
-                                  event.status === "Duty Leave"
-                                    ? "bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
-                                    : ""
-                                }
-                                ${
-                                  event.status === "Other Leave"
-                                    ? "bg-teal-500/20 text-teal-400 hover:bg-teal-500/30"
-                                    : ""
-                                }
-                              `}
-                            >
-                              {event.status}
-                            </Badge>
                           </div>
 
-                          <div className="text-xs text-muted-foreground flex items-center justify-between mt-2">
-                            <span>
-                              {event.sessionName
-                                ? formatSessionName(event.sessionName)
-                                : `Session ${event.sessionKey}`}
-                            </span>
-
-                            {event.status === "Absent" && (
-                              <>
-                                {trackingData?.some(
-                                  (data) =>
-                                    data.course === event.title &&
-                                    data.session === event.sessionName &&
-                                    data.date === event.date.toLocaleDateString("en-IN", {
-                                      timeZone: "Asia/Kolkata",
-                                    }) &&
-                                    data.semester === semester &&
-                                    data.year === year
-                                ) ? (
-                                  <Link
-                                    className="flex items-center justify-center bg-red-500/20 gap-2 py-1 text-red-400 hover:bg-red-500/30 rounded-md hover:opacity-90 duration-300"
-                                    href={"/tracking"}
+                          {/* Action */}
+                          {event.status === "Absent" && (
+                            <div className="flex-shrink-0">
+                              {isTracked ? (
+                                <Link href="/tracking" className="w-full sm:w-auto">
+                                  {/* CHANGE: Made button visible with background and outline */}
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="w-full h-8 text-xs gap-1.5 bg-green-500/10 border-green-500/30 text-green-500 hover:text-green-400 hover:bg-green-500/20 hover:border-green-500/50 transition-all"
                                   >
-                                    <div className="w-full flex items-center justify-center pl-2 pr-1">
-                                      <p>View Details</p>{" "}
-                                      <ArrowUpRight size={15} />
-                                    </div>
-                                  </Link>
-                                ) : (
-                                  <Button
-                                    className="gap-1 m-0 rounded-md h-6 hover:bg-red-500/30 space-x-0 space-y-0 p-0 text-xs text-red-400 hover:cursor-pointer bg-red-500/20 hover:opacity-90 duration-300"
-                                    onClick={() => {
-                                      const buttonKey = `${event.title}-${
-                                        event.date.toISOString().split("T")[0]
-                                      }-${event.sessionName}`;
-                                      if (
-                                        clickedButtons.current?.has(buttonKey)
-                                      )
-                                        return;
-
-                                      clickedButtons.current?.add(buttonKey);
-                                      if (user?.id) {
-                                        handleWriteTracking(
-                                          user.id,
-                                          user.username,
-                                          event.title,
-                                          event.date.toLocaleDateString(
-                                            "en-IN",
-                                            {
-                                              timeZone: "Asia/Kolkata",
-                                            }
-                                          ),
-                                          event.status,
-                                          event.sessionName
-                                        );
-                                      }
-                                    }}
-                                    disabled={
-                                      loadingStates[
-                                        `${event.title}-${
-                                          event.date.toLocaleDateString('en-IN', {timeZone: 'Asia/Kolkata'})
-                                        }-${event.sessionName}`
-                                      ]
-                                    }
-                                  >
-                                    {loadingStates[
-                                      `${event.title}-${
-                                        event.date.toLocaleDateString('en-IN', {timeZone: 'Asia/Kolkata'})
-                                      }-${event.sessionName}`
-                                    ] ? (
-                                      <div className="w-full flex items-center justify-center px-2">
-                                        <span>Adding...</span>
-                                      </div>
-                                    ) : (
-                                      <div className="w-full flex items-center justify-center pl-2 pr-1">
-                                        <p>Add to Tracking</p>
-                                        <ArrowUpRight />
-                                      </div>
-                                    )}
+                                    <span>View Details</span>
+                                    <ArrowUpRight className="w-3 h-3" />
                                   </Button>
-                                )}
-                              </>
-                            )}
-                          </div>
+                                </Link>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={isLoading}
+                                  onClick={() => {
+                                    if (clickedButtons.current?.has(buttonKey)) return;
+                                    clickedButtons.current?.add(buttonKey);
+                                    if (user?.id) {
+                                      handleWriteTracking(
+                                        user.id,
+                                        user.username,
+                                        event.title,
+                                        event.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
+                                        event.status,
+                                        event.sessionName
+                                      );
+                                    }
+                                  }}
+                                  className={`w-full sm:w-auto h-8 text-xs gap-1.5 border-dashed transition-all
+                                    ${isLoading ? "opacity-70 cursor-wait" : "hover:border-red-500/50 hover:text-red-500 hover:bg-red-500/5"}
+                                  `}
+                                >
+                                  {isLoading ? (
+                                    <>Loading...</>
+                                  ) : (
+                                    <>
+                                      <Plus className="w-3.5 h-3.5" />
+                                      Add to Tracking
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </motion.div>
                       );
                     })}
                   </div>
                 </ScrollArea>
               ) : (
-                <div className="flex flex-col items-center justify-center h-[340px] text-center px-4">
-                  <div className="rounded-full bg-accent/50 p-4 mb-4">
-                    <CalendarIcon className="h-6 w-6 text-muted-foreground" />
+                <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                  <div className="rounded-full bg-accent/30 p-4 mb-3 ring-1 ring-border/50">
+                    <CalendarIcon className="h-6 w-6 text-muted-foreground/60" />
                   </div>
-                  <h3 className="text-lg font-medium mb-1">No Events</h3>
-                  <p className="text-sm text-muted-foreground max-w-[250px]">
-                    There are no classes or events scheduled for this date.
+                  <h3 className="text-sm font-semibold text-foreground">No Events Found</h3>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-[200px]">
+                    Enjoy your free time! No classes recorded for this date.
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-6 h-9 text-xs hover:bg-accent/15! ml-1 custom-button bg-black/20!"
-                    onClick={goToToday}
-                  >
-                    Go to Today
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={goToToday}>
+                    Jump to Today
                   </Button>
                 </div>
               )}

@@ -9,16 +9,55 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
+  ReferenceLine,
+  Cell,
 } from "recharts";
 import { formatCourseCode } from "@/utils/formatter";
 import { AttendanceReport } from "@/types";
+import { useAttendanceSettings } from "@/providers/attendance-settings";
 
 interface AttendanceChartProps {
   attendanceData?: AttendanceReport;
 }
 
+// Custom Label Component (Rendered on top)
+const CustomTargetLabel = (props: any) => {
+  const { viewBox, value } = props;
+  // Position in top-right corner
+  const x = viewBox.width - 5; 
+  const y = viewBox.y; 
+
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      {/* Background box for contrast */}
+      <rect 
+        x={x - 85} 
+        y={y - 12} 
+        width="90" 
+        height="24" 
+        fill="rgba(20, 20, 20, 0.95)" 
+        rx="4" 
+        stroke="#f59e0b" // Amber border
+        strokeWidth="1"
+      />
+      {/* Text Label */}
+      <text 
+        x={x - 40} 
+        y={y + 5} 
+        fill="#f59e0b" // Amber text
+        textAnchor="middle" 
+        fontSize="12"
+        fontWeight="bold"
+      >
+        Target: {value}%
+      </text>
+    </g>
+  );
+};
+
 export function AttendanceChart({ attendanceData }: AttendanceChartProps) {
+  const { targetPercentage } = useAttendanceSettings();
+
   const data = useMemo(() => {
     if (
       !attendanceData ||
@@ -27,8 +66,6 @@ export function AttendanceChart({ attendanceData }: AttendanceChartProps) {
     ) {
       return [];
     }
-
-    // console.log("Attendance Data:", attendanceData);
 
     const courseAttendance: Record<
       string,
@@ -56,14 +93,11 @@ export function AttendanceChart({ attendanceData }: AttendanceChartProps) {
           session.course !== null &&
           courseAttendance[session.course.toString()]
         ) {
-          if (session.attendance === 110) {
+          if (session.attendance === 110 || session.attendance === 225) {
             courseAttendance[session.course].present += 1;
             courseAttendance[session.course].total += 1;
           } else if (session.attendance === 111) {
             courseAttendance[session.course].absent += 1;
-            courseAttendance[session.course].total += 1;
-          } else if (session.attendance === 225) {
-            courseAttendance[session.course].present += 1;
             courseAttendance[session.course].total += 1;
           }
         }
@@ -72,7 +106,11 @@ export function AttendanceChart({ attendanceData }: AttendanceChartProps) {
 
     return Object.values(courseAttendance)
       .filter((course) => course.total > 0)
-      .sort((a, b) => b.total - a.total);
+      .map((course) => ({
+        ...course,
+        percentage: Math.round((course.present / course.total) * 100) || 0,
+      }))
+      .sort((a, b) => a.percentage - b.percentage);
   }, [attendanceData]);
 
   const getBarSize = () => {
@@ -82,60 +120,84 @@ export function AttendanceChart({ attendanceData }: AttendanceChartProps) {
     return 20;
   };
 
+  // --- 1. Dynamic Y-Axis Scaling (Multiples of 5) ---
+  const minPercentage = data.length > 0 ? Math.min(...data.map(d => d.percentage)) : 0;
+  const lowestRelevant = Math.min(minPercentage, targetPercentage);
+  
+  // Round down to nearest multiple of 5, then subtract 5 for padding
+  // e.g. 83 -> 80 -> 75
+  const calculatedMin = Math.floor(lowestRelevant / 5) * 5 - 5;
+  const yAxisMin = Math.max(0, calculatedMin);
+
   return (
     <div className="h-[300px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
-          margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
+          margin={{ top: 30, right: 10, left: -20, bottom: 5 }}
           barSize={getBarSize()}
         >
-          <CartesianGrid strokeDasharray="3 3" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.2} />
+          
           <XAxis
             dataKey="name"
             interval={0}
             textAnchor="end"
             angle={-45}
             height={60}
+            tick={{ fontSize: 11, fill: "#888" }}
+            tickMargin={10}
           />
-          <YAxis />
+          
+          <YAxis 
+            domain={[yAxisMin, 100]} 
+            type="number"
+            // Force ticks to be multiples of 5
+            allowDecimals={false}
+            tickCount={Math.ceil((100 - yAxisMin) / 5) + 1}
+            tickFormatter={(value) => `${value}%`}
+            tick={{ fontSize: 11, fill: "#888" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          
           <Tooltip
             contentStyle={{
-              backgroundColor: "rgba(31,31,31, 0.9)",
-              border: "2px solid #2B2B2B",
+              backgroundColor: "rgba(20, 20, 20, 0.95)",
+              border: "1px solid #333",
               borderRadius: "8px",
-              color: "#fff",
-              fontSize: "14px",
-              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.25)",
-              backdropFilter: "blur(10px)",
+              fontSize: "13px",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
             }}
-            itemStyle={{ color: "#fff" }}
-            labelStyle={{ fontWeight: "semibold", marginBottom: "5px" }}
-            formatter={(value, name) => {
-              const label =
-                name === "present"
-                  ? "Present"
-                  : name === "absent"
-                  ? "Absent"
-                  : name;
-              return [`${value} classes`, label];
+            // FIX: Ensure text is white
+            itemStyle={{ color: "#ffffff" }}
+            labelStyle={{ color: "#a1a1aa", marginBottom: '0.25rem' }}
+            cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
+            formatter={(value: number, name: string, props: any) => {
+              const { present, total } = props.payload;
+              return [`${value}% (${present}/${total})`, "Attendance"];
             }}
-            cursor={{ fill: "rgba(78, 78, 78, 0.25)" }}
           />
-          <Legend />
-          <Bar
-            dataKey="present"
-            stackId="a"
-            fill="#10b981"
-            name="Present"
-            activeBar={{ fill: "#059669", stroke: "#059669", strokeWidth: 2 }}
-          />
-          <Bar
-            dataKey="absent"
-            stackId="a"
-            fill="#ef4444"
-            name="Absent"
-            activeBar={{ fill: "#dc2626", stroke: "#dc2626", strokeWidth: 2 }}
+          
+          <Bar dataKey="percentage" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+            {data.map((entry, index) => (
+              <Cell 
+                key={`cell-${index}`} 
+                fill={entry.percentage < targetPercentage ? "#ef4444" : "#10b981"} 
+                fillOpacity={0.9}
+              />
+            ))}
+          </Bar>
+
+          {/* FIX: ReferenceLine placed LAST ensures label is on top of bars */}
+          <ReferenceLine 
+            y={targetPercentage} 
+            stroke="#f59e0b" 
+            strokeDasharray="5 3"
+            strokeWidth={2}
+            strokeOpacity={1}
+            label={<CustomTargetLabel value={targetPercentage} />}
+            isFront={true} // Recharts prop to force render on top
           />
         </BarChart>
       </ResponsiveContainer>

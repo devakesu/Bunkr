@@ -65,17 +65,19 @@ export function CourseCard({ course }: CourseCardProps) {
 
   return (
     <Card className="pt-0 pb-0 custom-container overflow-clip h-full min-h-[280px]">
-      <CardHeader className="flex justify-between items-center flex-row pt-6 bg-[#2B2B2B]/[0.4] pb-5 border-b-2 border-[#2B2B2B]/[0.6]">
-        <CardTitle className="line-clamp-1 text-lg w-full">
+      {/* UPDATED HEADER SECTION */}
+      <CardHeader className="flex justify-between items-start flex-row gap-2 pt-6 bg-[#2B2B2B]/[0.4] pb-5 border-b-2 border-[#2B2B2B]/[0.6]">
+        <CardTitle className="text-lg font-semibold break-words leading-tight">
           {capitalize(course.name.toLowerCase())}
         </CardTitle>
         <Badge
           variant="secondary"
-          className="h-7 uppercase custom-button rounded-md! bg-black/20! scale-105"
+          className="h-7 uppercase custom-button rounded-md! bg-black/20! scale-105 shrink-0"
         >
           {course.code}
         </Badge>
       </CardHeader>
+      
       <CardContent className="h-full pb-6">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center p-4">
@@ -126,7 +128,7 @@ export function CourseCard({ course }: CourseCardProps) {
                       <span className="font-medium text-green-500">
                         {attendanceMetrics.canBunk}
                       </span>{" "}
-                      periods
+                      period(s) 🥳
                     </>
                   )}
                   {attendanceMetrics.requiredToAttend > 0 && (
@@ -137,19 +139,15 @@ export function CourseCard({ course }: CourseCardProps) {
                           ? "all"
                           : attendanceMetrics.requiredToAttend}
                       </span>{" "}
-                      more periods
+                      more period(s) 💀
                     </>
                   )}
                   {attendanceMetrics.isExact &&
                     attendanceMetrics.canBunk === 0 &&
                     attendanceMetrics.requiredToAttend === 0 && (
                       <>
-                        {attendancePercentage ===
-                        attendanceMetrics.targetPercentage ? (
-                          <>You are at target percentage</>
-                        ) : (
-                          <>{"Skipping now's risky. All on you"}</>
-                        )}
+                        {"You are on the edge. Skipping now's risky."} <br />{" "}
+                        {"All on you. 😐"}
                       </>
                     )}
                 </p>

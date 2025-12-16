@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   Card,
@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
+// Removed ScrollArea from imports as it's no longer used in this file directly
+// import { ScrollArea } from "@/components/ui/scroll-area"; 
 import {
   Select,
   SelectContent,
@@ -34,8 +35,6 @@ import { redirect } from "next/navigation";
 import { getToken } from "@/utils/auth";
 import { Loading as CompLoading } from "@/components/loading";
 import { useUser } from "@/hooks/users/user";
-// import axios from "axios";
-// import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,6 +67,7 @@ export default function Dashboard() {
     | { type: "academicYear"; value: string }
     | null
   >(null);
+
   useEffect(() => {
     const interval = setInterval(async () => {
       const token = await getToken();
@@ -158,36 +158,8 @@ export default function Dashboard() {
           }
         );
       }
-
-      // Track the change
-      // const response = await axios.post(
-      //   `${process.env.NEXT_PUBLIC_SUPABASE_API_URL}/delete-records-of-users`,
-      //   { username: user.username },
-      //   {
-      //     headers: {
-      //       Authorization: `Bearer ${getToken()}`,
-      //     },
-      //   }
-      // );
-
-      // toast.success(`${response.data.message}`, {
-      //   style: {
-      //     backgroundColor: "rgba(34, 197, 94, 0.1)",
-      //     color: "rgb(74, 222, 128)",
-      //     border: "1px solid rgba(34, 197, 94, 0.2)",
-      //     backdropFilter: "blur(5px)",
-      //   },
-      // });
     } catch (error) {
       console.error("Error during change confirmation:", error);
-      // toast.error("Failed to update settings", {
-      //   style: {
-      //     backgroundColor: "rgba(239, 68, 68, 0.1)",
-      //     color: "rgb(248, 113, 113)",
-      //     border: "1px solid rgba(239, 68, 68, 0.2)",
-      //     backdropFilter: "blur(5px)",
-      //   },
-      // });
     } finally {
       setShowConfirmDialog(false);
       setPendingChange(null);
@@ -214,7 +186,6 @@ export default function Dashboard() {
 
   const academicYears = generateAcademicYears();
 
-  // Attendance status codes
   const ATTENDANCE_STATUS = {
     PRESENT: 110,
     ABSENT: 111,
@@ -222,7 +193,6 @@ export default function Dashboard() {
     OTHER_LEAVE: 112,
   } as const;
 
-  // Return type for calculateOverallStats
   interface AttendanceStats {
     present: number;
     absent: number;
@@ -232,22 +202,20 @@ export default function Dashboard() {
     otherLeave: number;
   }
 
-  // Session type for type safety
   interface AttendanceSession {
     attendance: number;
     [key: string]: any;
   }
 
-  // Date data type
   interface DateData {
     [sessionId: string]: AttendanceSession;
   }
 
-  // Student attendance data type
   interface StudentAttendanceData {
     [date: string]: DateData;
   }
 
+  // --- 1. OVERALL STATS CALCULATION ---
   const calculateOverallStats = (): AttendanceStats => {
     const defaultStats: AttendanceStats = {
       present: 0,
@@ -261,7 +229,6 @@ export default function Dashboard() {
     if (!attendanceData?.studentAttendanceData) {
       return defaultStats;
     }
-    console.log(attendanceData);
 
     const studentData =
       attendanceData.studentAttendanceData as StudentAttendanceData;
@@ -274,7 +241,6 @@ export default function Dashboard() {
     Object.values(studentData).forEach((dateData) => {
       Object.values(dateData).forEach((session) => {
         const { attendance } = session;
-        // console.log(session);
 
         if (attendance === ATTENDANCE_STATUS.PRESENT) totalPresent++;
         else if (attendance === ATTENDANCE_STATUS.ABSENT) totalAbsent++;
@@ -283,11 +249,9 @@ export default function Dashboard() {
       });
     });
 
-    // Effective attendance (present + duty leave)
     const effectivePresent = totalPresent + dutyLeave;
     const totalClasses = effectivePresent + totalAbsent + otherLeave;
 
-    // Percentage calculation
     const percentage =
       totalClasses > 0
         ? Math.round((effectivePresent / totalClasses) * 100)
@@ -305,6 +269,54 @@ export default function Dashboard() {
 
   const stats = calculateOverallStats();
 
+  // --- 2. COURSE SORTING LOGIC (Decreasing % order) ---
+  const sortedCourses = useMemo(() => {
+    if (!coursesData?.courses) return [];
+
+    const coursesArray = Object.values(coursesData.courses);
+
+    if (!attendanceData?.studentAttendanceData) {
+      return coursesArray; // Return unsorted if no attendance data
+    }
+
+    // Map to store temporary counts
+    const courseStats: Record<string, { present: number; total: number }> = {};
+    
+    // Initialize
+    coursesArray.forEach((c: any) => {
+      courseStats[c.id] = { present: 0, total: 0 };
+    });
+
+    // Count using existing Constants
+    Object.values(attendanceData.studentAttendanceData).forEach((dateData) => {
+      Object.values(dateData).forEach((session: any) => {
+        if (session.course && courseStats[session.course]) {
+          // Logic: 110 & 225 are present, 111 is absent
+          if (
+            session.attendance === ATTENDANCE_STATUS.PRESENT || 
+            session.attendance === ATTENDANCE_STATUS.DUTY_LEAVE
+          ) {
+            courseStats[session.course].present += 1;
+            courseStats[session.course].total += 1;
+          } else if (session.attendance === ATTENDANCE_STATUS.ABSENT) {
+            courseStats[session.course].total += 1;
+          }
+        }
+      });
+    });
+
+    // Attach percentage and Sort Decreasing
+    return coursesArray
+      .map((course: any) => {
+        const s = courseStats[course.id];
+        const pct = s.total > 0 ? Math.round((s.present / s.total) * 100) : 0;
+        return { ...course, currentPercentage: pct }; // Store pct to sort
+      })
+      .sort((a: any, b: any) => b.currentPercentage - a.currentPercentage);
+
+  }, [coursesData, attendanceData]);
+
+
   if (
     isLoadingSemester ||
     isLoadingAcademicYear ||
@@ -321,416 +333,314 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col min-h-screen bg-background font-manrope">
       <main className="flex-1 container mx-auto p-4 md:p-6">
-        {/* selector statements */}
-        <div className="mb-6 py-2 flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-bold mb-2 w-full">
-              Welcome back,{" "}
-              <span className="gradient-name w-full pr-2">
-                {profile?.first_name} {profile?.last_name}
-              </span>
-            </h1>
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center mb-4 justify-between">
+        
+        {/* HEADER SECTION: Title + Total Attendance (Top Right) */}
+        <div className="mb-6 flex flex-col lg:flex-row gap-6 lg:items-end justify-between">
+          
+          {/* Left: Welcome & Selectors */}
+          <div className="flex flex-col gap-4 flex-1">
+            <div className="flex flex-col gap-1">
+              <h1 className="text-2xl font-bold mb-2 w-full">
+                Welcome back,{" "}
+                <span className="gradient-name w-full pr-2">
+                  {profile?.first_name} {profile?.last_name}
+                </span>
+              </h1>
               <p className="text-muted-foreground font-normal italic">
                 {
                   "Stay on top of your classes, track your attendance, and manage your day like a pro!"
                 }
               </p>
             </div>
-          </div>
-          <div className="flex gap-4 items-center font-normal">
-            <p className="flex flex-wrap items-center gap-2.5 max-sm:text-md text-muted-foreground">
-              <span>You&apos;re checking out the</span>
-              <Select
-                value={selectedSemester || undefined}
-                onValueChange={(value) =>
-                  handleSemesterChange(value as "even" | "odd")
-                }
-                disabled={isLoadingSemester || setSemesterMutation.isPending}
-              >
-                <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 uppercase custom-dropdown">
-                  {isLoadingSemester ? (
-                    <span className="text-muted-foreground">...</span>
-                  ) : selectedSemester ? (
-                    <span>{selectedSemester}</span>
-                  ) : (
-                    <span className="text-muted-foreground lowercase">
-                      semester
-                    </span>
-                  )}
-                </SelectTrigger>
-                <SelectContent className="custom-dropdown">
-                  <SelectItem
-                    value="odd"
-                    className={selectedSemester === "odd" ? "bg-white/5" : ""}
-                  >
-                    ODD
-                  </SelectItem>
-                  <SelectItem
-                    value="even"
-                    className={
-                      selectedSemester === "even" ? "bg-white/5 mt-1" : "mt-0.5"
-                    }
-                  >
-                    EVEN
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <span>semester reports for academic year</span>
-              <Select
-                value={selectedYear || undefined}
-                onValueChange={handleAcademicYearChange}
-                disabled={
-                  isLoadingAcademicYear || setAcademicYearMutation.isPending
-                }
-              >
-                <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 custom-dropdown">
-                  {isLoadingAcademicYear ? (
-                    <span className="text-muted-foreground">...</span>
-                  ) : selectedYear ? (
-                    <span>{selectedYear}</span>
-                  ) : (
-                    <span className="text-muted-foreground">year</span>
-                  )}
-                </SelectTrigger>
-                <SelectContent className="custom-dropdown max-h-70">
-                  {academicYears.map((year) => (
+            <div className="flex gap-4 items-center font-normal">
+              <p className="flex flex-wrap items-center gap-2.5 max-sm:text-md text-muted-foreground">
+                <span>You&apos;re checking out the</span>
+                <Select
+                  value={selectedSemester || undefined}
+                  onValueChange={(value) =>
+                    handleSemesterChange(value as "even" | "odd")
+                  }
+                  disabled={isLoadingSemester || setSemesterMutation.isPending}
+                >
+                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 uppercase custom-dropdown">
+                    {isLoadingSemester ? (
+                      <span className="text-muted-foreground">...</span>
+                    ) : selectedSemester ? (
+                      <span>{selectedSemester}</span>
+                    ) : (
+                      <span className="text-muted-foreground lowercase">
+                        semester
+                      </span>
+                    )}
+                  </SelectTrigger>
+                  <SelectContent className="custom-dropdown">
                     <SelectItem
-                      key={year}
-                      value={year}
+                      value="odd"
+                      className={selectedSemester === "odd" ? "bg-white/5" : ""}
+                    >
+                      ODD
+                    </SelectItem>
+                    <SelectItem
+                      value="even"
                       className={
-                        selectedYear === year ? "bg-white/5 mt-0.5" : "mt-0.5"
+                        selectedSemester === "even"
+                          ? "bg-white/5 mt-1"
+                          : "mt-0.5"
                       }
                     >
-                      {year}
+                      EVEN
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </p>
+                  </SelectContent>
+                </Select>
+                <span>semester reports for academic year</span>
+                <Select
+                  value={selectedYear || undefined}
+                  onValueChange={handleAcademicYearChange}
+                  disabled={
+                    isLoadingAcademicYear || setAcademicYearMutation.isPending
+                  }
+                >
+                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 custom-dropdown">
+                    {isLoadingAcademicYear ? (
+                      <span className="text-muted-foreground">...</span>
+                    ) : selectedYear ? (
+                      <span>{selectedYear}</span>
+                    ) : (
+                      <span className="text-muted-foreground">year</span>
+                    )}
+                  </SelectTrigger>
+                  <SelectContent className="custom-dropdown max-h-70">
+                    {academicYears.map((year) => (
+                      <SelectItem
+                        key={year}
+                        value={year}
+                        className={
+                          selectedYear === year ? "bg-white/5 mt-0.5" : "mt-0.5"
+                        }
+                      >
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* info cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-5 mb-6">
-          {/* Total Attendance */}
+          {/* Right: Total Attendance Card */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="sm:col-span-2 xl:col-span-2"
+            className="w-full lg:w-[350px]"
           >
-            <Card className="h-full custom-container">
-              <CardHeader className="pb-2">
+            <Card className="custom-container shadow-sm border-accent/20">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-medium">
                   Total Attendance
                 </CardTitle>
+                <div className="text-sm font-bold text-muted-foreground">
+                  {stats.percentage}%
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.percentage}%</div>
-                <Progress value={stats.percentage} className="mt-2" />
-                <p className="text-xs text-muted-foreground mt-2">
+                <Progress value={stats.percentage} className="h-2 mb-2" />
+                <p className="text-xs text-muted-foreground text-right">
                   {stats.present} present / {stats.total} total
                 </p>
               </CardContent>
             </Card>
           </motion.div>
-
-          {/* Present */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-            className="col-span-1"
-          >
-            <Card className="h-full custom-container">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Present</CardTitle>
-              </CardHeader>
-              <CardContent className="mt-3">
-                <div className="text-2xl font-bold text-green-500 mt-0.5">
-                  {stats.present}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Classes attended
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Absent */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-            className="col-span-1"
-          >
-            <Card className="h-full custom-container">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Absent</CardTitle>
-              </CardHeader>
-              <CardContent className="mt-3">
-                <div className="text-2xl font-bold text-red-500 mt-0.5">
-                  {stats.absent}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Classes missed
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Duty Leaves */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-            className="col-span-1"
-          >
-            <Card className="h-full custom-container">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Duty Leaves
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="mt-3">
-                <div className="text-2xl font-bold text-yellow-500 mt-0.5">
-                  {stats.dutyLeave}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Excused absences
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Special Leave */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-            className="col-span-1"
-          >
-            <Card className="h-full custom-container">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Special Leave
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="mt-3">
-                <div className="text-2xl font-bold text-teal-400 mt-0.5">
-                  {stats.otherLeave}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Non-standard off
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Total  */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.3 }}
-            className="col-span-1"
-          >
-            <Card className="h-full custom-container">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Courses
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="mt-3">
-                <div className="text-2xl font-bold mt-0.5">
-                  {coursesData?.courses
-                    ? Object.keys(coursesData.courses).length
-                    : 0}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Enrolled this semester
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
         </div>
 
-        {/* attendance overview graph*/}
-        <div className="grid gap-5 md:grid-cols-2 mb-6">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Card className="col-span-1 custom-container">
-              <CardHeader className="flex flex-col gap-0.5">
-                <CardTitle className="text-[16px]">
-                  Attendance Overview
-                </CardTitle>
-                <CardDescription className="text-accent-foreground/60 text-sm">
-                  {"See where you've been keeping up"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoadingAttendance ? (
-                  <div className="flex items-center justify-center h-[200px]">
-                    <CompLoading />
-                  </div>
-                ) : attendanceData ? (
-                  <AttendanceChart attendanceData={attendanceData} />
-                ) : (
-                  <div className="flex items-center justify-center h-[200px]">
-                    <p className="text-muted-foreground">
-                      No attendance data available
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
+        {/* SECTION 2: Chart (Left) & Stats Grid (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          
+          {/* Chart takes 2/3rds */}
+          <div className="lg:col-span-2">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4 }}
+              className="h-full"
+            >
+              <Card className="h-full custom-container flex flex-col">
+                <CardHeader className="flex flex-col gap-0.5">
+                  <CardTitle className="text-[16px]">
+                    Attendance Overview
+                  </CardTitle>
+                  <CardDescription className="text-accent-foreground/60 text-sm">
+                    {"See where you've been keeping up"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 min-h-[300px]">
+                  {isLoadingAttendance ? (
+                    <div className="flex items-center justify-center h-full">
+                      <CompLoading />
+                    </div>
+                  ) : attendanceData ? (
+                    <AttendanceChart attendanceData={attendanceData} />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-muted-foreground">
+                        No attendance data available
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Card className="col-span-1 custom-container">
-              <CardHeader className="flex flex-col gap-0.5">
-                <CardTitle className="text-[16px]">
-                  Instructor Details
-                </CardTitle>
-                <CardDescription className="text-accent-foreground/60 text-sm">
-                  Get to know your instructors
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoadingCourses ? (
-                  <div className="flex items-center justify-center h-[200px]">
-                    <CompLoading />
-                  </div>
-                ) : coursesData?.courses &&
-                  Object.keys(coursesData.courses).length > 0 ? (
-                  <div className="rounded-md custom-container overflow-clip">
-                    <ScrollArea className="h-[300px]">
-                      <table className="w-full caption-bottom text-sm">
-                        <thead className="relative">
-                          <tr className="border-b-2 border-[#2B2B2B]/[0.6]">
-                            <th className="h-10 px-4 text-left font-medium text-muted-foreground bg-[rgb(31,31,32)]">
-                              Course
-                            </th>
-                            <th className="h-10 px-4 text-left font-medium text-muted-foreground bg-[rgb(31,31,32)]">
-                              Instructor
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {Object.entries(coursesData.courses).map(
-                            ([courseId, course]: [string, any]) => {
-                              const instructors =
-                                course.institution_users?.filter(
-                                  (user: any) => user.pivot.courserole_id === 1
-                                ) || [];
+          {/* Stats Grid takes 1/3rd */}
+          <div className="lg:col-span-1">
+            <div className="grid grid-cols-2 gap-4 h-full content-start">
+              {/* Present */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+              >
+                <Card className="h-full custom-container">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Present
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="mt-1">
+                    <div className="text-2xl font-bold text-green-500">
+                      {stats.present}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
 
-                              return instructors.length > 0 ? (
-                                instructors.map(
-                                  (instructor: any, index: number) => (
-                                    <tr
-                                      key={`${courseId}-${instructor.id}`}
-                                      className="group transition-colors border-[#2B2B2B]/[0.8]"
-                                      data-course-id={courseId}
-                                      onMouseEnter={() => {
-                                        document
-                                          .querySelectorAll(
-                                            `tr[data-course-id="${courseId}"]`
-                                          )
-                                          .forEach((row) => {
-                                            row.classList.add("bg-muted/25");
-                                          });
-                                      }}
-                                      onMouseLeave={() => {
-                                        document
-                                          .querySelectorAll(
-                                            `tr[data-course-id="${courseId}"]`
-                                          )
-                                          .forEach((row) => {
-                                            row.classList.remove("bg-muted/25");
-                                          });
-                                      }}
-                                    >
-                                      {index === 0 ? (
-                                        <td
-                                          className="p-4 align-top"
-                                          rowSpan={instructors.length}
-                                        >
-                                          <div className="font-medium">
-                                            {course.code}
-                                          </div>
-                                          <div className="text-sm text-muted-foreground capitalize">
-                                            {course.name.toLowerCase()}
-                                          </div>
-                                          {instructors.length > 1 && (
-                                            <div className="mt-2">
-                                              <span className="inline-flex items-center rounded-full border px-2 min-h-5 pt-[0.05px] justify-center text-xs font-semibold bg-blue-50/3 text-white/60 border-[#2B2B2B]/[0.8]">
-                                                {instructors.length} instructors
-                                              </span>
-                                            </div>
-                                          )}
-                                        </td>
-                                      ) : null}
-                                      <td className="p-4">
-                                        <div className="font-medium">
-                                          {instructor.first_name}{" "}
-                                          {instructor.last_name}
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  )
-                                )
-                              ) : (
-                                <tr
-                                  key={courseId}
-                                  className="hover:bg-muted/50 transition-colors"
-                                >
-                                  <td className="p-4">
-                                    <div className="font-medium">
-                                      {course.code}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground">
-                                      {course.name}
-                                    </div>
-                                  </td>
-                                  <td className="p-4 text-muted-foreground italic">
-                                    No instructor assigned
-                                  </td>
-                                  {/* <td className="p-4 hidden md:table-cell">
-                                    <div className="flex items-center">
-                                      <span className="flex h-2 w-2 rounded-full bg-yellow-500 mr-2 ring-1 ring-yellow-500 ring-offset-1"></span>
-                                      <span className="text-sm font-medium text-yellow-600 dark:text-yellow-500">
-                                        Pending
-                                      </span>
-                                    </div>
-                                  </td> */}
-                                </tr>
-                              );
-                            }
-                          )}
-                        </tbody>
-                      </table>
-                    </ScrollArea>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-[200px]">
-                    <p className="text-muted-foreground">
-                      No faculty information available
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
+              {/* Absent */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+              >
+                <Card className="h-full custom-container">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Absent</CardTitle>
+                  </CardHeader>
+                  <CardContent className="mt-1">
+                    <div className="text-2xl font-bold text-red-500">
+                      {stats.absent}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Duty Leaves */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.3 }}
+              >
+                <Card className="h-full custom-container">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Duty Leaves
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="mt-1">
+                    <div className="text-2xl font-bold text-yellow-500">
+                      {stats.dutyLeave}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Special Leave */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.4 }}
+              >
+                <Card className="h-full custom-container">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Special Leave
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="mt-1">
+                    <div className="text-2xl font-bold text-teal-400">
+                      {stats.otherLeave}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Total Courses */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.5 }}
+                className="col-span-2"
+              >
+                <Card className="h-full custom-container">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Total Courses
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="mt-1">
+                    <div className="text-2xl font-bold">
+                      {coursesData?.courses
+                        ? Object.keys(coursesData.courses).length
+                        : 0}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
+          </div>
         </div>
 
-        {/* attendance calendar */}
+        {/* SECTION 3: Courses Lineup - UPDATED SORTING */}
+        <div className="mb-6">
+          <div className="mb-6 flex flex-col justify-center items-center mx-3">
+            <h2 className="text-lg font-bold mb-0.5 italic">
+              Your Courses Lineup <span className="ml-1">⬇️</span>
+            </h2>
+            <p className="italic text-muted-foreground text-sm text-center">
+              Your current courses — organized for easy access.
+            </p>
+          </div>
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {isLoadingCourses ? (
+              Array(6)
+                .fill(0)
+                .map((_, i) => (
+                  <Card key={i} className="overflow-hidden">
+                    <CardHeader className="p-0">
+                      <Skeleton className="h-40 w-full rounded-none" />
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <Skeleton className="h-6 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardContent>
+                  </Card>
+                ))
+            ) : sortedCourses.length > 0 ? (
+              sortedCourses.map((course: any) => (
+                <div key={course.id}>
+                  <CourseCard course={course} />
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-8 bg-accent/50 rounded-xl border-2 border-accent-foreground/12">
+                <p className="text-muted-foreground">
+                  No courses found for this semester
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* SECTION 4: Attendance Calendar */}
         <div className="mb-6">
           <Card className="custom-container">
             <CardHeader className="flex flex-col gap-0.5">
@@ -758,49 +668,138 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* courses lineup */}
-        <div className="mb-6 mt-14">
-          <div className="mb-6 flex flex-col justify-center items-center mx-3">
-            <h2 className="text-lg font-bold mb-0.5 italic">
-              Your Courses Lineup <span className="ml-1">⬇️</span>
-            </h2>
-            <p className="italic text-muted-foreground text-sm text-center">
-              Your current courses — organized for easy access.
-            </p>
-          </div>
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {isLoadingCourses ? (
-              Array(6)
-                .fill(0)
-                .map((_, i) => (
-                  <Card key={i} className="overflow-hidden">
-                    <CardHeader className="p-0">
-                      <Skeleton className="h-40 w-full rounded-none" />
-                    </CardHeader>
-                    <CardContent className="p-6">
-                      <Skeleton className="h-6 w-3/4 mb-2" />
-                      <Skeleton className="h-4 w-1/2" />
-                    </CardContent>
-                  </Card>
-                ))
-            ) : coursesData?.courses &&
-              Object.keys(coursesData.courses).length > 0 ? (
-              Object.entries(coursesData.courses).map(
-                ([courseId, course]: [string, any]) => (
-                  <div key={courseId}>
-                    <CourseCard course={course} />
+        {/* SECTION 5: Instructor Details */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="mb-6"
+        >
+          <Card className="custom-container">
+            <CardHeader className="flex flex-col gap-0.5">
+              <CardTitle className="text-[16px]">Instructor Details</CardTitle>
+              <CardDescription className="text-accent-foreground/60 text-sm">
+                Get to know your instructors
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingCourses ? (
+                <div className="flex items-center justify-center h-[200px]">
+                  <CompLoading />
+                </div>
+              ) : coursesData?.courses &&
+                Object.keys(coursesData.courses).length > 0 ? (
+                <div className="rounded-md custom-container overflow-clip">
+                  {/* CHANGED: Removed ScrollArea, used simple div with overflow-auto for horizontal scroll if needed, vertical is auto */}
+                  <div className="w-full overflow-auto">
+                    <table className="w-full caption-bottom text-sm">
+                      <thead className="relative">
+                        <tr className="border-b-2 border-[#2B2B2B]/[0.6]">
+                          <th className="h-10 px-4 text-left font-medium text-muted-foreground bg-[rgb(31,31,32)]">
+                            Course
+                          </th>
+                          <th className="h-10 px-4 text-left font-medium text-muted-foreground bg-[rgb(31,31,32)]">
+                            Instructor
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {Object.entries(coursesData.courses).map(
+                          ([courseId, course]: [string, any]) => {
+                            const instructors =
+                              course.institution_users?.filter(
+                                (user: any) => user.pivot.courserole_id === 1
+                              ) || [];
+
+                            return instructors.length > 0 ? (
+                              instructors.map(
+                                (instructor: any, index: number) => (
+                                  <tr
+                                    key={`${courseId}-${instructor.id}`}
+                                    className="group transition-colors border-[#2B2B2B]/[0.8]"
+                                    data-course-id={courseId}
+                                    onMouseEnter={() => {
+                                      document
+                                        .querySelectorAll(
+                                          `tr[data-course-id="${courseId}"]`
+                                        )
+                                        .forEach((row) => {
+                                          row.classList.add("bg-muted/25");
+                                        });
+                                    }}
+                                    onMouseLeave={() => {
+                                      document
+                                        .querySelectorAll(
+                                          `tr[data-course-id="${courseId}"]`
+                                        )
+                                        .forEach((row) => {
+                                          row.classList.remove("bg-muted/25");
+                                        });
+                                    }}
+                                  >
+                                    {index === 0 ? (
+                                      <td
+                                        className="p-4 align-top"
+                                        rowSpan={instructors.length}
+                                      >
+                                        <div className="font-medium">
+                                          {course.code}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground capitalize">
+                                          {course.name.toLowerCase()}
+                                        </div>
+                                        {instructors.length > 1 && (
+                                          <div className="mt-2">
+                                            <span className="inline-flex items-center rounded-full border px-2 min-h-5 pt-[0.05px] justify-center text-xs font-semibold bg-blue-50/3 text-white/60 border-[#2B2B2B]/[0.8]">
+                                              {instructors.length} instructors
+                                            </span>
+                                          </div>
+                                        )}
+                                      </td>
+                                    ) : null}
+                                    <td className="p-4">
+                                      <div className="font-medium">
+                                        {instructor.first_name}{" "}
+                                        {instructor.last_name}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )
+                              )
+                            ) : (
+                              <tr
+                                key={courseId}
+                                className="hover:bg-muted/50 transition-colors"
+                              >
+                                <td className="p-4">
+                                  <div className="font-medium">
+                                    {course.code}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {course.name}
+                                  </div>
+                                </td>
+                                <td className="p-4 text-muted-foreground italic">
+                                  No instructor assigned
+                                </td>
+                              </tr>
+                            );
+                          }
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                )
-              )
-            ) : (
-              <div className="col-span-full text-center py-8 bg-accent/50 rounded-xl border-2 border-accent-foreground/12">
-                <p className="text-muted-foreground">
-                  No courses found for this semester
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-[200px]">
+                  <p className="text-muted-foreground">
+                    No faculty information available
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Confirmation Dialog */}
         <AlertDialog
