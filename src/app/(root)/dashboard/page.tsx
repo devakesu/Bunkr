@@ -456,7 +456,7 @@ export default function Dashboard() {
         {/* SECTION 2: Chart (Left) & Stats Grid (Right) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           
-          {/* Chart takes 2/3rds */}
+          {/* LEFT SIDE: Chart (Fixed Height Control) */}
           <div className="lg:col-span-2">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -473,120 +473,125 @@ export default function Dashboard() {
                     {"See where you've been keeping up"}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 min-h-[300px]">
-                  {isLoadingAttendance ? (
-                    <div className="flex items-center justify-center h-full">
-                      <CompLoading />
-                    </div>
-                  ) : attendanceData ? (
-                    <AttendanceChart attendanceData={attendanceData} />
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">
-                        No attendance data available
-                      </p>
-                    </div>
-                  )}
+                <CardContent className="flex-1 pb-6">
+                  {/* FIXED HEIGHT: This controls the height of the entire row */}
+                  <div className="h-[300px] w-full"> 
+                    {isLoadingAttendance ? (
+                      <div className="flex items-center justify-center h-full">
+                        <CompLoading />
+                      </div>
+                    ) : attendanceData ? (
+                      <AttendanceChart attendanceData={attendanceData} />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-muted-foreground">
+                          No attendance data available
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>
           </div>
 
-          {/* Stats Grid takes 1/3rd */}
-          <div className="lg:col-span-1">
-            <div className="grid grid-cols-2 gap-4 h-full content-start">
-              {/* Present */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.1 }}
-              >
-                <Card className="h-full custom-container">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Present
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="mt-1">
-                    <div className="text-2xl font-bold text-green-500">
-                      {stats.present}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+          {/* RIGHT SIDE: Stats Grid (Condenses to match Left Side) */}
+          <div className="lg:col-span-1 h-full">
+            <div className="flex flex-col gap-4 h-full">
+              
+              {/* Row 1: Present & Absent */}
+              <div className="grid grid-cols-2 gap-4 flex-1">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 }}
+                  className="h-full"
+                >
+                  <Card className="h-full custom-container flex flex-col justify-center">
+                    <CardHeader className="pb-1">
+                      <CardTitle className="text-sm font-medium">Present</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-500">
+                        {stats.present}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
 
-              {/* Absent */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
-              >
-                <Card className="h-full custom-container">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Absent</CardTitle>
-                  </CardHeader>
-                  <CardContent className="mt-1">
-                    <div className="text-2xl font-bold text-red-500">
-                      {stats.absent}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.2 }}
+                  className="h-full"
+                >
+                  <Card className="h-full custom-container flex flex-col justify-center">
+                    <CardHeader className="pb-1">
+                      <CardTitle className="text-sm font-medium">Absent</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-red-500">
+                        {stats.absent}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </div>
 
-              {/* Duty Leaves */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.3 }}
-              >
-                <Card className="h-full custom-container">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Duty Leaves
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="mt-1">
-                    <div className="text-2xl font-bold text-yellow-500">
-                      {stats.dutyLeave}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+              {/* Row 2: Duty & Special Leaves */}
+              <div className="grid grid-cols-2 gap-4 flex-1">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.3 }}
+                  className="h-full"
+                >
+                  <Card className="h-full custom-container flex flex-col justify-center">
+                    <CardHeader className="pb-1">
+                      <CardTitle className="text-sm font-medium">Duty Leaves</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-yellow-500">
+                        {stats.dutyLeave}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
 
-              {/* Special Leave */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.4 }}
-              >
-                <Card className="h-full custom-container">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Special Leave
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="mt-1">
-                    <div className="text-2xl font-bold text-teal-400">
-                      {stats.otherLeave}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.4 }}
+                  className="h-full"
+                >
+                  <Card className="h-full custom-container flex flex-col justify-center">
+                    <CardHeader className="pb-1">
+                      <CardTitle className="text-sm font-medium">Special Leave</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-teal-400">
+                        {stats.otherLeave}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </div>
 
-              {/* Total Courses */}
+              {/* Row 3: Total Courses */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.5 }}
-                className="col-span-2"
+                className="flex-1"
               >
-                <Card className="h-full custom-container">
+                {/* FIXED: Removed justify-center to allow header to be top-aligned visible */}
+                <Card className="h-full custom-container flex flex-col">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium">
                       Total Courses
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="mt-1">
+                  <CardContent>
                     <div className="text-2xl font-bold">
                       {coursesData?.courses
                         ? Object.keys(coursesData.courses).length
@@ -595,12 +600,13 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
               </motion.div>
+
             </div>
           </div>
         </div>
 
         {/* SECTION 3: Courses Lineup - UPDATED SORTING */}
-        <div className="mb-6">
+        <div className="mb-6 mt-10"> {/* ADDED mt-10 for more space */}
           <div className="mb-6 flex flex-col justify-center items-center mx-3">
             <h2 className="text-lg font-bold mb-0.5 italic">
               Your Courses Lineup <span className="ml-1">⬇️</span>

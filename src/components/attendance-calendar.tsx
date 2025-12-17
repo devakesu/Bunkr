@@ -739,7 +739,7 @@ export function AttendanceCalendar({
                                   `}
                                 >
                                   {isLoading ? (
-                                    <>Loading...</>
+                                    <>Adding...</>
                                   ) : (
                                     <>
                                       <Plus className="w-3.5 h-3.5" />
@@ -760,7 +760,7 @@ export function AttendanceCalendar({
                   <div className="rounded-full bg-accent/30 p-4 mb-3 ring-1 ring-border/50">
                     <CalendarIcon className="h-6 w-6 text-muted-foreground/60" />
                   </div>
-                  <h3 className="text-sm font-semibold text-foreground">No Events Found</h3>
+                  <h3 className="text-sm font-semibold text-foreground">No Classes Found</h3>
                   <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-[200px]">
                     Enjoy your free time! No classes recorded for this date.
                   </p>

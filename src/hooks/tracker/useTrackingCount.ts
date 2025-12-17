@@ -15,7 +15,7 @@ export function useTrackingCount(user: User | null | undefined, accessToken: str
           },
         }
       );
-      return res.data?.remaining ?? 0;
+      return res.data?.count ?? 0;
     },
   });
 }

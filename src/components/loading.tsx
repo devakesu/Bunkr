@@ -18,8 +18,12 @@ export function Loading() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full gap-4">
-      {/* Spinner always shows */}
+      {/* Spinner always shows
       <Ring2 size="35" stroke="3.5" speed="0.9" color="#d3e6e8" />
+      */}
+      <p className="flex h-[90vh] items-center justify-center bg-background text-xl font-medium text-muted-foreground text-center italic mx-12">
+        &quot;Waiting on Ezygo to stop ghosting us 👻&quot;
+      </p>
 
       {/* Text shows only after 5 seconds */}
       {showWarning && (

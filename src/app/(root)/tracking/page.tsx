@@ -35,7 +35,7 @@ const Tracking = () => {
   }, [user]);
 
   const {
-    data: remaining,
+    data: count,
     error,
     refetch: refetchCount,
   } = useTrackingCount(enabled ? user : null, enabled ? accessToken : null);
@@ -373,7 +373,8 @@ const Tracking = () => {
   return (
     isProcessing ? <div className="h-screen"><Loading /></div> :
     <LazyMotion features={domAnimation}>
-      <div className="flex flex-1 flex-col flex-wrap gap-4 h-full m-6 text-center min-h-[100vh] relative">
+      {/* CHANGED: Removed min-h-[100vh] to allow footer to rise naturally on short content. */}
+      <div className="flex flex-1 flex-col flex-wrap gap-4 h-full p-4 md:p-6 min-h-[70vh] text-center relative">
         {trackingData && trackingData.length > 0 ? (
           <>
             <div className="mb-2 pb-4 mt-10">
@@ -381,20 +382,17 @@ const Tracking = () => {
                 Attendance Tracker
               </p>
               <p className="text-sm text-muted-foreground max-md:text-xs mb-4">
-                These are absences you&apos;ve marked for duty leave. <br />{" "}
+                These are absences you&apos;ve marked for re-checking or duty leave. <br />{" "}
                 Track their update status here 📋
               </p>
-              {(remaining ?? 0) > 0 ? (
+              {(count ?? 0) > 0 ? (
                 <div className="flex flex-col gap-2 items-center justify-center">
                   <Badge
-                    className={`text-sm text-center max-md:text-xs  py-1 px-3 ${
-                      (remaining ?? 0) < 4
-                        ? "bg-yellow-500/12 text-yellow-400/75 border-yellow-500/15"
-                        : "bg-green-500/12 text-green-400/75 border-green-500/15"
-                    }`}
+                    className={`text-sm text-center max-md:text-xs py-1 px-3 bg-yellow-500/12 text-yellow-400/75 border-yellow-500/15`}
                   >
-                    You can add <strong>{remaining}</strong> more attendance{" "}
-                    {remaining === 1 ? "record" : "records"}
+                    You haved added <strong>{count}</strong>{" "}
+                    {count === 1 ? "class" : "classes"}
+                  {" "} to tracking list.
                   </Badge>
                   <button
                     onClick={deleteAllTrackingData}
@@ -404,21 +402,7 @@ const Tracking = () => {
                     <Trash2 size={14} />
                   </button>
                 </div>
-              ) : (
-                <div className="flex flex-col gap-2 items-center justify-center">
-                <Badge className="text-sm text-center max-md:text-xs bg-red-500/12 text-red-400/75 border-red-500/15 py-1 px-3">
-                  You&apos;ve reached the limit of <strong>20</strong>{" "}
-                  attendance records
-                </Badge>
-                <button
-                    onClick={deleteAllTrackingData}
-                    className="text-sm cursor-pointer justify-between items-center gap-2 text-center max-md:text-xs bg-red-500/12 text-red-400/75 hover:bg-red-500/18 duration-300 border-1 border-red-500/15 py-1 px-3 pr-2.5 flex flex-row rounded-md"
-                  >
-                    Clear all tracking data
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              )}
+              ) : null}
 
               {error && (
                 <p>An error occured while displaying count of entries</p>
@@ -472,10 +456,6 @@ const Tracking = () => {
                         colorClass;
                     }
 
-                    // const isCurrentTerm =
-                    //   trackingItem.semester === semester &&
-                    //   trackingItem.year === year;
-
                     return (
                       <m.div
                         key={trackingId}
@@ -490,16 +470,12 @@ const Tracking = () => {
                           layout: springTransition,
                           opacity: { duration: 0.3 },
                         }}
-                        className={`p-4 rounded-xl border hover:bg-opacity-20 ${colorClass} transition-all max-w-[700px] w-full mx-auto`}
+                        className={`p-4 text-left rounded-xl border hover:bg-opacity-20 ${colorClass} transition-all max-w-[700px] w-full mx-auto`}
                       >
-                        <div className="flex justify-between items-start mb-2">
+                        <div className="flex justify-between items-start mb-2 gap-4">
                           <div className="font-medium text-sm capitalize">
-                            {trackingItem.course.length > 26 &&
-                            typeof window !== "undefined" &&
-                            window.innerWidth < 600
-                              ? trackingItem.course.slice(0, 26).toLowerCase() +
-                                "..."
-                              : trackingItem.course.toLowerCase()}
+                            {/* CHANGED: Removed the truncation code so full name is shown */}
+                            {trackingItem.course.toLowerCase()}
                           </div>
                           <div className="flex items-center gap-2">
                             {trackingItem.semester !== semester ||
@@ -533,6 +509,12 @@ const Tracking = () => {
                               `}
                             >
                               {status}
+                            -
+                            {status === "Absent" ? (
+                              <p>Not updated yet</p>
+                            ) : (
+                              <p>Updated</p>
+                            )}
                             </Badge>
                           </div>
                         </div>
@@ -559,18 +541,14 @@ const Tracking = () => {
                                 trackingItem.date
                               )
                             }
-                            className="flex cursor-pointer items-center justify-between gap-2 px-2.5 py-1.5 bg-yellow-400/6 rounded-lg font-medium text-yellow-600 opacity-80 hover:opacity-100 transition-all duration-300"
+                            className="flex cursor-pointer items-center justify-between gap-2 px-2.5 py-1.5 bg-yellow-400/6 rounded-lg font-medium text-yellow-600 opacity-100 hover:opacity-100 transition-all duration-300"
                           >
                             {deleteId === trackingId ? (
                               <span>Deleting...</span>
                             ) : (
                               <>
                                 <div className="max-md:hidden">
-                                  {status === "Absent" ? (
-                                    <p>Not updated yet</p>
-                                  ) : (
-                                    <p>Updated</p>
-                                  )}
+                                  Remove
                                 </div>
                                 <div className="text-yellow-600 pb-[0.1px]">
                                   <Trash2
@@ -622,11 +600,12 @@ const Tracking = () => {
             </m.div>
           </>
         ) : (
+          /* CHANGED: Replaced hardcoded margin with flex centering to handle empty states smoothly */
           <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="flex flex-col items-center h-[100%] mt-80"
+            className="flex flex-col items-center justify-center flex-1 h-full"
           >
             <div className="rounded-full p-2 mb-4 w-fit h-fit text-amber-500 bg-amber-500/6">
               <CircleAlert className="w-6 h-6" />

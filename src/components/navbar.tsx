@@ -149,15 +149,6 @@ export const Navbar = () => {
 
       <div className="flex items-center justify-between gap-4 md:gap-6">
         <div className="gap-3 flex items-center">
-          <div className="max-lg:hidden text-white/85">
-            <Button
-              variant={"outline"}
-              className="custom-button cursor-pointer max-md:hidden"
-              onClick={() => window.open("https://github.com/ABHAY-100/Bunkr")}
-            >
-              Star on GitHub &nbsp; ⭐
-            </Button>
-          </div>
 
           {pathname !== "/dashboard" && (
             <div className="max-lg:hidden text-white/85">
@@ -233,7 +224,7 @@ export const Navbar = () => {
                 value={selectedInstitution}
                 onValueChange={handleInstitutionChange}
               >
-                <SelectTrigger className="w-[140px] md:w-[220px] custom-input cursor-pointer">
+                <SelectTrigger className="w-[140px] md:w-[370px] custom-input cursor-pointer">
                   <SelectValue>
                     {selectedInstitution &&
                       institutions?.find(
@@ -241,12 +232,11 @@ export const Navbar = () => {
                       ) && (
                         <div className="flex items-center font-medium">
                           <Building2 className="mr-2 h-4 w-4" />
-                          <span className="truncate">
-                            {truncateText(
+                          <span>
+                            {(
                               institutions.find(
                                 (i) => i.id.toString() === selectedInstitution
-                              )?.institution.name || "",
-                              window.innerWidth < 768 ? 10 : 16
+                              )?.institution.name || ""
                             )}
                           </span>
                         </div>
@@ -258,7 +248,7 @@ export const Navbar = () => {
                     <SelectItem key={inst.id} value={inst.id.toString()}>
                       <div className="flex items-center cursor-pointer">
                         <Building2 className="mr-2 h-4 w-4 flex-shrink-0" />
-                        <span className="truncate font-medium">
+                        <span className="font-medium">
                           {inst.institution.name}
                         </span>
                       </div>
