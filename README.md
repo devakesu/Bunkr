@@ -1,17 +1,15 @@
-# Bunkr
+# GhostClass
 
 ## Overview
 
-Bunkr is a student-focused attendance tracker that gives you the insights you actually need. Built as a better alternative to Ezygo, it presents your attendance data with a clean, intuitive interface that makes sense to students. No more confusing numbers - just clear, actionable insights!
-
-*Also available as a Flutter app: [BUNKR](https://github.com/AsilMehaboob/BUNKR)*
+GhostClass is the ultimate academic survival tool for students who want to manage their attendance without the main character energy of a professor. Featuring a sleek dashboard with real-time analytics and visual performance charts, it helps you track your classes so you never accidentally ghost your degree. With a built-in "bunk calculator" to tell you exactly how many lectures you can skip before it becomes a canon event, and a dedicated tracker for suspicious absences, GhostClass ensures your attendance stays valid while you live your best life. Built as a better alternative to Ezygo, it presents your attendance data with a clean, intuitive interface. No more confusing numbers - just clear, actionable insights!
 
 <br />
 
-## 🎯 Features
-
-- **Smart Skip Calculator** 🧮 - Know exactly how many classes you can miss while staying above attendance requirements
-- **Better Data Presentation** 📈 - Clean, user-friendly interface that actually makes your attendance data understandable
+## 🎯 Key "Vibe" Features
+- **The Bunk Calc** 🧮: Know exactly how many classes you can miss before the threshold comes for your neck.
+- **Visual Reciepts** 📊: Performance charts and a detailed calendar history so you can see your attendance glow-up in real-time.
+- **Anti-Ghosting Tracker** 👻: A personalized list to watch wrongly marked absences like a hawk until they get updated.
 - **Ezygo Integration** 🔄 - Use your existing ezygo credentials - no new accounts needed
 - **Real-time Updates** ⚡ - Get instant updates on your attendance status and skip calculations
 - **Track Status Changes** 📝 – Get notified when your attendance is updated
@@ -21,7 +19,7 @@ Bunkr is a student-focused attendance tracker that gives you the insights you ac
 
 ## 🛠️ Tech Stack
 
-- **Frontend** - Next.js 15.3.0 with React 18
+- **Frontend** - Next.js with React
 - **Styling** - Tailwind CSS for a modern, responsive design
 - **UI Components** - Radix UI for accessible, consistent components
 - **Data Visualization** - Recharts for beautiful attendance graphs
@@ -55,7 +53,8 @@ src/
 Create a `.env` file in the root directory and add:
 ```
 NEXT_PUBLIC_BACKEND_URL=
-NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_API_URL=
+NEXT_PUBLIC_GITHUB_URL=
 ```
 
 <br />
@@ -76,7 +75,7 @@ NEXT_PUBLIC_SUPABASE_URL=
    bunkable = floor((100 * present - target * total) / target)
 ```
 
-*Full implementation available here: [bunk.ts](https://github.com/ABHAY-100/bunkr-web/blob/main/src/utils/bunk.ts)*
+*Original implementation available here: [bunk.ts](https://github.com/ABHAY-100/bunkr-web/blob/main/src/utils/bunk.ts)*
 
 <br />
 
@@ -91,12 +90,12 @@ NEXT_PUBLIC_SUPABASE_URL=
 
 1. Clone the Repository
    ```bash
-   git clone https://github.com/ABHAY-100/bunkr-web.git
+   git clone [https://github.com/ABHAY-100/bunkr-web.git](https://github.com/devakesu/GhostClass.git)
    ```
 
 2. Navigate to Project Directory
    ```bash
-   cd bunkr-web
+   cd GhostClass
    ```
 
 3. Install Dependencies
@@ -130,8 +129,10 @@ We welcome contributions! Here's how you can help:
 
 <br />
 
-## 👥 Team
-
+## 👥 This build maintained by
+- [Devanarayanan](https://github.com/devakesu/)
+  
+Earlier version developed by:
 - [Abhay Balakrishnan](https://github.com/ABHAY-100)
 - [Asil Mehaboob](https://github.com/AsilMehaboob)
 - [Sreyas B Anand](https://github.com/sreyas-b-anand)
@@ -140,7 +141,7 @@ We welcome contributions! Here's how you can help:
 
 ## 📧 Contact
 
-For any questions, feel free to reach out to me via email at [abhaybalakrishnan977@gmail.com](mailto:abhaybalakrishnan977@gmail.com)
+For any questions, feel free to reach out to me via email at [fusion@devakesu.com](mailto:fusion@devakesu.com)
 
 <br />
 
@@ -150,4 +151,4 @@ This project is licensed under the **GNU General Public License v3.0** - see the
 
 <br />
 
-***Thank you for your interest in Bunkr! 🤝***
+***Thank you for your interest in GhostClass! Bunk classes & enjoy, but don't forgot to study!! 😝🤝***
