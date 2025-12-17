@@ -14,7 +14,7 @@ export const Footer = () => {
   }, []);
 
   return (
-    <div className="flex flex-col md:flex-row justify-center items-center gap-2 pb-5 pt-4 text-md lowercase opacity-80">
+    <div className="flex flex-col md:flex-row justify-center items-center gap-6 pb-5 pt-4 text-md lowercase opacity-80">
       <div className="text-white/85">
         <Button
           variant="outline"
@@ -28,7 +28,7 @@ export const Footer = () => {
       <p className="text-[#6a6a6ae1] italic">
         <span className="inline-block font-mono">By</span>{" "}
         <span className="text-[#F90D2A] inline-block font-mono ml-1.5 font-medium">
-          @deva.kesu (Credits zero-day)
+          <a href="https://devakesu.com" target="=_blank">@deva.kesu</a> (Credits <a target="_blank" href="https://github.com/ABHAY-100/Bunkr">Bunkr</a>)
         </span>
       </p>
     </div>

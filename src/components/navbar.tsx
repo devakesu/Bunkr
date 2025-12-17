@@ -139,12 +139,17 @@ export const Navbar = () => {
   return (
     <header className="sticky top-0 z-10 flex h-17 items-center justify-between gap-4 border-b-2 bg-background px-4 md:px-6 text-white mr-0.5 border-white/5">
       <div className="flex items-center gap-2">
-        <Link
-          href="/"
-          className="text-[2.50rem] font-semibold gradient-logo font-klick tracking-wide"
-        >
-          Bunkr
-        </Link>
+        <Link href="/" className="flex items-center gap-3 group">
+        {/* The Logo */}
+        <div className="relative w-48 h-40 overflow-hidden">
+          <Image 
+            src="/logo.png" // Path to your logo in the /public folder
+            alt="GhostClass Logo"
+            fill
+            className="object-contain transition-transform group-hover:scale-110"
+          />
+        </div>
+      </Link>
       </div>
 
       <div className="flex items-center justify-between gap-4 md:gap-6">
@@ -157,6 +162,7 @@ export const Navbar = () => {
                 className="custom-button cursor-pointer"
                 onClick={() => navigateTo("/dashboard")}
               >
+                <Layers2 className="h-4 w-4" />
                 Dashboard
               </Button>
             </div>
@@ -169,6 +175,7 @@ export const Navbar = () => {
                 className="custom-button cursor-pointer"
                 onClick={() => navigateTo("/tracking")}
               >
+                <SquareAsterisk className="h-4 w-4" />
                 Tracking
               </Button>
             </div>
@@ -310,16 +317,6 @@ export const Navbar = () => {
                 <UserRound className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  window.open("https://forms.gle/3JQvraVMqpkg2tp56")
-                }
-                className="cursor-pointer"
-              >
-                <Sticker className="mr-2 h-4 w-4" />
-                <span>Feedback</span>
-              </DropdownMenuItem>
-
               <DropdownMenuSeparator />
 
               <div className="px-2 py-2">
