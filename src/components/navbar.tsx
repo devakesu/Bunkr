@@ -140,16 +140,15 @@ export const Navbar = () => {
     <header className="sticky top-0 z-10 flex h-17 items-center justify-between gap-4 border-b-2 bg-background px-4 md:px-6 text-white mr-0.5 border-white/5">
       <div className="flex items-center gap-2">
         <Link href="/" className="flex items-center gap-3 group">
-        {/* The Logo */}
-        <div className="relative w-48 h-40 overflow-hidden">
-          <Image 
-            src="/logo.png" // Path to your logo in the /public folder
-            alt="GhostClass Logo"
-            fill
-            className="object-contain transition-transform group-hover:scale-110"
-          />
-        </div>
-      </Link>
+          <div className="relative w-48 h-40 overflow-hidden">
+            <Image 
+              src="/logo.png" // Path to your logo in the /public folder
+              alt="GhostClass Logo"
+              fill
+              className="object-contain transition-transform group-hover:scale-110"
+            />
+          </div>
+        </Link>
       </div>
 
       <div className="flex items-center justify-between gap-4 md:gap-6">

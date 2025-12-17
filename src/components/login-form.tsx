@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Mail, Phone, User } from "lucide-react";
+import { Eye, EyeOff, Link, LockIcon, Mail, Phone, User } from "lucide-react";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -217,14 +217,19 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
                 variants={logoVariants}
               >
                 <div className="flex justify-center items-center flex-col gap-2.5">
-                  <Image src={BunkrLogo} alt="Bunkr" className="w-[36px]" />
-                  <h1 className="text-5xl font-semibold font-klick tracking-wide">
-                    Bunkr
-                  </h1>
+                  {/* The Logo */}
+                  <div className="relative w-80 h-40 overflow-hidden">
+                    <Image 
+                      src="/logo.png" // Path to your logo in the /public folder
+                      alt="GhostClass Logo"
+                      fill
+                      className="object-contain transition-transform group-hover:scale-110"
+                    />
+                  </div>
                 </div>
                 <p className="text-center text-sm font-medium max-w-[322px] text-white/60">
                   {
-                    "Drop your ezygo credentials — we're just the aesthetic upgrade you deserved"
+                    "Drop your ezygo credentials — we're just the aesthetic upgrade you deserved."
                   }
                 </p>
               </motion.div>
@@ -359,6 +364,22 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
                   </motion.div>
                 )}
               </div>
+            </div>
+
+            {/* Place this below your login form */}
+            <div className="mt-8 flex flex-col items-center animate-in fade-in slide-in-from-bottom-2 duration-700">
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/5 border border-purple-500/10 mb-3">
+                <LockIcon className="h-3 w-3 text-purple-400/80" />
+                <span className="text-[10px] font-bold tracking-widest uppercase text-purple-400/60">
+                  Ghosts don't snoop 😁
+                </span>
+              </div>
+              
+              <p className="text-[11px] sm:text-xs text-muted-foreground/50 max-w-[300px] leading-relaxed text-center italic">
+                Your <span className="text-foreground/40 font-semibold">EzyGo</span> credentials are safe. 
+                We strictly <span className="text-foreground/40">do not read, store, or share</span> your login data. 
+                GhostClass is just here to help you skip. 👻
+              </p>
             </div>
           </form>
           <motion.div
