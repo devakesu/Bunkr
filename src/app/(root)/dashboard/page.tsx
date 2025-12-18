@@ -68,16 +68,7 @@ export default function Dashboard() {
     | null
   >(null);
 
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const token = await getToken();
-      if (!token) {
-        redirect("/");
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, []);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     if (semesterData) {
@@ -120,6 +111,10 @@ export default function Dashboard() {
   const handleConfirmChange = async () => {
     if (!pendingChange || !user?.username) return;
 
+    // 1. Start loading and close the dialog immediately
+    setIsUpdating(true);
+    setShowConfirmDialog(false);
+
     try {
       if (pendingChange.type === "semester") {
         setSelectedSemester(pendingChange.value);
@@ -127,9 +122,10 @@ export default function Dashboard() {
         await setSemesterMutation.mutateAsync(
           { default_semester: pendingChange.value },
           {
-            onSuccess: () => {
-              refetchCourses();
-              refetchAttendance();
+            // Make this async to wait for data refetch
+            onSuccess: async () => {
+              // Wait for both refetches to complete before stopping loading
+              await Promise.all([refetchCourses(), refetchAttendance()]);
             },
             onError: (error) => {
               console.error("Error changing semester:", error);
@@ -145,9 +141,8 @@ export default function Dashboard() {
         await setAcademicYearMutation.mutateAsync(
           { default_academic_year: pendingChange.value },
           {
-            onSuccess: () => {
-              refetchCourses();
-              refetchAttendance();
+            onSuccess: async () => {
+              await Promise.all([refetchCourses(), refetchAttendance()]);
             },
             onError: (error) => {
               console.error("Error changing academic year:", error);
@@ -160,8 +155,10 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error("Error during change confirmation:", error);
+      // Optional: Revert optimistic updates here if needed
     } finally {
-      setShowConfirmDialog(false);
+      // 2. Stop loading only after everything is done
+      setIsUpdating(false);
       setPendingChange(null);
     }
   };
@@ -316,12 +313,12 @@ export default function Dashboard() {
 
   }, [coursesData, attendanceData]);
 
-
   if (
     isLoadingSemester ||
     isLoadingAcademicYear ||
     isLoadingAttendance ||
-    isLoadingCourses
+    isLoadingCourses ||
+    isUpdating
   ) {
     return (
       <p className="flex h-[90vh] items-center justify-center bg-background text-xl font-medium text-muted-foreground text-center italic mx-12">
@@ -609,7 +606,7 @@ export default function Dashboard() {
         <div className="mb-6 mt-10"> {/* ADDED mt-10 for more space */}
           <div className="mb-6 flex flex-col justify-center items-center mx-3">
             <h2 className="text-lg font-bold mb-0.5 italic">
-              Your Courses Lineup <span className="ml-1">⬇️</span>
+              Your Courses Lineup <span className="ml-1">⬇️📚</span>
             </h2>
             <p className="italic text-muted-foreground text-sm text-center">
               Your current courses — organized for easy access.
@@ -661,7 +658,6 @@ export default function Dashboard() {
                   <CompLoading />
                 </div>
               ) : attendanceData ? (
-                // @ts-ignore
                 <AttendanceCalendar attendanceData={attendanceData} />
               ) : (
                 <div className="flex items-center justify-center h-[200px]">
@@ -833,7 +829,7 @@ export default function Dashboard() {
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleConfirmChange}
-                className="custom-button bg-accent-foreground! border-accent-foreground!"
+                className="custom-button bg-primary! border-accent-foreground!"
               >
                 Confirm
               </AlertDialogAction>

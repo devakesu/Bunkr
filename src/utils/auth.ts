@@ -1,36 +1,20 @@
+import { deleteCookie, getCookie, setCookie } from "cookies-next"; 
+
 export const setToken = (token: string, expiresInDays: number = 31) => {
-  const expiresAt = Date.now() + expiresInDays * 24 * 60 * 60 * 1000;
-
-  const tokenData = {
-    value: token,
-    expiresAt,
-  };
-
-  localStorage.setItem("ezygo_access_token", JSON.stringify(tokenData));
-  return;
+  const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000);
+  
+  setCookie("ezygo_access_token", token, {
+    expires: expiresAt,
+    // secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  });
 };
 
 export const getToken = () => {
-  const tokenString = localStorage.getItem("ezygo_access_token");
-
-  if (!tokenString) return null;
-
-  try {
-    const tokenData = JSON.parse(tokenString);
-
-    if (Date.now() > tokenData.expiresAt) {
-      localStorage.removeItem("ezygo_access_token");
-      return null;
-    }
-
-    return tokenData.value;
-  } catch {
-    localStorage.removeItem("ezygo_access_token");
-    return null;
-  }
+  return getCookie("ezygo_access_token") as string | undefined;
 };
 
 export const removeToken = () => {
-  localStorage.removeItem("ezygo_access_token");
-  return;
+  deleteCookie("ezygo_access_token");
 };

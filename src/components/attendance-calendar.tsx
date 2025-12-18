@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -23,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SessionData, AttendanceEvent, Session, Course } from "@/types";
+import { AttendanceReport, AttendanceEvent } from "@/types/attendance";
 import { useUser } from "@/hooks/users/user";
 import axios from "axios";
 import { getToken } from "@/utils/auth";
@@ -32,14 +31,8 @@ import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useFetchSemester, useFetchAcademicYear } from "@/hooks/users/settings";
 import { useTrackingCount } from "@/hooks/tracker/useTrackingCount";
 
-interface AttendanceData {
-  studentAttendanceData?: Record<string, Record<string, SessionData>>;
-  courses?: Record<string, Course>;
-  sessions?: Record<string, Session>;
-}
-
 interface AttendanceCalendarProps {
-  attendanceData: AttendanceData | undefined;
+  attendanceData: AttendanceReport | undefined;
 }
 
 export function AttendanceCalendar({
@@ -73,7 +66,8 @@ export function AttendanceCalendar({
   const { data: trackingData, refetch: refetchTrackData } = useTrackingData(
     user,
     accessToken
-  ); //hook to get tracking data
+  );
+
   useEffect(() => {
     const dateSelected = sessionStorage.getItem("selected_date");
     if (dateSelected) {
@@ -98,10 +92,7 @@ export function AttendanceCalendar({
     status: string,
     sessionName: string
   ) => {
-    // Create a unique key for this button
     const buttonKey = `${sessionTitle}-${date}-${sessionName}`;
-
-    // Set loading state for this specific button
     setLoadingStates((prev) => ({ ...prev, [buttonKey]: true }));
 
     try {
@@ -147,33 +138,29 @@ export function AttendanceCalendar({
           },
         });
       }
-    } catch (error) {
-      // Axios errors have a response property
+    } catch (error: any) {
       if (axios.isAxiosError(error) && error.response) {
-        // Try to get the error message from server response
         const serverMessage =
           error.response.data?.error || "Unknown server error";
         toast.error(serverMessage, {
           style: {
-            backgroundColor: "rgba(239, 68, 68, 0.1)", // red-500/10
-            color: "rgb(248, 113, 113)", // red-400
-            border: "1px solid rgba(239, 68, 68, 0.2)", // red-500/20
+            backgroundColor: "rgba(239, 68, 68, 0.1)",
+            color: "rgb(248, 113, 113)",
+            border: "1px solid rgba(239, 68, 68, 0.2)",
             backdropFilter: "blur(5px)",
           },
         });
       } else {
-        // Other errors (network, etc.)
         toast.error(error.message, {
           style: {
-            backgroundColor: "rgba(239, 68, 68, 0.1)", // red-500/10
-            color: "rgb(248, 113, 113)", // red-400
-            border: "1px solid rgba(239, 68, 68, 0.2)", // red-500/20
+            backgroundColor: "rgba(239, 68, 68, 0.1)",
+            color: "rgb(248, 113, 113)",
+            border: "1px solid rgba(239, 68, 68, 0.2)",
             backdropFilter: "blur(5px)",
           },
         });
       }
     } finally {
-      // Reset loading state for this specific button
       setLoadingStates((prev) => ({ ...prev, [buttonKey]: false }));
       clickedButtons.current?.delete(buttonKey);
     }
@@ -199,6 +186,7 @@ export function AttendanceCalendar({
 
           const sessionInfo = attendanceData.sessions?.[sessionKey] || {
             name: `Session ${sessionKey}`,
+            id: sessionKey,
           };
           const sessionName = sessionInfo.name;
 
@@ -475,7 +463,8 @@ export function AttendanceCalendar({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <Card className="overflow-hidden border border-border/40 shadow-md backdrop-blur-sm custom-container">
+      {/* 1. LEFT CARD (Calendar) */}
+      <Card className="overflow-hidden border border-border/40 shadow-md backdrop-blur-sm custom-container h-full flex flex-col">
         <CardHeader className="pb-2 flex flex-row items-center justify-between max-sm:justify-center space-y-0 border-b border-border/40 calendar-trouble">
           <div className="flex items-center gap-2 max-md:flex-wrap max-md:justify-center">
             <Select value={filter} onValueChange={setFilter}>
@@ -565,8 +554,11 @@ export function AttendanceCalendar({
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-7 mb-2">
+        
+        {/* CHANGED: Added flex flex-col and flex-1 to CardContent */}
+        <CardContent className="p-4 flex-1 flex flex-col h-full">
+          {/* Header Row - Prevent shrinking */}
+          <div className="grid grid-cols-7 mb-2 shrink-0">
             {daysOfWeek.map((day, index) => (
               <div
                 key={index}
@@ -577,9 +569,16 @@ export function AttendanceCalendar({
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-1 pb-2">{calendarCells}</div>
+          {/* CHANGED: Calendar Grid - Added flex-1 and style for grid rows to stretch */}
+          <div 
+            className="grid grid-cols-7 gap-1 pb-2 flex-1 auto-rows-[1fr]"
+            style={{ gridAutoRows: '1fr' }} // Explicitly force rows to share available height
+          >
+            {calendarCells}
+          </div>
 
-          <div className="flex flex-wrap gap-4 mt-6 text-muted-foreground text-xs justify-center border-t border-border/40 pt-4">
+          {/* Legend - Prevent shrinking */}
+          <div className="flex flex-wrap gap-4 mt-6 text-muted-foreground text-xs justify-center border-t border-border/40 pt-4 shrink-0">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-red-500/20 border border-red-500/30" />
               <span>absent</span>
@@ -604,8 +603,8 @@ export function AttendanceCalendar({
         </CardContent>
       </Card>
 
-      {/* 2. EVENTS LIST CARD */}
-      <Card className="overflow-hidden border-border/40 shadow-sm bg-card/50 flex flex-col h-[500px] lg:h-auto">
+      {/* 2. RIGHT CARD (Events List) */}
+      <Card className="overflow-hidden border-border/40 shadow-sm bg-card/50 flex flex-col h-full">
         <CardHeader className="border-b border-border/40 py-4 px-6 bg-muted/20">
           <CardTitle className="text-sm flex items-center justify-between font-semibold">
             <div className="flex items-center gap-2">
@@ -621,7 +620,7 @@ export function AttendanceCalendar({
             </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0 flex-1 relative">
+        <CardContent className="p-0 flex-1 flex flex-col">
           <AnimatePresence mode="wait">
             <motion.div
               key={selectedDate.toString()}
@@ -629,134 +628,121 @@ export function AttendanceCalendar({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="h-full absolute inset-0"
+              className="flex-1 flex flex-col"
             >
               {selectedDateEvents.length > 0 ? (
-                <ScrollArea className="h-full">
-                  <div className="flex flex-col gap-3 p-4">
-                    {selectedDateEvents.map((event, index) => {
-                      // --- STATUS & STYLE LOGIC START ---
-                      let badgeClass = "text-muted-foreground border-border";
-                      let Icon = Clock;
-                      
-                      // Default Card Style
-                      let cardStyle = "border-border/40 bg-card hover:bg-accent/30 hover:border-border/60";
+                <div className="flex flex-col gap-3 p-4">
+                  {selectedDateEvents.map((event, index) => {
+                    let badgeClass = "text-muted-foreground border-border";
+                    let Icon = Clock;
+                    let cardStyle = "border-border/40 bg-card hover:bg-accent/30 hover:border-border/60";
 
-                      if (event.status === "Present") {
-                        badgeClass = "text-green-500 border-green-500/20 bg-green-500/10";
-                        Icon = CheckCircle2;
-                        // Green Effect
-                        cardStyle = "border-green-500/50 bg-green-500/5 hover:bg-green-500/10 hover:border-green-500";
-                      } else if (event.status === "Absent") {
-                        badgeClass = "text-red-500 border-red-500/20 bg-red-500/10";
-                        Icon = AlertCircle;
-                        // Red Effect
-                        cardStyle = "border-red-500/50 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500"; 
-                      } else if (event.status === "Duty Leave") {
-                        badgeClass = "text-yellow-500 border-yellow-500/20 bg-yellow-500/10";
-                        // CHANGE: Yellow Effect for Duty Leave
-                        cardStyle = "border-yellow-500/50 bg-yellow-500/5 hover:bg-yellow-500/10 hover:border-yellow-500";
-                      } else if (event.status.includes("Leave")) {
-                        // Catch all for other leaves (Teal)
-                        badgeClass = "text-teal-500 border-teal-500/20 bg-teal-500/10";
-                        cardStyle = "border-teal-500/50 bg-teal-500/5 hover:bg-teal-500/10 hover:border-teal-500";
-                      }
-                      // --- STATUS & STYLE LOGIC END ---
+                    if (event.status === "Present") {
+                      badgeClass = "text-green-500 border-green-500/20 bg-green-500/10";
+                      Icon = CheckCircle2;
+                      cardStyle = "border-green-500/50 bg-green-500/5 hover:bg-green-500/10 hover:border-green-500";
+                    } else if (event.status === "Absent") {
+                      badgeClass = "text-red-500 border-red-500/20 bg-red-500/10";
+                      Icon = AlertCircle;
+                      cardStyle = "border-red-500/50 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500"; 
+                    } else if (event.status === "Duty Leave") {
+                      badgeClass = "text-yellow-500 border-yellow-500/20 bg-yellow-500/10";
+                      cardStyle = "border-yellow-500/50 bg-yellow-500/5 hover:bg-yellow-500/10 hover:border-yellow-500";
+                    } else if (event.status.includes("Leave")) {
+                      badgeClass = "text-teal-500 border-teal-500/20 bg-teal-500/10";
+                      cardStyle = "border-teal-500/50 bg-teal-500/5 hover:bg-teal-500/10 hover:border-teal-500";
+                    }
 
-                      const isTracked = trackingData?.some(
-                        (data) =>
-                          data.course === event.title &&
-                          data.session === event.sessionName &&
-                          data.date === event.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) &&
-                          data.semester === semester &&
-                          data.year === year
-                      );
+                    const isTracked = trackingData?.some(
+                      (data) =>
+                        data.course === event.title &&
+                        data.session === event.sessionName &&
+                        data.date === event.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) &&
+                        data.semester === semester &&
+                        data.year === year
+                    );
 
-                      const buttonKey = `${event.title}-${event.date.toISOString().split("T")[0]}-${event.sessionName}`;
-                      const uniqueLoadingKey = `${event.title}-${event.date.toLocaleDateString('en-IN', {timeZone: 'Asia/Kolkata'})}-${event.sessionName}`;
-                      const isLoading = loadingStates[uniqueLoadingKey];
+                    const buttonKey = `${event.title}-${event.date.toISOString().split("T")[0]}-${event.sessionName}`;
+                    const uniqueLoadingKey = `${event.title}-${event.date.toLocaleDateString('en-IN', {timeZone: 'Asia/Kolkata'})}-${event.sessionName}`;
+                    const isLoading = loadingStates[uniqueLoadingKey];
 
-                      return (
-                        <motion.div
-                          key={`event-${event.sessionKey}-${index}`}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          className={`group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all gap-4 ${cardStyle}`}
-                        >
-                          {/* Info */}
-                          <div className="flex flex-col gap-1.5">
-                            <h4 className="font-semibold text-sm text-foreground leading-tight capitalize">
-                              {event.title.toLowerCase()}
-                            </h4>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              <span className="bg-background/50 px-1.5 py-0.5 rounded border border-border/30">
-                                {event.sessionName ? formatSessionName(event.sessionName) : `Session ${event.sessionKey}`}
-                              </span>
-                              <Badge variant="outline" className={`h-5 px-1.5 gap-1 font-medium ${badgeClass}`}>
-                                <Icon className="w-3 h-3" />
-                                {event.status}
-                              </Badge>
-                            </div>
+                    return (
+                      <motion.div
+                        key={`event-${event.sessionKey}-${index}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className={`group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all gap-4 ${cardStyle}`}
+                      >
+                        <div className="flex flex-col gap-1.5">
+                          <h4 className="font-semibold text-sm text-foreground leading-tight capitalize">
+                            {event.title.toLowerCase()}
+                          </h4>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="bg-background/50 px-1.5 py-0.5 rounded border border-border/30">
+                              {event.sessionName ? formatSessionName(event.sessionName) : `Session ${event.sessionKey}`}
+                            </span>
+                            <Badge variant="outline" className={`h-5 px-1.5 gap-1 font-medium ${badgeClass}`}>
+                              <Icon className="w-3 h-3" />
+                              {event.status}
+                            </Badge>
                           </div>
+                        </div>
 
-                          {/* Action */}
-                          {event.status === "Absent" && (
-                            <div className="flex-shrink-0">
-                              {isTracked ? (
-                                <Link href="/tracking" className="w-full sm:w-auto">
-                                  {/* CHANGE: Made button visible with background and outline */}
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="w-full h-8 text-xs gap-1.5 bg-green-500/10 border-green-500/30 text-green-500 hover:text-green-400 hover:bg-green-500/20 hover:border-green-500/50 transition-all"
-                                  >
-                                    <span>View Details</span>
-                                    <ArrowUpRight className="w-3 h-3" />
-                                  </Button>
-                                </Link>
-                              ) : (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={isLoading}
-                                  onClick={() => {
-                                    if (clickedButtons.current?.has(buttonKey)) return;
-                                    clickedButtons.current?.add(buttonKey);
-                                    if (user?.id) {
-                                      handleWriteTracking(
-                                        user.id,
-                                        user.username,
-                                        event.title,
-                                        event.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
-                                        event.status,
-                                        event.sessionName
-                                      );
-                                    }
-                                  }}
-                                  className={`w-full sm:w-auto h-8 text-xs gap-1.5 border-dashed transition-all
-                                    ${isLoading ? "opacity-70 cursor-wait" : "hover:border-red-500/50 hover:text-red-500 hover:bg-red-500/5"}
-                                  `}
+                        {event.status === "Absent" && (
+                          <div className="flex-shrink-0">
+                            {isTracked ? (
+                              <Link href="/tracking" className="w-full sm:w-auto">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="w-full h-8 text-xs gap-1.5 bg-green-500/10 border-green-500/30 text-green-500 hover:text-green-400 hover:bg-green-500/20 hover:border-green-500/50 transition-all"
                                 >
-                                  {isLoading ? (
-                                    <>Adding...</>
-                                  ) : (
-                                    <>
-                                      <Plus className="w-3.5 h-3.5" />
-                                      Add to Tracking
-                                    </>
-                                  )}
+                                  <span>View Details</span>
+                                  <ArrowUpRight className="w-3 h-3" />
                                 </Button>
-                              )}
-                            </div>
-                          )}
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
+                              </Link>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isLoading}
+                                onClick={() => {
+                                  if (clickedButtons.current?.has(buttonKey)) return;
+                                  clickedButtons.current?.add(buttonKey);
+                                  if (user?.id) {
+                                    handleWriteTracking(
+                                      user.id,
+                                      user.username,
+                                      event.title,
+                                      event.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
+                                      event.status,
+                                      event.sessionName
+                                    );
+                                  }
+                                }}
+                                className={`w-full sm:w-auto h-8 text-xs gap-1.5 border-dashed transition-all
+                                  ${isLoading ? "opacity-70 cursor-wait" : "hover:border-red-500/50 hover:text-red-500 hover:bg-red-500/5"}
+                                `}
+                              >
+                                {isLoading ? (
+                                  <>Adding...</>
+                                ) : (
+                                  <>
+                                    <Plus className="w-3.5 h-3.5" />
+                                    Add to Tracking
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                <div className="flex flex-col items-center justify-center flex-1 text-center px-6 py-12">
                   <div className="rounded-full bg-accent/30 p-4 mb-3 ring-1 ring-border/50">
                     <CalendarIcon className="h-6 w-6 text-muted-foreground/60" />
                   </div>

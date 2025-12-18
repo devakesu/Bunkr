@@ -1,12 +1,15 @@
 import axios from "axios";
-
 import { useQuery } from "@tanstack/react-query";
 import { TrackAttendance, User } from "@/types";
 
-export function useTrackingData(user: User | null | undefined, accessToken: string) {
+// CHANGED: Allow accessToken to be undefined or null
+export function useTrackingData(user: User | null | undefined, accessToken: string | undefined | null) {
   return useQuery<TrackAttendance[]>({
     queryKey: ["track_data"],
     queryFn: async () => {
+      // Guard clause
+      if (!accessToken) return [];
+
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_SUPABASE_API_URL}/fetch-tracking-data`,
         {
@@ -23,5 +26,7 @@ export function useTrackingData(user: User | null | undefined, accessToken: stri
       }
       return res.data.data;
     },
+    // CHANGED: Only run query if user AND token exist
+    enabled: !!user && !!accessToken,
   });
 }

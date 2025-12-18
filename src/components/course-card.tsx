@@ -128,7 +128,7 @@ export function CourseCard({ course }: CourseCardProps) {
                       <span className="font-medium text-green-500">
                         {attendanceMetrics.canBunk}
                       </span>{" "}
-                      period(s) 🥳
+                      {attendanceMetrics.canBunk === 1 ? "period 🥳" : "periods 🥳🥳"}
                     </>
                   )}
                   {attendanceMetrics.requiredToAttend > 0 && (
@@ -139,7 +139,7 @@ export function CourseCard({ course }: CourseCardProps) {
                           ? "all"
                           : attendanceMetrics.requiredToAttend}
                       </span>{" "}
-                      more period(s) 💀
+                      more {attendanceMetrics.requiredToAttend === 1 ? "period 💀" : "periods 💀💀"}
                     </>
                   )}
                   {attendanceMetrics.isExact &&
@@ -161,7 +161,7 @@ export function CourseCard({ course }: CourseCardProps) {
               <span className="font-medium text-sm">No attendance data</span>
             </div>
             <p className="text-center text-xs text-muted-foreground">
-              Instructor has not updated attendance records yet
+              Instructor has not updated attendance records yet.
             </p>
           </div>
         )}

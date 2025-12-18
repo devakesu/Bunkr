@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: "GhostClass",
   description: "GhostClass — Survive Attendance!",
   keywords:
-    "GhostClass, bunk college, college attendance, skip lectures, 75% attendance, bunk letures, Bunkr attendance calculator, skip class calculator for college, Bunkr Ezygo alternative, optimize college attendance percentage, Bunkr smart skip strategy, minimum attendance calculator for students, Bunkr class absence planner, how many classes can I skip Bunkr, attendance percentage tracker app, Bunkr vs Ezygo comparison, automate student attendance tracking, Bunkr attendance predictor, avoid attendance shortage Bunkr, college attendance skip allowance, Bunkr attendance optimizer, student absence management app, calculate class skip limit Bunkr, Bunkr attendance analytics dashboard, best app to skip college classes, Bunkr digital roll call system, attendance risk calculator for students",
+    "GhostClass, bunk college, bunk, college attendance, skip lectures, 75% attendance, bunkr, bunk letures, Bunkr attendance calculator, skip class calculator for college, Bunkr Ezygo alternative, optimize college attendance percentage, Bunkr smart skip strategy, minimum attendance calculator for students, Bunkr class absence planner, how many classes can I skip Bunkr, attendance percentage tracker app, Bunkr vs Ezygo comparison, automate student attendance tracking, Bunkr attendance predictor, avoid attendance shortage Bunkr, college attendance skip allowance, Bunkr attendance optimizer, student absence management app, calculate class skip limit Bunkr, Bunkr attendance analytics dashboard, best app to skip college classes, Bunkr digital roll call system, attendance risk calculator for students",
   creator: "@deva.kesu",
 };
 
@@ -43,7 +43,8 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <meta name="application-name" content="Bunkr" />
+        {/* CHANGED: Updated application name to GhostClass */}
+        <meta name="application-name" content="GhostClass" />
         <meta name="google" content="notranslate" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="msapplication-TileColor" content="#ffffff" />
@@ -53,7 +54,8 @@ export default function RootLayout({
         <meta name="theme-color" content="#141414" />
       </head>
       <body
-        className={`antialiased ${klick.variable} ${manrope.variable} ${dmMono.variable} overflow-x-hidden`}
+        // CHANGED: Removed 'overflow-x-hidden' to prevent sticky positioning issues and unmask layout bugs
+        className={`antialiased ${klick.variable} ${manrope.variable} ${dmMono.variable}`}
       >
         <ReactQueryProvider>{children}</ReactQueryProvider>
         <Analytics />

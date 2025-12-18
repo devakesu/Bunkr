@@ -152,9 +152,6 @@ export default function ProfilePage() {
                       <CardTitle className="text-lg">
                         Personal Information
                       </CardTitle>
-                      <CardDescription className="hidden md:block font-medium">
-                        Synced from Ezygo. Edit if it matters.
-                      </CardDescription>
                     </CardHeader>
                     <CardContent className="p-4 md:p-6">
                       {isLoading ? (
@@ -186,8 +183,8 @@ export default function ProfilePage() {
                       <CardTitle className="text-lg">
                         Account Settings
                       </CardTitle>
-                      <CardDescription className="hidden md:block font-medium">
-                        Also from Ezygo. Just for reference.
+                      <CardDescription className="md:block font-medium">
+                        Fetched from Ezygo. Cannot be changed here.
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="p-4 md:p-6">
