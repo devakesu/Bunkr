@@ -24,7 +24,6 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 - **UI Components** - Radix UI for accessible, consistent components
 - **Data Visualization** - Recharts for beautiful attendance graphs
 - **Animations** - Framer Motion for smooth transitions
-- **Additional Services** – Supabase
 
 <br />
 
@@ -44,6 +43,7 @@ src/
 ├── types/           # TypeScript type definitions
 ├── lib/             # Core library code
 └── hooks/           # Custom React hooks
+└── supabase/        # DB Backend
 ```
 
 <br />
@@ -56,7 +56,10 @@ NEXT_PUBLIC_BACKEND_URL=
 NEXT_PUBLIC_SUPABASE_API_URL=
 NEXT_PUBLIC_GITHUB_URL=
 ```
-
+Create a `.env.local` in supabase folder and add:
+```
+ALLOWED_ORIGIN=https://
+```
 <br />
 
 ## 🧮 Bunk Algorithm
@@ -85,12 +88,14 @@ NEXT_PUBLIC_GITHUB_URL=
 
 - Node.js (Latest LTS version recommended)
 - npm or yarn
+- Docker Desktop (Only for local development - supabase)
+- Supabase CLI (`npm install supabase --save-dev`)
 
 ### Quick Start
 
 1. Clone the Repository
    ```bash
-   git clone [https://github.com/ABHAY-100/bunkr-web.git](https://github.com/devakesu/GhostClass.git)
+   git clone https://github.com/devakesu/GhostClass.git
    ```
 
 2. Navigate to Project Directory
@@ -105,9 +110,32 @@ NEXT_PUBLIC_GITHUB_URL=
    yarn install
    ```
 
-4. Create `.env` file and add the API URL
+4. Go to [Supabase.com](https://supabase.com) and create a new project.
+   
+   Login & Link:
+    ```bash
+    npx supabase login
+    npx supabase link --project-ref <your-new-project-id>
+    ```
+    Create Database Tables: push the schema from this repo to your new remote database:
+    ```bash
+    npx supabase db push
+    ```
+    *(This creates all tables, policies, and triggers defined in `supabase/migrations`)*
+   
+   Deploy Edge Functions:
+    ```bash
+    npx supabase functions deploy
+    ```
 
-5. Start Development Server
+5. Create env files and add the required data.
+
+6. Set Supabase secrets
+    ```
+    npx supabase secrets set --env-file ./supabase/.env.local
+    ```
+    
+7. Start Development Server
    ```bash
    npm run dev
    # or
