@@ -2,6 +2,12 @@
 FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
+
+# 1. Declare the Argument
+ARG SOURCE_COMMIT
+# 2. Assign it to an Environment Variable
+ENV SOURCE_COMMIT=$SOURCE_COMMIT
+
 COPY package.json package-lock.json* ./
 RUN npm ci
 

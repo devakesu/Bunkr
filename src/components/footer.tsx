@@ -1,36 +1,78 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Star } from "lucide-react"; // Install lucide-react if missing
 import { useEffect, useState } from "react";
-
 export const Footer = () => {
-  const [isMobile, setIsMobile] = useState<boolean>(false);
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check(); // initial
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
+  const commitSha = process.env.NEXT_PUBLIC_GIT_COMMIT_SHA;
+  const shortSha = commitSha ? commitSha.substring(0, 7) : "dev";
 
   return (
-    <div className="flex flex-col md:flex-row justify-center items-center gap-6 pb-5 pt-4 text-md lowercase opacity-80">
-      <div className="text-white/85">
-        <Button
-          variant="outline"
-          className="custom-button cursor-pointer"
-          onClick={() => window.open(process.env.NEXT_PUBLIC_GITHUB_URL)}
-        >
-          Star on GitHub &nbsp; ⭐
-        </Button>
-      </div>
+    <footer className="w-full py-6 mt-12 border-t border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex flex-col md:flex-row justify-between items-center gap-6 text-sm">
+        
+        {/* Left Side: Credits & Author */}
+        <div className="flex items-center gap-2 text-muted-foreground italic">
+          <span className="font-mono opacity-70">By</span>
+          <a
+            href="https://devakesu.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#F90D2A] font-mono font-medium hover:underline transition-all hover:opacity-80"
+          >
+            @deva.kesu
+          </a>
+          <span className="text-border/60 mx-1">|</span>
+          <span className="opacity-70">Credits</span>
+          <a
+            href="https://github.com/ABHAY-100/Bunkr"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium hover:text-foreground transition-colors"
+          >
+            Bunkr
+          </a>
+        </div>
 
-      <p className="text-[#6a6a6ae1] italic">
-        <span className="inline-block font-mono">By</span>{" "}
-        <span className="text-[#F90D2A] inline-block font-mono ml-1.5 font-medium">
-          <a href="https://devakesu.com" target="=_blank">@deva.kesu</a> (Credits <a target="_blank" href="https://github.com/ABHAY-100/Bunkr">Bunkr</a>)
-        </span>
-      </p>
-    </div>
+        {/* Right Side: Actions & System Status */}
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          
+          {/* Star Button (Glassy Look) */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-full border-border/50 bg-background/50 hover:bg-accent hover:text-accent-foreground transition-all group"
+            onClick={() => window.open(process.env.NEXT_PUBLIC_GITHUB_URL, "_blank")}
+          >
+            <Star className="w-3.5 h-3.5 mr-2 text-muted-foreground group-hover:text-yellow-500 transition-colors" />
+            <span>Star on GitHub</span>
+          </Button>
+
+          {/* Separator (Hidden on mobile) */}
+          <div className="hidden md:block h-4 w-[1px] bg-border/50" />
+
+          {/* Live Build Indicator */}
+          <div className="flex items-center gap-2.5 px-3 py-1 rounded-full bg-accent/30 border border-border/40">
+            <div className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </div>
+            
+            <p className="flex gap-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
+              <span>Build:</span>
+              <a
+                href={`https://github.com/devakesu/GhostClass/commit/${commitSha}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-foreground hover:underline hover:text-primary transition-colors"
+              >
+                {shortSha}
+              </a>
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </footer>
   );
 };
