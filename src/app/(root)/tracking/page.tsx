@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useTrackingCount } from "@/hooks/tracker/useTrackingCount";
 import { useUser } from "@/hooks/users/user";
 import { getToken } from "@/utils/auth";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, CircleAlert, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, CircleAlert, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
@@ -19,7 +19,9 @@ const Tracking = () => {
   const accessToken = getToken();
   const [deleteId, setDeleteId] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 5;
+  
+  // CHANGED: This now controls how many COURSES show per page, not items.
+  const coursesPerPage = 3; 
 
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -40,32 +42,44 @@ const Tracking = () => {
     refetch: refetchCount,
   } = useTrackingCount(enabled ? user : null, enabled ? accessToken : null);
 
-  
   const {
     data: trackingData,
     isLoading,
     refetch: refetchTrackingData,
   } = useTrackingData(enabled ? user : null, enabled ? accessToken : null);
 
-  if (!trackingData) {
-    console.error("Tracking data is not available");
-  }
-
-  const [filteredAttendanceEvents, setFilteredAttendanceEvents] = useState<
-    any[]
-  >([]);
-
+  const [filteredAttendanceEvents, setFilteredAttendanceEvents] = useState<any[]>([]);
   const { data: attendanceData } = useAttendanceReport();
 
-  const totalPages = trackingData
-    ? Math.ceil(trackingData.length / itemsPerPage)
-    : 0;
+  // --- 1. GROUP ALL DATA FIRST (Fix for split subjects) ---
+  const groupedAllData = useMemo(() => {
+    if (!trackingData) return {};
+    
+    const grouped: Record<string, typeof trackingData> = {};
 
-  const getCurrentPageItems = () => {
-    if (!trackingData) return [];
-    const startIndex = currentPage * itemsPerPage;
-    return trackingData.slice(startIndex, startIndex + itemsPerPage);
-  };
+    trackingData.forEach((item) => {
+      // Normalize course name
+      const courseKey = item.course.trim();
+      if (!grouped[courseKey]) {
+        grouped[courseKey] = [];
+      }
+      grouped[courseKey].push(item);
+    });
+
+    return grouped;
+  }, [trackingData]);
+
+  // Get list of courses to determine pages
+  const allCourseKeys = useMemo(() => Object.keys(groupedAllData).sort(), [groupedAllData]);
+
+  // --- 2. CALCULATE PAGINATION BASED ON COURSES ---
+  const totalPages = Math.ceil(allCourseKeys.length / coursesPerPage);
+
+  const currentCourseKeys = useMemo(() => {
+    const startIndex = currentPage * coursesPerPage;
+    return allCourseKeys.slice(startIndex, startIndex + coursesPerPage);
+  }, [currentPage, allCourseKeys, coursesPerPage]);
+
 
   const goToPrevPage = () => {
     if (currentPage > 0) {
@@ -81,37 +95,21 @@ const Tracking = () => {
 
   const formatSessionName = (sessionName: string): string => {
     const romanToOrdinal: Record<string, string> = {
-      I: "1st hour",
-      II: "2nd hour",
-      III: "3rd hour",
-      IV: "4th hour",
-      V: "5th hour",
-      VI: "6th hour",
-      VII: "7th hour",
+      I: "1st hour", II: "2nd hour", III: "3rd hour",
+      IV: "4th hour", V: "5th hour", VI: "6th hour", VII: "7th hour",
     };
-    if (romanToOrdinal[sessionName]) {
-      return romanToOrdinal[sessionName];
-    }
-    return sessionName;
+    return romanToOrdinal[sessionName] || sessionName;
   };
 
   const handleDeleteTrackData = async (
-    username: string,
-    session: string,
-    course: string,
-    date: string
+    username: string, session: string, course: string, date: string
   ) => {
     const deletingId = `${username}-${session}-${course}-${date}`;
     setDeleteId(deletingId);
 
     const res = await axios.post(
       process.env.NEXT_PUBLIC_SUPABASE_API_URL + "/delete-tracking-data",
-      {
-        username,
-        session,
-        course,
-        date,
-      },
+      { username, session, course, date },
       {
         headers: {
           "Content-Type": "application/json",
@@ -120,24 +118,9 @@ const Tracking = () => {
       }
     );
     if (res.data.success) {
-      toast.success("Delete successful", {
-        style: {
-          backgroundColor: "rgba(34, 197, 94, 0.1)",
-          color: "rgb(74, 222, 128)",
-          border: "1px solid rgba(34, 197, 94, 0.2)",
-          backdropFilter: "blur(5px)",
-        },
-      });
-    }
-    if (!res.data.success) {
-      toast.error("Error deleting the record", {
-        style: {
-          backgroundColor: "rgba(239, 68, 68, 0.1)",
-          color: "rgb(248, 113, 113)",
-          border: "1px solid rgba(239, 68, 68, 0.2)",
-          backdropFilter: "blur(5px)",
-        },
-      });
+      toast.success("Delete successful");
+    } else {
+      toast.error("Error deleting the record");
     }
     await refetchTrackingData();
     await refetchCount();
@@ -148,21 +131,12 @@ const Tracking = () => {
     if (!attendanceData?.studentAttendanceData || !trackingData) return;
 
     const newFilteredEvents: any[] = [];
-
     const normalizeToYMD = (dateStr: string): string => {
       if (!dateStr) return "";
-      // Already in YYYY-MM-DD
-      if (dateStr.includes("-")) {
-        return dateStr;
-      }
-      // Likely locale string like DD/MM/YYYY
+      if (dateStr.includes("-")) return dateStr;
       if (dateStr.includes("/")) {
         const [dd, mm, yyyy] = dateStr.split("/");
-        if (dd && mm && yyyy) {
-          const d = dd.padStart(2, "0");
-          const m = mm.padStart(2, "0");
-          return `${yyyy}-${m}-${d}`;
-        }
+        if (dd && mm && yyyy) return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
       }
       return dateStr;
     };
@@ -180,14 +154,8 @@ const Tracking = () => {
           const courseInfo = attendanceData.courses?.[courseId];
           const courseName = courseInfo?.name || "Unknown Course";
           const courseCode = (courseInfo?.code || "").toString();
-          const sessionInfo = attendanceData.sessions?.[sessionKey] || {
-            name: `Session ${sessionKey}`,
-          };
-          const sessionName = sessionInfo.name;
-          const formattedDate = `${dateYear}-${String(month + 1).padStart(
-            2,
-            "0"
-          )}-${String(day).padStart(2, "0")}`;
+          const sessionName = attendanceData.sessions?.[sessionKey]?.name || `Session ${sessionKey}`;
+          const formattedDate = `${dateYear}-${String(month + 1).padStart(2,"0")}-${String(day).padStart(2, "0")}`;
 
           const nameLower = courseName.toLowerCase();
           const codeLower = courseCode.toLowerCase();
@@ -197,12 +165,11 @@ const Tracking = () => {
             const itemCourseLower = (item.course || "").toLowerCase().trim();
             const itemSessionLower = (item.session || "").toLowerCase().trim();
             const itemDateYmd = normalizeToYMD(item.date);
-            const courseMatches =
-              itemCourseLower === nameLower ||
-              (codeLower && itemCourseLower === codeLower);
-            const sessionMatches = itemSessionLower === sessionLower;
-            const dateMatches = itemDateYmd === formattedDate;
-            return courseMatches && sessionMatches && dateMatches;
+            return (
+              (itemCourseLower === nameLower || (codeLower && itemCourseLower === codeLower)) &&
+              itemSessionLower === sessionLower &&
+              itemDateYmd === formattedDate
+            );
           });
 
           if (matchingTrackingItem) {
@@ -211,26 +178,10 @@ const Tracking = () => {
             let statusColor = "red";
 
             switch (sessionData.attendance) {
-              case 110:
-                attendanceStatus = "normal";
-                attendanceLabel = "Present";
-                statusColor = "blue";
-                break;
-              case 111:
-                attendanceStatus = "important";
-                attendanceLabel = "Absent";
-                statusColor = "red";
-                break;
-              case 225:
-                attendanceStatus = "normal";
-                attendanceLabel = "Duty Leave";
-                statusColor = "yellow";
-                break;
-              case 112:
-                attendanceStatus = "important";
-                attendanceLabel = "Leave";
-                statusColor = "teal";
-                break;
+              case 110: attendanceStatus = "normal"; attendanceLabel = "Present"; statusColor = "blue"; break;
+              case 111: attendanceStatus = "important"; attendanceLabel = "Absent"; statusColor = "red"; break;
+              case 225: attendanceStatus = "normal"; attendanceLabel = "Duty Leave"; statusColor = "yellow"; break;
+              case 112: attendanceStatus = "important"; attendanceLabel = "Leave"; statusColor = "teal"; break;
             }
 
             newFilteredEvents.push({
@@ -246,134 +197,44 @@ const Tracking = () => {
               trackingId: `${matchingTrackingItem.username}-${matchingTrackingItem.session}-${matchingTrackingItem.course}-${matchingTrackingItem.date}`,
               semester: matchingTrackingItem.semester,
               year: matchingTrackingItem.year,
-              matchesCurrent:
-                matchingTrackingItem.semester === semester &&
-                matchingTrackingItem.year === year,
+              matchesCurrent: matchingTrackingItem.semester === semester && matchingTrackingItem.year === year,
             });
           }
         });
       }
     );
-
     setFilteredAttendanceEvents(newFilteredEvents);
   }, [attendanceData, trackingData, semester, year]);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-[90vh] items-center justify-center bg-background text-xl font-medium text-muted-foreground text-center italic mx-12">
-        &quot;Waiting on Ezygo to stop ghosting us 👻&quot;
-      </div>
-    );
-  }
 
   const deleteAllTrackingData = async () => {
     try {
       setIsProcessing(true);
-      const response = await axios.post(
+      await axios.post(
         `${process.env.NEXT_PUBLIC_SUPABASE_API_URL}/delete-records-of-users`,
         { username: user?.username },
-        {
-          headers: {
-            Authorization: `Bearer ${getToken()}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${getToken()}` } }
       );
-
       await refetchTrackingData();
       await refetchCount();
       setCurrentPage(0);
-
-      toast.success(`${response.data.message}`, {
-        style: {
-          backgroundColor: "rgba(34, 197, 94, 0.1)",
-          color: "rgb(74, 222, 128)",
-          border: "1px solid rgba(34, 197, 94, 0.2)",
-          backdropFilter: "blur(5px)",
-        },
-      });
+      toast.success("All records cleared");
     } catch {
-      toast.error("Failed to delete all tracking data", {
-        style: {
-          backgroundColor: "rgba(239, 68, 68, 0.1)",
-          color: "rgb(248, 113, 113)",
-          border: "1px solid rgba(239, 68, 68, 0.2)",
-          backdropFilter: "blur(5px)",
-        },
-      });
+      toast.error("Failed to delete all tracking data");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const cardVariants = {
-    hidden: {
-      opacity: 0,
-      y: 20,
-      scale: 0.95,
-    },
-    visible: (i: number) => ({
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        delay: i * 0.08,
-        duration: 0.4,
-        ease: [0.25, 0.46, 0.45, 0.94],
-      },
-    }),
-    exit: {
-      opacity: 0,
-      scale: 0.9,
-      transition: {
-        duration: 0.3,
-        ease: [0.4, 0, 0.2, 1],
-      },
-    },
-  };
+  const cardVariants = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 }, exit: { opacity: 0, scale: 0.95 } };
+  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.3, staggerChildren: 0.05 } } };
+  const pageVariants = { enter: (d: number) => ({ x: d > 0 ? 50 : -50, opacity: 0 }), center: { x: 0, opacity: 1 }, exit: (d: number) => ({ x: d < 0 ? 50 : -50, opacity: 0 }) };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        duration: 0.3,
-        staggerChildren: 0.08,
-      },
-    },
-  };
+  if (isLoading) return <div className="h-screen"><Loading /></div>;
 
-  const springTransition = {
-    type: "spring",
-    stiffness: 200,
-    damping: 25,
-    mass: 0.8,
-  };
-
-  const pageVariants = {
-    enter: (direction: number) => ({
-      x: direction > 0 ? 200 : -200,
-      opacity: 0,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-    },
-    exit: (direction: number) => ({
-      x: direction < 0 ? 200 : -200,
-      opacity: 0,
-    }),
-  };
-
-  const pageTransition = {
-    type: "tween",
-    duration: 0.3,
-    ease: [0.25, 0.46, 0.45, 0.94],
-  };
-
-  return (
-    isProcessing ? <div className="h-screen"><Loading /></div> :
+  return isProcessing ? (
+    <div className="h-screen"><Loading /></div>
+  ) : (
     <LazyMotion features={domAnimation}>
-      {/* CHANGED: Removed min-h-[100vh] to allow footer to rise naturally on short content. */}
       <div className="flex flex-1 flex-col flex-wrap gap-4 h-full p-4 md:p-6 min-h-[70vh] text-center relative">
         {trackingData && trackingData.length > 0 ? (
           <>
@@ -382,238 +243,102 @@ const Tracking = () => {
                 Attendance Tracker
               </p>
               <p className="text-sm text-muted-foreground max-md:text-xs mb-4">
-                These are absences you&apos;ve marked for re-checking or duty leave. <br />{" "}
-                Track their update status here 📋
+                These are absences you&apos;ve marked for re-checking or duty leave.
               </p>
-              {(count ?? 0) > 0 ? (
+              {(count ?? 0) > 0 && (
                 <div className="flex flex-col gap-2 items-center justify-center">
-                  <Badge
-                    className={`text-sm text-center max-md:text-xs py-1 px-3 bg-yellow-500/12 text-yellow-400/75 border-yellow-500/15`}
-                  >
-                    You haved added <strong>{count}</strong>{" "}
-                    {count === 1 ? "class" : "classes"}
-                  {" "} to tracking list.
+                  <Badge className="text-sm py-1 px-3 bg-yellow-500/12 text-yellow-400/75 border-yellow-500/15">
+                    You have added <strong>{count}</strong> {count === 1 ? "class" : "classes"}.
                   </Badge>
-                  <button
-                    onClick={deleteAllTrackingData}
-                    className="text-sm cursor-pointer justify-between items-center gap-2 text-center max-md:text-xs bg-red-500/12 text-red-400/75 hover:bg-red-500/18 duration-300 border-1 border-red-500/15 py-1 px-3 pr-2.5 flex flex-row rounded-md"
-                  >
-                    Clear all tracking data
-                    <Trash2 size={14} />
+                  <button onClick={deleteAllTrackingData} className="text-sm cursor-pointer justify-between items-center gap-2 bg-red-500/12 text-red-400/75 hover:bg-red-500/18 duration-300 border-1 border-red-500/15 py-1 px-3 rounded-md flex">
+                    Clear all <Trash2 size={14} />
                   </button>
                 </div>
-              ) : null}
-
-              {error && (
-                <p>An error occured while displaying count of entries</p>
               )}
             </div>
 
-            <m.div
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-              className="flex flex-col gap-4 relative"
-            >
-              <AnimatePresence
-                mode="wait"
-                initial={false}
-                custom={currentPage > 0 ? -1 : 1}
-              >
-                <m.div
-                  key={currentPage}
-                  custom={currentPage}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  variants={pageVariants}
-                  transition={pageTransition}
-                  className="flex flex-col gap-4"
-                >
-                  {getCurrentPageItems().map((trackingItem, index) => {
-                    const trackingId = `${trackingItem.username}-${trackingItem.session}-${trackingItem.course}-${trackingItem.date}`;
-
-                    const matchingEvent = filteredAttendanceEvents.find(
-                      (event) => event.trackingId === trackingId
-                    );
-
-                    let status = "Absent";
-                    let colorClass =
-                      "bg-red-500/10 border-red-500/30 text-red-400";
-
-                    const statusColorToClass: Record<string, string> = {
-                      red: "bg-red-500/10 border-red-500/30 text-red-400",
-                      blue: "bg-blue-500/10 border-blue-500/30 text-blue-400",
-                      yellow:
-                        "bg-yellow-500/10 border-yellow-500/30 text-yellow-400",
-                      teal: "bg-teal-500/10 border-teal-500/30 text-teal-400",
-                    };
-
-                    if (matchingEvent) {
-                      status = matchingEvent.status;
-                      colorClass =
-                        statusColorToClass[matchingEvent.statusColor] ??
-                        colorClass;
-                    }
+            <m.div variants={containerVariants} initial="hidden" animate="visible" className="flex flex-col gap-4 relative w-full max-w-[700px] mx-auto">
+              <AnimatePresence mode="wait" initial={false} custom={currentPage > 0 ? -1 : 1}>
+                <m.div key={currentPage} custom={currentPage} initial="enter" animate="center" exit="exit" variants={pageVariants} transition={{ type: "tween", duration: 0.3 }} className="flex flex-col gap-6">
+                  
+                  {/* --- RENDER BY COURSE KEYS (Paginated) --- */}
+                  {currentCourseKeys.map((courseName) => {
+                    const items = groupedAllData[courseName]; // Get ALL items for this course
 
                     return (
-                      <m.div
-                        key={trackingId}
-                        custom={index}
-                        variants={cardVariants}
-                        initial="hidden"
-                        animate="visible"
-                        exit="exit"
-                        layout
-                        layoutId={trackingId}
-                        transition={{
-                          layout: springTransition,
-                          opacity: { duration: 0.3 },
-                        }}
-                        className={`p-4 text-left rounded-xl border hover:bg-opacity-20 ${colorClass} transition-all max-w-[700px] w-full mx-auto`}
-                      >
-                        <div className="flex justify-between items-start mb-2 gap-4">
-                          <div className="font-medium text-sm capitalize">
-                            {/* CHANGED: Removed the truncation code so full name is shown */}
-                            {trackingItem.course.toLowerCase()}
+                      <div key={courseName} className="flex flex-col gap-3">
+                        {/* Course Header */}
+                        <div className="flex items-center gap-2 pl-1 sticky top-0 bg-background/95 backdrop-blur z-10 py-2">
+                          <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+                            <BookOpen size={16} />
                           </div>
-                          <div className="flex items-center gap-2">
-                            {trackingItem.semester !== semester ||
-                            trackingItem.year !== year ? (
-                              <Badge className="bg-orange-500/20 text-orange-400 text-sm">
-                                ≠
-                              </Badge>
-                            ) : null}
-                            <Badge
-                              className={`
-                                ${
-                                  status === "Present"
-                                    ? "bg-blue-500/20 text-blue-400"
-                                    : ""
-                                }
-                                ${
-                                  status === "Absent"
-                                    ? "bg-red-500/20 text-red-400"
-                                    : ""
-                                }
-                                ${
-                                  status === "Duty Leave"
-                                    ? "bg-yellow-500/20 text-yellow-400"
-                                    : ""
-                                }
-                                ${
-                                  status === "Other Leave" || status === "Leave"
-                                    ? "bg-teal-500/20 text-teal-400"
-                                    : ""
-                                }
-                              `}
-                            >
-                              {status}
-                            -
-                            {status === "Absent" ? (
-                              <p>Not updated yet</p>
-                            ) : (
-                              <p>Updated</p>
-                            )}
-                            </Badge>
-                          </div>
+                          <h3 className="text-md font-semibold text-left text-foreground/90 capitalize">
+                            {courseName.toLowerCase()}
+                          </h3>
+                          <Badge variant="outline" className="ml-auto text-xs">{items.length}</Badge>
                         </div>
 
-                        <div className="text-xs text-muted-foreground flex items-center justify-between mt-2">
-                          <div className="flex items-center justify-center gap-1 ">
-                            <span className="font-medium">
-                              {trackingItem.date}
-                            </span>
-                            •
-                            <span className="font-medium capitalize">
-                              {formatSessionName(trackingItem.session)}
-                            </span>
-                          </div>
-                          <m.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() =>
-                              
-                              handleDeleteTrackData(
-                                trackingItem.username,
-                                trackingItem.session,
-                                trackingItem.course,
-                                trackingItem.date
-                              )
-                            }
-                            className="flex cursor-pointer items-center justify-between gap-2 px-2.5 py-1.5 bg-yellow-400/6 rounded-lg font-medium text-yellow-600 opacity-100 hover:opacity-100 transition-all duration-300"
-                          >
-                            {deleteId === trackingId ? (
-                              <span>Deleting...</span>
-                            ) : (
-                              <>
-                                <div className="max-md:hidden">
-                                  Remove
+                        {/* Items within this Course Group */}
+                        <div className="flex flex-col gap-3">
+                          {items.map((trackingItem) => {
+                            const trackingId = `${trackingItem.username}-${trackingItem.session}-${trackingItem.course}-${trackingItem.date}`;
+                            const matchingEvent = filteredAttendanceEvents.find(e => e.trackingId === trackingId);
+
+                            let status = matchingEvent?.status || "Absent";
+                            let statusColor = matchingEvent?.statusColor || "red";
+                            
+                            const colorClass = {
+                              red: "bg-red-500/10 border-red-500/30 text-red-400",
+                              blue: "bg-blue-500/10 border-blue-500/30 text-blue-400",
+                              yellow: "bg-yellow-500/10 border-yellow-500/30 text-yellow-400",
+                              teal: "bg-teal-500/10 border-teal-500/30 text-teal-400",
+                            }[statusColor] || "bg-red-500/10 border-red-500/30 text-red-400";
+
+                            return (
+                              <m.div key={trackingId} variants={cardVariants} layout className={`p-4 text-left rounded-xl border hover:bg-opacity-20 ${colorClass} transition-all w-full`}>
+                                <div className="flex justify-between items-start mb-2 gap-4">
+                                  <div className="font-medium text-sm text-foreground/70">
+                                    Session: <span className="text-foreground capitalize">{formatSessionName(trackingItem.session)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {(trackingItem.semester !== semester || trackingItem.year !== year) && (
+                                      <Badge className="bg-orange-500/20 text-orange-400 text-sm">≠</Badge>
+                                    )}
+                                    <Badge className={`${status === "Present" ? "bg-blue-500/20 text-blue-400" : ""} ${status === "Absent" ? "bg-red-500/20 text-red-400" : ""} ${status === "Duty Leave" ? "bg-yellow-500/20 text-yellow-400" : ""} ${status.includes("Leave") && status !== "Duty Leave" ? "bg-teal-500/20 text-teal-400" : ""}`}>
+                                      {status} - {status === "Absent" ? "Not updated" : "Updated"}
+                                    </Badge>
+                                  </div>
                                 </div>
-                                <div className="text-yellow-600 pb-[0.1px]">
-                                  <Trash2
-                                    size={15}
-                                    className="hover:cursor-pointer"
-                                  />
+                                <div className="text-xs text-muted-foreground flex items-center justify-between mt-2">
+                                  <span className="font-medium">{trackingItem.date}</span>
+                                  <m.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleDeleteTrackData(trackingItem.username, trackingItem.session, trackingItem.course, trackingItem.date)} className="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 bg-yellow-400/6 rounded-lg font-medium text-yellow-600">
+                                    {deleteId === trackingId ? "Deleting..." : <><span className="max-md:hidden">Remove</span><Trash2 size={15} /></>}
+                                  </m.button>
                                 </div>
-                              </>
-                            )}
-                          </m.button>
+                              </m.div>
+                            );
+                          })}
                         </div>
-                      </m.div>
+                      </div>
                     );
                   })}
                 </m.div>
               </AnimatePresence>
 
               {totalPages > 1 && (
-                <div className="flex justify-center items-center mt-6 gap-8">
-                  <m.button
-                    onClick={goToPrevPage}
-                    disabled={currentPage === 0}
-                    className={`h-8 w-8 flex justify-center items-center pr-[1.2px] rounded-lg ${
-                      currentPage === 0
-                        ? "text-muted-foreground bg-accent/30 cursor-not-allowed"
-                        : "text-primary bg-accent hover:bg-accent/40"
-                    }`}
-                  >
-                    <ChevronLeft size={20} />
-                  </m.button>
-
-                  <div className="text-sm text-muted-foreground font-medium mr-0.5">
-                    Page {currentPage + 1} of {totalPages}
-                  </div>
-
-                  <m.button
-                    onClick={goToNextPage}
-                    disabled={currentPage === totalPages - 1}
-                    className={`h-8 w-8 flex justify-center items-center pl-[1.2px] rounded-lg ${
-                      currentPage === totalPages - 1
-                        ? "text-muted-foreground bg-accent/30 cursor-not-allowed"
-                        : "text-primary bg-accent hover:bg-accent/40"
-                    }`}
-                  >
-                    <ChevronRight size={20} />
-                  </m.button>
+                <div className="flex justify-center items-center mt-6 gap-8 pb-8">
+                  <m.button onClick={goToPrevPage} disabled={currentPage === 0} className={`h-8 w-8 flex justify-center items-center rounded-lg ${currentPage === 0 ? "text-muted-foreground bg-accent/30" : "text-primary bg-accent hover:bg-accent/40"}`}><ChevronLeft size={20} /></m.button>
+                  <div className="text-sm text-muted-foreground font-medium">Page {currentPage + 1} of {totalPages}</div>
+                  <m.button onClick={goToNextPage} disabled={currentPage === totalPages - 1} className={`h-8 w-8 flex justify-center items-center rounded-lg ${currentPage === totalPages - 1 ? "text-muted-foreground bg-accent/30" : "text-primary bg-accent hover:bg-accent/40"}`}><ChevronRight size={20} /></m.button>
                 </div>
               )}
             </m.div>
           </>
         ) : (
-          /* CHANGED: Replaced hardcoded margin with flex centering to handle empty states smoothly */
-          <m.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="flex flex-col items-center justify-center flex-1 h-full"
-          >
-            <div className="rounded-full p-2 mb-4 w-fit h-fit text-amber-500 bg-amber-500/6">
-              <CircleAlert className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-medium mb-1.5">No Records Found</h3>
-            <p className="text-sm text-muted-foreground max-w-[250px]">
-              You haven&apos;t added any attendance records to tracking yet
-            </p>
+          <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center flex-1">
+            <div className="rounded-full p-2 mb-4 bg-amber-500/6 text-amber-500"><CircleAlert className="w-6 h-6" /></div>
+            <h3 className="text-lg font-medium">No Records Found</h3>
+            <p className="text-sm text-muted-foreground">You haven&apos;t added any attendance records yet.</p>
           </m.div>
         )}
       </div>

@@ -9,8 +9,7 @@ export const Footer = () => {
 
   return (
     <footer className="w-full py-6 mt-12 border-t border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex flex-col md:flex-row justify-between items-center gap-6 text-sm">
-        
+      <div className="container px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-6 text-sm">    
         {/* Left Side: Credits & Author */}
         <div className="flex items-center gap-2 text-muted-foreground italic">
           <span className="font-mono opacity-70">By</span>

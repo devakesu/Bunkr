@@ -45,6 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useAttendanceSettings } from "@/providers/attendance-settings";
 
 export default function Dashboard() {
   const { data: profile } = useProfile();
@@ -55,6 +56,7 @@ export default function Dashboard() {
     useFetchAcademicYear();
   const setSemesterMutation = useSetSemester();
   const setAcademicYearMutation = useSetAcademicYear();
+  const { targetPercentage } = useAttendanceSettings();
 
   const [selectedSemester, setSelectedSemester] = useState<
     "even" | "odd" | null
@@ -302,16 +304,58 @@ export default function Dashboard() {
       });
     });
 
-    // Attach percentage and Sort Decreasing
+    // Attach percentage, calculate bunkable/required, and Sort
     return coursesArray
       .map((course: any) => {
         const s = courseStats[course.id];
-        const pct = s.total > 0 ? Math.round((s.present / s.total) * 100) : 0;
-        return { ...course, currentPercentage: pct }; // Store pct to sort
-      })
-      .sort((a: any, b: any) => b.currentPercentage - a.currentPercentage);
+        const present = s?.present || 0;
+        const total = s?.total || 0;
+        const isNew = total === 0; // Flag for new courses
+        
+        // 1. Calculate Percentage
+        const pct = total > 0 ? Math.round((present / total) * 100) : 0;
 
-  }, [coursesData, attendanceData]);
+        // Initialize defaults
+        let bunkable = 0;
+        let required = 0;
+
+        // 2. Calculate Stats based on User Target
+        if (isNew) {
+           // New course: 0 bunkable, 0 required
+        } else if (pct >= targetPercentage) {
+           // PASSING
+           const maxClassesToAttend = Math.floor((100 * present) / targetPercentage);
+           const rawBunkable = maxClassesToAttend - total;
+           bunkable = rawBunkable > 0 ? rawBunkable : 0;
+        } else {
+           // FAILING
+           if (targetPercentage < 100) {
+             const numerator = (targetPercentage * total) - (100 * present);
+             const denominator = 100 - targetPercentage;
+             const rawRequired = Math.ceil(numerator / denominator);
+             required = rawRequired > 0 ? rawRequired : 0;
+           } else {
+             required = total > present ? Infinity : 0;
+           }
+        }
+
+        return { ...course, currentPercentage: pct, bunkable, required, isNew }; 
+      })
+      .sort((a: any, b: any) => {
+        // --- PRIORITY 1: New Courses go to Bottom ---
+        if (a.isNew && !b.isNew) return 1; // A is new, push down
+        if (!a.isNew && b.isNew) return -1; // B is new, push down
+  
+        // --- PRIORITY 2 : Bunkable Descending (Safest first) ---
+        if (b.bunkable !== a.bunkable) {
+          return b.bunkable - a.bunkable;
+        }
+
+        // --- PRIORITY 3: Required Ascending (Easiest to recover first) ---
+        return a.required - b.required;
+      });
+
+  }, [coursesData, attendanceData, targetPercentage]);
 
   if (
     isLoadingSemester ||
