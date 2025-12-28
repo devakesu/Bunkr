@@ -13,6 +13,7 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  Briefcase,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -83,14 +84,16 @@ export function AttendanceCalendar({
     }
   }, []);
 
-  //function to write tracking data to supabase
+  // Function to write tracking data to supabase
   const handleWriteTracking = async (
     userId: number,
     username: string,
     sessionTitle: string,
     date: string,
     status: string,
-    sessionName: string
+    sessionName: string,
+    attendanceCode: number, // NEW
+    remarks: string         // NEW
   ) => {
     const buttonKey = `${sessionTitle}-${date}-${sessionName}`;
     setLoadingStates((prev) => ({ ...prev, [buttonKey]: true }));
@@ -103,10 +106,12 @@ export function AttendanceCalendar({
           username,
           course: sessionTitle,
           date,
-          status,
+          status, // This is the 'original' status (e.g. Absent)
           session: sessionName,
           semester,
           year,
+          attendance: attendanceCode, // NEW COLUMN
+          remarks: remarks,           // NEW COLUMN
         },
         {
           headers: {
@@ -653,7 +658,10 @@ export function AttendanceCalendar({
                       cardStyle = "border-teal-500/50 bg-teal-500/5 hover:bg-teal-500/10 hover:border-teal-500";
                     }
 
-                    const isTracked = trackingData?.some(
+                    {/* ... inside the selectedDateEvents.map loop ... */}
+
+                    {/* 1. Find the specific record to access remarks */}
+                    const trackedRecord = trackingData?.find(
                       (data) =>
                         data.course === event.title &&
                         data.session === event.sessionName &&
@@ -690,50 +698,101 @@ export function AttendanceCalendar({
                         </div>
 
                         {event.status === "Absent" && (
-                          <div className="flex-shrink-0">
-                            {isTracked ? (
+                          <div className="flex-shrink-0 w-full sm:w-auto">
+                            {/* 2. Check if record exists */}
+                            {trackedRecord ? (
                               <Link href="/tracking" className="w-full sm:w-auto">
                                 <Button 
                                   variant="outline" 
                                   size="sm" 
                                   className="w-full h-8 text-xs gap-1.5 bg-green-500/10 border-green-500/30 text-green-500 hover:text-green-400 hover:bg-green-500/20 hover:border-green-500/50 transition-all"
                                 >
-                                  <span>View Details</span>
-                                  <ArrowUpRight className="w-3 h-3" />
+                                  {/* 3. Display Remarks with truncation */}
+                                  <span className="truncate max-w-[200px] sm:max-w-none">
+                                    {trackedRecord.remarks || "View Details"}
+                                  </span>
+                                  <ArrowUpRight className="w-3 h-3 shrink-0" />
                                 </Button>
                               </Link>
                             ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={isLoading}
-                                onClick={() => {
-                                  if (clickedButtons.current?.has(buttonKey)) return;
-                                  clickedButtons.current?.add(buttonKey);
-                                  if (user?.id) {
-                                    handleWriteTracking(
-                                      user.id,
-                                      user.username,
-                                      event.title,
-                                      event.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
-                                      event.status,
-                                      event.sessionName
-                                    );
-                                  }
-                                }}
-                                className={`w-full sm:w-auto h-8 text-xs gap-1.5 border-dashed transition-all
-                                  ${isLoading ? "opacity-70 cursor-wait" : "hover:border-red-500/50 hover:text-red-500 hover:bg-red-500/5"}
-                                `}
-                              >
-                                {isLoading ? (
-                                  <>Adding...</>
-                                ) : (
-                                  <>
-                                    <Plus className="w-3.5 h-3.5" />
-                                    Add to Tracking
-                                  </>
-                                )}
-                              </Button>
+                              <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full">
+                                
+                                {/* Mark as Duty Leave */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={isLoading}
+                                  onClick={() => {
+                                    if (clickedButtons.current?.has(buttonKey)) return;
+                                    clickedButtons.current?.add(buttonKey);
+                                    if (user?.id) {
+                                      handleWriteTracking(
+                                        user.id,
+                                        user.username,
+                                        event.title,
+                                        event.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
+                                        event.status,
+                                        event.sessionName,
+                                        225,
+                                        "Duty Leave"
+                                      );
+                                    }
+                                  }}
+                                  className={`w-full sm:w-auto h-auto min-h-[32px] py-1.5 text-xs gap-1.5 border-dashed transition-all
+                                    ${isLoading 
+                                      ? "opacity-70 cursor-wait" 
+                                      : "border-yellow-500/40 text-yellow-600 hover:bg-yellow-500/10 hover:border-yellow-500 hover:text-yellow-700 dark:text-yellow-500"
+                                    }
+                                  `}
+                                >
+                                  {isLoading ? (
+                                     "..." 
+                                  ) : (
+                                    <>
+                                      <Briefcase className="w-3 h-3 shrink-0" />
+                                      <span className="truncate">Mark DL</span>
+                                    </>
+                                  )}
+                                </Button>
+
+                                {/* Mark as Incorrect */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={isLoading}
+                                  onClick={() => {
+                                    if (clickedButtons.current?.has(buttonKey)) return;
+                                    clickedButtons.current?.add(buttonKey);
+                                    if (user?.id) {
+                                      handleWriteTracking(
+                                        user.id,
+                                        user.username,
+                                        event.title,
+                                        event.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
+                                        event.status,
+                                        event.sessionName,
+                                        110,
+                                        "Incorrectly marked absent"
+                                      );
+                                    }
+                                  }}
+                                  className={`w-full sm:w-auto h-auto min-h-[32px] py-1.5 text-xs gap-1.5 border-dashed transition-all
+                                    ${isLoading 
+                                      ? "opacity-70 cursor-wait" 
+                                      : "border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500 hover:text-green-700 dark:text-green-500"
+                                    }
+                                  `}
+                                >
+                                  {isLoading ? (
+                                     "..." 
+                                  ) : (
+                                    <>
+                                      <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                      <span className="truncate">Mark Present</span>
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
                             )}
                           </div>
                         )}

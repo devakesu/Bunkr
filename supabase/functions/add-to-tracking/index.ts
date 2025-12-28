@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     
     if (!token) {
       return new Response(JSON.stringify({ error: 'Unauthorized. Please log in.' }), {
-        status: 401, headers: corsHeaders // Fixed: Use correct variable name for headers
+        status: 401, headers: corsHeaders 
       });
     }
 
@@ -54,10 +54,22 @@ Deno.serve(async (req) => {
 
     // 4. Parse request
     const body = await req.json();
-    const { username, course, date, session, semester, year } = body;
+    
+    const { 
+      username, 
+      course, 
+      date, 
+      session, 
+      semester, 
+      year, 
+      status,     // Added status to destructuring
+      attendance, // Numeric code (225 or 110)
+      remarks 
+    } = body;
 
-    // Validation - Fixed to allow '0'
-    if (year === undefined || !username || !course || !session || !date) {
+    // Validation
+    // We strictly require attendance code now for the calculator to work
+    if (year === undefined || !username || !course || !session || !date || attendance === undefined) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400, headers: corsHeaders
       });
@@ -70,10 +82,14 @@ Deno.serve(async (req) => {
       date,
       session,
       semester,
-      year: String(year) // Force string conversion
+      year: String(year),
+      status,      // Included status in the insert payload
+      attendance,  // Insert numeric code
+      remarks      // Insert remarks string
     }]).select().single();
 
     if (error) {
+      console.error("Supabase Insert Error:", error); 
       return new Response(JSON.stringify({ success: false, error: "Error adding data to tracking!" }), {
         status: 500, headers: corsHeaders
       });
