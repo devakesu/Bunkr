@@ -49,7 +49,62 @@ const Tracking = () => {
   const [filteredAttendanceEvents, setFilteredAttendanceEvents] = useState<any[]>([]);
   const { data: attendanceData } = useAttendanceReport();
 
-  // --- 1. GROUP ALL DATA FIRST ---
+  // --- HELPERS FOR SORTING & FORMATTING ---
+
+  const formatSessionName = (sessionName: string): string => {
+    const romanToOrdinal: Record<string, string> = {
+      I: "1st hour", II: "2nd hour", III: "3rd hour",
+      IV: "4th hour", V: "5th hour", VI: "6th hour", VII: "7th hour",
+    };
+    return romanToOrdinal[sessionName] || sessionName;
+  };
+
+  // Ensure DD/MM/YYYY format for Display
+  const formatDisplayDate = (dateStr: string): string => {
+    if (!dateStr) return "";
+    if (dateStr.includes("/")) return dateStr; // Already DD/MM/YYYY
+    if (dateStr.includes("-")) {
+      const parts = dateStr.split("-");
+      // Handle YYYY-MM-DD -> DD/MM/YYYY
+      if (parts[0].length === 4) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      // Handle DD-MM-YYYY -> DD/MM/YYYY
+      return `${parts[0]}/${parts[1]}/${parts[2]}`;
+    }
+    return dateStr;
+  };
+
+  // Robust Date Parsing for Sorting
+  const parseDateValue = (dateStr: string) => {
+    if (!dateStr) return 0;
+    // Handle DD/MM/YYYY
+    if (dateStr.includes('/')) {
+        const [d, m, y] = dateStr.split('/');
+        return new Date(`${y}-${m}-${d}`).getTime();
+    }
+    // Handle DD-MM-YYYY
+    if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        if (parts[0].length === 4) return new Date(dateStr).getTime(); // YYYY-MM-DD
+        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime(); // DD-MM-YYYY
+    }
+    return new Date(dateStr).getTime();
+  };
+
+  // Extract number from session string (e.g. "1st Hour" -> 1, "Session 220" -> 220)
+  const getSessionNumber = (name: string): number => {
+    if (!name) return 999;
+    const clean = name.toString().toLowerCase().replace(/session/g, "").replace(/hour/g, "").trim();
+    
+    // Roman numerals fallback
+    const map: Record<string, number> = { "i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6, "vii": 7, "viii": 8 };
+    if (map[clean]) return map[clean];
+
+    const numbers = name.match(/\d+/);
+    if (numbers) return parseInt(numbers[0], 10);
+    return 999;
+  };
+
+  // --- 1. GROUP AND SORT DATA ---
   const groupedAllData = useMemo(() => {
     if (!trackingData) return {};
     
@@ -61,6 +116,21 @@ const Tracking = () => {
         grouped[courseKey] = [];
       }
       grouped[courseKey].push(item);
+    });
+
+    // Sort items within each course
+    Object.keys(grouped).forEach(key => {
+        grouped[key].sort((a, b) => {
+            // 1. Sort by Date (Descending - Newest First)
+            const dateA = parseDateValue(a.date);
+            const dateB = parseDateValue(b.date);
+            if (dateA !== dateB) return dateB - dateA;
+
+            // 2. Sort by Session Number (Ascending - 1st before 2nd)
+            const sessionA = getSessionNumber(a.session);
+            const sessionB = getSessionNumber(b.session);
+            return sessionA - sessionB;
+        });
     });
 
     return grouped;
@@ -85,14 +155,6 @@ const Tracking = () => {
     if (currentPage < totalPages - 1) {
       setCurrentPage(currentPage + 1);
     }
-  };
-
-  const formatSessionName = (sessionName: string): string => {
-    const romanToOrdinal: Record<string, string> = {
-      I: "1st hour", II: "2nd hour", III: "3rd hour",
-      IV: "4th hour", V: "5th hour", VI: "6th hour", VII: "7th hour",
-    };
-    return romanToOrdinal[sessionName] || sessionName;
   };
 
   const handleDeleteTrackData = async (
@@ -131,10 +193,15 @@ const Tracking = () => {
 
     const newFilteredEvents: any[] = [];
     
-    // Helper to standardise dates to YYYY-MM-DD
     const normalizeToYMD = (dateStr: string): string => {
       if (!dateStr) return "";
-      if (dateStr.includes("-")) return dateStr;
+      if (dateStr.includes("-")) {
+          // If YYYY-MM-DD leave as is
+          if (dateStr.split('-')[0].length === 4) return dateStr;
+          // If DD-MM-YYYY convert to YYYY-MM-DD
+          const [dd, mm, yyyy] = dateStr.split('-');
+          return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+      }
       if (dateStr.includes("/")) {
         const [dd, mm, yyyy] = dateStr.split("/");
         if (dd && mm && yyyy) return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
@@ -142,8 +209,6 @@ const Tracking = () => {
       return dateStr;
     };
 
-    // 1. Create a Lookup Map for Tracking Data (Optimization: O(N) instead of O(N^2))
-    // Key format: "coursename_session_date" (lowercase)
     const trackingMap = new Map();
     trackingData.forEach(item => {
         const c = (item.course || "").toLowerCase().trim();
@@ -153,9 +218,9 @@ const Tracking = () => {
         trackingMap.set(uniqueKey, item);
     });
 
-    // 2. Iterate Official Data
     Object.entries(attendanceData.studentAttendanceData).forEach(
       ([dateStr, sessions]) => {
+        // Handle YYYYMMDD string from attendance data
         const dateYear = parseInt(dateStr.substring(0, 4), 10);
         const month = parseInt(dateStr.substring(4, 6), 10) - 1;
         const day = parseInt(dateStr.substring(6, 8), 10);
@@ -170,9 +235,7 @@ const Tracking = () => {
           const courseName = courseInfo?.name || "Unknown Course";
           const sessionName = attendanceData.sessions?.[sessionKey]?.name || `Session ${sessionKey}`;
 
-          // Create key to check against Tracking Map
           const lookupKey = `${courseName.toLowerCase().trim()}_${sessionName.toLowerCase().trim()}_${formattedDate}`;
-          
           const matchingTrackingItem = trackingMap.get(lookupKey);
 
           if (matchingTrackingItem) {
@@ -289,7 +352,6 @@ const Tracking = () => {
 
                     return (
                       <div key={courseName} className="flex flex-col gap-3">
-                        {/* Course Header */}
                         <div className="flex items-center gap-2 pl-1 sticky top-0 bg-background/95 backdrop-blur z-10 py-2">
                           <div className="p-1.5 rounded-md bg-primary/10 text-primary">
                             <BookOpen size={16} />
@@ -300,33 +362,42 @@ const Tracking = () => {
                           <Badge variant="outline" className="ml-auto text-xs">{items.length}</Badge>
                         </div>
 
-                        {/* Items Loop */}
                         <div className="flex flex-col gap-3">
                           {items.map((trackingItem) => {
                             const trackingId = `${trackingItem.username}-${trackingItem.session}-${trackingItem.course}-${trackingItem.date}`;
                             const matchingEvent = filteredAttendanceEvents.find(e => e.trackingId === trackingId);
 
-                            // DEFAULT STATE: If no official record is found, it's "Pending" not "Absent"
-                            let status = "Pending"; 
-                            let statusColor = "gray";
-                            let isUpdated = false;
-
-                            if (matchingEvent) {
-                                status = matchingEvent.status;
-                                statusColor = matchingEvent.statusColor;
-                                // If official data says Present/DL, it matches our positive update
-                                isUpdated = status === "Present" || status === "Duty Leave";
-                            }
-                            
-                            // --- BADGE LOGIC ---
-                            let targetLabel = "Present";
+                            // --- LOGIC ---
                             const attCode = trackingItem.attendance;
-                            
-                            if (attCode === 225) targetLabel = "DL";
-                            else if (attCode === 110) targetLabel = "Present";
-                            else if (trackingItem.remarks?.toLowerCase().includes("duty")) targetLabel = "DL";
+                            let userTargetLabel = "Present";
+                            let userTargetColor = "blue";
 
-                            // Dynamic Color Override based on official status
+                            if (attCode === 225) { 
+                                userTargetLabel = "Duty Leave"; 
+                                userTargetColor = "yellow"; 
+                            } else if (attCode === 111) { 
+                                userTargetLabel = "Absent"; 
+                                userTargetColor = "red"; 
+                            }
+
+                            let statusLabel = "Pending";
+                            let statusColor = "gray"; 
+                            let isVerified = false;
+                            
+                            // Check if official record exists
+                            const isCorrection = !!matchingEvent; 
+
+                            if (isCorrection) {
+                                statusLabel = matchingEvent.status; 
+                                statusColor = matchingEvent.statusColor; 
+                                
+                                if (statusLabel === "Present" || statusLabel === "Duty Leave") isVerified = true;
+                                if (attCode === 111 && statusLabel === "Absent") isVerified = true;
+                            } else {
+                                statusLabel = "Pending";
+                                statusColor = userTargetColor; 
+                            }
+
                             const colorClass = {
                               red: "bg-red-500/10 border-red-500/30 text-red-400",
                               blue: "bg-blue-500/10 border-blue-500/30 text-blue-400",
@@ -334,6 +405,20 @@ const Tracking = () => {
                               teal: "bg-teal-500/10 border-teal-500/30 text-teal-400",
                               gray: "bg-muted/50 border-border text-muted-foreground",
                             }[statusColor] || "bg-muted/50 border-border text-muted-foreground";
+
+                            const badgeColorClass = statusLabel === "Pending" 
+                                ? (userTargetColor === "blue" ? "bg-blue-500/20 text-blue-400" 
+                                  : userTargetColor === "yellow" ? "bg-yellow-500/20 text-yellow-400"
+                                  : "bg-red-500/20 text-red-400")
+                                : (statusLabel === "Present" ? "bg-blue-500/20 text-blue-400" 
+                                  : statusLabel === "Absent" ? "bg-red-500/20 text-red-400" 
+                                  : statusLabel === "Duty Leave" ? "bg-yellow-500/20 text-yellow-400" 
+                                  : "bg-gray-500/20 text-gray-400");
+                            
+                            const typeLabel = isCorrection ? "Correction" : "Extra";
+                            const typeColorClass = isCorrection 
+                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20" 
+                                : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20";
 
                             return (
                               <m.div key={trackingId} variants={cardVariants} layout className={`p-4 text-left rounded-xl border hover:bg-opacity-20 ${colorClass} transition-all w-full`}>
@@ -345,20 +430,32 @@ const Tracking = () => {
                                     {(trackingItem.semester !== semester || trackingItem.year !== year) && (
                                       <Badge className="bg-orange-500/20 text-orange-400 text-sm">≠</Badge>
                                     )}
-                                    <Badge className={`${status === "Present" ? "bg-blue-500/20 text-blue-400" : ""} ${status === "Absent" ? "bg-red-500/20 text-red-400" : ""} ${status === "Duty Leave" ? "bg-yellow-500/20 text-yellow-400" : ""} ${status === "Pending" ? "bg-gray-500/20 text-gray-400" : ""} ${status.includes("Leave") && status !== "Duty Leave" ? "bg-teal-500/20 text-teal-400" : ""}`}>
-                                      {/* --- STATUS LABEL DISPLAY --- */}
-                                      {status === "Pending" 
-                                        ? "Pending Update" 
-                                        : isUpdated 
-                                          ? `${status} - Updated` 
-                                          : `${status} - Not updated to ${targetLabel}`
+                                    
+                                    <Badge variant="outline" className={`text-[10px] px-1.5 h-5 ${typeColorClass}`}>
+                                        {typeLabel}
+                                    </Badge>
+
+                                    <Badge className={badgeColorClass}>
+                                      {statusLabel === "Pending" 
+                                        ? `${userTargetLabel === "Duty Leave" ? "DL" : userTargetLabel} - Not Updated` 
+                                        : isVerified 
+                                          ? `${statusLabel} - Verified` 
+                                          : `${statusLabel} - Not updated to ${userTargetLabel === "Duty Leave" ? "DL" : userTargetLabel}`
                                       }
                                     </Badge>
                                   </div>
                                 </div>
                                 <div className="text-xs text-muted-foreground flex items-center justify-between mt-2">
-                                  <span className="font-medium">{trackingItem.date}</span>
-                                  <m.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleDeleteTrackData(trackingItem.username, trackingItem.session, trackingItem.course, trackingItem.date)} className="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 bg-yellow-400/6 rounded-lg font-medium text-yellow-600">
+                                  {/* --- FORMATTED DATE --- */}
+                                  <span className="font-medium">{formatDisplayDate(trackingItem.date)}</span>
+                                  
+                                  <m.button 
+                                    whileHover={{ scale: 1.05 }} 
+                                    whileTap={{ scale: 0.95 }} 
+                                    disabled={deleteId === trackingId}
+                                    onClick={() => handleDeleteTrackData(trackingItem.username, trackingItem.session, trackingItem.course, trackingItem.date)} 
+                                    className="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 bg-yellow-400/6 rounded-lg font-medium text-yellow-600 disabled:opacity-50"
+                                  >
                                     {deleteId === trackingId ? "Deleting..." : <><span className="max-md:hidden">Remove</span><Trash2 size={15} /></>}
                                   </m.button>
                                 </div>

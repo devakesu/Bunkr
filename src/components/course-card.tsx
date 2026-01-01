@@ -59,7 +59,7 @@ export function CourseCard({ course }: CourseCardProps) {
     const officialPercentage = realTotal > 0 ? (realPresent / realTotal) * 100 : 0;
     
     // B. Calculate "Safely Bunkable" based on official
-    const safeMetrics = calculateAttendance(realPresent, realTotal, targetPercentage);
+    const safeMetrics = calculateAttendance(realPresent, realTotal, targetPercentage || 75);
 
     // C. Handle Case: No Tracking Data
     if (!trackingData) {
@@ -67,8 +67,10 @@ export function CourseCard({ course }: CourseCardProps) {
         realPresent,
         realAbsent,
         realTotal,
-        corrections: 0,
+        correctionPresent: 0,
+        extraPresent: 0,
         extras: 0,
+        extraAbsent: 0,
         selfTrackedTotal: 0,
         displayTotal: realTotal,
         displayPercentage: parseFloat(officialPercentage.toFixed(2)),
@@ -79,30 +81,52 @@ export function CourseCard({ course }: CourseCardProps) {
     }
 
     // D. Process Tracking Data
-    const courseTracks = trackingData.filter(t => t.course === course.name);
+    const normalize = (s: string | undefined) => s?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
+    const targetName = normalize(course.name);
+    const targetCode = normalize(course.code);
+
+    const courseTracks = trackingData.filter(t => {
+        const tName = normalize(t.course);
+        return tName === targetName || tName === targetCode;
+    });
     
-    // Logic: tracker.status is either 'correction' or 'extra'
-    const extras = courseTracks.filter(t => t.status === 'extra').length;
+    // Helper: 110=Present, 225=Duty Leave
+    const isPositive = (code: number) => code === 110 || code === 225;
+
+    // Split tracks by Type
+    const extraTracks = courseTracks.filter(t => t.status === 'extra');
+    const correctionTracks = courseTracks.filter(t => t.status !== 'extra');
+
+    // 1. Calculate Contributions (Added || 0 fallback)
+    const extraPositive = extraTracks.filter(t => isPositive(t.attendance || 0)).length;
+    const correctionPositive = correctionTracks.filter(t => isPositive(t.attendance || 0)).length;
+
+    // 2. Metrics for Display
+    const extras = extraTracks.length; // Total extras
+    const extraAbsent = extras - extraPositive; // Extras that are NOT positive
     
-    // Since it's binary (extra vs correction), the remainder are corrections
-    const corrections = courseTracks.length - extras; 
+    // "selfTrackedTotal": Only Positive records should add to PRESENT
+    const selfTrackedTotal = extraPositive + correctionPositive;
     
-    const selfTrackedTotal = corrections + extras;
+    // "corrections": Positive corrections reduce the ABSENT count
+    const corrections = correctionPositive; 
 
     // E. Calculate Adjusted Values
     const adjustedPresent = realPresent + selfTrackedTotal;
-    const adjustedTotal = realTotal + extras;
+    const adjustedTotal = realTotal + extras; 
     const displayPercentage = adjustedTotal > 0 ? (adjustedPresent / adjustedTotal) * 100 : 0;
 
     // F. Calculate "Extra Bunkable"
-    const extraMetrics = calculateAttendance(adjustedPresent, adjustedTotal, targetPercentage);
+    const extraMetrics = calculateAttendance(adjustedPresent, adjustedTotal, targetPercentage || 75);
 
     return {
       realPresent,
       realAbsent,
       realTotal,
-      corrections,
+      correctionPresent: correctionPositive, 
+      extraPresent: extraPositive,           
       extras,
+      extraAbsent,
       selfTrackedTotal,
       displayTotal: adjustedTotal,
       displayPercentage: parseFloat(displayPercentage.toFixed(2)),
@@ -110,7 +134,7 @@ export function CourseCard({ course }: CourseCardProps) {
       safeMetrics,
       extraMetrics
     };
-  }, [courseDetails, trackingData, course.name, targetPercentage]);
+  }, [courseDetails, trackingData, course.name, course.code, targetPercentage]);
 
   const hasAttendanceData = !isLoading && stats.displayTotal > 0;
 
@@ -124,89 +148,42 @@ export function CourseCard({ course }: CourseCardProps) {
 
   // --- IMPROVED: Bunk Logic with Natural Language ---
   const renderBunkMessage = () => {
-    const { safeMetrics, extraMetrics, selfTrackedTotal } = stats;
+    const { safeMetrics, extraMetrics, selfTrackedTotal, extras } = stats;
 
-    // 1. Standard Logic (No Self-Tracking or No Change)
-    if (selfTrackedTotal === 0 || !extraMetrics) {
-      if (safeMetrics.canBunk > 0) {
-        return (
-          <>
-            You can safely bunk <span className="font-bold text-green-500">{safeMetrics.canBunk}</span> {safeMetrics.canBunk === 1 ? "class 🥳" : "classes 🥳🥳"}
-          </>
-        );
-      }
-      if (safeMetrics.requiredToAttend > 0) {
-        return (
-          <>
-            You need to attend <span className="font-bold text-amber-500">{!isFinite(safeMetrics.requiredToAttend) ? "all" : safeMetrics.requiredToAttend}</span> more {safeMetrics.requiredToAttend === 1 ? "class 💀" : "classes 💀💀"}
-          </>
-        );
-      }
-      return <>You are on the edge. Skipping now&apos;s risky 💀💀</>;
-    }
-
-    // 2. Combined Logic (With Self-Tracking)
-    const safeBunk = safeMetrics.canBunk;
-    const safeNeed = safeMetrics.requiredToAttend;
+    // 1. Determine which metrics to use (Official or Adjusted)
+    const isModified = selfTrackedTotal > 0 || extras > 0;
     
-    const extraBunk = extraMetrics.canBunk;
-    const extraNeed = extraMetrics.requiredToAttend;
+    const activeMetrics = (isModified && extraMetrics) ? extraMetrics : safeMetrics;
+    const { canBunk, requiredToAttend } = activeMetrics;
 
-    // SCENARIO A: Official stats are already safe (Green)
-    if (safeBunk > 0) {
-      const additionalBunk = Math.max(0, extraBunk - safeBunk);
-      if (additionalBunk > 0) {
-        return (
-          <>
-            You can safely bunk <span className="font-bold text-green-500">{safeBunk}</span> {safeBunk === 1 ? "class 🥳" : "classes 🥳🥳"} and <span className="font-bold text-green-500">{additionalBunk}</span> more if corrections are verified.
-          </>
-        );
-      }
+    // 2. Render Message based on Active Metrics
+    if (canBunk > 0) {
       return (
         <>
-          You can safely bunk <span className="font-bold text-green-500">{safeBunk}</span> {safeBunk === 1 ? "class 🥳" : "classes 🥳🥳"}
+          You can safely bunk <span className="font-bold text-green-500">{canBunk}</span> {canBunk === 1 ? "class 🥳" : "classes 🥳🥳"}
+          {isModified && (
+             <span className="text-muted-foreground font-normal opacity-80 block text-xs mt-0.5"> (Based on Tracking Data)</span>
+          )}
         </>
       );
     }
 
-    // SCENARIO B: Official is Unsafe (Amber), but Tracking makes it Safe (Green)
-    if (safeNeed > 0 && extraNeed === 0) {
-       const officialPct = stats.realTotal > 0 ? Math.round((stats.realPresent / stats.realTotal) * 100) : 0;
-       
-       if (extraBunk > 0) {
-         return (
-           <>
-             You need to attend <span className="font-bold text-amber-500">{safeNeed}</span> {safeNeed === 1 ? "class 💀" : "classes 💀💀"}, but you can bunk <span className="font-bold text-green-500">{extraBunk}</span> {extraBunk === 1 ? "class 🥳" : "classes 🥳🥳"} if corrections are verified.
-           </>
-         );
-       }
-       return (
-         <>
-           You need to attend <span className="font-bold text-amber-500">{safeNeed}</span> {safeNeed === 1 ? "class 💀" : "classes 💀💀"}, but you are <span className="font-bold text-green-500">safe on edge</span> if corrections are verified.
-         </>
-       );
+    if (requiredToAttend > 0) {
+      return (
+        <>
+          You need to attend <span className="font-bold text-amber-500">{!isFinite(requiredToAttend) ? "all" : requiredToAttend}</span> more {requiredToAttend === 1 ? "class 💀" : "classes 💀💀"}
+          {isModified && (
+             <span className="text-muted-foreground font-normal opacity-80 block text-xs mt-0.5"> (Based on Tracking Data)</span>
+          )}
+        </>
+      );
     }
 
-    // SCENARIO C: Both are Unsafe, but Tracking reduces the burden
-    if (safeNeed > 0 && extraNeed > 0 && extraNeed < safeNeed) {
-       return (
-         <>
-           You need to attend <span className="font-bold text-amber-500">{safeNeed}</span> {safeNeed === 1 ? "class 💀" : "classes 💀💀"} or just <span className="font-bold text-amber-500">{extraNeed}</span> {extraNeed === 1 ? "class" : "classes"} if corrections are verified.
-         </>
-       );
-    }
-
-    // Fallback
-    if (safeNeed > 0) {
-        return (
-          <>
-             You need to attend <span className="font-bold text-amber-500">{!isFinite(safeNeed) ? "all" : safeNeed}</span> more {safeNeed === 1 ? "class 💀" : "classes 💀💀"}
-          </>
-        );
-    }
-    
     return <>You are on the edge. Skipping now&apos;s risky 💀💀</>;
   };
+
+  // Determine if we gained or lost attendance
+  const isGain = stats.displayPercentage >= stats.officialPercentage;
 
   return (
     <Card className="pt-0 pb-0 custom-container overflow-clip h-full min-h-[280px]">
@@ -238,13 +215,20 @@ export function CourseCard({ course }: CourseCardProps) {
               {/* PRESENT */}
               <div className="text-center p-1 bg-[#1F1F1F]/60 rounded-md py-2.5 flex gap-1 flex-col">
                 <span className="text-xs text-muted-foreground block">Present</span>
-                <div className="flex items-center justify-center gap-0.5">
+                <div className="flex items-center justify-center gap-1.5 flex-wrap px-1">
                   <span className="text-sm font-medium text-green-500">
                     {stats.realPresent}
                   </span>
-                  {stats.selfTrackedTotal > 0 && (
-                    <span className="text-xs font-medium text-orange-500">
-                      +{stats.selfTrackedTotal}
+                  {/* Separate Corrections */}
+                  {stats.correctionPresent > 0 && (
+                    <span className="text-xs font-medium text-orange-500" title="Corrections">
+                      +{stats.correctionPresent}
+                    </span>
+                  )}
+                  {/* Separate Extras */}
+                  {stats.extraPresent > 0 && (
+                    <span className="text-xs font-medium text-blue-400" title="Extras">
+                      +{stats.extraPresent}
                     </span>
                   )}
                 </div>
@@ -257,9 +241,18 @@ export function CourseCard({ course }: CourseCardProps) {
                   <span className="text-sm font-medium text-red-500">
                     {stats.realAbsent}
                   </span>
-                  {stats.corrections > 0 && (
+                  
+                  {/* Corrections reduce absent count */}
+                  {stats.correctionPresent > 0 && (
                     <span className="text-xs font-medium text-orange-500">
-                      -{stats.corrections}
+                      -{stats.correctionPresent}
+                    </span>
+                  )}
+
+                  {/* Extra Absents increase absent count */}
+                  {stats.extraAbsent > 0 && (
+                    <span className="text-xs font-medium text-blue-400">
+                      +{stats.extraAbsent}
                     </span>
                   )}
                 </div>
@@ -268,7 +261,16 @@ export function CourseCard({ course }: CourseCardProps) {
               {/* TOTAL */}
               <div className="text-center p-1 bg-[#1F1F1F]/60 rounded-md py-2.5 flex gap-1 flex-col">
                 <span className="text-xs text-muted-foreground block">Total</span>
-                <span className="text-sm font-medium">{stats.displayTotal}</span>
+                <div className="flex items-center justify-center gap-0.5">
+                  <span className="text-sm font-medium">
+                    {stats.realTotal}
+                  </span>
+                  {stats.extras > 0 && (
+                    <span className="text-xs font-medium text-blue-400">
+                      +{stats.extras}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -276,20 +278,39 @@ export function CourseCard({ course }: CourseCardProps) {
             <div className="mt-8">
               
               <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-secondary">
-                
-                {/* Layer 1: Merged/Potential (The "Ghost" Extension) */}
-                <div
-                  className="absolute top-0 left-0 h-full bg-primary/40 transition-all duration-500 ease-in-out"
-                  style={{ width: `${stats.displayPercentage}%` }}
-                >
-                  <div className="h-full w-full opacity-30 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:8px_8px]" />
-                </div>
-
-                {/* Layer 2: Official (The Solid Reality) */}
-                <div
-                  className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-in-out"
-                  style={{ width: `${stats.officialPercentage}%` }}
-                />
+                {isGain ? (
+                  <>
+                    {/* SCENARIO 1: GAIN (Merged > Official) */}
+                    {/* Base Layer (Merged/Ghost): Shows total potential width */}
+                    <div
+                      className="absolute top-0 left-0 h-full bg-primary/40 transition-all duration-500 ease-in-out"
+                      style={{ width: `${stats.displayPercentage}%` }}
+                    >
+                      <div className="h-full w-full opacity-30 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:8px_8px]" />
+                    </div>
+                    {/* Top Layer (Official/Solid): Shows current base width */}
+                    <div
+                      className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-in-out"
+                      style={{ width: `${stats.officialPercentage}%` }}
+                    />
+                  </>
+                ) : (
+                  <>
+                    {/* SCENARIO 2: LOSS (Merged < Official) */}
+                    {/* Base Layer (Official/Ghost Red): Fixed Visibility here */}
+                    <div
+                      className="absolute top-0 left-0 h-full bg-red-500/80 transition-all duration-500 ease-in-out"
+                      style={{ width: `${stats.officialPercentage}%` }}
+                    >
+                       <div className="h-full w-full opacity-30 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:8px_8px]" />
+                    </div>
+                    {/* Top Layer (Merged/Solid): Shows where you ARE now (lower value) */}
+                    <div
+                      className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-in-out"
+                      style={{ width: `${stats.displayPercentage}%` }}
+                    />
+                  </>
+                )}
               </div>
 
               {/* Text Labels */}
@@ -298,13 +319,13 @@ export function CourseCard({ course }: CourseCardProps) {
                 
                 <div className="flex items-center gap-2">
                   {/* Show Official % if different */}
-                  {stats.selfTrackedTotal > 0 && stats.officialPercentage !== stats.displayPercentage && (
+                  {(stats.selfTrackedTotal > 0 || stats.extras > 0) && stats.officialPercentage !== stats.displayPercentage && (
                     <span className="text-xs opacity-70">
                       {stats.officialPercentage}% <span className="mx-0.5">→</span>
                     </span>
                   )}
                   {/* Merged % */}
-                  <span className={stats.selfTrackedTotal > 0 ? "text-primary font-bold" : ""}>
+                  <span className={(stats.selfTrackedTotal > 0 || stats.extras > 0) ? (isGain ? "text-primary font-bold" : "text-red-400 font-bold") : ""}>
                     {stats.displayPercentage}%
                   </span>
                 </div>

@@ -8,11 +8,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { removeToken } from "@/utils/auth";
+import { removeToken, getToken } from "@/utils/auth";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/users/user";
+import { useProfile } from "@/hooks/users/profile";
 import { Switch } from "@/components/ui/switch";
 import {
   useInstitutions,
@@ -38,19 +39,27 @@ import {
   UserRound,
   Percent,
   SquareAsterisk,
-  Sticker,
   Calculator,
+  Plus,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAttendanceSettings } from "@/providers/attendance-settings";
 
-import User from "@/assets/user.png";
+// --- NEW IMPORTS FOR ADD DIALOG ---
+import { AddAttendanceDialog } from "@/components/AddAttendanceDialog";
+import { useAttendanceReport } from "@/hooks/courses/attendance";
+import { useTrackingData } from "@/hooks/tracker/useTrackingData";
+import { useFetchCourses } from "@/hooks/courses/courses";
+
+import UserPlaceholder from "@/assets/user.png";
 
 export const Navbar = () => {
   const router = useRouter();
   const { data: user } = useUser();
-  const { data: institutions, isLoading: institutionsLoading } =
-    useInstitutions();
+  const { data: profile } = useProfile();
+  const accessToken = getToken();
+
+  const { data: institutions, isLoading: institutionsLoading } = useInstitutions();
   const { data: defaultInstitutionUser } = useDefaultInstitutionUser();
   const updateDefaultInstitutionUser = useUpdateDefaultInstitutionUser();
   const queryClient = useQueryClient();
@@ -59,6 +68,14 @@ export const Navbar = () => {
   const { targetPercentage, setTargetPercentage } = useAttendanceSettings();
 
   const [showBunkCalc, setShowBunkCalc] = useState(true);
+  
+  // --- ADD RECORD STATE ---
+  const [isAddRecordOpen, setIsAddRecordOpen] = useState(false);
+
+  // --- DATA HOOKS FOR DIALOG ---
+  const { data: attendanceData, refetch: refetchAttendance } = useAttendanceReport();
+  const { data: trackingData, refetch: refetchTracking } = useTrackingData(user, accessToken);
+  const { data: coursesData } = useFetchCourses();
 
   const pathname = usePathname();
 
@@ -132,17 +149,29 @@ export const Navbar = () => {
     });
   };
 
-  const truncateText = (text: string, limit: number) => {
-    return text.length > limit ? text.substring(0, limit) + "..." : text;
+  const handleAddSuccess = async () => {
+    await Promise.all([refetchAttendance(), refetchTracking()]);
   };
 
   return (
     <header className="sticky top-0 z-10 flex h-17 items-center justify-between gap-4 border-b-2 bg-background px-4 md:px-6 text-white mr-0.5 border-white/5">
+      
+      {/* DIALOG COMPONENT */}
+      <AddAttendanceDialog 
+         open={isAddRecordOpen} 
+         onOpenChange={setIsAddRecordOpen}
+         attendanceData={attendanceData}
+         trackingData={trackingData || []}
+         coursesData={coursesData}
+         user={user}
+         onSuccess={handleAddSuccess}
+      />
+
       <div className="flex items-center gap-2">
         <Link href="/" className="group text-3xl sm:text-4xl lg:text-[2.50rem] font-semibold gradient-logo font-klick tracking-wide">
           <div className="relative w-48 h-40 overflow-hidden">
             <Image 
-              src="/logo.png" // Path to your logo in the /public folder
+              src="/logo.png" 
               alt="GhostClass Logo"
               fill
               className="object-contain transition-transform group-hover:scale-110"
@@ -180,50 +209,59 @@ export const Navbar = () => {
             </div>
           )}
 
-          {/* Attendance Target Percentage Selector */}
-          {showBunkCalc && (
-            <div className="flex">
-              <Select
-                value={targetPercentage.toString()}
-                onValueChange={(value) => {
-                  setTargetPercentage(Number(value));
-                  toast("Attendance Target Updated", {
-                    description: (
-                      <span style={{ color: "#ffffffa6" }}>
-                        Your attendance target is now set to {value}%
-                      </span>
-                    ),
-                    style: {
-                      backgroundColor: "rgba(34,197,94,0.08)",
-                      color: "#22c55e",
-                      border: "1px solid #22c55e33",
-                      backdropFilter: "blur(4px)",
-                    },
-                  });
-                }}
-              >
-                <SelectTrigger className="w-[110px] custom-input cursor-pointer">
-                  <SelectValue>
-                    <div className="flex items-center font-medium">
-                      <Percent className="mr-2 h-4 w-4" />
-                      <span>{targetPercentage}%</span>
-                    </div>
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="custom-dropdown mt-1">
-                  {[75, 80, 85, 90, 95].map((percentage) => (
-                    <SelectItem key={percentage} value={percentage.toString()}>
-                      <div className="flex items-center cursor-pointer">
-                        <Percent className="mr-2 h-4 w-4 flex-shrink-0" />
-                        <span className="font-medium">{percentage}%</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          {/* ADD RECORD BUTTON */}
+          <Button
+            onClick={() => setIsAddRecordOpen(true)}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md font-semibold gap-2 border-0 cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="max-sm:hidden">Add Record</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
 
+          {/* Attendance Target Selector (Desktop Only) */}
+          <div className="flex max-sm:hidden">
+            <Select
+              value={targetPercentage.toString()}
+              onValueChange={(value) => {
+                setTargetPercentage(Number(value));
+                toast("Attendance Target Updated", {
+                  description: (
+                    <span style={{ color: "#ffffffa6" }}>
+                      Your attendance target is now set to {value}%
+                    </span>
+                  ),
+                  style: {
+                    backgroundColor: "rgba(34,197,94,0.08)",
+                    color: "#22c55e",
+                    border: "1px solid #22c55e33",
+                    backdropFilter: "blur(4px)",
+                  },
+                });
+              }}
+            >
+              <SelectTrigger className="w-[110px] custom-input cursor-pointer">
+                <SelectValue>
+                  <div className="flex items-center font-medium">
+                    <Percent className="mr-2 h-4 w-4" />
+                    <span>{targetPercentage}%</span>
+                  </div>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="custom-dropdown mt-1">
+                {[75, 80, 85, 90, 95].map((percentage) => (
+                  <SelectItem key={percentage} value={percentage.toString()}>
+                    <div className="flex items-center cursor-pointer">
+                      <Percent className="mr-2 h-4 w-4 flex-shrink-0" />
+                      <span className="font-medium">{percentage}%</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Institution Selector */}
           {!institutionsLoading && institutions && institutions.length > 0 && (
             <div className="flex max-md:hidden">
               <Select
@@ -274,8 +312,13 @@ export const Navbar = () => {
                 className="relative h-9 w-9 rounded-full cursor-pointer"
               >
                 <Avatar className="h-9 w-9 outline-2">
-                  <AvatarFallback>
-                    <Image src={User} alt="Avatar" width={40} height={40} />
+                  <AvatarImage 
+                    src={profile?.avatar_url || undefined} 
+                    className="object-cover"
+                    alt={user?.username}
+                  />
+                  <AvatarFallback className="bg-transparent p-0">
+                    <Image src={UserPlaceholder} alt="Avatar" width={40} height={40} />
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -318,6 +361,7 @@ export const Navbar = () => {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
 
+              {/* Bunk Calculator Toggle */}
               <div className="px-2 py-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -329,6 +373,34 @@ export const Navbar = () => {
                     onCheckedChange={handleBunkCalcToggle}
                   />
                 </div>
+              </div>
+
+              {/* NEW: Target Percentage Selector (Mobile Only) */}
+              <div className="px-2 py-2 sm:hidden border-t border-white/10 mt-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Percent className="h-4 w-4" />
+                        <span className="text-sm">Target</span>
+                    </div>
+                    <Select
+                      value={targetPercentage.toString()}
+                      onValueChange={(value) => {
+                        setTargetPercentage(Number(value));
+                        toast("Target Updated", {
+                            description: `Target set to ${value}%`
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="w-[80px] h-8 text-xs bg-background/50 border-white/10">
+                        <SelectValue placeholder={`${targetPercentage}%`} />
+                      </SelectTrigger>
+                      <SelectContent className="custom-dropdown z-[60]">
+                          {[75, 80, 85, 90, 95].map((p) => (
+                            <SelectItem key={p} value={p.toString()}>{p}%</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
               </div>
 
               <DropdownMenuSeparator />
