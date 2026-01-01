@@ -30,4 +30,4 @@ jobs:
         run: supabase db push
 
       - name: Deploy Edge Functions
-        run: supabase functions deploy
+        run: supabase functions deploy --no-verify-jwt

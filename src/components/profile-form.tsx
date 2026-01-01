@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { useState } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, Pencil, X, Check } from "lucide-react"; // Added Icons
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -26,12 +26,13 @@ import {
 } from "@/components/ui/select";
 import { useUpdateProfile } from "@/hooks/users/profile";
 import { UserProfile } from "@/types";
+import { cn } from "@/lib/utils"; // Ensure you have this utility or use simple string concat
 
 const profileFormSchema = z.object({
   first_name: z.string().min(2, {
     message: "First name must be at least 2 characters.",
   }),
-  last_name: z.string(),
+  last_name: z.string().optional(),
   gender: z.string().min(1, {
     message: "Please select a gender.",
   }),
@@ -44,42 +45,38 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
   const [isEditing, setIsEditing] = useState(false);
   const updateProfileMutation = useUpdateProfile();
 
-  const contentVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-        ease: "easeInOut",
-      },
-    },
+  const getGenderValue = (val: string | undefined | null) => {
+    if (!val) return "";
+    return val.toLowerCase();
   };
 
-  const fieldVariants = {
-    hidden: { opacity: 0 },
-    visible: (custom: number) => ({
-      opacity: 1,
-      transition: {
-        delay: custom * 0.1,
-        duration: 0.3,
-      },
-    }),
+  const displayGender = (val: string | undefined | null) => {
+    if (!val) return "Not set";
+    return val.charAt(0).toUpperCase() + val.slice(1);
   };
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
+      first_name: "",
+      last_name: "",
+      gender: "",
+      birth_date: "",
+    },
+    values: {
       first_name: profile?.first_name || "",
       last_name: profile?.last_name || "",
-      gender: profile?.gender || "male",
+      gender: getGenderValue(profile?.gender),
       birth_date: profile?.birth_date || "",
     },
+    resetOptions: {
+      keepDirtyValues: true,
+    }
   });
 
   function onSubmit(formValues: ProfileFormValues) {
     const profileData: UserProfile = {
-      id: profile.id,
+      ...profile,
       first_name: formValues.first_name,
       last_name: formValues.last_name,
       gender: formValues.gender,
@@ -90,45 +87,92 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
       { id: profile.id, data: profileData },
       {
         onSuccess: () => {
-          toast("Profile updated", {
-            description: "Your profile has been updated successfully.",
-          });
+          toast.success("Profile updated");
           setIsEditing(false);
         },
         onError: (error) => {
-          toast.error("Error", {
-            description: "Failed to update profile. Please try again.",
-          });
-          console.error("Error updating profile:", error);
+          toast.error("Failed to update profile");
+          console.error(error);
         },
       }
     );
   }
+
+  const fieldVariants = {
+    hidden: { opacity: 0, y: 5 },
+    visible: (custom: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: custom * 0.05, duration: 0.2 },
+    }),
+  };
+
+  // Reusable styling for the "Read Only" box to make it look premium
+  const ReadOnlyField = ({ value, placeholder = "Not set" }: { value?: string | null, placeholder?: string }) => (
+    <div className={cn(
+      "flex h-11 w-full items-center rounded-lg border border-border/40 px-3 py-2 text-sm transition-all",
+      "bg-secondary/20 text-foreground/90", // Subtle background
+      !value && "text-muted-foreground italic" // Italic styling for empty fields
+    )}>
+      {value || placeholder}
+    </div>
+  );
 
   return (
     <Form {...form}>
       <motion.form
         initial="hidden"
         animate="visible"
-        variants={contentVariants}
         onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-5"
+        className="space-y-6"
       >
-        <div className="grid grid-cols-1 min-[1300px]:grid-cols-2 gap-5">
+        <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                Basic Details
+            </h3>
+             {/* Edit Button moved to top-right for better UX */}
+            <AnimatePresence mode="wait">
+            {!isEditing && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                  className="h-8 px-2 text-primary hover:text-primary/80 hover:bg-primary/10"
+                >
+                  <Pencil className="w-3.5 h-3.5 mr-2" />
+                  Edit
+                </Button>
+              </motion.div>
+            )}
+            </AnimatePresence>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <motion.div custom={0} variants={fieldVariants}>
             <FormField
               control={form.control}
               name="first_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm">First Name</FormLabel>
+                  <FormLabel className="text-xs font-semibold text-muted-foreground ml-1">
+                    First Name
+                  </FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter your first name"
-                      className="custom-input text-sm"
-                      {...field}
-                      disabled={!isEditing}
-                    />
+                    {isEditing ? (
+                      <Input
+                        placeholder="Enter first name"
+                        className="bg-background/50 h-11"
+                        {...field}
+                      />
+                    ) : (
+                      <ReadOnlyField value={field.value} />
+                    )}
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -142,45 +186,51 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
               name="last_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm">Last Name</FormLabel>
+                  <FormLabel className="text-xs font-semibold text-muted-foreground ml-1">
+                    Last Name
+                  </FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter your last name"
-                      className="custom-input text-sm"
-                      {...field}
-                      disabled={!isEditing}
-                    />
+                    {isEditing ? (
+                      <Input
+                        placeholder="Enter last name"
+                        className="bg-background/50 h-11"
+                        {...field}
+                      />
+                    ) : (
+                      <ReadOnlyField value={field.value} />
+                    )}
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </motion.div>
-        </div>
 
-        <div className="grid grid-cols-1 min-[1300px]:grid-cols-2 gap-5">
           <motion.div custom={2} variants={fieldVariants}>
             <FormField
               control={form.control}
               name="gender"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm">Gender</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    disabled={!isEditing}
-                  >
-                    <FormControl className="h-full">
-                      <SelectTrigger className="custom-input text-sm min-h-[44px] w-full">
-                        <SelectValue placeholder="Select your gender" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="custom-dropdown">
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormLabel className="text-xs font-semibold text-muted-foreground ml-1">
+                    Gender
+                  </FormLabel>
+                  {isEditing ? (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="bg-background/50 h-11">
+                          <SelectValue placeholder="Select gender" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <ReadOnlyField value={displayGender(field.value)} />
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -193,15 +243,20 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
               name="birth_date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm">Date of Birth</FormLabel>
+                  <FormLabel className="text-xs font-semibold text-muted-foreground ml-1">
+                    Date of Birth
+                  </FormLabel>
                   <FormControl>
-                    <Input
-                      type="date"
-                      {...field}
-                      value={field.value || ""}
-                      disabled={!isEditing}
-                      className="text-sm custom-input"
-                    />
+                    {isEditing ? (
+                      <Input
+                        type="date"
+                        className="bg-background/50 h-11"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    ) : (
+                      <ReadOnlyField value={field.value} placeholder="YYYY-MM-DD" />
+                    )}
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -210,69 +265,43 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
           </motion.div>
         </div>
 
-        <motion.div
-          className="flex justify-end gap-4"
-          custom={4}
-          variants={fieldVariants}
-        >
-          <AnimatePresence mode="wait">
-            {isEditing ? (
-              <>
-                <motion.div
-                  key="cancel-button"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsEditing(false)}
-                    disabled={updateProfileMutation.isPending}
-                    className="w-full font-semibold min-h-[46px] rounded-[12px] mt-4 font-md"
-                  >
-                    Cancel
-                  </Button>
-                </motion.div>
-                <motion.div
-                  key="save-button"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2, delay: 0.1 }}
-                >
-                  <Button
-                    type="submit"
-                    disabled={updateProfileMutation.isPending}
-                    className="w-full font-semibold min-h-[46px] rounded-[12px] mt-4 font-md"
-                  >
-                    {updateProfileMutation.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    Save Changes
-                  </Button>
-                </motion.div>
-              </>
-            ) : (
-              <motion.div
-                key="edit-button"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
+        {/* Action Buttons - Only Visible when Editing */}
+        <AnimatePresence>
+          {isEditing && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex justify-end gap-3 pt-4 border-t border-border/40"
+            >
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsEditing(false);
+                  form.reset();
+                }}
+                className="h-9"
               >
-                <Button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="w-full font-semibold min-h-[46px] rounded-[12px] mt-4 font-md"
-                >
-                  Edit Profile
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
+                <X className="w-4 h-4 mr-2" /> Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={updateProfileMutation.isPending}
+                className="h-9 min-w-[100px]"
+              >
+                {updateProfileMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Check className="w-4 h-4 mr-2" />
+                )}
+                Save
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.form>
     </Form>
   );

@@ -4,12 +4,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const allowedOrigin = Deno.env.get('ALLOWED_ORIGIN') ?? '*';
 const corsHeaders = {
   'Access-Control-Allow-Origin': allowedOrigin,
-  "Access-Control-Allow-Headers": "Authorization, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json"
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json'
 };
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
@@ -17,25 +18,55 @@ Deno.serve(async (req) => {
     const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
     if (!token) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
 
+    // 1. Verify Token with Ezygo
     const BASE_URL = Deno.env.get('BASE_URL');
-    const response = await fetch(BASE_URL!, {
+    if (!BASE_URL) throw new Error("Missing BASE_URL secret");
+
+    const authResponse = await fetch(BASE_URL, {
       method: "GET",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
     });
-    if (!response.ok) return new Response(JSON.stringify({ error: 'Invalid Token' }), { status: 401, headers: corsHeaders });
 
+    if (!authResponse.ok) return new Response(JSON.stringify({ error: 'Invalid Token' }), { status: 401, headers: corsHeaders });
+
+    // 2. Get Authenticated User Details
+    const authData = await authResponse.json();
+    const authUser = authData.data || authData;
+    const authUsername = authUser.username || authUser.user?.username;
+
+    if (!authUsername) {
+        return new Response(JSON.stringify({ error: 'Could not verify identity from token' }), { status: 403, headers: corsHeaders });
+    }
+
+    // 3. Parse Request
+    const { username, session, course, date } = await req.json();
+    
+    // 4. SECURITY CHECK: Ensure payload username matches token username
+    if (username !== authUsername) {
+        return new Response(JSON.stringify({ error: 'Unauthorized: You can only delete your own records' }), { status: 403, headers: corsHeaders });
+    }
+
+    if (!session || !course || !date) {
+      return new Response(JSON.stringify({ success: false, error: 'Missing fields' }), { status: 400, headers: corsHeaders });
+    }
+
+    // 5. Perform Delete
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { username, session, course, date } = await req.json();
-    if (!username || !session || !course || !date) {
-      return new Response(JSON.stringify({ success: false, error: 'Missing fields' }), { status: 400, headers: corsHeaders });
-    }
+    const { data, error } = await supabase
+      .from('tracker')
+      .delete()
+      .match({ username: authUsername, session, course, date })
+      .select();
 
-    const { error } = await supabase.from('tracker').delete().match({ username, session, course, date });
     if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return new Response(JSON.stringify({ success: false, error: 'Record not found or mismatch' }), { status: 404, headers: corsHeaders });
+    }
 
     return new Response(JSON.stringify({ success: true, message: 'Deleted successfully' }), { status: 200, headers: corsHeaders });
 
