@@ -4,19 +4,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const allowedOrigin = Deno.env.get('ALLOWED_ORIGIN') ?? '*';
 const corsHeaders = {
   'Access-Control-Allow-Origin': allowedOrigin,
-  "Access-Control-Allow-Headers": "Authorization, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json"
+  'Access-Control-Allow-Headers': "Authorization, content-type, x-client-info, apikey",
+  'Access-Control-Allow-Methods': "POST, OPTIONS",
+  'Content-Type': "application/json"
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // 1. Get the authorization header
+    // 1. Auth Header
     const authHeader = req.headers.get('Authorization') ?? '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
     
@@ -26,11 +26,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2. Verify Token with Ezygo (BASE_URL)
+    // 2. Verify Token with Ezygo
     const BASE_URL = Deno.env.get('BASE_URL');
     if (!BASE_URL) throw new Error("Missing BASE_URL secret");
 
-    const response = await fetch(BASE_URL, {
+    const authResponse = await fetch(BASE_URL, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -38,21 +38,24 @@ Deno.serve(async (req) => {
       }
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Auth API error:", errorText);
-      return new Response(JSON.stringify({ error: 'Authorization error. Please log in again.' }), {
+    if (!authResponse.ok) {
+      return new Response(JSON.stringify({ error: 'Authorization error. Invalid token.' }), {
         status: 401, headers: corsHeaders
       });
     }
 
-    // 3. Create Supabase client
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    // 3. Extract Verified User Info
+    const authData = await authResponse.json();
+    const authUser = authData.data || authData;
+    const authUsername = authUser.username || authUser.user?.username;
 
-    // 4. Parse request
+    if (!authUsername) {
+       return new Response(JSON.stringify({ error: 'Could not verify user identity from token.' }), {
+        status: 403, headers: corsHeaders
+      });
+    }
+
+    // 4. Parse Request Body
     const body = await req.json();
     
     const { 
@@ -62,35 +65,47 @@ Deno.serve(async (req) => {
       session, 
       semester, 
       year, 
-      status,     // Added status to destructuring
-      attendance, // Numeric code (225 or 110)
+      status,     
+      attendance, 
       remarks 
     } = body;
 
+    // 5. SECURITY CHECK: Mismatch Protection
+    if (username !== authUsername) {
+        return new Response(JSON.stringify({ error: "Unauthorized: You cannot add records for another user." }), {
+        status: 403, headers: corsHeaders
+      });
+    }
+
     // Validation
-    // We strictly require attendance code now for the calculator to work
-    if (year === undefined || !username || !course || !session || !date || attendance === undefined) {
+    if (year === undefined || !course || !session || !date || attendance === undefined || attendance === null) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400, headers: corsHeaders
       });
     }
 
-    // 5. Insert Data
+    // 6. Create Supabase Admin Client
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // 7. Insert Data
     const { data, error } = await supabase.from('tracker').insert([{
-      username,
+      username: authUsername, 
       course,
       date,
       session,
       semester,
       year: String(year),
-      status,      // Included status in the insert payload
-      attendance,  // Insert numeric code
-      remarks      // Insert remarks string
+      status: status,
+      attendance,  
+      remarks: remarks || ''
     }]).select().single();
 
     if (error) {
       console.error("Supabase Insert Error:", error); 
-      return new Response(JSON.stringify({ success: false, error: "Error adding data to tracking!" }), {
+      return new Response(JSON.stringify({ success: false, error: error.message }), {
         status: 500, headers: corsHeaders
       });
     }
@@ -100,8 +115,9 @@ Deno.serve(async (req) => {
     });
 
   } catch (err) {
+    console.error("Function Error:", err);
     return new Response(JSON.stringify({
-      error: err.message || 'Something went wrong in server.',
+      error: err.message || 'Server error',
       success: false
     }), {
       status: 500, headers: corsHeaders

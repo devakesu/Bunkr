@@ -15,7 +15,6 @@ import {
 import { AttendanceReport, TrackAttendance, Course } from "@/types";
 import { useAttendanceSettings } from "@/providers/attendance-settings";
 
-// Helper
 const formatCourseCode = (code: string) => {
   if (!code) return "";
   return code.length > 10 ? code.substring(0, 10) + "..." : code;
@@ -27,14 +26,12 @@ interface AttendanceChartProps {
   coursesData?: { courses: Record<string, Course> };
 }
 
-// --- CUSTOM SHAPE 1: Hatched Top Bar (Extra) ---
 const HatchedBarShape = (props: any) => {
   const { x, y, width, height, fill, stroke } = props;
   const radius = 4;
 
   if (!height || height <= 0) return null;
 
-  // Path: Top-Left Curve -> Top-Right Curve -> Bottom-Right -> Bottom-Left (Open Bottom)
   const pathD = `
     M ${x},${y + height}
     L ${x},${y + radius}
@@ -52,15 +49,13 @@ const HatchedBarShape = (props: any) => {
   );
 };
 
-// --- CUSTOM SHAPE 2: Solid Bottom Bar (Official) ---
 const BottomBarShape = (props: any) => {
   const { fill, x, y, width, height, payload } = props;
   
   if (!height || height <= 0) return null;
 
-  // Logic: If there is an "Extra" stack on top, this bar must be FLAT.
-  // If it's the only bar, it gets CURVES.
-  const hasTopStack = payload.extraPercentage > 0;
+  // Check payload to see if there is an extra percentage stacked on top
+  const hasTopStack = payload && payload.extraPercentage > 0;
   const radius = hasTopStack ? 0 : 4;
 
   const pathD = `
@@ -73,7 +68,6 @@ const BottomBarShape = (props: any) => {
     Z
   `;
 
-  // We use stroke={fill} to add the border width, matching the top bar's width
   return <path d={pathD} fill={fill} stroke={fill} strokeWidth={1} />;
 };
 
@@ -120,6 +114,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
 
     const courseAttendance: Record<string, any> = {};
 
+    // 1. Initialize Courses
     Object.entries(coursesData.courses).forEach(([courseId, course]) => {
       const code = formatCourseCode(course.code || course.name);
       const c = course as any;
@@ -129,7 +124,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
         absent: 0,
         total: 0,
         selfPresent: 0,
-        selfTotal: 0,
+        selfTotal: 0, 
         name: code,
         fullName: course.name,
         startDate: c.usersubgroup?.start_date ? new Date(c.usersubgroup.start_date) : undefined,
@@ -137,6 +132,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
       };
     });
 
+    // 2. Process Official Data
     Object.entries(attendanceData.studentAttendanceData).forEach(([dateStr, dateData]) => {
       const sessionDate = new Date(dateStr);
       Object.values(dateData).forEach((session: any) => {
@@ -157,36 +153,50 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
       });
     });
 
+    // 3. Process Tracking Data
     if (trackingData) {
       Object.values(courseAttendance).forEach((courseStats: any) => {
         const courseTracks = trackingData.filter(t => t.course === courseStats.fullName);
-        const extras = courseTracks.filter(t => (t as any).status === 'extra' || (t as any).status === 'addition').length;
-        const corrections = courseTracks.length - extras;
-        courseStats.selfPresent = corrections + extras; 
-        courseStats.selfTotal = extras; 
+        
+        // Separate Extra vs Correction
+        const extras = courseTracks.filter(t => (t as any).status === 'extra');
+        const corrections = courseTracks.filter(t => (t as any).status !== 'extra');
+
+        // Only count as "Present" if the user marked it as Present (110) or Duty Leave (225)
+        const extraPresent = extras.filter(t => t.attendance === 110 || t.attendance === 225).length;
+        const correctionPresent = corrections.filter(t => t.attendance === 110 || t.attendance === 225).length;
+
+        courseStats.selfPresent = extraPresent + correctionPresent;
+        courseStats.selfTotal = extras.length; // Only Extras increase the denominator
       });
     }
 
+    // 4. Calculate Percentages (Updated to 2 decimal places)
     return Object.values(courseAttendance)
       .filter((course: any) => (course.total + course.selfTotal) > 0)
       .map((course: any) => {
-        const officialPct = course.total > 0 ? (course.present / course.total) * 100 : 0;
+        
+        // Use toFixed(2) for higher precision instead of Math.round
+        const officialPct = course.total > 0 ? parseFloat(((course.present / course.total) * 100).toFixed(2)) : 0;
         
         const mergedPresent = course.present + course.selfPresent;
         const mergedTotal = course.total + course.selfTotal;
-        const mergedPct = mergedTotal > 0 ? (mergedPresent / mergedTotal) * 100 : 0;
+        
+        const mergedPct = mergedTotal > 0 ? parseFloat(((mergedPresent / mergedTotal) * 100).toFixed(2)) : 0;
 
-        const extraPct = Math.max(0, mergedPct - officialPct);
+        const extraPct = Math.max(0, parseFloat((mergedPct - officialPct).toFixed(2)));
 
         return {
           ...course,
-          officialPercentage: Math.round(officialPct),
-          extraPercentage: parseFloat(extraPct.toFixed(2)),
-          totalPercentage: Math.round(mergedPct), 
+          officialPercentage: officialPct,
+          extraPercentage: extraPct,
+          totalPercentage: mergedPct, 
           mergedPresent,
           mergedTotal,
           present: course.present,
-          total: course.total
+          total: course.total,
+          selfPresent: course.selfPresent,
+          selfTotal: course.selfTotal
         };
       })
       .sort((a: any, b: any) => a.totalPercentage - b.totalPercentage);
@@ -199,7 +209,6 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
     return 20;
   };
 
-  // --- FORCE ZOOM LOGIC ---
   const barHeights = data.map(d => d.totalPercentage);
   const nonZeroHeights = barHeights.filter(h => h > 0);
 
@@ -219,6 +228,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
           margin={{ top: 30, right: 10, left: -20, bottom: 5 }}
           barSize={getBarSize()}
         >
+          {/* Patterns for the Hatched Bar */}
           <defs>
             <pattern id="striped-green" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
               <rect width="8" height="8" fill="#10b981" fillOpacity="0.25" />
@@ -262,26 +272,30 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
             itemStyle={{ color: "#ffffff", padding: 0 }}
             labelStyle={{ color: "#a1a1aa", marginBottom: '0.5rem' }}
             cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
-            formatter={(value: number, name: string) => null}
+            formatter={(value: number, name: string) => null} 
             content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const d = payload[0].payload;
                   return (
                     <div className="bg-[#141414] border border-[#333] p-3 rounded-lg shadow-xl text-xs">
                       <p className="text-gray-400 mb-2 font-medium">{d.fullName}</p>
+                      
+                      {/* Official Stats */}
                       <div className="flex justify-between gap-4 mb-1">
                         <span className="text-gray-500">Official:</span>
                         <span className={`font-mono font-bold ${d.officialPercentage < safeTarget ? 'text-red-400' : 'text-green-400'}`}>
                           {d.officialPercentage}% <span className="text-gray-600 font-normal">({d.present}/{d.total})</span>
                         </span>
                       </div>
+
+                      {/* Tracked Stats */}
                       {(d.selfPresent > 0 || d.selfTotal > 0) && (
-                         <div className="flex justify-between gap-4">
-                           <span className="text-primary">+ Tracked:</span>
-                           <span className={`font-mono font-bold ${d.totalPercentage < safeTarget ? 'text-red-400' : 'text-green-400'}`}>
-                             {d.totalPercentage}% <span className="text-gray-600 font-normal">({d.mergedPresent}/{d.mergedTotal})</span>
-                           </span>
-                         </div>
+                          <div className="flex justify-between gap-4">
+                            <span className="text-primary">+ Tracked:</span>
+                            <span className={`font-mono font-bold ${d.totalPercentage < safeTarget ? 'text-red-400' : 'text-green-400'}`}>
+                              {d.totalPercentage}% <span className="text-gray-600 font-normal">({d.mergedPresent}/{d.mergedTotal})</span>
+                            </span>
+                          </div>
                       )}
                     </div>
                   );
@@ -290,26 +304,20 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
             }}
           />
           
-          {/* BAR 1: OFFICIAL (Bottom - Custom Shape for dynamic corners) */}
+          {/* BAR 1: OFFICIAL (Bottom Layer) */}
           <Bar 
             dataKey="officialPercentage" 
             stackId="a" 
             isAnimationActive={false} 
-            shape={<BottomBarShape />} // <--- FIX IS HERE
+            shape={<BottomBarShape />} 
           >
             {data.map((entry: any, index: number) => {
               const color = entry.officialPercentage < safeTarget ? "#ef4444" : "#10b981";
-              return (
-                <Cell
-                  key={`cell-off-${index}`}
-                  fill={color}
-                  // No 'radius' prop here anymore! Handled by shape.
-                />
-              );
+              return <Cell key={`cell-off-${index}`} fill={color} />;
             })}
           </Bar>
 
-          {/* BAR 2: EXTRA (Top - Custom Shape for Hatched) */}
+          {/* BAR 2: EXTRA (Top Layer - Hatched) */}
           <Bar 
             dataKey="extraPercentage" 
             stackId="a" 
@@ -325,7 +333,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
                   <Cell
                     key={`cell-ext-${index}`}
                     fill={fillUrl}
-                    stroke={strokeColor} // Passed to HatchedBarShape
+                    stroke={strokeColor} 
                   />
                );
              })}
