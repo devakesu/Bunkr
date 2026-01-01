@@ -68,7 +68,7 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          cosign sign ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
+          cosign sign --yes ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
 
       - name: Trigger Coolify deploy
         env:
