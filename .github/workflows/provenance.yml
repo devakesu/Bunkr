@@ -1,0 +1,16 @@
+name: Provenance
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record commit
+        run: |
+          echo "Commit: $GITHUB_SHA"
+          echo "Repo: $GITHUB_REPOSITORY"
