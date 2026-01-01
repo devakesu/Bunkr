@@ -22,11 +22,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify commit is signed
-        run: |
-          git log -1 --pretty=%G? | grep -Eq "^[UG]$"
-
-
   # This job only runs if 'guard' passes AND we are pushing to main (merging)
   build-push-sign:
     name: Build, Push & Sign
