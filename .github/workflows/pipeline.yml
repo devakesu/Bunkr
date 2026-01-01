@@ -24,7 +24,8 @@ jobs:
 
       - name: Verify commit is signed
         run: |
-          git log -1 --show-signature
+          git log -1 --pretty=%G? | grep -Eq "^[UG]$"
+
 
   # This job only runs if 'guard' passes AND we are pushing to main (merging)
   build-push-sign:
@@ -58,14 +59,17 @@ jobs:
 
       - name: Get image digest
         run: |
-          DIGEST=$(docker buildx imagetools inspect ghcr.io/devakesu/ghostclass:${{ github.sha }} --format '{{.Digest}}')
+          DIGEST=$(docker buildx imagetools inspect ghcr.io/devakesu/ghostclass:${{ github.sha }} \
+            --format '{{ .Manifest.Digest }}')
           echo "IMAGE_DIGEST=$DIGEST" >> $GITHUB_ENV
-          echo "Built digest: $DIGEST"
+
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
       - name: Sign image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
         run: |
           cosign sign ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
 
