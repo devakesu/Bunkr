@@ -1,7 +1,11 @@
-name: Build, Push & Sign
+name: CI/CD Pipeline
 
 on:
+  pull_request:
+    branches: [main]
   push:
+    branches: [main]
+  merge_group:
     branches: [main]
 
 permissions:
@@ -10,9 +14,24 @@ permissions:
   id-token: write   # REQUIRED for keyless cosign
 
 jobs:
-  build:
+  # This job acts as your "Guard". It runs on EVERY PR and Push.
+  guard:
+    name: Build Guard
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      - name: Verify commit is signed
+        run: |
+          git log -1 --show-signature
+
+  # This job only runs if 'guard' passes AND we are pushing to main (merging)
+  build-push-sign:
+    name: Build, Push & Sign
+    needs: guard
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,7 +56,6 @@ jobs:
           -t ghcr.io/devakesu/ghostclass:${{ github.sha }} \
           .
 
-
       - name: Get image digest
         run: |
           DIGEST=$(docker buildx imagetools inspect ghcr.io/devakesu/ghostclass:${{ github.sha }} --format '{{.Digest}}')
@@ -49,9 +67,13 @@ jobs:
 
       - name: Sign image (keyless)
         run: |
-          cosign sign ghcr.io/devakesu/ghostclass@${IMAGE_DIGEST}
+          cosign sign ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
 
       - name: Trigger Coolify deploy
+        env:
+          COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
+          COOLIFY_APP_ID: ${{ secrets.COOLIFY_APP_ID }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: |
           curl -X POST \
             "$COOLIFY_BASE_URL/api/v1/applications/$COOLIFY_APP_ID/deploy" \
