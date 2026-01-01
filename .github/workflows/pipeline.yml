@@ -54,9 +54,11 @@ jobs:
 
       - name: Get image digest
         run: |
-          DIGEST=$(docker buildx imagetools inspect ghcr.io/devakesu/ghostclass:${{ github.sha }} \
-            --format '{{ .Manifest.Digest }}')
+          DIGEST=$(docker buildx imagetools inspect ghcr.io/devakesu/ghostclass:${{ github.sha }} --raw \
+            | jq -r '.manifests[0].digest')
+
           echo "IMAGE_DIGEST=$DIGEST" >> $GITHUB_ENV
+
 
 
       - name: Install cosign
