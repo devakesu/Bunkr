@@ -1,10 +1,25 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    output: 'standalone',
-    env: {
-    // This makes the variable available to the client-side
+  output: "standalone",
+
+  // 🔒 CRITICAL for reproducible builds (Level-5)
+  generateBuildId: async () => {
+    return process.env.SOURCE_COMMIT ?? "dev";
+  },
+
+  env: {
     NEXT_PUBLIC_GIT_COMMIT_SHA: process.env.SOURCE_COMMIT || "dev",
+  },
+
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "tcqkooqqirwzsxipctob.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
   },
 };
 
