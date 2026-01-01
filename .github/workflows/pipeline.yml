@@ -58,7 +58,7 @@ jobs:
             | jq -r '.manifests[0].digest')
 
           echo "IMAGE_DIGEST=$DIGEST" >> $GITHUB_ENV
-          echo "Built digest: $DIGEST"
+
 
 
       - name: Install cosign
