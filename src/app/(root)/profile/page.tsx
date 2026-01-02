@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react"; // Removed useEffect
 import { useProfile } from "@/hooks/users/profile";
 import { useUser } from "@/hooks/users/user";
 import { ProfileForm } from "@/components/profile-form";
@@ -28,28 +28,26 @@ export default function ProfilePage() {
   const { data: user, isLoading: userLoading } = useUser();
 
   const [isUploading, setIsUploading] = useState(false);
-
+  
+  // OPTIMIZATION: Initialize as null. We only set this when a USER selects a file.
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const isLoading = profileLoading || userLoading;
 
-  // Sync profile data with local preview state when profile loads
-  useEffect(() => {
-    if (profile?.avatar_url) {
-      setAvatarPreview(profile.avatar_url);
-    }
-  }, [profile]);
+  // --- REMOVED useEffect to fix the delay ---
+  // The logic is moved directly into the render variable below.
 
-  // Function to trigger file input click
+  // 1. DERIVED STATE: Immediate Source Calculation
+  // Priority: 1. User Upload Preview -> 2. Fetched DB URL -> 3. Fallback Placeholder
+  const displayAvatar = avatarPreview || profile?.avatar_url || UserPlaceholder;
+
   const handleAvatarClick = () => {
     if (!isLoading && !isUploading) {
       fileInputRef.current?.click();
     }
   };
 
-  // Function to handle file selection and upload
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!user?.id) {
       toast.error("User not found. Please reload.");
@@ -66,34 +64,29 @@ export default function ProfilePage() {
 
     try {
       setIsUploading(true);
-      
       const accessToken = getToken(); 
       if (!accessToken) throw new Error("No access token found");
 
-      // 1. Create a temporary local preview immediately
+      // Set local preview immediately for instant feedback
       const objectUrl = URL.createObjectURL(file);
       setAvatarPreview(objectUrl);
 
-      // Limit is 5MB
       if (file.size > 5 * 1024 * 1024) {
         toast.info("Compressing large image...", { duration: 2000 });
         try {
           const compressedFile = await compressImage(file, 0.7);
-          if (compressedFile.size > 5 * 1024 * 1024) {
-             file = await compressImage(file, 0.5);
-          } else {
-             file = compressedFile;
-          }
+          file = compressedFile.size > 5 * 1024 * 1024 
+            ? await compressImage(file, 0.5) 
+            : compressedFile;
         } catch (error) {
           console.error("Compression failed:", error);
           toast.warning("Could not compress image. Uploading original.");
         }
       }
       
-      // 2. CALL THE API
       const newAvatarUrl = await uploadUserAvatar(accessToken, file);
       
-      // 3. Update state with the REAL url
+      // Update state with the confirmed URL from server
       setAvatarPreview(newAvatarUrl);
       
       toast.success("Profile picture updated!");
@@ -101,7 +94,8 @@ export default function ProfilePage() {
     } catch (error: any) {
       toast.error("Failed to update profile picture.");
       console.error("Upload error:", error.message || error);
-      if (profile?.avatar_url) setAvatarPreview(profile.avatar_url);
+      // Revert to original profile URL on error
+      setAvatarPreview(null); 
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -110,19 +104,12 @@ export default function ProfilePage() {
 
   const tabContentVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.4, ease: "easeInOut" },
-    },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeInOut" } },
   };
 
   const fieldVariants = {
     hidden: { opacity: 0 },
-    visible: (custom: number) => ({
-      opacity: 1,
-      transition: { delay: custom * 0.1, duration: 0.3 },
-    }),
+    visible: (custom: number) => ({ opacity: 1, transition: { delay: custom * 0.1, duration: 0.3 } }),
   };
 
   if (isLoading) {
@@ -154,13 +141,7 @@ export default function ProfilePage() {
           className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-3 gap-4 md:gap-8"
         >
           {/* Left Column: Profile Card */}
-          <motion.div
-            variants={{
-              hidden: { opacity: 0, y: 50 },
-              show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-            }}
-            className="md:col-span-2 sm:col-span-1 lg:col-span-1 space-y-4 md:space-y-6"
-          >
+          <motion.div className="md:col-span-2 sm:col-span-1 lg:col-span-1 space-y-4 md:space-y-6">
             <Card className="relative overflow-hidden border-border/50 shadow-sm bg-card/50 backdrop-blur-sm">
               <CardContent className="flex flex-col items-center md:items-start pt-12">
                 
@@ -185,23 +166,23 @@ export default function ProfilePage() {
                     onClick={handleAvatarClick}
                     className={`relative w-full h-full rounded-full ring-4 ring-background border-2 border-white/10 z-10 cursor-pointer overflow-hidden transition-all duration-300 ${isUploading ? 'opacity-80' : 'group-hover:opacity-90'}`}
                   >
+                    {/* OPTIMIZATION: Used the derived variable directly */}
                     <Image
-                      src={avatarPreview || UserPlaceholder}
+                      src={displayAvatar}
                       alt="Profile"
                       fill
                       className="object-cover"
                       priority
-                      unoptimized={!!avatarPreview?.startsWith('blob:')} 
+                      // Only unoptimize if it is a local blob (preview)
+                      unoptimized={typeof displayAvatar === 'string' && displayAvatar.startsWith('blob:')} 
                     />
                     
-                    {/* Hover Overlay */}
                     {!isUploading && (
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <Camera className="w-8 h-8 text-white/80" />
                       </div>
                     )}
 
-                    {/* Loading Spinner */}
                     {isUploading && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                         <Loader2 className="w-8 h-8 text-white animate-spin" />
@@ -210,7 +191,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* User Details */}
+                {/* ... [Rest of component remains exactly the same] ... */}
                 <div className="text-center md:text-left w-full flex flex-col gap-0.5 relative z-10">
                   <h3 className="text-lg md:text-xl font-semibold mt-2">
                     {profile?.first_name} {profile?.last_name}

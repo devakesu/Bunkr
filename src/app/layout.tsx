@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import ReactQueryProvider from "@/providers/react-query";
 import { Manrope, DM_Mono } from "next/font/google";
 import localFont from "next/font/local";
+import Script from "next/script"; // Import the Script component
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -43,7 +42,6 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        {/* CHANGED: Updated application name to GhostClass */}
         <meta name="application-name" content="GhostClass" />
         <meta name="google" content="notranslate" />
         <meta name="format-detection" content="telephone=no" />
@@ -54,12 +52,24 @@ export default function RootLayout({
         <meta name="theme-color" content="#141414" />
       </head>
       <body
-        // CHANGED: Removed 'overflow-x-hidden' to prevent sticky positioning issues and unmask layout bugs
         className={`antialiased ${klick.variable} ${manrope.variable} ${dmMono.variable}`}
       >
+        {/* --- GOOGLE ANALYTICS START --- */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=G-93YKK3GS09`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-93YKK3GS09');
+          `}
+        </Script>
+        {/* --- GOOGLE ANALYTICS END --- */}
+
         <ReactQueryProvider>{children}</ReactQueryProvider>
-        <Analytics />
-        <SpeedInsights />
       </body>
     </html>
   );
