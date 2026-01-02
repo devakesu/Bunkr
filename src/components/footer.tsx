@@ -5,6 +5,7 @@ import { Star } from "lucide-react"; // Install lucide-react if missing
 import { useEffect, useState } from "react";
 export const Footer = () => {
   const commitSha = process.env.NEXT_PUBLIC_GIT_COMMIT_SHA;
+  const imageDigest = process.env.NEXT_PUBLIC_IMAGE_DIGEST;
   const shortSha = commitSha ? commitSha.substring(0, 7) : "dev";
 
   return (
@@ -50,15 +51,22 @@ export const Footer = () => {
           {/* Separator (Hidden on mobile) */}
           <div className="hidden md:block h-4 w-[1px] bg-border/50" />
 
-          {/* Live Build Indicator */}
-          <div className="flex items-center gap-2.5 px-3 py-1 rounded-full bg-accent/30 border border-border/40">
+          {/* Live Build / Integrity Indicator */}
+          <div
+            className="flex items-center gap-2.5 px-3 py-1 rounded-full bg-accent/30 border border-border/40"
+            title="This build is traceable to a public GitHub Actions workflow and signed container image. Click verify for details."
+          >
+            {/* Pulse */}
             <div className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </div>
-            
-            <p className="flex gap-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
+
+            {/* Build Info */}
+            <p className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
               <span>Build:</span>
+
+              {/* Commit SHA */}
               <a
                 href={`https://github.com/devakesu/GhostClass/commit/${commitSha}`}
                 target="_blank"
@@ -66,6 +74,29 @@ export const Footer = () => {
                 className="text-foreground hover:underline hover:text-primary transition-colors"
               >
                 {shortSha}
+              </a>
+
+              {/* Separator */}
+              {imageDigest && <span className="opacity-60">·</span>}
+
+              {/* Image Digest (short) */}
+              {imageDigest && (
+                <span
+                  className="text-muted-foreground"
+                  title={`Image digest: ${imageDigest}`}
+                >
+                  {imageDigest.replace("sha256:", "").slice(0, 8)}
+                </span>
+              )}
+
+              {/* Verify link */}
+              <span className="opacity-60">·</span>
+              <a
+                target="_blank"
+                href="/api/provenance"
+                className="lowercase text-muted-foreground hover:text-primary transition-colors"
+              >
+                verify
               </a>
             </p>
           </div>

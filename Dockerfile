@@ -37,6 +37,7 @@ ARG SOURCE_COMMIT
 
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 ENV SOURCE_COMMIT=${SOURCE_COMMIT}
+ENV NEXT_PUBLIC_GIT_COMMIT_SHA=${SOURCE_COMMIT}
 ENV TZ=UTC
 ENV NODE_ENV=production
 
@@ -64,6 +65,17 @@ ENV NEXT_PUBLIC_GITHUB_URL=${NEXT_PUBLIC_GITHUB_URL}
 # Derived env
 ENV NEXT_PUBLIC_SUPABASE_API_URL=${NEXT_PUBLIC_SUPABASE_URL}/functions/v1
 
+# ===============================
+# 🔐 Validate required build args
+# ===============================
+RUN set -e; \
+  : "${SOURCE_COMMIT:?SOURCE_COMMIT is required}"; \
+  : "${NEXT_PUBLIC_BACKEND_URL:?NEXT_PUBLIC_BACKEND_URL is required}"; \
+  : "${NEXT_PUBLIC_SUPABASE_URL:?NEXT_PUBLIC_SUPABASE_URL is required}"; \
+  : "${NEXT_PUBLIC_SUPABASE_ANON_KEY:?NEXT_PUBLIC_SUPABASE_ANON_KEY is required}"; \
+  : "${NEXT_PUBLIC_GITHUB_URL:?NEXT_PUBLIC_GITHUB_URL is required}"
+
+  
 # 1️⃣ Build
 RUN npm run build
 

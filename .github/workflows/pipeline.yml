@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline # GhostClass
 
 on:
   pull_request:
@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
   packages: write
-  id-token: write   # REQUIRED for keyless cosign
+  id-token: write
 
 jobs:
   # This job acts as your "Guard". It runs on EVERY PR and Push.
@@ -22,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-  # This job only runs if 'guard' passes AND we are pushing to main (merging)
+  # This job only runs if guard passes AND we are pushing to main (merging)
   build-push-sign:
     name: Build, Push & Sign
     needs: guard
@@ -48,6 +48,9 @@ jobs:
           --push \
           --build-arg SOURCE_COMMIT=${{ github.sha }} \
           --build-arg SOURCE_DATE_EPOCH=1704067200 \
+          --label org.opencontainers.image.revision=${{ github.sha }} \
+          --label org.opencontainers.image.source=https://github.com/devakesu/GhostClass \
+          --label org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
           --build-arg NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }} \
           --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
           --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
@@ -56,24 +59,84 @@ jobs:
           -t ghcr.io/devakesu/ghostclass:${{ github.sha }} \
           .
 
+      # Retrieve image digest
       - name: Get image digest
         run: |
           DIGEST=$(docker buildx imagetools inspect ghcr.io/devakesu/ghostclass:${{ github.sha }} --raw \
             | jq -r '.manifests[0].digest')
 
           echo "IMAGE_DIGEST=$DIGEST" >> $GITHUB_ENV
-
-
-
+      
+      # Install cosign
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
+      # GENERATE SBOM (same image, same digest)
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
+          format: cyclonedx-json
+          output-file: sbom.json
+      
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+
+      # ATTEST SBOM
+      - name: Attest SBOM
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign attest \
+            --yes \
+            --predicate sbom.json \
+            --type cyclonedx \
+            ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
+        
+      # GENERATE PROVENANCE (SLSA)
+      - name: Generate provenance
+        run: |
+          cat <<EOF > provenance.json
+          {
+            "builder": {
+              "id": "https://github.com/${{ github.repository }}/.github/workflows/${{ github.workflow }}"
+            },
+            "buildType": "https://github.com/slsa-framework/slsa-github-generator/container@v1",
+            "invocation": {
+              "configSource": {
+                "uri": "https://github.com/${{ github.repository }}",
+                "digest": {
+                  "gitCommit": "${{ github.sha }}"
+                }
+              }
+            },
+            "metadata": {
+              "buildInvocationID": "${{ github.run_id }}",
+              "startedOn": "${{ github.run_started_at }}"
+            }
+          }
+          EOF
+
+      # ATTEST PROVENANCE (SLSA)
+      - name: Attest provenance (SLSA)
+        run: |
+          cosign attest \
+            --yes \
+            --predicate provenance.json \
+            --type slsaprovenance \
+            ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
+
+      # SIGN IMAGE (keyless)
       - name: Sign image (keyless)
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
           cosign sign --yes ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
 
+      # Trigger deployment in Coolify
       - name: Trigger Coolify deploy
         env:
           COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
