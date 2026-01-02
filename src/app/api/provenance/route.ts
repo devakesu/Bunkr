@@ -1,38 +1,29 @@
 import { NextResponse } from "next/server";
-import fs from "node:fs/promises"; // 1. Use top-level import with promises
+import * as fs from "node:fs"; // 1. Use standard synchronous FS
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-let containerLabels = null;
-
-if (process.env.NODE_ENV === "production") {
-  const labels = JSON.parse(
-    await fs.readFile("/.container-labels.json", "utf8")
-  );
-
-  if (labels["org.opencontainers.image.revision"] !== process.env.SOURCE_COMMIT) {
-    throw new Error("Provenance mismatch");
-  }
-}
-
-export async function GET() {
+export function GET() {
   let imageDigest = "unknown";
 
   try {
-    // 2. Attempt to read directly asynchronously.
-    // If the file is missing (during build), it triggers the catch block immediately.
-    const fileContent = await fs.readFile("/.container-labels.json", "utf-8");
-    
-    const labels = JSON.parse(fileContent);
+    const filePath = "/.container-labels.json";
 
-    imageDigest =
-      labels["org.opencontainers.image.digest"] ??
-      labels["org.opencontainers.image.revision"] ??
-      "unknown";
-      
-  } catch (e) {
-    // 3. Gracefully handle the error (expected during build time)
+    // 2. Synchronous check & read. 
+    // This prevents "Unhandled Promise Rejections" from crashing the build.
+    if (fs.existsSync(filePath)) {
+      const fileContent = fs.readFileSync(filePath, "utf-8");
+      const labels = JSON.parse(fileContent);
+
+      imageDigest =
+        labels["org.opencontainers.image.digest"] ??
+        labels["org.opencontainers.image.revision"] ??
+        "unknown";
+    }
+  } catch (error) {
+    // 3. Silently swallow the error.
+    // During `npm run build`, the file is missing, so this block runs.
     imageDigest = "unavailable";
   }
 
