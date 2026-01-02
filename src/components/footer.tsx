@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react"; // Install lucide-react if missing
 import { useEffect, useState } from "react";
 export const Footer = () => {
-  const commitSha = process.env.NEXT_PUBLIC_GIT_COMMIT_SHA;
-  const imageDigest = process.env.NEXT_PUBLIC_IMAGE_DIGEST;
+  const commitSha = process.env.SOURCE_COMMIT ?? "unknown";
   const shortSha = commitSha ? commitSha.substring(0, 7) : "dev";
 
   return (
@@ -75,19 +74,6 @@ export const Footer = () => {
               >
                 {shortSha}
               </a>
-
-              {/* Separator */}
-              {imageDigest && <span className="opacity-60">·</span>}
-
-              {/* Image Digest (short) */}
-              {imageDigest && (
-                <span
-                  className="text-muted-foreground"
-                  title={`Image digest: ${imageDigest}`}
-                >
-                  {imageDigest.replace("sha256:", "").slice(0, 8)}
-                </span>
-              )}
 
               {/* Verify link */}
               <span className="opacity-60">·</span>
