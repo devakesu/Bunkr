@@ -44,21 +44,24 @@ jobs:
 
       - name: Build & push image
         id: build-push
-        run: |
-          docker buildx build \
-          --push \
-          --build-arg SOURCE_COMMIT=${{ github.sha }} \
-          --build-arg SOURCE_DATE_EPOCH=1704067200 \
-          --label org.opencontainers.image.revision=${{ github.sha }} \
-          --label org.opencontainers.image.source=https://github.com/devakesu/GhostClass \
-          --label org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-          --build-arg NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }} \
-          --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
-          --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
-          --build-arg NEXT_PUBLIC_GITHUB_URL=${{ secrets.NEXT_PUBLIC_GITHUB_URL }} \
-          -t ghcr.io/devakesu/ghostclass:main \
-          -t ghcr.io/devakesu/ghostclass:${{ github.sha }} \
-          .
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/devakesu/ghostclass:main
+            ghcr.io/devakesu/ghostclass:${{ github.sha }}
+          build-args: |
+            SOURCE_COMMIT=${{ github.sha }}
+            SOURCE_DATE_EPOCH=1704067200
+            NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_GITHUB_URL=${{ secrets.NEXT_PUBLIC_GITHUB_URL }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/devakesu/GhostClass
+            org.opencontainers.image.created=${{ steps.prep.outputs.created }}
 
       # Retrieve image digest
       - name: Get image digest
