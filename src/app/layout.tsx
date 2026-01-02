@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import ReactQueryProvider from "@/providers/react-query";
 import { Manrope, DM_Mono } from "next/font/google";
 import localFont from "next/font/local";
-import Script from "next/script"; // Import the Script component
+import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {

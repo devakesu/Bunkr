@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react"; // Removed useEffect
+import { useState, useRef } from "react";
 import { useProfile } from "@/hooks/users/profile";
 import { useUser } from "@/hooks/users/user";
 import { ProfileForm } from "@/components/profile-form";
@@ -28,15 +28,10 @@ export default function ProfilePage() {
   const { data: user, isLoading: userLoading } = useUser();
 
   const [isUploading, setIsUploading] = useState(false);
-  
-  // OPTIMIZATION: Initialize as null. We only set this when a USER selects a file.
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isLoading = profileLoading || userLoading;
-
-  // --- REMOVED useEffect to fix the delay ---
-  // The logic is moved directly into the render variable below.
 
   // 1. DERIVED STATE: Immediate Source Calculation
   // Priority: 1. User Upload Preview -> 2. Fetched DB URL -> 3. Fallback Placeholder
@@ -191,7 +186,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* ... [Rest of component remains exactly the same] ... */}
                 <div className="text-center md:text-left w-full flex flex-col gap-0.5 relative z-10">
                   <h3 className="text-lg md:text-xl font-semibold mt-2">
                     {profile?.first_name} {profile?.last_name}
