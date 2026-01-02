@@ -8,7 +8,7 @@ let containerLabels = null;
 
 if (process.env.NODE_ENV === "production") {
   const labels = JSON.parse(
-    fs.readFileSync("/.container-labels.json", "utf8")
+    await fs.readFile("/.container-labels.json", "utf8")
   );
 
   if (labels["org.opencontainers.image.revision"] !== process.env.SOURCE_COMMIT) {
