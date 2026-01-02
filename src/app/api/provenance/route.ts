@@ -4,6 +4,18 @@ import fs from "node:fs/promises"; // 1. Use top-level import with promises
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+let containerLabels = null;
+
+if (process.env.NODE_ENV === "production") {
+  const labels = JSON.parse(
+    fs.readFileSync("/.container-labels.json", "utf8")
+  );
+
+  if (labels["org.opencontainers.image.revision"] !== process.env.SOURCE_COMMIT) {
+    throw new Error("Provenance mismatch");
+  }
+}
+
 export async function GET() {
   let imageDigest = "unknown";
 
