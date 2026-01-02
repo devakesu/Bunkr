@@ -52,7 +52,7 @@ jobs:
             ghcr.io/devakesu/ghostclass:main
             ghcr.io/devakesu/ghostclass:${{ github.sha }}
           build-args: |
-            SOURCE_COMMIT=${{ github.sha }}
+            APP_COMMIT_SHA=${{ github.sha }}
             SOURCE_DATE_EPOCH=1704067200
             NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

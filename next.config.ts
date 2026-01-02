@@ -5,11 +5,11 @@ const nextConfig: NextConfig = {
 
   // 🔒 CRITICAL for reproducible builds (Level-5)
   generateBuildId: async () => {
-    return process.env.SOURCE_COMMIT ?? "dev";
+    return process.env.APP_COMMIT_SHA ?? "dev";
   },
 
   env: {
-    NEXT_PUBLIC_GIT_COMMIT_SHA: process.env.SOURCE_COMMIT || "dev",
+    NEXT_PUBLIC_GIT_COMMIT_SHA: process.env.APP_COMMIT_SHA || "dev",
     },
     images: {
       remotePatterns: [

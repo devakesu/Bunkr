@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react"; // Install lucide-react if missing
 import { useEffect, useState } from "react";
 export const Footer = () => {
-  const commitSha = process.env.SOURCE_COMMIT ?? "unknown";
+  const commitSha = process.env.NEXT_PUBLIC_GIT_COMMIT_SHA ?? "unknown";
   const shortSha = commitSha ? commitSha.substring(0, 7) : "dev";
 
   return (
