@@ -8,7 +8,7 @@ export async function GET() {
 
   try {
     const fs = await import("fs");
-    
+
     if (fs.existsSync("/.container-labels.json")) {
       const labels = JSON.parse(
         fs.readFileSync("/.container-labels.json", "utf-8")
@@ -27,8 +27,8 @@ export async function GET() {
     {
       commit: process.env.SOURCE_COMMIT ?? "dev",
       build_id: process.env.SOURCE_COMMIT ?? null,
-      image_digest: process.env.IMAGE_DIGEST ?? null,
-      container: Boolean(process.env.IMAGE_DIGEST ?? null),
+      image_digest: imageDigest ?? null,
+      container: Boolean(imageDigest),
       node_env: process.env.NODE_ENV,
       timestamp: new Date().toISOString(),
     },
