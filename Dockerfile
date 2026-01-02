@@ -2,7 +2,7 @@
 # 0. Global deterministic settings
 # ===============================
 ARG NODE_IMAGE=node@sha256:bf77dc26e48ea95fca9d1aceb5acfa69d2e546b765ec2abfb502975f1a2d4def
-ARG SOURCE_DATE_EPOCH=1704067200
+ARG SOURCE_DATE_EPOCH=1767225600
 
 # ===============================
 # 1. Dependencies layer
@@ -75,7 +75,7 @@ RUN set -e; \
   : "${NEXT_PUBLIC_SUPABASE_ANON_KEY:?NEXT_PUBLIC_SUPABASE_ANON_KEY is required}"; \
   : "${NEXT_PUBLIC_GITHUB_URL:?NEXT_PUBLIC_GITHUB_URL is required}"
 
-  
+
 # 1️⃣ Build
 RUN npm run build
 
@@ -91,7 +91,9 @@ RUN sed -i 's|/app/|/|g' .next/standalone/server.js
 FROM ${NODE_IMAGE} AS runner
 
 ARG SOURCE_DATE_EPOCH
+ARG SOURCE_COMMIT 
 
+ENV SOURCE_COMMIT=${SOURCE_COMMIT}
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 ENV TZ=UTC
 ENV NODE_ENV=production
