@@ -83,6 +83,13 @@ Deno.serve(async (req) => {
         status: 400, headers: corsHeaders
       });
     }
+    
+    // Validate remarks length
+    if (remarks && remarks.length > 500) {
+      return new Response(JSON.stringify({ error: "Remarks too long" }), {
+        status: 400, headers: corsHeaders
+      });
+    }
 
     // 6. Create Supabase Admin Client
     const supabase = createClient(
