@@ -49,6 +49,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --link . .
 
+RUN echo "BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL"
+
 # 1️⃣ Build
 RUN npm run build
 
