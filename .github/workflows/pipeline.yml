@@ -43,6 +43,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & push image
+        id: build-push
         run: |
           docker buildx build \
           --push \
@@ -62,10 +63,7 @@ jobs:
       # Retrieve image digest
       - name: Get image digest
         run: |
-          DIGEST=$(docker buildx imagetools inspect ghcr.io/devakesu/ghostclass:${{ github.sha }} --raw \
-            | jq -r '.manifests[0].digest')
-
-          echo "IMAGE_DIGEST=$DIGEST" >> $GITHUB_ENV
+          echo "IMAGE_DIGEST=${{ steps.build-push.outputs.digest }}" >> $GITHUB_ENV
       
       # Install cosign
       - name: Install cosign
