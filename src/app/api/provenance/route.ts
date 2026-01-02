@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import fs from "node:fs/promises"; // 1. Use top-level import with promises
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,19 +8,19 @@ export async function GET() {
   let imageDigest = "unknown";
 
   try {
-    const fs = await import("fs");
+    // 2. Attempt to read directly asynchronously.
+    // If the file is missing (during build), it triggers the catch block immediately.
+    const fileContent = await fs.readFile("/.container-labels.json", "utf-8");
+    
+    const labels = JSON.parse(fileContent);
 
-    if (fs.existsSync("/.container-labels.json")) {
-      const labels = JSON.parse(
-        fs.readFileSync("/.container-labels.json", "utf-8")
-      );
-
-      imageDigest =
-        labels["org.opencontainers.image.digest"] ??
-        labels["org.opencontainers.image.revision"] ??
-        "unknown";
-    }
-  } catch {
+    imageDigest =
+      labels["org.opencontainers.image.digest"] ??
+      labels["org.opencontainers.image.revision"] ??
+      "unknown";
+      
+  } catch (e) {
+    // 3. Gracefully handle the error (expected during build time)
     imageDigest = "unavailable";
   }
 
@@ -28,7 +29,7 @@ export async function GET() {
       commit: process.env.SOURCE_COMMIT ?? "dev",
       build_id: process.env.SOURCE_COMMIT ?? null,
       image_digest: imageDigest ?? null,
-      container: Boolean(imageDigest),
+      container: Boolean(imageDigest !== "unavailable" && imageDigest !== "unknown"),
       node_env: process.env.NODE_ENV,
       timestamp: new Date().toISOString(),
     },
