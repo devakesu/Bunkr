@@ -1,9 +1,13 @@
+// Manage user institutions and default institution settings
+// src/hooks/users/institutions.ts
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/lib/axios";
 import { Institution } from "@/types";
-import { removeToken } from "@/utils/auth";
+import { getToken, removeToken } from "@/lib/auth";
 
 export function useInstitutions() {
+  const token = getToken();
   return useQuery<Institution[]>({
     queryKey: ["institutions"],
     queryFn: async () => {
@@ -22,6 +26,9 @@ export function useInstitutions() {
 
       return studentInstitutions;
     },
+    enabled: !!token, 
+    staleTime: 1000 * 60 * 5,
+    retry: false,
   });
 }
 

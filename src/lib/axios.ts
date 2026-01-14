@@ -1,5 +1,8 @@
+// Axios instance with base URL and auth token
+// src/lib/axios.ts
+
 import axios from "axios";
-import { getToken } from "@/utils/auth";
+import { getToken } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 

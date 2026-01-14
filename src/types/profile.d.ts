@@ -1,4 +1,5 @@
 export interface UserProfile {
+  terms_version: string;
   id: number;
   first_name?: string;
   last_name?: string | null;

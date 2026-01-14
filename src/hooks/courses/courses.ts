@@ -1,8 +1,11 @@
+// Fetch courses hook
+// src/hooks/courses/courses.ts
+
 import axios from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 import { Course } from "@/types";
 
-export const useFetchCourses = () => {
+export const useFetchCourses = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ["courses"],
     queryFn: async () => {
@@ -23,5 +26,6 @@ export const useFetchCourses = () => {
 
       return formattedData;
     },
+    enabled: options?.enabled,
   });
 };

@@ -4,13 +4,32 @@ import { Manrope, DM_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
+import { GlobalInit } from "@/lib/global-init";
 
 export const metadata: Metadata = {
-  title: "GhostClass",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || ''),
+  title: {
+    default: "GhostClass | Smart Attendance Tracker",
+    template: "%s | GhostClass",
+  },
   description: "GhostClass — Survive Attendance!",
   keywords:
     "GhostClass, bunk college, bunk, college attendance, skip lectures, 75% attendance, bunkr, bunk letures, Bunkr attendance calculator, skip class calculator for college, Bunkr Ezygo alternative, optimize college attendance percentage, Bunkr smart skip strategy, minimum attendance calculator for students, Bunkr class absence planner, how many classes can I skip Bunkr, attendance percentage tracker app, Bunkr vs Ezygo comparison, automate student attendance tracking, Bunkr attendance predictor, avoid attendance shortage Bunkr, college attendance skip allowance, Bunkr attendance optimizer, student absence management app, calculate class skip limit Bunkr, Bunkr attendance analytics dashboard, best app to skip college classes, Bunkr digital roll call system, attendance risk calculator for students",
   creator: "@deva.kesu",
+  openGraph: {
+    title: "GhostClass | Smart Attendance Tracker",
+    description: "GhostClass — Survive Attendance!",
+    url: process.env.NEXT_PUBLIC_APP_URL,
+    siteName: "GhostClass",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GhostClass",
+    description: "Bunk college smartly with GhostClass.",
+    images: ["/og-image.png"],
+  },
 };
 
 const klick = localFont({
@@ -33,13 +52,14 @@ const dmMono = DM_Mono({
   style: ["normal", "italic"],
 });
 
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <meta name="application-name" content="GhostClass" />
@@ -47,16 +67,14 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <meta name="msapplication-TileColor" content="#ffffff" />
         <meta name="msapplication-tap-highlight" content="no" />
-        <meta name="robots" content="index,follow" />
-        <meta name="googlebot" content="index,follow" />
         <meta name="theme-color" content="#141414" />
       </head>
       <body
         className={`antialiased ${klick.variable} ${manrope.variable} ${dmMono.variable}`}
       >
-        {/* --- GOOGLE ANALYTICS START --- */}
+        {/* --- GOOGLE ANALYTICS --- */}
         <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=G-93YKK3GS09`}
+          src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
           strategy="afterInteractive"
         />
         <Script id="google-analytics" strategy="afterInteractive">
@@ -64,12 +82,14 @@ export default function RootLayout({
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', 'G-93YKK3GS09');
+            gtag('config', '${process.env.NEXT_PUBLIC_GA_ID}');
           `}
         </Script>
-        {/* --- GOOGLE ANALYTICS END --- */}
 
-        <ReactQueryProvider>{children}</ReactQueryProvider>
+        <ReactQueryProvider>
+          <GlobalInit />
+          {children}
+        </ReactQueryProvider>
       </body>
     </html>
   );

@@ -4,7 +4,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export function GET() {
-  // Use APP_COMMIT_SHA to avoid conflict with Coolify's injected SOURCE_COMMIT
   const commitSha = process.env.APP_COMMIT_SHA ?? "dev";
 
   return NextResponse.json(

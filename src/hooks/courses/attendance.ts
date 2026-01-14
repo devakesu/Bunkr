@@ -1,8 +1,11 @@
+// Fetch attendance report and course details hooks
+// src/hooks/courses/attendance.ts
+
 import axios from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 import { AttendanceReport, CourseDetail } from "@/types";
 
-export const useAttendanceReport = () => {
+export const useAttendanceReport = (options?: { enabled?: boolean }) => {
   return useQuery<AttendanceReport>({
     queryKey: ["attendance-report"],
     queryFn: async () => {
@@ -10,6 +13,7 @@ export const useAttendanceReport = () => {
       if (!res) throw new Error("Failed to fetch attendance report data");
       return res.data;
     },
+    enabled: options?.enabled,
   });
 };
 
