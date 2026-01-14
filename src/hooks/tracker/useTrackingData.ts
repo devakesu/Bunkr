@@ -1,32 +1,28 @@
-import axios from "axios";
+import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { TrackAttendance, User } from "@/types";
 
-// CHANGED: Allow accessToken to be undefined or null
-export function useTrackingData(user: User | null | undefined, accessToken: string | undefined | null) {
-  return useQuery<TrackAttendance[]>({
-    queryKey: ["track_data"],
-    queryFn: async () => {
-      // Guard clause
-      if (!accessToken) return [];
+export function useTrackingData(user: User | null | undefined, options?: { enabled?: boolean }) {
+  const supabase = createClient();
 
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_SUPABASE_API_URL}/fetch-tracking-data`,
-        {
-          username: user?.username,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      if (!res.data || !res.data.data) {
+  return useQuery<TrackAttendance[]>({
+    queryKey: ["track_data", user?.username],
+    queryFn: async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return [];
+
+      const { data, error } = await supabase
+        .from("tracker")
+        .select("*")
+        .order("id", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching tracking data:", error);
         return [];
       }
-      return res.data.data;
+
+      return (data as TrackAttendance[]) || [];
     },
-    // CHANGED: Only run query if user AND token exist
-    enabled: !!user && !!accessToken,
+    enabled: !!user && (options?.enabled !== false)
   });
 }

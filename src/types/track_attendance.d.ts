@@ -1,5 +1,7 @@
+import { UUID } from "crypto";
+
 export interface TrackAttendance {
-  username: string;
+  auth_user_id: UUID
   course: string;
   date: string;
   session : string;

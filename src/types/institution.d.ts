@@ -7,10 +7,10 @@ export interface Institution {
   enroll_status: string;
   institution: {
     id: number;
-    name: string; // Institution name
+    name: string;
   };
   institution_role: {
     id: number;
-    name: string; // Role name
+    name: string;
   };
 }

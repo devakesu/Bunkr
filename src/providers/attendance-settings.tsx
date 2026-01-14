@@ -3,14 +3,14 @@
 import {
   createContext,
   useContext,
-  useState,
-  useEffect,
   ReactNode,
 } from "react";
+import { useUserSettings } from "@/providers/user-settings";
 
 interface AttendanceSettingsContextType {
   targetPercentage: number;
   setTargetPercentage: (percentage: number) => void;
+  isLoading: boolean;
 }
 
 const AttendanceSettingsContext = createContext<
@@ -24,25 +24,15 @@ interface AttendanceSettingsProviderProps {
 export function AttendanceSettingsProvider({
   children,
 }: AttendanceSettingsProviderProps) {
-  const [targetPercentage, setTargetPercentage] = useState<number>(75);
-
-  useEffect(() => {
-    const savedTarget = localStorage.getItem("target_attendance_percentage");
-    if (savedTarget) {
-      setTargetPercentage(Number(savedTarget));
-    }
-  }, []);
-
-  const handleSetTargetPercentage = (percentage: number) => {
-    setTargetPercentage(percentage);
-    localStorage.setItem("target_attendance_percentage", percentage.toString());
-  };
+  const { settings, updateTarget, isLoading } = useUserSettings();
+  const targetPercentage = settings?.target_percentage ?? 75;
 
   return (
     <AttendanceSettingsContext.Provider
       value={{
         targetPercentage,
-        setTargetPercentage: handleSetTargetPercentage,
+        setTargetPercentage: updateTarget,
+        isLoading
       }}
     >
       {children}

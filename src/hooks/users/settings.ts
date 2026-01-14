@@ -1,3 +1,6 @@
+// Manage user settings such as default semester and academic year
+// src/hooks/users/settings.ts
+
 import axios from "@/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 

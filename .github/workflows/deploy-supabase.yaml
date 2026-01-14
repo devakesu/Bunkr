@@ -28,6 +28,3 @@ jobs:
 
       - name: Deploy Database Changes (Migrations)
         run: supabase db push
-
-      - name: Deploy Edge Functions
-        run: supabase functions deploy --no-verify-jwt

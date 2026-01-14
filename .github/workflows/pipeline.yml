@@ -51,13 +51,38 @@ jobs:
           tags: |
             ghcr.io/devakesu/ghostclass:main
             ghcr.io/devakesu/ghostclass:${{ github.sha }}
+          
+          secrets: |
+            sentry_token=${{ secrets.SENTRY_AUTH_TOKEN }}
+            
           build-args: |
             APP_COMMIT_SHA=${{ github.sha }}
             SOURCE_DATE_EPOCH=1704067200
+            
+            # --- Secrets (must be set in GitHub Repo Secrets) ---
             NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             NEXT_PUBLIC_GITHUB_URL=${{ secrets.NEXT_PUBLIC_GITHUB_URL }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+            NEXT_PUBLIC_GA_ID=${{ secrets.NEXT_PUBLIC_GA_ID }}
+            
+            # --- Sentry Config ---
+            SENTRY_ORG=devakesu
+            SENTRY_PROJECT=ghostclass
+
+            # --- Public App Info (Hardcoded for stability) ---
+            NEXT_PUBLIC_APP_NAME=GhostClass
+            NEXT_PUBLIC_APP_DOMAIN=ghostclass.devakesu.com
+            NEXT_PUBLIC_APP_URL=https://ghostclass.devakesu.com
+            NEXT_PUBLIC_SITEMAP_URL=https://ghostclass.devakesu.com/sitemap.xml
+            NEXT_PUBLIC_AUTHOR_NAME=@deva.kesu
+            NEXT_PUBLIC_AUTHOR_URL=https://devakesu.com
+            NEXT_PUBLIC_APP_EMAIL=@ghostclass.devakesu.com
+            NEXT_PUBLIC_LEGAL_EMAIL=legal@ghostclass.devakesu.com
+            NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE="January 1, 2026"
+
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=https://github.com/devakesu/GhostClass
@@ -72,7 +97,7 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
-      # GENERATE SBOM (same image, same digest)
+      # GENERATE SBOM
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
@@ -95,6 +120,7 @@ jobs:
             --yes \
             --predicate sbom.json \
             --type cyclonedx \
+            --gh-oidc-issuer "https://token.actions.githubusercontent.com" \
             ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
         
       # GENERATE PROVENANCE (SLSA)
@@ -128,6 +154,7 @@ jobs:
             --yes \
             --predicate provenance.json \
             --type slsaprovenance \
+            --gh-oidc-issuer "https://token.actions.githubusercontent.com" \
             ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
 
       # SIGN IMAGE (keyless)
@@ -135,7 +162,9 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          cosign sign --yes ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
+          cosign sign --yes \
+            --gh-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
 
       # Trigger deployment in Coolify
       - name: Trigger Coolify deploy
