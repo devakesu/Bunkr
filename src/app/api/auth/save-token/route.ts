@@ -10,13 +10,21 @@ import { createServerClient } from "@supabase/ssr";
 
 export const dynamic = 'force-dynamic';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!url || !key) {
+    throw new Error("Missing Supabase Admin credentials");
+  }
+  
+  return createClient(url, key);
+}
 
 export async function POST(req: Request) {
 
+  const supabaseAdmin = getAdminClient();
+  
   // 1. Rate Limit Check
   const headerList = await headers();
   const ip = headerList.get("x-forwarded-for") ?? "127.0.0.1";
