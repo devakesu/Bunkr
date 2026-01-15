@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { removeToken, getToken } from "@/lib/auth";
+import { handleLogout } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/users/user";
 import { useProfile } from "@/hooks/users/profile";
@@ -49,6 +49,7 @@ import { AddRecordTrigger } from "@/components/attendance/AddRecordTrigger";
 import UserPlaceholder from "@/assets/user.png";
 import { Bell } from "lucide-react";
 import { useNotifications } from "@/hooks/notifications/useNotifications";
+import { createClient } from "@/lib/supabase/client";
 
 export const Navbar = () => {
   const router = useRouter();
@@ -84,11 +85,6 @@ export const Navbar = () => {
     } else {
       toast.warning("Bunk Calculator Disabled");
     }
-  };
-
-  const handleLogout = () => {
-    removeToken();
-    router.push("/");
   };
 
   const navigateTo = (path: string) => {

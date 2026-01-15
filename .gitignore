@@ -46,3 +46,5 @@ next-env.d.ts
 .env.sentry-build-plugin
 
 certificates
+
+/.vscode/

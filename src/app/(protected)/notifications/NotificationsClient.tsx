@@ -140,9 +140,6 @@ export default function NotificationsPage() {
       <header className="sticky top-0 z-20 w-full backdrop-blur-xl bg-background/80 border-b border-border/40">
         <div className="container mx-auto max-w-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full hover:bg-muted/50">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
             <h1 className="text-xl font-semibold tracking-tight">
               Notifications
               {unreadCount > 0 && (
