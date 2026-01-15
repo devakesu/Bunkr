@@ -154,7 +154,6 @@ jobs:
             --yes \
             --predicate provenance.json \
             --type slsaprovenance \
-            --gh-oidc-issuer "https://token.actions.githubusercontent.com" \
             ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
 
       # SIGN IMAGE (keyless)
