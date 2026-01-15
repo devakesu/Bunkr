@@ -21,9 +21,11 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 
 - **Frontend** - Next.js with React
 - **Styling** - Tailwind CSS for a modern, responsive design
-- **UI Components** - Radix UI for accessible, consistent components
+- **UI Components** - Radix UI & Shadcn for accessible, consistent components
 - **Data Visualization** - Recharts for beautiful attendance graphs
 - **Animations** - Framer Motion for smooth transitions
+- **Database & Auth** - Supabase (PostgreSQL)
+- **Monitoring** - Sentry & Google Analytics
 
 <br />
 
@@ -31,35 +33,27 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 
 ```
 src/
-├── app/              # Next.js app router pages and layouts
-│   ├── (auth)/      # Authentication-related routes
-│   ├── (root)/      # Main application routes
-│   ├── globals.css  # Global styles
-│   └── layout.tsx   # Root layout
-├── components/       # Reusable React components
-├── providers/        # React context providers
-├── utils/           # Utility functions
-├── assets/          # Static assets
-├── types/           # TypeScript type definitions
-├── lib/             # Core library code
-└── hooks/           # Custom React hooks
-└── supabase/        # DB Backend
+├── app/                # Next.js app router pages and layouts
+│   ├── (auth)/         # Authentication-related routes
+│   ├── (protected)/    # Login restricted routes
+|   ├── (public)/       # Public routes
+|   ├── actions/        # User actions
+|   ├── api/            # APIs
+|   ├── config/         # App configs
+│   ├── globals.css     # Global styles
+│   └── layout.tsx      # Root layout
+├── components/         # Reusable React components
+├── providers/          # React context providers
+├── utils/              # Utility functions
+├── assets/             # Static assets
+├── types/              # TypeScript type definitions
+├── lib/                # Core library code
+|   ├── logic/          # Attendance & Bunk Logic
+|   ├── supabase/       # Supabase Backend Control
+└── hooks/              # Custom React hooks
+└── supabase/           # DB Backend Schema
 ```
 
-<br />
-
-## 🔌 API Integration
-
-Create a `.env` file in the root directory and add:
-```
-NEXT_PUBLIC_BACKEND_URL=
-NEXT_PUBLIC_SUPABASE_API_URL=
-NEXT_PUBLIC_GITHUB_URL=
-```
-Create a `.env.local` in supabase folder and add:
-```
-ALLOWED_ORIGIN=https://
-```
 <br />
 
 ## 🧮 Bunk Algorithm
@@ -122,20 +116,14 @@ ALLOWED_ORIGIN=https://
     npx supabase db push
     ```
     *(This creates all tables, policies, and triggers defined in `supabase/migrations`)*
-   
-   Deploy Edge Functions:
-    ```bash
-    npx supabase functions deploy
-    ```
 
-5. Create env files and add the required data.
-
-6. Set Supabase secrets
-    ```
-    npx supabase secrets set --env-file ./supabase/.env.local
-    ```
+5. Copy the example environment file
+   ```
+   cp .env.example .env
+   ```
+   Open `.env` and populate the keys.
     
-7. Start Development Server
+6. Start Development Server
    ```bash
    npm run dev
    # or

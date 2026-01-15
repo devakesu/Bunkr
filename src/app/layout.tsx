@@ -3,6 +3,7 @@ import ReactQueryProvider from "@/providers/react-query";
 import { Manrope, DM_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import Script from "next/script";
+import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import { GlobalInit } from "@/lib/global-init";
 
@@ -87,6 +88,18 @@ export default function RootLayout({
         </Script>
 
         <ReactQueryProvider>
+          <NextTopLoader 
+            color="#a855f7"
+            initialPosition={0.08}
+            crawlSpeed={200}
+            height={3}
+            crawl={true}
+            showSpinner={false}
+            easing="ease"
+            speed={200}
+            shadow="0 0 10px #a855f7,0 0 5px #a855f7"
+            zIndex={99999}
+          />
           <GlobalInit />
           {children}
         </ReactQueryProvider>
