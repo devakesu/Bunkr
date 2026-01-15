@@ -7,6 +7,8 @@ import { headers } from "next/headers";
 import { syncRateLimiter } from "@/lib/ratelimit";
 import { generateSlotKey, getOfficialSessionRaw } from "@/lib/logic/attendance-reconciliation";
 
+export const dynamic = 'force-dynamic';
+
 // --- CONFIG ---
 const BATCH_SIZE = 20;
 
