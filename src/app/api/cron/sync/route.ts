@@ -13,10 +13,16 @@ export const dynamic = 'force-dynamic';
 const BATCH_SIZE = 20;
 
 // Admin client for cron jobs (bypasses RLS)
-const supabaseAdmin = createAdminClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!url || !key) {
+    throw new Error("Missing Supabase Admin credentials");
+  }
+  
+  return createAdminClient(url, key);
+}
 
 interface UserSyncData {
   username: string;
@@ -26,6 +32,8 @@ interface UserSyncData {
 }
 
 export async function GET(req: Request) {
+  
+  const supabaseAdmin = getAdminClient();
 
   // 1. Rate Limiting (IP-based)
   const headerList = await headers();
