@@ -161,7 +161,6 @@ jobs:
           COSIGN_EXPERIMENTAL: "true"
         run: |
           cosign sign --yes \
-            --gh-oidc-issuer "https://token.actions.githubusercontent.com" \
             ghcr.io/devakesu/ghostclass@${{ env.IMAGE_DIGEST }}
 
       # Trigger deployment in Coolify
