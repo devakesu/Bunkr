@@ -4,9 +4,13 @@
 import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
-const KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex');
 
 export const encrypt = (text: string) => {
+  const secretKey = process.env.ENCRYPTION_KEY;
+  if (!secretKey) {
+    throw new Error("ENCRYPTION_KEY is not defined");
+  }
+  const KEY = Buffer.from(secretKey, 'hex');
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
   let encrypted = cipher.update(text, 'utf8', 'hex');
@@ -20,6 +24,11 @@ export const encrypt = (text: string) => {
 };
 
 export const decrypt = (ivHex: string, content: string) => {
+  const secretKey = process.env.ENCRYPTION_KEY;
+  if (!secretKey) {
+    throw new Error("ENCRYPTION_KEY is not defined");
+  }
+  const KEY = Buffer.from(secretKey, 'hex');
   const [authTagHex, encryptedText] = content.split(':');
   const decipher = crypto.createDecipheriv(ALGORITHM, KEY, Buffer.from(ivHex, 'hex'));
   decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
