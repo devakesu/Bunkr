@@ -43,7 +43,6 @@ export function AddRecordTrigger({ user, onSuccess }: AddRecordTriggerProps) {
       >
         <Plus className="h-4 w-4" />
         <span className="max-sm:hidden">Add Record</span>
-        <span className="sm:hidden">Add</span>
       </Button>
 
       <AddAttendanceDialog 

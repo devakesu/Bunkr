@@ -24,7 +24,7 @@ function getAdminClient() {
 export async function POST(req: Request) {
 
   const supabaseAdmin = getAdminClient();
-  
+
   // 1. Rate Limit Check
   const headerList = await headers();
   const ip = headerList.get("x-forwarded-for") ?? "127.0.0.1";

@@ -10,11 +10,11 @@ export function useUserSettings() {
   const supabase = createClient();
   const queryClient = useQueryClient();
 
+  // 1. Fetch from DB (Pure, no side effects)
   const { data: settings, isLoading } = useQuery({
     queryKey: ["userSettings"],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session?.user) return null;
 
       const { data, error } = await supabase
@@ -27,31 +27,7 @@ export function useUserSettings() {
         console.error("Error fetching settings:", error);
       }
 
-      if (data) {
-        // Sync Logic: DB -> LocalStorage
-        const localBunk = localStorage.getItem("showBunkCalc");
-        const dbBunk = data.bunk_calculator_enabled.toString();
-        
-        if (localBunk !== dbBunk) {
-           localStorage.setItem("showBunkCalc", dbBunk);
-           window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: data.bunk_calculator_enabled }));
-        }
-        localStorage.setItem("targetPercentage", data.target_percentage.toString());
-      }
-      
       return data as UserSettings | null;
-    },
-    initialData: () => {
-      if (typeof window === "undefined") return undefined;
-      const localBunk = localStorage.getItem("showBunkCalc");
-      const localTarget = localStorage.getItem("targetPercentage");
-      
-      if (localBunk === null && localTarget === null) return undefined;
-
-      return {
-        bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
-        target_percentage: localTarget ? Number(localTarget) : 75
-      };
     },
     refetchOnWindowFocus: false,
   });
@@ -71,42 +47,58 @@ export function useUserSettings() {
       if (error) throw error;
       return data;
     },
+    // Optimistic Update / Cache Update
     onSuccess: (newData) => {
       queryClient.setQueryData(["userSettings"], newData);
+      
+      // Update LocalStorage immediately for responsiveness
       if (newData.bunk_calculator_enabled !== undefined) {
          localStorage.setItem("showBunkCalc", newData.bunk_calculator_enabled.toString());
+         window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newData.bunk_calculator_enabled }));
+      }
+      if (newData.target_percentage) {
+         localStorage.setItem("targetPercentage", newData.target_percentage.toString());
       }
     },
     onError: (err) => {
-      if (err.message !== "No user") {
-        toast.error("Failed to save settings");
-      }
+      if (err.message !== "No user") toast.error("Failed to save settings");
     }
   });
 
-  // 3. Synchronization Logic (Migrate LocalStorage to DB if DB is empty)
+  // 3. Centralized Sync Logic
   useEffect(() => {
-    if (!isLoading && settings === null) {
+    if (isLoading) return;
+
+    // Case A: DB has data -> Sync to LocalStorage
+    if (settings) {
+      const localBunk = localStorage.getItem("showBunkCalc");
+      const dbBunk = settings.bunk_calculator_enabled.toString();
       
-      const syncIfLoggedIn = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          // User is logged in but has no settings -> Sync LocalStorage to DB
-          const localBunkCalc = localStorage.getItem("showBunkCalc");
-          const initialBunk = localBunkCalc !== null ? localBunkCalc === "true" : true; 
-          const initialTarget = 75; 
+      // Only write if different to avoid loop/events spam
+      if (localBunk !== dbBunk) {
+        localStorage.setItem("showBunkCalc", dbBunk);
+        window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: settings.bunk_calculator_enabled }));
+      }
+      
+      const localTarget = localStorage.getItem("targetPercentage");
+      if (localTarget !== settings.target_percentage.toString()) {
+        localStorage.setItem("targetPercentage", settings.target_percentage.toString());
+      }
+    } 
+    // Case B: DB is empty (New User) -> Try to migrate LocalStorage to DB
+    else if (settings === null) {
+      const localBunk = localStorage.getItem("showBunkCalc");
+      const localTarget = localStorage.getItem("targetPercentage");
 
-          updateSettings.mutate({
-            bunk_calculator_enabled: initialBunk,
-            target_percentage: initialTarget
-          });
-        }
-      };
-
-      syncIfLoggedIn();
+      // Only migrate if we actually have local data
+      if (localBunk !== null || localTarget !== null) {
+        updateSettings.mutate({
+          bunk_calculator_enabled: localBunk === "true",
+          target_percentage: localTarget ? Number(localTarget) : 75
+        });
+      }
     }
-  }, [isLoading, settings]);
+  }, [settings, isLoading]);
 
   return {
     settings,
