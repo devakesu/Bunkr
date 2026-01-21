@@ -71,7 +71,7 @@ export function AddAttendanceDialog({
   // --- HELPERS ---
   const normalizeSession = (s: string) => {
     if (!s) return "";
-    let norm = s.toString().toLowerCase().replace(/session/g, "").replace(/hour/g, "").trim();
+    const norm = s.toString().toLowerCase().replace(/session/g, "").replace(/hour/g, "").trim();
     const numMap: Record<string, string> = { "1": "i", "2": "ii", "3": "iii", "4": "iv", "5": "v", "6": "vi", "7": "vii" };
     return numMap[norm] || norm;
   };

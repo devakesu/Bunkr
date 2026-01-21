@@ -1,15 +1,9 @@
-const path = require('path');
-
 module.exports = {
-  // 1. Type Check: Run tsc on the whole project (files ignored intentionally)
+  // 1. Type Check: Runs on the whole project
   '**/*.{ts,tsx}': () => 'npx tsc --noEmit',
 
-  // 2. Linting: Use 'eslint' directly instead of 'next lint'
-  '**/*.{js,jsx,ts,tsx}': (filenames) => {
-    const files = filenames
-      .map((file) => `"${file}"`)
-      .join(' ');
-
-    return `npx eslint --fix ${files}`;
+  // 2. Linting: Runs on the WHOLE project (ignoring specific staged files)
+  '**/*.{js,jsx,ts,tsx}': () => {
+    return 'npx eslint . --fix';
   },
 };

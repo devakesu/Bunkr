@@ -10,7 +10,7 @@ export function useUserSettings() {
   const supabase = createClient();
   const queryClient = useQueryClient();
 
-  // 1. Fetch from DB (Pure, no side effects)
+  // 1. Fetch from DB
   const { data: settings, isLoading } = useQuery({
     queryKey: ["userSettings"],
     queryFn: async () => {
