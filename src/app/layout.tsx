@@ -71,7 +71,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#141414" />
       </head>
       <body
-        className={`antialiased ${klick.variable} ${manrope.variable} ${dmMono.variable}`}
+        className={`overflow-x-hidden w-full max-w-[100vw] antialiased ${klick.variable} ${manrope.variable} ${dmMono.variable}`}
       >
         {/* --- GOOGLE ANALYTICS --- */}
         <Script

@@ -22,10 +22,11 @@ ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
 
 COPY package.json package-lock.json ./
 
-RUN npm ci \
-  --ignore-scripts \
-  --no-audit \
-  --no-fund
+RUN npm install -g npm@latest && \
+    npm ci \
+    --ignore-scripts \
+    --no-audit \
+    --no-fund
 
 # ===============================
 # 2. Build layer
