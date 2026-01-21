@@ -17,7 +17,7 @@ import { setToken, getToken } from "@/lib/auth";
 import { Loading } from "@/components/loading";
 import { PasswordResetForm } from "./password-reset-form";
 
-import { motion, HTMLMotionProps } from "framer-motion";
+import { motion, HTMLMotionProps, Variants } from "framer-motion";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
@@ -120,7 +120,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     visible: { y: 0, opacity: 1, transition: { duration: 0.3 } },
   };
 
-  const logoVariants = {
+  const logoVariants : Variants = {
     hidden: { scale: 0.8, opacity: 0 },
     visible: {
       scale: 1,
@@ -279,7 +279,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 mb-3">
             <LockIcon className="h-3 w-3 text-purple-400" />
             <span className="text-[11px] font-bold tracking-widest uppercase text-purple-300/80">
-              Ghosts don't snoop 😁
+              Ghosts don&apos;t snoop 😁
             </span>
           </div>
           

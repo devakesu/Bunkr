@@ -192,7 +192,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
         };
       })
       .sort((a: any, b: any) => a.totalPercentage - b.totalPercentage);
-  }, [attendanceData, trackingData, coursesData, targetPercentage]);
+  }, [attendanceData, trackingData, coursesData]);
 
   const getBarSize = () => {
     const courseCount = data.length;
@@ -276,7 +276,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
                return <Cell key={`cell-ext-${index}`} fill={fillUrl} stroke={strokeColor} />;
               })}
           </Bar>
-          <ReferenceLine y={safeTarget} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={2} strokeOpacity={1} label={<CustomTargetLabel value={safeTarget} />} isFront={true} />
+          <ReferenceLine y={safeTarget} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={2} strokeOpacity={1} label={<CustomTargetLabel value={safeTarget} />} />
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -561,7 +561,7 @@ export default function DashboardClient() {
           <div className="lg:col-span-2">
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4 }} className="h-full">
               <Card className="h-full custom-container flex flex-col">
-                <CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Attendance Overview</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">See where you've been keeping up</CardDescription></CardHeader>
+                <CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Attendance Overview</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">See where you&apos;ve been keeping up</CardDescription></CardHeader>
                 <CardContent className="flex-1 pb-6"><div className="h-[300px] w-full">{isLoadingAttendance ? <div className="flex items-center justify-center h-full"><CompLoading /></div> : attendanceData ? <AttendanceChart attendanceData={filteredChartData} trackingData={trackingData} coursesData={coursesData} /> : <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">No attendance data available</p></div>}</div></CardContent>
               </Card>
             </motion.div>

@@ -6,7 +6,11 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prepare": "husky install"
+  },
+  "overrides": {
+    "tar": "^7.5.6"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
@@ -64,9 +68,12 @@
     "@types/node": "^25.0.9",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
-    "eslint": "^9",
-    "eslint-config-next": "^16.1.2",
-    "supabase": "^2.67.2",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^15.0.3",
+    "globals": "^17.0.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^16.2.7",
+    "supabase": "^2.72.8",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
