@@ -32,6 +32,7 @@ RUN npm install -g npm@latest && \
 # 2. Build layer
 # ===============================
 FROM ${NODE_IMAGE} AS builder
+RUN npm install -g npm@latest
 
 ARG SOURCE_DATE_EPOCH
 ARG APP_COMMIT_SHA
