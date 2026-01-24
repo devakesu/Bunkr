@@ -15,7 +15,7 @@ export const renderCourseMismatchEmail = (props: {
   courseLabel: string;
   dashboardUrl: string;
 }): string => {
-  return render(CourseMismatchEmail(props));
+  return render(<CourseMismatchEmail {...props} />);
 };
 
 export const renderAttendanceConflictEmail = (props: {
@@ -25,5 +25,5 @@ export const renderAttendanceConflictEmail = (props: {
   session: string;
   dashboardUrl: string;
 }): string => {
-  return render(AttendanceConflictEmail(props));
+  return render(<AttendanceConflictEmail {...props} />);
 };
