@@ -21,7 +21,7 @@ import {
   useUpdateDefaultInstitutionUser,
 } from "@/hooks/users/institutions";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -61,19 +61,12 @@ export const Navbar = () => {
   const { data: defaultInstitutionUser } = useDefaultInstitutionUser();
   const updateDefaultInstitutionUser = useUpdateDefaultInstitutionUser();
   const queryClient = useQueryClient();
-  const [selectedInstitution, setSelectedInstitution] = useState<string>("");
+  
+  // Use the server value directly - no local state needed for display
+  const selectedInstitution = defaultInstitutionUser?.toString() ?? "";
 
   const pathname = usePathname();
   const { unreadCount } = useNotifications(true);
-
-  useEffect(() => {
-  if (defaultInstitutionUser) {
-    const timer = setTimeout(() => {
-      setSelectedInstitution(defaultInstitutionUser.toString());
-    }, 0);
-    return () => clearTimeout(timer);
-  }
-}, [defaultInstitutionUser]);
 
   // Handle Bunk Calc Toggle 
   const handleBunkCalcToggle = (checked: boolean) => {
@@ -98,7 +91,6 @@ export const Navbar = () => {
   };
 
   const handleInstitutionChange = (value: string) => {
-    setSelectedInstitution(value);
     updateDefaultInstitutionUser.mutate(Number.parseInt(value), {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["defaultInstitutionUser"] });
@@ -108,7 +100,6 @@ export const Navbar = () => {
         });
       },
       onError: () => {
-        setSelectedInstitution(defaultInstitutionUser?.toString() || "");
         toast("Error", {
           description: "Failed to update institution. Please try again.",
         });
