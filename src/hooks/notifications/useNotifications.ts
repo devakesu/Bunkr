@@ -51,7 +51,8 @@ export function useNotifications(enabled = true) {
   const { data: unreadCountData, isLoading: isUnreadCountLoading } = useQuery({
     queryKey: ["notifications", "unreadCount"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
       if (!user) return 0;
 
       const { count, error } = await supabase
@@ -61,7 +62,7 @@ export function useNotifications(enabled = true) {
         .eq("is_read", false);
 
       if (error) {
-        console.error("Error fetching unread count:", error);
+        console.error(`Error fetching unread count for user ${user.id}:`, error);
         return 0;
       }
 
