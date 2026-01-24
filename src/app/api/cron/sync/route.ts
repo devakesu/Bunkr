@@ -205,7 +205,7 @@ export async function GET(req: Request) {
                             });
                         }
                     }
-                    return; 
+                    continue; 
                 }
 
                  const isOfficialPositive = officialCode === 110 || officialCode === 225 || officialCode === 112; 
