@@ -1,5 +1,5 @@
 import { TrackAttendance } from "@/types";
-import { generateSlotKey, toRoman } from "../utils";
+import { generateSlotKey } from "../utils";
 
 export const ATTENDANCE_STATUS = {
   PRESENT: 110,
