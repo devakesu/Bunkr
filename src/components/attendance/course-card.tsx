@@ -57,7 +57,7 @@ export function CourseCard({ course }: CourseCardProps) {
   const stats = useMemo(() => {
     // 1. Official Data (From API)
     const realPresent = courseDetails?.present || 0;
-    const realTotal = courseDetails?.totel || courseDetails?.totel || 0;
+    const realTotal = courseDetails?.totel || 0;
     const realAbsent = courseDetails?.absent || 0;
     const officialPercentage = realTotal > 0 ? (realPresent / realTotal) * 100 : 0;
     
