@@ -95,7 +95,7 @@ export function useUserSettings() {
       // Only migrate if we actually have local data
       if (localBunk !== null || localTarget !== null) {
         updateSettings.mutate({
-          bunk_calculator_enabled: localBunk === "true",
+          bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
           target_percentage: localTarget ? Number(localTarget) : 75
         });
       }
