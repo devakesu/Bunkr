@@ -16,7 +16,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Building2, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -26,27 +26,18 @@ export function InstitutionSelector() {
   const updateDefaultInstitutionUser = useUpdateDefaultInstitutionUser();
   const queryClient = useQueryClient();
 
-  const [selectedInstitution, setSelectedInstitution] = useState<string>(
-    defaultInstitutionUser ? defaultInstitutionUser.toString() : ""
-  );
+  // Track user's pending selection (null means no pending change)
+  const [pendingSelection, setPendingSelection] = useState<string | null>(null);
 
-  useEffect(() => {
-  if (defaultInstitutionUser) {
-    const timer = setTimeout(() => {
-      setSelectedInstitution((prev) => {
-        const newValue = defaultInstitutionUser.toString();
-        return prev !== newValue ? newValue : prev;
-      });
-    }, 0);
-    return () => clearTimeout(timer);
-  }
-}, [defaultInstitutionUser]);
+  // Use pending selection if user has edited, otherwise use the server value
+  const selectedInstitution = pendingSelection ?? defaultInstitutionUser?.toString() ?? "";
 
   const handleSaveInstitution = () => {
     if (!selectedInstitution) return;
 
     updateDefaultInstitutionUser.mutate(Number.parseInt(selectedInstitution), {
       onSuccess: () => {
+        setPendingSelection(null); // Clear pending state on success
         queryClient.invalidateQueries({ queryKey: ["defaultInstitutionUser"] });
         queryClient.invalidateQueries({ queryKey: ["institutions"] });
         toast("Institution updated", {
@@ -54,7 +45,7 @@ export function InstitutionSelector() {
         });
       },
       onError: () => {
-        setSelectedInstitution(defaultInstitutionUser?.toString() || "");
+        setPendingSelection(null); // Clear pending state on error to revert to server value
         toast.error("Error", {
           description: "Failed to update institution. Please try again.",
         });
@@ -110,7 +101,7 @@ export function InstitutionSelector() {
         <CardContent className="">
           <RadioGroup
             value={selectedInstitution}
-            onValueChange={setSelectedInstitution}
+            onValueChange={setPendingSelection}
             className="space-y-1 flex flex-col gap-1"
           >
             <AnimatePresence>
@@ -166,7 +157,8 @@ export function InstitutionSelector() {
                 onClick={handleSaveInstitution}
                 disabled={
                   updateDefaultInstitutionUser.isPending ||
-                  selectedInstitution === defaultInstitutionUser?.toString()
+                  pendingSelection === null ||
+                  pendingSelection === defaultInstitutionUser?.toString()
                 }
                 className="w-full font-semibold min-h-[46px] rounded-[12px] mt-4 font-md"
               >
