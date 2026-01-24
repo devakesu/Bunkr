@@ -8,7 +8,6 @@ import {
   Text,
   Button,
 } from "@react-email/components";
-import * as React from "react";
 import { emailStyles, tableStyles } from "./styles";
 
 interface CourseMismatchEmailProps {
