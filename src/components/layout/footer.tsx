@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Star, Coffee, ShieldCheck } from "lucide-react";
@@ -20,17 +21,39 @@ const isValidUrl = (urlString: string | undefined): boolean => {
 export const Footer = ({ className }: { className?: string }) => {
   const commitSha = process.env.NEXT_PUBLIC_GIT_COMMIT_SHA ?? "unknown";
   const shortSha = commitSha === "unknown" ? "dev-build" : commitSha.substring(0, 7);
+  
+  // Validate all external URLs from environment variables
   const donateUrlRaw = process.env.NEXT_PUBLIC_DONATE_URL;
+  const githubUrlRaw = process.env.NEXT_PUBLIC_GITHUB_URL;
+  const authorUrlRaw = process.env.NEXT_PUBLIC_AUTHOR_URL;
   
-  // Validate and log warnings for invalid donation URLs
   const donateUrl = donateUrlRaw && isValidUrl(donateUrlRaw) ? donateUrlRaw : null;
+  const githubUrl = githubUrlRaw && isValidUrl(githubUrlRaw) ? githubUrlRaw : null;
+  const authorUrl = authorUrlRaw && isValidUrl(authorUrlRaw) ? authorUrlRaw : null;
   
-  if (donateUrlRaw && !donateUrl && process.env.NODE_ENV === "development") {
-    console.warn(
-      `[Footer] Invalid NEXT_PUBLIC_DONATE_URL: "${donateUrlRaw}". ` +
-      "Please ensure it's a valid HTTP/HTTPS URL. The donation button will not be displayed."
-    );
-  }
+  // Log validation warnings once on mount (development only)
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      if (donateUrlRaw && !donateUrl) {
+        console.warn(
+          `[Footer] Invalid NEXT_PUBLIC_DONATE_URL: "${donateUrlRaw}". ` +
+          "Please ensure it's a valid HTTP/HTTPS URL. The donation button will not be displayed."
+        );
+      }
+      if (githubUrlRaw && !githubUrl) {
+        console.warn(
+          `[Footer] Invalid NEXT_PUBLIC_GITHUB_URL: "${githubUrlRaw}". ` +
+          "Please ensure it's a valid HTTP/HTTPS URL. GitHub-related links may not work correctly."
+        );
+      }
+      if (authorUrlRaw && !authorUrl) {
+        console.warn(
+          `[Footer] Invalid NEXT_PUBLIC_AUTHOR_URL: "${authorUrlRaw}". ` +
+          "Please ensure it's a valid HTTP/HTTPS URL. The author link may not work correctly."
+        );
+      }
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   return (
     <footer className={cn(
@@ -44,7 +67,7 @@ export const Footer = ({ className }: { className?: string }) => {
           <div className="flex items-center gap-2 text-muted-foreground flex-wrap justify-center md:justify-start">
             <span className="opacity-80">By</span>
             <a
-              href={`${process.env.NEXT_PUBLIC_AUTHOR_URL}`}
+              href={authorUrl || "#"}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-foreground hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-red-500 hover:to-orange-500 transition-all duration-300"
@@ -100,7 +123,7 @@ export const Footer = ({ className }: { className?: string }) => {
             <div className="flex items-center gap-1.5">
               <span className="opacity-70">ver</span>
               <a
-                href={`${process.env.NEXT_PUBLIC_GITHUB_URL}/commit/${commitSha}`}
+                href={githubUrl ? `${githubUrl}/commit/${commitSha}` : "#"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-primary transition-colors font-semibold"
@@ -139,7 +162,7 @@ export const Footer = ({ className }: { className?: string }) => {
               variant="outline"
               size="sm"
               className="h-8 rounded-full bg-background hover:bg-yellow-500/10 hover:text-yellow-500 hover:border-yellow-500/20 transition-all group"
-              onClick={() => window.open(process.env.NEXT_PUBLIC_GITHUB_URL, "_blank")}
+              onClick={() => githubUrl && window.open(githubUrl, "_blank")}
             >
               <Star className="w-3.5 h-3.5 mr-2 text-muted-foreground group-hover:text-yellow-500 transition-colors" />
               <span className="text-xs font-medium">Star</span>
