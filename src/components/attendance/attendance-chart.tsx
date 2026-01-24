@@ -86,20 +86,41 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
       }
     };
 
+    // Track pending rAF to debounce resize handling and allow cleanup
+    let frameId: number | null = null;
+
     // Initial Measure
     updateDimensions();
 
     // Watch for Resize
     const resizeObserver = new ResizeObserver(() => {
-        // Use rAF to prevent "ResizeObserver loop limit exceeded"
-        window.requestAnimationFrame(updateDimensions);
+      // Debounce using rAF and guard against errors
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = window.requestAnimationFrame(() => {
+        try {
+          updateDimensions();
+        } catch (error) {
+          // Swallow or log the error to avoid breaking the resize loop
+          if (process.env.NODE_ENV !== "production") {
+            // eslint-disable-next-line no-console
+            console.error("AttendanceChart resize observer error:", error);
+          }
+        }
+      });
     });
-    
+
     if (containerRef.current) {
-        resizeObserver.observe(containerRef.current);
+      resizeObserver.observe(containerRef.current);
     }
 
-    return () => resizeObserver.disconnect();
+    return () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
+      resizeObserver.disconnect();
+    };
   }, []);
 
   const data = useMemo(() => {
