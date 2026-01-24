@@ -6,14 +6,16 @@ import { AlertTriangle } from "lucide-react";
 
 export default function GlobalError({
   error,
-  reset,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
 }) {
   useEffect(() => {
     Sentry.captureException(error);
   }, [error]);
+
+  const handleRefresh = () => {
+    window.location.reload();
+  };
 
   return (
     <html lang="en">
@@ -54,7 +56,7 @@ export default function GlobalError({
               We encountered a critical error. Please try refreshing the page.
             </p>
             <button
-              onClick={reset}
+              onClick={handleRefresh}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -72,7 +74,7 @@ export default function GlobalError({
               onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#0284c7"}
               onMouseOut={(e) => e.currentTarget.style.backgroundColor = "#0ea5e9"}
             >
-              Try Again
+              Refresh Page
             </button>
           </div>
         </div>
