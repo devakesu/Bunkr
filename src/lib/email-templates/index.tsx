@@ -15,7 +15,7 @@ export const renderCourseMismatchEmail = async (props: {
   courseLabel: string;
   dashboardUrl: string;
 }): Promise<string> => {
-  return await render(<CourseMismatchEmail {...props} />);
+  return render(<CourseMismatchEmail {...props} />);
 };
 
 export const renderAttendanceConflictEmail = async (props: {
@@ -25,5 +25,5 @@ export const renderAttendanceConflictEmail = async (props: {
   session: string;
   dashboardUrl: string;
 }): Promise<string> => {
-  return await render(<AttendanceConflictEmail {...props} />);
+  return render(<AttendanceConflictEmail {...props} />);
 };
