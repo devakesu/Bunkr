@@ -16,10 +16,12 @@ const contactSchema = z.object({
 
 // Sanitize HTML to prevent injection attacks while preserving safe formatting
 const sanitizeForEmail = (text: string): string => {
+  // Normalize different newline conventions (Windows \r\n, old Mac \r) to \n
+  const normalizedText = text.replace(/\r\n?/g, "\n");
   // Convert newlines to <br> tags before sanitization
   // Note: sanitize-html will automatically convert these to <br /> (XHTML style)
   // which is the most compatible format for email clients
-  const withBreaks = text.replace(/\n/g, "<br>");
+  const withBreaks = normalizedText.replace(/\n/g, "<br>");
   
   // Sanitize with a whitelist of safe tags
   // Only allows basic formatting tags with no attributes to prevent XSS
