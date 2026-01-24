@@ -51,8 +51,7 @@ export function useNotifications(enabled = true) {
   const { data: unreadCountData, isLoading: isUnreadCountLoading } = useQuery({
     queryKey: ["notifications", "unreadCount"],
     queryFn: async () => {
-      const { data } = await supabase.auth.getUser();
-      const user = data?.user;
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return 0;
 
       const { count, error } = await supabase
