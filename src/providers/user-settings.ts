@@ -87,20 +87,18 @@ export function useUserSettings() {
         localStorage.setItem("targetPercentage", dbTarget);
       }
     } 
-    // Case B: DB is empty (New/Recreated User) -> Initialize Row
+    // Case B: DB is empty (New User) -> Try to migrate LocalStorage to DB
     else if (settings === null) {
       const localBunk = localStorage.getItem("showBunkCalc");
       const localTarget = localStorage.getItem("targetPercentage");
 
-      // Use Default values if LocalStorage is empty
-      const initBunk = localBunk !== null ? localBunk === "true" : true; 
-      const initTarget = localTarget !== null ? Number(localTarget) : 75;
-
-      // Force creation of row in DB
-      updateSettings.mutate({
-        bunk_calculator_enabled: initBunk,
-        target_percentage: initTarget
-      });
+      // Only migrate if we actually have local data
+      if (localBunk !== null || localTarget !== null) {
+        updateSettings.mutate({
+          bunk_calculator_enabled: localBunk === "true",
+          target_percentage: localTarget ? Number(localTarget) : 75
+        });
+      }
     }
   }, [settings, isLoading]);
 
