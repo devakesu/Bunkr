@@ -157,7 +157,8 @@ export function InstitutionSelector() {
                 onClick={handleSaveInstitution}
                 disabled={
                   updateDefaultInstitutionUser.isPending ||
-                  selectedInstitution === defaultInstitutionUser?.toString()
+                  pendingSelection === null ||
+                  pendingSelection === defaultInstitutionUser?.toString()
                 }
                 className="w-full font-semibold min-h-[46px] rounded-[12px] mt-4 font-md"
               >
