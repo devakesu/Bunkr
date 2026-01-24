@@ -20,6 +20,7 @@ import {
 import { AttendanceCalendar } from "@/components/attendance/attendance-calendar";
 import { CourseCard } from "@/components/attendance/course-card";
 import { AttendanceChart } from "@/components/attendance/attendance-chart";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { useProfile } from "@/hooks/users/profile";
 import { useAttendanceReport } from "@/hooks/courses/attendance";
 import { useFetchCourses } from "@/hooks/courses/courses";
@@ -535,7 +536,7 @@ export default function DashboardClient() {
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4 }} className="h-full">
               <Card className="h-full custom-container flex flex-col">
                 <CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Attendance Overview</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">See where you&apos;ve been keeping up</CardDescription></CardHeader>
-                <CardContent className="flex-1 pb-6"><div className="h-[300px] w-full">{isLoadingAttendance ? <div className="flex items-center justify-center h-full"><CompLoading /></div> : attendanceData ? <AttendanceChart attendanceData={filteredChartData} trackingData={trackingData} coursesData={coursesData} /> : <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">No attendance data available</p></div>}</div></CardContent>
+                <CardContent className="flex-1 pb-6"><div className="h-[300px] w-full">{isLoadingAttendance ? <div className="flex items-center justify-center h-full"><CompLoading /></div> : attendanceData ? <ErrorBoundary fallback={<div className="flex items-center justify-center h-full"><p className="text-muted-foreground">Unable to load chart. Please try refreshing.</p></div>}><AttendanceChart attendanceData={filteredChartData} trackingData={trackingData} coursesData={coursesData} /></ErrorBoundary> : <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">No attendance data available</p></div>}</div></CardContent>
               </Card>
             </motion.div>
           </div>
