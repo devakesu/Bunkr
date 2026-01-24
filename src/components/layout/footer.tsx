@@ -5,10 +5,32 @@ import { cn } from "@/lib/utils";
 import { Star, Coffee, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
+const isValidUrl = (urlString: string | undefined): boolean => {
+  if (!urlString) return false;
+  
+  try {
+    const url = new URL(urlString);
+    // Only allow http and https protocols for security
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
 export const Footer = ({ className }: { className?: string }) => {
   const commitSha = process.env.NEXT_PUBLIC_GIT_COMMIT_SHA ?? "unknown";
   const shortSha = commitSha === "unknown" ? "dev-build" : commitSha.substring(0, 7);
-  const donateUrl = process.env.NEXT_PUBLIC_DONATE_URL;
+  const donateUrlRaw = process.env.NEXT_PUBLIC_DONATE_URL;
+  
+  // Validate and log warnings for invalid donation URLs
+  const donateUrl = donateUrlRaw && isValidUrl(donateUrlRaw) ? donateUrlRaw : null;
+  
+  if (donateUrlRaw && !donateUrl) {
+    console.warn(
+      `[Footer] Invalid NEXT_PUBLIC_DONATE_URL: "${donateUrlRaw}". ` +
+      "Please ensure it's a valid HTTP/HTTPS URL. The donation button will not be displayed."
+    );
+  }
 
   return (
     <footer className={cn(
