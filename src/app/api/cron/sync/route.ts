@@ -42,7 +42,7 @@ export async function GET(req: Request) {
 
   const headerList = await headers();
   const forwardedFor = headerList.get("x-forwarded-for");
-  const ip = (forwardedFor ?? "127.0.0.1").split(",")[0].trim();
+  const ip = (forwardedFor?.split(",")[0] || "127.0.0.1").trim();
   const { success, reset, remaining } = await syncRateLimiter.limit(ip);
 
   if (!success) {
