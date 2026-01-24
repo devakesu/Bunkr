@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { z } from "zod";
+import sanitizeHtml from "sanitize-html";
 
 const contactSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -13,7 +14,27 @@ const contactSchema = z.object({
   token: z.string().min(1, "CAPTCHA verification failed"),
 });
 
-// Escape HTML to prevent injection attacks
+// Sanitize HTML to prevent injection attacks while preserving safe formatting
+const sanitizeForEmail = (text: string): string => {
+  // Normalize different newline conventions (Windows \r\n, old Mac \r) to \n
+  const normalizedText = text.replace(/\r\n?/g, "\n");
+  // Convert newlines to <br> tags before sanitization
+  // Note: sanitize-html will automatically convert these to <br /> (XHTML style)
+  // which is the most compatible format for email clients
+  const withBreaks = normalizedText.replace(/\n/g, "<br>");
+  
+  // Sanitize with a whitelist of safe tags
+  // Only allows basic inline formatting tags with no attributes to prevent XSS
+  // Note: <p> is intentionally disallowed to avoid nested/invalid paragraphs
+  // when this content is interpolated inside an existing <p> in email templates.
+  return sanitizeHtml(withBreaks, {
+    allowedTags: ["br", "strong", "em", "b", "i"],
+    allowedAttributes: {},
+    disallowedTagsMode: "escape",
+  });
+};
+
+// Escape HTML completely (for attributes and non-HTML contexts)
 const escapeHtml = (text: string) => {
   return text
     .replace(/&/g, "&amp;")
@@ -124,7 +145,7 @@ export async function submitContactForm(formData: FormData) {
     // Sanitize inputs for Email
     const safeName = escapeHtml(name);
     const safeSubject = escapeHtml(subject || "General Inquiry");
-    const safeMessage = escapeHtml(message).replace(/\n/g, "<br/>");
+    const safeMessage = sanitizeForEmail(message);
     const safeEmail = escapeHtml(email);
     const userType = user ? "Registered User" : "Guest Visitor";
 
