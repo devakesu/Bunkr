@@ -416,6 +416,6 @@ export async function GET(req: Request) {
 
   } catch (error: any) {
     console.error("Cron Error:", error);
-    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500, headers: { "X-RateLimit-Remaining": remaining.toString() } });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }
