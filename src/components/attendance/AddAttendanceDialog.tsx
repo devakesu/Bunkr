@@ -227,18 +227,15 @@ export function AddAttendanceDialog({
 
             // 2. DETERMINE NAME
             let effectiveName = attendanceData.sessions?.[key]?.name;
-            let source = "Lookup";
 
             if (!effectiveName && s.session && s.session !== "null") {
                 effectiveName = s.session;
-                source = "Data Field";
             }
             
             if (!effectiveName) {
                 const keyInt = parseInt(key);
                 if (!isNaN(keyInt) && keyInt < 20) {
                     effectiveName = key;
-                    source = "Key Fallback";
                 }
             }
 
