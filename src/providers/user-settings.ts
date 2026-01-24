@@ -96,7 +96,7 @@ export function useUserSettings() {
       if (localBunk !== null || localTarget !== null) {
         updateSettings.mutate({
           bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
-          target_percentage: localTarget ? Number(localTarget) : 75
+          target_percentage: localTarget !== null ? Number(localTarget) : 75
         });
       }
     }
