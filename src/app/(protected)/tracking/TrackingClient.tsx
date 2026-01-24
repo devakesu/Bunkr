@@ -12,10 +12,10 @@ import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import { useAttendanceReport } from "@/hooks/courses/attendance";
 import { useFetchSemester, useFetchAcademicYear } from "@/hooks/users/settings";
 import { Loading } from "@/components/loading";
-import { formatSessionName, getSessionNumber } from "@/lib/utils";
+import { formatSessionName, generateSlotKey, getSessionNumber } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useFetchCourses } from "@/hooks/courses/courses";
-import { getOfficialSessionRaw, generateSlotKey } from "@/lib/logic/attendance-reconciliation";
+import { getOfficialSessionRaw } from "@/lib/logic/attendance-reconciliation";
 
 // --- Helper Functions ---
 
@@ -145,14 +145,14 @@ export default function TrackingClient() {
   const goToPrevPage = () => { if (currentPage > 0) setCurrentPage(currentPage - 1); };
   const goToNextPage = () => { if (currentPage < totalPages - 1) setCurrentPage(currentPage + 1); };
 
-  const handleDeleteTrackData = async (session: string, course: string, date: string) => {
+  const handleDeleteTrackData = async (uniqueId: string, session: string, course: string, date: string) => {
       if (!user) return;
       
-      const deletingId = `${session}-${course}-${date}`;
-      setDeleteId(deletingId);
+      setDeleteId(uniqueId);
 
       const supabase = createClient();
-      
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+
       try {
         const { error } = await supabase
           .from('tracker')
@@ -160,7 +160,7 @@ export default function TrackingClient() {
           .eq('session', session)
           .eq('course', course)
           .eq('date', date)
-          .eq('auth_user_id', user.id);
+          .eq('auth_user_id', authUser?.id);
 
         if (error) throw error;
 
@@ -184,11 +184,12 @@ export default function TrackingClient() {
       try {
         setIsProcessing(true);
         const supabase = createClient();
-        
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+
         const { error } = await supabase
           .from('tracker')
           .delete()
-          .eq('auth_user_id', user.id); 
+          .eq('auth_user_id', authUser?.id); 
 
         if (error) throw error;
 
@@ -328,7 +329,7 @@ export default function TrackingClient() {
                                   <m.button 
                                     whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} 
                                     disabled={deleteId === trackingId}
-                                    onClick={() => handleDeleteTrackData(trackingItem.session, trackingItem.course, trackingItem.date)} 
+                                    onClick={() => handleDeleteTrackData(trackingId, trackingItem.session, trackingItem.course, trackingItem.date)} 
                                     className="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 bg-yellow-400/6 rounded-lg font-medium text-yellow-600 disabled:opacity-50"
                                   >
                                     {deleteId === trackingId ? "Deleting..." : <><span className="max-md:hidden">Remove</span><Trash2 size={15} /></>}

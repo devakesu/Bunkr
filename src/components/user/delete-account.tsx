@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function DeleteAccount() {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,9 +27,9 @@ export function DeleteAccount() {
   const [confirmation, setConfirmation] = useState("");
   const router = useRouter();
   const supabase = createClient();
-
+  const queryClient = useQueryClient();
+  
   const handleDelete = async () => {
-
     const clearCookie = (name: string) => {
       document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
     };
@@ -39,8 +40,10 @@ export function DeleteAccount() {
       const { error } = await supabase.rpc('delete_user_account');
 
       if (error) throw error;
-
       toast.success("Account deleted successfully");
+
+      queryClient.clear();
+      
       await supabase.auth.signOut();
       localStorage.clear();
       clearCookie("terms_version");

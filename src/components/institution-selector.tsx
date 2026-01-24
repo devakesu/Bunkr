@@ -26,19 +26,21 @@ export function InstitutionSelector() {
   const updateDefaultInstitutionUser = useUpdateDefaultInstitutionUser();
   const queryClient = useQueryClient();
 
-  const [selectedInstitution, setSelectedInstitution] = useState<string>("");
+  const [selectedInstitution, setSelectedInstitution] = useState<string>(
+    defaultInstitutionUser ? defaultInstitutionUser.toString() : ""
+  );
 
   useEffect(() => {
-    if (defaultInstitutionUser && !selectedInstitution) {
-      setSelectedInstitution(defaultInstitutionUser.toString());
-    }
-  }, [defaultInstitutionUser, selectedInstitution]);
-
-  useEffect(() => {
-    if (defaultInstitutionUser) {
-      setSelectedInstitution(defaultInstitutionUser.toString());
-    }
-  }, [defaultInstitutionUser]);
+  if (defaultInstitutionUser) {
+    const timer = setTimeout(() => {
+      setSelectedInstitution((prev) => {
+        const newValue = defaultInstitutionUser.toString();
+        return prev !== newValue ? newValue : prev;
+      });
+    }, 0);
+    return () => clearTimeout(timer);
+  }
+}, [defaultInstitutionUser]);
 
   const handleSaveInstitution = () => {
     if (!selectedInstitution) return;

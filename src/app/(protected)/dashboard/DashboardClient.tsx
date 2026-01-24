@@ -30,7 +30,7 @@ import {
   useSetAcademicYear,
 } from "@/hooks/users/settings";
 import { getToken } from "@/lib/auth";
-import { toRoman } from "@/lib/utils";
+import { generateSlotKey, normalizeDate, toRoman } from "@/lib/utils";
 import { Loading as CompLoading } from "@/components/loading";
 import { useUser } from "@/hooks/users/user";
 import {
@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAttendanceSettings } from "@/providers/attendance-settings";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
+import { useQueryClient } from "@tanstack/react-query";
 
 // --- Types & Constants ---
 const ATTENDANCE_STATUS = {
@@ -66,50 +67,11 @@ const getOfficialSessionRaw = (session: any, sessionKey: string | number): strin
   return sessionKey;
 };
 
-const normalizeDate = (dateStr: string): string => {
-  if (!dateStr) return "";
-  const raw = String(dateStr).trim();
-  if (raw.includes("T")) return raw.split("T")[0].replace(/-/g, "");
-  
-  const digitsOnly = raw.replace(/[^0-9]/g, "");
-  if (digitsOnly.length === 8 && !raw.includes("/") && !raw.includes("-")) return digitsOnly;
-
-  if (raw.includes("/")) {
-    const parts = raw.split("/");
-    if (parts.length === 3) {
-      const [a, b, c] = parts;
-      if (c.length === 4) return `${c}${b.padStart(2, "0")}${a.padStart(2, "0")}`; 
-      if (a.length === 4) return `${a}${b.padStart(2, "0")}${c.padStart(2, "0")}`; 
-    }
-  }
-  if (raw.includes("-")) {
-    const parts = raw.split("-");
-    if (parts.length === 3) {
-      const [a, b, c] = parts;
-      if (a.length === 4) return `${a}${b.padStart(2, "0")}${c.padStart(2, "0")}`;
-      if (c.length === 4) return `${c}${b.padStart(2, "0")}${a.padStart(2, "0")}`;
-    }
-  }
-  if (digitsOnly.length >= 8) return digitsOnly.slice(-8);
-  return digitsOnly;
-};
-
-const generateSlotKey = (courseId: string | number, date: string, session: string | number) => {
-  const cId = String(courseId).trim();
-  const d = normalizeDate(date);
-  let s = String(session).trim();
-  const n = Number(s);
-  if (!Number.isNaN(n) && Number.isFinite(n) && String(n) === n.toString()) {
-    try { s = toRoman(n.toString()); } catch (e) {} 
-  }
-  s = s.toUpperCase();
-  return `${cId}_${d}_${s}`;
-};
-
 export default function DashboardClient() {
   const { data: profile } = useProfile();
   const { data: user } = useUser();
   const accessToken = getToken();
+  const queryClient = useQueryClient();
   
   const { data: semesterData, isLoading: isLoadingSemester } = useFetchSemester();
   const { data: academicYearData, isLoading: isLoadingAcademicYear } = useFetchAcademicYear();
@@ -273,7 +235,11 @@ export default function DashboardClient() {
                     toast.info("Attendance Synced", {
                         description: `Dashboard updated. ${data.deletions + data.updates} records synced.`
                     });
-                    await Promise.all([refetchTracking(), refetchAttendance()]);
+                    await Promise.all([
+                        refetchTracking(), 
+                        refetchAttendance(),
+                        queryClient.invalidateQueries({ queryKey: ["notifications"] }) // 👈 Updates the Navbar Bell
+                    ]);
                 }
             })
             .catch((err) => console.error("Background sync failed", err))
@@ -283,43 +249,50 @@ export default function DashboardClient() {
     } else if (!user?.username && !isLoadingAttendance) {
         setIsSyncing(false);
     }
-  }, [user?.username, isLoadingAttendance, isLoadingTracking, refetchTracking, refetchAttendance, accessToken]);
+  }, [user?.username, isLoadingAttendance, isLoadingTracking, refetchTracking, refetchAttendance, accessToken, queryClient]);
 
-  // --- DATA MERGING ---
-  const mergedAttendanceData = useMemo(() => {
-    if (!attendanceData) return undefined;
-    if (!trackingData || trackingData.length === 0) return attendanceData;
+  // CALCULATE ACTIVE COURSES (Courses with at least 1 record)
+  const activeCourseCount = useMemo(() => {
+    const totalCourses = coursesData?.courses ? Object.keys(coursesData.courses).length : 0;
+    const activeIds = new Set<string>();
 
-    const merged = JSON.parse(JSON.stringify(attendanceData));
-    const romanToKey: Record<string, string> = { "i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5", "vi": "6", "vii": "7", "viii": "8" };
+    // 1. Scan Official Data (Check for ACTUAL attendance codes)
+    if (attendanceData?.studentAttendanceData) {
+      Object.values(attendanceData.studentAttendanceData).forEach((sessions: any) => {
+        Object.values(sessions).forEach((session: any) => {
+          const attCode = Number(session.attendance);
+          
+          // Only count if attendance code is valid (Present, Absent, Leaves)
+          const isValidAttendance = [110, 111, 225, 112].includes(attCode);
 
-    trackingData.forEach((item) => {
-      if (item.semester !== selectedSemester || item.year !== selectedYear) return;
-      const dateKey = normalizeDate(item.date);
-      const sRaw = String(item.session).toLowerCase().trim();
-      const sessionKey = romanToKey[sRaw] || sRaw;
+          if (session.course && session.course !== "null" && isValidAttendance) {
+            activeIds.add(String(session.course));
+          }
+        });
+      });
+    }
 
-      if (!merged.studentAttendanceData[dateKey]) {
-          merged.studentAttendanceData[dateKey] = {};
-      }
+    // 2. Scan Tracking Data (Filtered by Semester)
+    if (trackingData) {
+      trackingData.forEach((t: any) => {
+        const isSameSemester = !selectedSemester || t.semester === selectedSemester;
+        const isSameYear = !selectedYear || t.year === selectedYear;
 
-      const existing = merged.studentAttendanceData[dateKey][sessionKey] || {};
-      
-      merged.studentAttendanceData[dateKey][sessionKey] = {
-          ...existing,
-          course: item.course, 
-          attendance: Number(item.attendance),
-          session: sessionKey,
-          is_manual: true 
-      };
-    });
+        if (t.course && isSameSemester && isSameYear) {
+          activeIds.add(String(t.course));
+        }
+      });
+    }
 
-    return merged;
-  }, [attendanceData, trackingData, selectedSemester, selectedYear]);
+    return {
+      active: activeIds.size,
+      total: totalCourses
+    };
+  }, [attendanceData, trackingData, coursesData, selectedSemester, selectedYear]);
 
   const filteredChartData = useMemo(() => {
-    if (!mergedAttendanceData) return undefined; 
-    const newData = { ...mergedAttendanceData, studentAttendanceData: { ...mergedAttendanceData.studentAttendanceData } };
+    if (!attendanceData) return undefined;
+    const newData = JSON.parse(JSON.stringify(attendanceData));
     
     if (newData.studentAttendanceData) {
       Object.keys(newData.studentAttendanceData).forEach(date => {
@@ -335,7 +308,7 @@ export default function DashboardClient() {
       });
     }
     return newData;
-  }, [mergedAttendanceData]);
+  }, [attendanceData]);
 
   // --- STATS CALCULATION ---
   const stats = useMemo(() => {
@@ -615,7 +588,7 @@ export default function DashboardClient() {
                 </motion.div>
               </div>
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.5 }}>
-                <Card className="custom-container flex flex-col py-4"><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Course(s)</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{coursesData?.courses ? Object.keys(coursesData.courses).length : 0}</div></CardContent></Card>
+                <Card className="custom-container flex flex-col py-4"><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Active Course(s)</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{activeCourseCount.active} <span className="text-muted-foreground text-sm font-normal">/ {coursesData?.courses ? Object.keys(coursesData.courses).length : 0}</span></div></CardContent></Card>
               </motion.div>
             </div>
           </div>

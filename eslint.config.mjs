@@ -1,22 +1,35 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+import pluginReact from "eslint-plugin-react";
+import pluginReactHooks from "eslint-plugin-react-hooks";
+import pluginNext from "@next/eslint-plugin-next";
 import globals from "globals";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+export default [
   {
-    ignores: [".next/*", "node_modules/*", "lint-staged.config.js"] 
+    ignores: [".next/*", "node_modules/*", "lint-staged.config.js"]
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    ...pluginReact.configs.flat.recommended,
+    languageOptions: {
+      ...pluginReact.configs.flat.recommended.languageOptions,
+      globals: {
+        ...globals.browser,
+        ...globals.node
+      }
+    }
   },
   {
+    plugins: {
+      "@next/next": pluginNext,
+      "react-hooks": pluginReactHooks
+    },
     rules: {
+      ...pluginNext.configs.recommended.rules,
+      ...pluginReactHooks.configs.recommended.rules,
+      "react/react-in-jsx-scope": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/ban-ts-comment": "off",
       "@typescript-eslint/no-unused-vars": [
@@ -27,14 +40,6 @@ const eslintConfig = [
           "caughtErrorsIgnorePattern": "^_"
         }
       ]
-    },
-    languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.node,
-      },
-    },
-  },
+    }
+  }
 ];
-
-export default eslintConfig;

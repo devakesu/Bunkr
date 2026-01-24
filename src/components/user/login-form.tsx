@@ -16,7 +16,7 @@ import { setToken, getToken } from "@/lib/auth";
 
 import { Loading } from "@/components/loading";
 import { PasswordResetForm } from "./password-reset-form";
-
+import NProgress from "nprogress";
 import { motion, HTMLMotionProps, Variants } from "framer-motion";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
@@ -75,6 +75,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    NProgress.start();
 
     try {
       // 1. Login to Ezygo
@@ -92,6 +93,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
 
     } catch (error) {
       const err = error as AxiosError<ErrorResponse>;
+      NProgress.done();
+      setIsLoading(false);
       
       if (err.config?.url?.includes("save-token")) {
          setError("Secure session setup failed. Please try again.");
@@ -101,8 +104,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         setError("An unexpected error occurred");
       }
       console.error("Login failed:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -140,41 +141,42 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     );
   }
 
-  return (
+return (
     <motion.div
-      className={cn("flex flex-col gap-6", className)}
+      className={cn("flex flex-col gap-3", className)}
       {...props}
       initial="hidden"
       animate="visible"
       variants={containerVariants}
     >
       <form onSubmit={handleSubmit}>
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
           
           {/* Logo Section */}
           <motion.div
-            className="flex flex-col items-center gap-2.5"
+            className="flex flex-col items-center gap-1.5 -mt-8 sm:-mt-10" 
             variants={logoVariants}
           >
-            <div className="flex justify-center items-center flex-col gap-2.5">
-              {/* Responsive Logo Sizing */}
-              <div className="relative w-64 h-32 sm:w-80 sm:h-40 overflow-hidden">
+            <div className="flex justify-center items-center flex-col">
+              <div className="relative w-[340px] h-[120px] sm:w-[520px] sm:h-[180px] overflow-hidden"> 
                 <Image 
                   src="/logo.png" 
                   alt="GhostClass Logo"
                   fill
-                  className="object-contain transition-transform group-hover:scale-110"
+                  className="object-contain object-bottom transition-transform group-hover:scale-105" 
                   priority
-                  sizes="(max-width: 640px) 256px, 320px"
+                  sizes="(max-width: 640px) 340px, 520px"
                 />
               </div>
             </div>
-            <p className="text-center text-sm font-medium max-w-[322px] text-muted-foreground/80">
+            
+            <p className="text-center text-sm font-medium max-w-[322px] text-muted-foreground/80 -mt-2"> 
               {"Drop your ezygo credentials - we're just the aesthetic upgrade you deserved."}
             </p>
           </motion.div>
 
-          <div className="flex flex-col gap-5 pt-2 mt-1">
+          {/* Input Section */}
+          <div className="flex flex-col gap-4 mt-2"> 
             <motion.div className="grid gap-2" variants={itemVariants}>
               <div className="flex items-center justify-between">
                 <Label htmlFor="login">
@@ -213,7 +215,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
               </div>
             </motion.div>
 
-            <motion.div className="grid gap-2.5" variants={itemVariants}>
+            <motion.div className="grid gap-2" variants={itemVariants}>
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
                 <button
@@ -255,7 +257,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
             <motion.div variants={itemVariants}>
               <Button
                 type="submit"
-                className="w-full font-semibold min-h-[46px] rounded-[12px] mt-4 font-sm shadow-lg shadow-purple-500/10 hover:shadow-purple-500/20 transition-all"
+                className="w-full font-semibold min-h-[46px] rounded-[12px] mt-2 font-sm shadow-lg shadow-purple-500/10 hover:shadow-purple-500/20 transition-all"
                 disabled={isLoading}
               >
                 {isLoading ? "Logging in..." : "Login"}
@@ -275,7 +277,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         </div>
 
         {/* Disclaimer Section */}
-        <div className="mt-8 flex flex-col items-center animate-in fade-in slide-in-from-bottom-2 duration-700">
+        <div className="mt-6 flex flex-col items-center animate-in fade-in slide-in-from-bottom-2 duration-700">
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 mb-3">
             <LockIcon className="h-3 w-3 text-purple-400" />
             <span className="text-[11px] font-bold tracking-widest uppercase text-purple-300/80">

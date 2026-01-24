@@ -7,6 +7,7 @@ import { AddAttendanceDialog } from "@/components/attendance/AddAttendanceDialog
 import { useAttendanceReport } from "@/hooks/courses/attendance";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useFetchCourses } from "@/hooks/courses/courses";
+import { useFetchAcademicYear, useFetchSemester } from "@/hooks/users/settings";
 
 interface AddRecordTriggerProps {
   user: any;
@@ -27,6 +28,9 @@ export function AddRecordTrigger({ user, onSuccess }: AddRecordTriggerProps) {
   const { data: coursesData } = useFetchCourses({ 
     enabled: isOpen 
   });
+  
+  const { data: selectedSemester } = useFetchSemester();
+  const { data: selectedYear } = useFetchAcademicYear();
 
   // Handle local success, then bubble up
   const handleSuccess = async () => {
@@ -53,6 +57,8 @@ export function AddRecordTrigger({ user, onSuccess }: AddRecordTriggerProps) {
          coursesData={coursesData}
          user={user}
          onSuccess={handleSuccess}
+         selectedSemester={selectedSemester}
+         selectedYear={selectedYear}
       />
     </>
   );

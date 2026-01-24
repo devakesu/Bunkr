@@ -1,5 +1,5 @@
 import { TrackAttendance } from "@/types";
-import { toRoman } from "../utils";
+import { generateSlotKey, toRoman } from "../utils";
 
 export const ATTENDANCE_STATUS = {
   PRESENT: 110,
@@ -11,60 +11,12 @@ export const ATTENDANCE_STATUS = {
 export const isPositive = (code: number) => code === ATTENDANCE_STATUS.PRESENT || code === ATTENDANCE_STATUS.DUTY_LEAVE;
 export const isAbsent = (code: number) => code === ATTENDANCE_STATUS.ABSENT || code === 0;
 
-// --- ROBUST NORMALIZATION ---
-
-// Matches "ii" -> "2", "Session 1" -> "1", "1" -> "1"
-export const normalizeSession = (session: string | number) => {
-    let s = String(session).toLowerCase().trim();
-    // Remove common prefixes/suffixes
-    s = s.replace(/session|hour|lec|lab/g, '').trim().replace(/(st|nd|rd|th)$/, '').trim();
-    
-    // Roman to Number Map
-    const romans: Record<string, string> = { 
-        'viii': '8', 'vii': '7', 'vi': '6', 'v': '5', 
-        'iv': '4', 'iii': '3', 'ii': '2', 'i': '1' 
-    };
-    
-    if (romans[s]) return romans[s];
-    
-    const num = parseInt(s);
-    if (!isNaN(num)) return num.toString();
-    
-    return s; // Fallback to original string (e.g. "A", "B")
-};
-
-const normalizeDate = (dateStr: string) => {
-  if (!dateStr) return "";
-  if (dateStr.includes("T")) return dateStr.split("T")[0].replace(/-/g, "");
-  if (dateStr.includes("-")) {
-    const parts = dateStr.split("-");
-    if (parts[0].length === 4) return parts.join("");
-    return `${parts[2]}${parts[1]}${parts[0]}`;
-  }
-  return dateStr.replace(/[^0-9]/g, "");
-};
-
-export const generateSlotKey = (courseId: string, date: string, session: string | number) => {
-  const cId = String(courseId).trim();
-  const d = normalizeDate(date);
-  let s = String(session).trim();
-  const n = Number(s);
-  if (!Number.isNaN(n) && Number.isFinite(n) && String(n) === n.toString()) {
-    try { s = toRoman(n.toString()); } catch (e) {}
-  }
-  s = s.toUpperCase();
-  return `${cId}_${d}_${s}`;
-};
-
 export const getOfficialSessionRaw = (session: any, sessionKey: string | number) => {
   if (session && session.session != null && session.session !== "") {
     return session.session;
   }
   return sessionKey;
 };
-
-// Alias for compatibility
-export const getSessionKey = generateSlotKey; 
 
 // --- CORE LOGIC ---
 export interface ReconciledStats {

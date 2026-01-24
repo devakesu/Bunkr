@@ -23,14 +23,26 @@ import { Loader2, Plus, Calendar as CalendarIcon, ChevronLeft, ChevronRight } fr
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { getToken } from "@/lib/auth";
-import { useFetchSemester, useFetchAcademicYear } from "@/hooks/users/settings";
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from "date-fns";
-import { cn, toRoman, formatSessionName } from "@/lib/utils";
+import { 
+  format, 
+  addMonths, 
+  subMonths, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  getDay, 
+  isSameDay, 
+  isToday,
+  isBefore,
+  isAfter,
+} from "date-fns";
+import { cn } from "@/lib/utils";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { normalizeSession, toRoman, formatSessionName, normalizeDate } from "@/lib/utils";
 
 interface AddAttendanceDialogProps {
   open: boolean;
@@ -40,6 +52,8 @@ interface AddAttendanceDialogProps {
   coursesData: any;
   user: any;
   onSuccess: () => void;
+  selectedSemester?: "odd" | "even";
+  selectedYear?: string;
 }
 
 const SESSIONS = ["1", "2", "3", "4", "5", "6", "7"];
@@ -52,10 +66,10 @@ export function AddAttendanceDialog({
   coursesData,
   user,
   onSuccess,
+  selectedSemester,
+  selectedYear,
 }: AddAttendanceDialogProps) {
   const accessToken = getToken();
-  const { data: semester } = useFetchSemester();
-  const { data: year } = useFetchAcademicYear();
 
   // --- STATE ---
   const [date, setDate] = useState<Date>(new Date());
@@ -68,17 +82,42 @@ export function AddAttendanceDialog({
   // Custom Calendar State
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
 
-  // --- HELPERS ---
-  const normalizeSession = (s: string) => {
-    if (!s) return "";
-    const norm = s.toString().toLowerCase().replace(/session/g, "").replace(/hour/g, "").trim();
-    const numMap: Record<string, string> = { "1": "i", "2": "ii", "3": "iii", "4": "iv", "5": "v", "6": "vi", "7": "vii" };
-    return numMap[norm] || norm;
-  };
+  const getDateKey = (d: Date) => normalizeDate(d);
 
-  const getDateKey = (d: Date) => format(d, "yyyyMMdd"); 
+  // 1. CALCULATE SEMESTER BOUNDS
+  const semesterBounds = useMemo(() => {
+    if (!selectedYear || !selectedSemester) return { min: undefined, max: undefined };
 
-  // --- 1. SMART DEFAULTS ---
+    const startYear = parseInt(selectedYear.split("-")[0], 10);
+    const endYear = startYear + 1;
+
+    if (selectedSemester === "odd") {
+      return {
+        min: new Date(startYear, 6, 1), 
+        max: new Date(startYear, 11, 31)
+      };
+    } else {
+      return {
+        min: new Date(endYear, 0, 1),   
+        max: new Date(endYear, 5, 30)   
+      };
+    }
+  }, [selectedSemester, selectedYear]);
+
+  // 2. VALIDATE CURRENT DATE ON OPEN
+  useEffect(() => {
+    if (open && semesterBounds.min && semesterBounds.max) {
+      if (isBefore(date, semesterBounds.min)) {
+        setDate(semesterBounds.min);
+        setCurrentMonth(semesterBounds.min);
+      } else if (isAfter(date, semesterBounds.max)) {
+        setDate(semesterBounds.max);
+        setCurrentMonth(semesterBounds.max);
+      }
+    }
+  }, [open, semesterBounds, date]);
+
+  // --- 3. SMART DEFAULTS (Occupancy Check) ---
   useEffect(() => {
     if (open && attendanceData) {
       const occupiedSessions = new Set<string>();
@@ -87,27 +126,29 @@ export function AddAttendanceDialog({
       // A. Official Data
       const officialDay = attendanceData.studentAttendanceData?.[dateKey];
       if (officialDay) {
-        const sortedKeys = Object.keys(officialDay).sort((a, b) => Number(a) - Number(b));
-        sortedKeys.forEach((key, index) => {
+        Object.keys(officialDay).forEach((key) => {
            const s = officialDay[key];
-           const lookupName = attendanceData.sessions?.[key]?.name;
-           if (lookupName) occupiedSessions.add(normalizeSession(lookupName));
-           if (s.session) occupiedSessions.add(normalizeSession(s.session));
-           if (!lookupName && !s.session && index < SESSIONS.length) {
-             occupiedSessions.add(normalizeSession(SESSIONS[index]));
+           
+           // ✅ STRICTER CHECK: course cannot be "0", 0, null, or "null"
+           if (!s.course || s.course === "null" || s.course === 0 || s.course === "0") return;
+
+           let effectiveName = attendanceData.sessions?.[key]?.name;
+           if (!effectiveName && s.session && s.session !== "null") effectiveName = s.session;
+
+           if (!effectiveName) {
+               const keyInt = parseInt(key);
+               if (!isNaN(keyInt) && keyInt < 20) effectiveName = key;
            }
+
+           if (effectiveName) occupiedSessions.add(normalizeSession(effectiveName));
         });
       }
 
       // B. Tracking Data
-      const dateStr = format(date, "yyyy-MM-dd");
+      const targetDbDate = normalizeDate(date);
       trackingData?.forEach((t) => {
-        let tDate = t.date;
-        if (tDate.includes('/')) {
-           const [d, m, y] = tDate.split('/');
-           tDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-        }
-        if (tDate === dateStr) {
+        const trackerDateKey = normalizeDate(t.date);
+        if (trackerDateKey === targetDbDate) {
            occupiedSessions.add(normalizeSession(t.session));
         }
       });
@@ -119,11 +160,12 @@ export function AddAttendanceDialog({
     }
   }, [date, open, attendanceData, trackingData]);
 
-  // --- 2. PREFILL COURSE ---
+  // --- 4. PREFILL COURSE ---
   useEffect(() => {
     if (session && date && attendanceData?.studentAttendanceData) {
       const dayOfWeek = date.getDay();
       const frequencyMap: Record<string, number> = {};
+      const target = normalizeSession(session);
       
       Object.entries(attendanceData.studentAttendanceData).forEach(([dStr, sessions]: [string, any]) => {
          const y = parseInt(dStr.substring(0, 4));
@@ -132,19 +174,19 @@ export function AddAttendanceDialog({
          const currentDay = new Date(y, m, d).getDay();
 
          if (currentDay === dayOfWeek) {
-            const sortedKeys = Object.keys(sessions).sort((a, b) => Number(a) - Number(b));
-            sortedKeys.forEach((key, index) => {
+            Object.keys(sessions).forEach((key) => {
                const s = sessions[key];
-               const lookupName = attendanceData.sessions?.[key]?.name;
-               const directName = s.session;
-               const inferredName = SESSIONS[index];
-               const target = normalizeSession(session);
-               
-               const isMatch = (lookupName && normalizeSession(lookupName) === target) ||
-                               (directName && normalizeSession(directName) === target) ||
-                               (!lookupName && !directName && normalizeSession(inferredName) === target);
+               if (!s.course || s.course === "null" || s.course === 0 || s.course === "0") return;
 
-               if (isMatch && s.course) {
+               let effectiveName = attendanceData.sessions?.[key]?.name;
+               if (!effectiveName && s.session && s.session !== "null") effectiveName = s.session;
+               
+               if (!effectiveName) {
+                   const keyInt = parseInt(key);
+                   if (!isNaN(keyInt) && keyInt < 20) effectiveName = key;
+               }
+
+               if (effectiveName && normalizeSession(effectiveName) === target) {
                   const cid = String(s.course);
                   frequencyMap[cid] = (frequencyMap[cid] || 0) + 1;
                }
@@ -165,40 +207,57 @@ export function AddAttendanceDialog({
     }
   }, [session, date, attendanceData]);
 
-  // --- 3. VALIDATION ---
+  // --- 5. VALIDATION (Is Session Blocked?) ---
   const isSessionBlocked = useMemo(() => {
       if (!session) return false;
+      
       const targetSession = normalizeSession(session);
       const dateKey = getDateKey(date);
       const officialDay = attendanceData?.studentAttendanceData?.[dateKey];
       let isBlocked = false;
       
       if (officialDay) {
-         const sortedKeys = Object.keys(officialDay).sort((a, b) => Number(a) - Number(b));
-         isBlocked = sortedKeys.some((key, index) => {
+         isBlocked = Object.keys(officialDay).some((key) => {
             const s = officialDay[key];
-            const lookupName = attendanceData.sessions?.[key]?.name;
-            const directName = s.session;
-            if (lookupName && normalizeSession(lookupName) === targetSession) return true;
-            if (directName && normalizeSession(directName) === targetSession) return true;
-            if (!lookupName && !directName && index < SESSIONS.length) {
-               if (normalizeSession(SESSIONS[index]) === targetSession) return true;
+            
+              // 1. STRICTER FREE CHECK
+            if (!s.course || s.course === "null" || s.course === 0 || s.course === "0") {
+                return false;
+            }
+
+            // 2. DETERMINE NAME
+            let effectiveName = attendanceData.sessions?.[key]?.name;
+            let source = "Lookup";
+
+            if (!effectiveName && s.session && s.session !== "null") {
+                effectiveName = s.session;
+                source = "Data Field";
+            }
+            
+            if (!effectiveName) {
+                const keyInt = parseInt(key);
+                if (!isNaN(keyInt) && keyInt < 20) {
+                    effectiveName = key;
+                    source = "Key Fallback";
+                }
+            }
+
+            // 3. COMPARE
+            if (effectiveName && normalizeSession(effectiveName) === targetSession) {
+                return true;
             }
             return false;
          });
       }
 
       if (!isBlocked && trackingData) {
-         const dateStr = format(date, "yyyy-MM-dd");
+         const targetDbDate = normalizeDate(date);
          isBlocked = trackingData.some(t => {
-            let tDate = t.date;
-            if (tDate.includes('/')) {
-               const [d, m, y] = tDate.split('/');
-               tDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-            }
-            return tDate === dateStr && normalizeSession(t.session) === targetSession;
+            const isMatch = normalizeDate(t.date) === targetDbDate && normalizeSession(t.session) === targetSession;
+            return isMatch;
          });
       }
+      
       return isBlocked;
   }, [date, session, attendanceData, trackingData]);
 
@@ -232,9 +291,9 @@ export function AddAttendanceDialog({
           auth_user_id: authUser.id,
           course: courseId,
           date: format(date, "yyyy-MM-dd"), 
-          session: toRoman(session.toString().toLowerCase()),
-          semester: semester,
-          year: year,
+          session: toRoman(session),
+          semester: selectedSemester, 
+          year: selectedYear,         
           status: "extra", 
           attendance: attCode,
           remarks: `Self-Marked: ${statusType}`,
@@ -324,18 +383,28 @@ export function AddAttendanceDialog({
                       {daysInMonth.map((day) => {
                         const isSelected = isSameDay(day, date);
                         const isTodayDate = isToday(day);
+                        
+                        // CHECK IF DATE IS VALID
+                        let isDisabled = false;
+                        if (semesterBounds.min && semesterBounds.max) {
+                            isDisabled = isBefore(day, semesterBounds.min) || isAfter(day, semesterBounds.max);
+                        }
+
                         return (
                           <div key={day.toString()} className="flex justify-center">
                             <button
+                              disabled={isDisabled}
                               onClick={() => {
                                 setDate(day);
                                 setIsCalendarOpen(false);
                               }}
                               className={cn(
-                                "h-8 w-8 rounded-full flex items-center justify-center text-sm transition-all hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
+                                "h-8 w-8 rounded-full flex items-center justify-center text-sm transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
+                                !isDisabled && "hover:bg-accent hover:text-foreground cursor-pointer",
                                 isSelected && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground shadow-sm scale-105 font-medium",
-                                !isSelected && isTodayDate && "bg-accent/50 text-accent-foreground font-medium border border-border/50",
-                                !isSelected && !isTodayDate && "text-foreground"
+                                !isSelected && isTodayDate && !isDisabled && "bg-accent/50 text-accent-foreground font-medium border border-border/50",
+                                !isSelected && !isTodayDate && !isDisabled && "text-foreground",
+                                isDisabled && "text-muted-foreground/30 cursor-not-allowed pointer-events-none"
                               )}
                             >
                               {format(day, "d")}

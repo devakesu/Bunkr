@@ -49,7 +49,7 @@ import { AddRecordTrigger } from "@/components/attendance/AddRecordTrigger";
 import UserPlaceholder from "@/assets/user.png";
 import { Bell } from "lucide-react";
 import { useNotifications } from "@/hooks/notifications/useNotifications";
-import { createClient } from "@/lib/supabase/client";
+import NProgress from "nprogress";
 
 export const Navbar = () => {
   const router = useRouter();
@@ -67,10 +67,13 @@ export const Navbar = () => {
   const { unreadCount } = useNotifications(true);
 
   useEffect(() => {
-    if (defaultInstitutionUser) {
+  if (defaultInstitutionUser) {
+    const timer = setTimeout(() => {
       setSelectedInstitution(defaultInstitutionUser.toString());
-    }
-  }, [defaultInstitutionUser]);
+    }, 0);
+    return () => clearTimeout(timer);
+  }
+}, [defaultInstitutionUser]);
 
   // Handle Bunk Calc Toggle 
   const handleBunkCalcToggle = (checked: boolean) => {
@@ -88,7 +91,10 @@ export const Navbar = () => {
   };
 
   const navigateTo = (path: string) => {
-    router.push(path);
+    if (pathname !== path) {
+        NProgress.start();
+        router.push(path);
+    }
   };
 
   const handleInstitutionChange = (value: string) => {
@@ -122,10 +128,10 @@ export const Navbar = () => {
   const currentBunkCalc = settings?.bunk_calculator_enabled ?? true;
 
   return (
-    <header className="sticky top-0 z-10 flex h-17 items-center justify-between gap-4 border-b-2 bg-background px-4 md:px-6 text-white mr-0.5 border-white/5">
+    <header className="top-0 z-10 flex h-20 items-center justify-between gap-4 border-b-2 bg-background px-4 md:px-6 text-white mr-0.5 border-white/5">
       <div className="flex items-center gap-2">
         <Link href="/" className="group text-3xl sm:text-4xl lg:text-[2.50rem] font-semibold gradient-logo font-klick tracking-wide">
-          <div className="relative w-48 h-40 overflow-hidden">
+          <div className="relative w-40 sm:w-64 md:w-60 h-20 overflow-hidden">
             <Image 
               src="/logo.png" 
               alt="GhostClass Logo"

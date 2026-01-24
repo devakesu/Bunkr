@@ -11,8 +11,13 @@ import { useState, useEffect, useMemo } from "react";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useUser } from "@/hooks/users/user";
 
+interface ExtendedCourse extends Course {
+  present?: number;
+  total?: number;
+}
+
 interface CourseCardProps {
-  course: Course;
+  course: ExtendedCourse;
 }
 
 export function CourseCard({ course }: CourseCardProps) {
@@ -50,48 +55,25 @@ export function CourseCard({ course }: CourseCardProps) {
   }, []);
 
   const stats = useMemo(() => {
-    // 1. Official Data
+    // 1. Official Data (From API)
     const realPresent = courseDetails?.present || 0;
-    const realTotal = courseDetails?.totel || courseDetails?.totel || 0; 
+    const realTotal = courseDetails?.totel || courseDetails?.totel || 0;
     const realAbsent = courseDetails?.absent || 0;
     const officialPercentage = realTotal > 0 ? (realPresent / realTotal) * 100 : 0;
     
-    // 2. Default Safe Metrics (Official Only)
-    const safeMetrics = calculateAttendance(realPresent, realTotal, targetPercentage || 75);
-
-    if (!trackingData) {
-      return {
-        realPresent,
-        realAbsent,
-        realTotal,
-        correctionPresent: 0,
-        extraPresent: 0,
-        extras: 0,
-        extraAbsent: 0,
-        displayTotal: realTotal,
-        displayPercentage: parseFloat(officialPercentage.toFixed(2)),
-        officialPercentage: parseFloat(officialPercentage.toFixed(2)), 
-        safeMetrics,
-        extraMetrics: null
-      };
-    }
-
-    // 3. Filter Tracking Data
+    // 2. Filter Tracking Data (Local Calculation Backup)
     const normalize = (s: string | undefined) => s?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
     const targetId = String(course.id);
     const targetName = normalize(course.name);
     const targetCode = normalize(course.code);
 
-    const courseTracks = trackingData.filter(t => {
-        // Match by ID (Best match)
+    const courseTracks = trackingData?.filter(t => {
         if (String(t.course) === targetId) return true;
-        
-        // Fallback: Match by Name or Code
-        const tName = normalize(t.course);
-        return tName === targetName || tName === targetCode;
-    });
+        const tName = normalize(String(t.course));
+        return tName === targetName || (targetCode && tName === targetCode);
+    }) || [];
     
-    // 4. Calculate Modifiers based on DB Status
+    // 3. Calculate Modifiers (For visual breakdown only)
     let extraPresent = 0;
     let extraAbsent = 0;
     let correctionPresent = 0; 
@@ -105,20 +87,21 @@ export function CourseCard({ course }: CourseCardProps) {
             else extraAbsent++;
         } else {
             // Correction: Only swaps status. Does NOT add to total.
-            // We assume this correction overrides an official "Absent"
+            // Assumption: User corrects Absent -> Present
             if (isPos) correctionPresent++;
         }
     });
 
     const extras = extraPresent + extraAbsent;
 
-    // 5. Apply Modifiers
-    const finalPresent = realPresent + extraPresent + correctionPresent;
-    const finalTotal = realTotal + extras; 
+    // 4. Final Calculation
+    const finalPresent = (course.present !== undefined) ? course.present : (realPresent + extraPresent + correctionPresent);
+    const finalTotal = (course.total !== undefined) ? course.total : (realTotal + extras);
     
     const displayPercentage = finalTotal > 0 ? (finalPresent / finalTotal) * 100 : 0;
 
-    // 6. Calculate Adjusted Metrics
+    // 5. Metrics
+    const safeMetrics = calculateAttendance(realPresent, realTotal, targetPercentage || 75);
     const extraMetrics = calculateAttendance(finalPresent, finalTotal, targetPercentage || 75);
 
     return {
@@ -135,7 +118,7 @@ export function CourseCard({ course }: CourseCardProps) {
       safeMetrics,
       extraMetrics
     };
-  }, [courseDetails, trackingData, course.id, course.name, course.code, targetPercentage]);
+  }, [courseDetails, trackingData, course.id, course.name, course.code, course.present, course.total, targetPercentage]);
 
   const hasAttendanceData = !isLoading && stats.displayTotal > 0;
 

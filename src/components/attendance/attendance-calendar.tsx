@@ -35,7 +35,7 @@ import { useFetchSemester, useFetchAcademicYear } from "@/hooks/users/settings";
 import { useTrackingCount } from "@/hooks/tracker/useTrackingCount";
 import { useFetchCourses } from "@/hooks/courses/courses";
 import Link from "next/link";
-import { set } from "date-fns";
+import { formatSessionName, generateSlotKey, normalizeSession, toRoman } from "@/lib/utils";
 
 interface AttendanceCalendarProps {
   attendanceData: AttendanceReport | undefined;
@@ -50,41 +50,7 @@ interface ExtendedAttendanceEvent extends AttendanceEvent {
   rawSession?: string;
 }
 
-// Convert Number to Roman (for DB)
-const toRoman = (num: number): string => {
-  const romans = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"];
-  return romans[num - 1] || String(num);
-};
-
-// Normalize Session (Strict Number)
-const getNormalizedSession = (session: string | number): number => {
-  const s = String(session).toLowerCase().replace(/session|lecture|lab|hour|hr|period|st|nd|rd|th|\s/gi, "").trim();
-  const num = parseInt(s, 10);
-  if (!isNaN(num)) return num;
-  
-  const romans: Record<string, number> = { 
-    'i': 1, 'ii': 2, 'iii': 3, 'iv': 4, 'v': 5, 'vi': 6, 'vii': 7, 'viii': 8, 'ix': 9, 'x': 10 
-  };
-  return romans[s] || 0;
-};
-
-// Display Name (1st Hour, etc.)
-const formatSessionName = (sessionName: string): string => {
-    const num = getNormalizedSession(sessionName);
-    if (num > 0) {
-        if (num === 1) return "1st Hour";
-        if (num === 2) return "2nd Hour";
-        if (num === 3) return "3rd Hour";
-        return `${num}th Hour`;
-    }
-    return sessionName || "Unknown";
-};
-
-// Unique Slot Key
-const getSlotKey = (courseId: string | number, session: string | number) => {
-    const sNum = getNormalizedSession(session);
-    return `${String(courseId).trim()}-${sNum}`; 
-};
+const getNormalizedSession = (s: string | number) => parseInt(normalizeSession(s), 10) || 0;
 
 export function AttendanceCalendar({
   attendanceData,
@@ -274,11 +240,11 @@ export function AttendanceCalendar({
       let hasLeave = false;
 
       dateEvents.forEach(ev => {
-          const key = getSlotKey(ev.courseId, ev.sessionName);
+          const key = generateSlotKey(ev.courseId, date, ev.sessionName);
           const override = trackingData?.find(t => {
              let tDate = t.date;
              if (tDate.includes('/')) { const [d,m,y] = tDate.split('/'); tDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
-             return tDate === dbDateStr && getSlotKey(t.course, t.session) === key;
+             return tDate === dbDateStr && generateSlotKey(t.course, dbDateStr, t.session) === key;
           });
 
           let finalStatus = ev.status;
@@ -306,20 +272,20 @@ export function AttendanceCalendar({
     // 1. Deduplicate Officials (Last Write Wins per Course+Session)
     const officialsMap = new Map<string, ExtendedAttendanceEvent>();
     dayOfficialsRaw.forEach(ev => {
-        const key = getSlotKey(ev.courseId, ev.sessionName);
+        const key = generateSlotKey(ev.courseId, selectedDate, ev.sessionName);
         officialsMap.set(key, { ...ev });
     });
     
     // 2. Process Official Events
     const processedEvents = Array.from(officialsMap.values()).map(ev => {
-        const key = getSlotKey(ev.courseId, ev.sessionName);
+        const key = generateSlotKey(ev.courseId, selectedDate, ev.sessionName);
 
         const override = trackingData?.find(t => {
             let tDate = t.date;
             if (tDate.includes('/')) { const [d,m,y] = tDate.split('/'); tDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
             
             const isDateMatch = tDate === dbDateStr;
-            const isKeyMatch = getSlotKey(t.course, t.session) === key;
+            const isKeyMatch = generateSlotKey(t.course, t.date, t.session) === key;
             return isDateMatch && isKeyMatch;
         });
 
@@ -334,7 +300,8 @@ export function AttendanceCalendar({
                 isCorrection: true, 
                 originalStatus: ev.status, 
                 remarks: override.remarks,
-                hasTrackerRecord: true
+                hasTrackerRecord: true,
+                rawSession: override.session
             };
         }
         return ev;
@@ -352,10 +319,10 @@ export function AttendanceCalendar({
             if (tDate.includes('/')) { const [d,m,y] = tDate.split('/'); tDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
             
             if (tDate === dbDateStr) {
-                const key = getSlotKey(t.course, t.session);
+                const key = generateSlotKey(t.course, t.date, t.session);
                 
                 const alreadyMerged = processedEvents.some(ev => 
-                    getSlotKey(ev.courseId, ev.sessionName) === key
+                    generateSlotKey(ev.courseId, ev.date, ev.sessionName) === key
                 );
 
                 if (!alreadyMerged && t.status === 'extra') {
@@ -370,7 +337,7 @@ export function AttendanceCalendar({
                         title: resolvedName, 
                         date: selectedDate, 
                         sessionName: t.session, 
-                        rawSession: t.session, 
+                        rawSession: t.session,
                         sessionKey: `extra-${cId}-${t.session}`,
                         type: "normal", 
                         status: label, 
@@ -486,7 +453,7 @@ export function AttendanceCalendar({
 
                     const dbDate = formatDateForDB(selectedDate);
                     const sNum = getNormalizedSession(event.rawSession || event.sessionName);
-                    const sessionForDB = toRoman(sNum);
+                    const sessionForDB = toRoman(sNum); 
                     
                     const buttonKey = `${event.courseId}-${dbDate}-${sNum}`;
                     const deleteKey = `delete-${event.courseId}-${sNum}-${dbDate}`;

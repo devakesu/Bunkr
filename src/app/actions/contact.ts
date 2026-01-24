@@ -7,11 +7,54 @@ import { z } from "zod";
 
 const contactSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
   subject: z.string().optional(),
   message: z.string().min(10, "Message must be at least 10 characters"),
   token: z.string().min(1, "CAPTCHA verification failed"),
 });
+
+// Escape HTML to prevent injection attacks
+const escapeHtml = (text: string) => {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
+// --- EMAIL STYLES & COMPONENTS ---
+const BRAND_COLOR = "#7b75ff";
+const BG_COLOR = "#f9fafb";
+const CONTAINER_STYLE = `
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+  background-color: ${BG_COLOR}; 
+  padding: 40px 20px;
+  line-height: 1.6;
+  color: #374151;
+`;
+const CARD_STYLE = `
+  max-width: 600px; 
+  margin: 0 auto; 
+  background-color: #ffffff; 
+  border-radius: 12px; 
+  overflow: hidden; 
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+`;
+const HEADER_STYLE = `
+  background-color: ${BRAND_COLOR}; 
+  padding: 30px 40px; 
+  text-align: center;
+`;
+const BODY_STYLE = `padding: 40px;`;
+const FOOTER_STYLE = `
+  background-color: #f3f4f6; 
+  padding: 20px; 
+  text-align: center; 
+  font-size: 12px; 
+  color: #6b7280;
+`;
 
 export async function submitContactForm(formData: FormData) {
   const rawData = {
@@ -78,17 +121,56 @@ export async function submitContactForm(formData: FormData) {
     
     insertedId = insertedMessage.id;
 
+    // Sanitize inputs for Email
+    const safeName = escapeHtml(name);
+    const safeSubject = escapeHtml(subject || "General Inquiry");
+    const safeMessage = escapeHtml(message).replace(/\n/g, "<br/>");
+    const safeEmail = escapeHtml(email);
+    const userType = user ? "Registered User" : "Guest Visitor";
+
     // 6. Send Notification to ADMIN
     const adminEmailResult = await sendEmail({
-      to: "admin" + process.env.NEXT_PUBLIC_APP_EMAIL,
-      subject: `[Contact Form] ${subject || "New Message"}`,
+      to: "contact" + process.env.NEXT_PUBLIC_APP_EMAIL,
+      subject: `[New Inquiry] ${safeSubject}`,
       html: `
-        <h3>New Message from ${name} (${user ? "User" : "Guest"})</h3>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Subject:</strong> ${subject || "N/A"}</p>
-        <p><strong>User ID:</strong> ${user?.id || "N/A"}</p>
-        <p><strong>Message ID:</strong> ${insertedId}</p>
-        <p><strong>Message:</strong><br/>${message.replace(/\n/g, "<br/>")}</p>
+        <div style="${CONTAINER_STYLE}">
+          <div style="${CARD_STYLE}">
+            <div style="${HEADER_STYLE}">
+              <h2 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">New Contact Submission</h2>
+            </div>
+            <div style="${BODY_STYLE}">
+              <p style="margin-top: 0; color: #6b7280; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">Sender Details</p>
+              <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280; width: 100px;">Name:</td>
+                  <td style="padding: 8px 0; font-weight: 500; color: #111827;">${safeName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Email:</td>
+                  <td style="padding: 8px 0; font-weight: 500; color: #111827;">
+                    <a href="mailto:${safeEmail}" style="color: ${BRAND_COLOR}; text-decoration: none;">${safeEmail}</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Status:</td>
+                  <td style="padding: 8px 0; font-weight: 500; color: #111827;">${userType}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">ID:</td>
+                  <td style="padding: 8px 0; font-family: monospace; color: #6b7280; font-size: 12px;">${insertedId}</td>
+                </tr>
+              </table>
+              
+              <div style="background-color: #f3f4f6; border-radius: 8px; padding: 25px; border-left: 4px solid ${BRAND_COLOR};">
+                <p style="margin-top: 0; color: #6b7280; font-size: 12px; font-weight: bold; text-transform: uppercase;">Subject: ${safeSubject}</p>
+                <div style="color: #374151; font-size: 16px;">${safeMessage}</div>
+              </div>
+            </div>
+            <div style="${FOOTER_STYLE}">
+              This is an automated notification from GhostClass System.
+            </div>
+          </div>
+        </div>
       `,
     });
 
@@ -96,17 +178,38 @@ export async function submitContactForm(formData: FormData) {
       throw new Error(`Admin email failed: ${adminEmailResult?.error || "Unknown error"}`);
     }
 
-    // 7. Send Confirmation to USER (Fire and forget)
-    // We do NOT rollback if this fails
+    // 7. Send Confirmation to USER
     try {
       await sendEmail({
         to: email,
-        subject: `We received your message: ${subject || "Contact Request"}`,
+        subject: `We received your message: ${safeSubject}`,
         html: `
-          <h3>Hi ${name},</h3>
-          <p>Thanks for reaching out to us. We have received your message and will get back to you as soon as possible.</p>
-          <hr />
-          <p style="color: #666; font-size: 14px;"><strong>Your Message:</strong><br/>${message.replace(/\n/g, "<br/>")}</p>
+          <div style="${CONTAINER_STYLE}">
+            <div style="${CARD_STYLE}">
+              <div style="${HEADER_STYLE}">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">GhostClass</h1>
+              </div>
+              <div style="${BODY_STYLE}">
+                <h3 style="margin-top: 0; color: #111827; font-size: 20px;">Hi ${safeName},</h3>
+                <p style="color: #4b5563; font-size: 16px;">
+                  Thanks for getting in touch! We've received your message and our team is looking into it. 
+                </p>
+                <p style="color: #4b5563; font-size: 16px;">
+                  We typically respond within 24-48 hours. In the meantime, here's a copy of what you sent:
+                </p>
+                
+                <div style="margin: 30px 0; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px;">
+                  <p style="margin: 0 0 10px 0; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600;">Subject: ${safeSubject}</p>
+                  <p style="margin: 0; color: #374151; font-style: italic;">"${safeMessage}"</p>
+                </div>
+
+                <p style="color: #4b5563; font-size: 16px;">Best regards,<br/><strong style="color: #111827;">The GhostClass Team</strong></p>
+              </div>
+              <div style="${FOOTER_STYLE}">
+                &copy; ${new Date().getFullYear()} GhostClass. All rights reserved.
+              </div>
+            </div>
+          </div>
         `,
       });
     } catch (confirmationError) {
