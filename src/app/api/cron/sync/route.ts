@@ -8,6 +8,7 @@ import { syncRateLimiter } from "@/lib/ratelimit";
 import { toRoman, normalizeSession } from "@/lib/utils"; 
 import { Course } from "@/types";
 import { sendEmail } from "@/lib/email";
+import { renderCourseMismatchEmail, renderAttendanceConflictEmail } from "@/lib/email-templates";
 
 export const dynamic = 'force-dynamic';
 
@@ -183,66 +184,14 @@ export async function GET(req: Request) {
                             emailsToSend.push({
                                 to: user.email,
                                 subject: `💀 Course Mismatch: ${manualCourseName}`,
-                                html: `
-                                <!DOCTYPE html>
-                                <html>
-                                <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 40px 0;">
-                                    
-                                    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
-                                    
-                                    <div style="background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); padding: 32px 20px; text-align: center;">
-                                        <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">GhostClass 👻</h1>
-                                    </div>
-
-                                    <div style="padding: 40px 30px;">
-                                        <h2 style="color: #111827; font-size: 20px; font-weight: 600; margin-top: 0; margin-bottom: 16px;">Course Mismatch Detected</h2>
-                                        
-                                        <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
-                                            Hi <strong>${user.username}</strong>,<br>
-                                            We noticed a mix-up. You self-recorded a class for one course, but the official record shows a different one for that time slot.
-                                        </p>
-
-                                        <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 20px;">
-                                            <table style="width: 100%; border-collapse: collapse;">
-                                                <tr>
-                                                    <td style="padding: 8px 0; border-bottom: 1px solid #ffe4e6; color: #be123c; font-size: 14px; font-weight: 600;">📅 Date</td>
-                                                    <td style="padding: 8px 0; border-bottom: 1px solid #ffe4e6; color: #111827; text-align: right; font-size: 14px;">${item.date} - (${item.session})</td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 8px 0; border-bottom: 1px solid #ffe4e6; color: #be123c; font-size: 14px; font-weight: 600;">👤 You Marked</td>
-                                                    <td style="padding: 8px 0; border-bottom: 1px solid #ffe4e6; color: #111827; text-align: right; font-size: 14px; font-weight: 500;">
-                                                        ${manualCourseName}
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 8px 0; color: #be123c; font-size: 14px; font-weight: 600;">🏫 Official Record</td>
-                                                    <td style="padding: 8px 0; color: #111827; text-align: right; font-size: 14px; font-weight: 700;">
-                                                        ${courseLabel}
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </div>
-
-                                        <p style="color: #6b7280; font-size: 14px; margin-top: 24px; line-height: 1.5; text-align: center;">
-                                            To prevent confusion, we have <strong>removed your manual entry</strong>. Please check your dashboard for the correct status.
-                                        </p>
-
-                                        <div style="text-align: center; margin-top: 32px;">
-                                            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="background-color: #7c3aed; color: #ffffff; padding: 12px 32px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(124, 58, 237, 0.25);">
-                                                Open Dashboard
-                                            </a>
-                                        </div>
-                                    </div>
-
-                                    <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-                                        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-                                            GhostClass 👻
-                                        </p>
-                                    </div>
-                                    </div>
-                                </body>
-                                </html>
-                                `
+                                html: renderCourseMismatchEmail({
+                                    username: user.username,
+                                    date: item.date,
+                                    session: item.session,
+                                    manualCourseName,
+                                    courseLabel,
+                                    dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+                                })
                             });
                         }
                     }
@@ -301,70 +250,13 @@ export async function GET(req: Request) {
                             emailsToSend.push({
                                 to: user.email,
                                 subject: `💀 Attendance Conflict: ${courseLabel}`,
-                                html: `
-                                <!DOCTYPE html>
-                                <html>
-                                <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 40px 0;">
-                                    
-                                    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
-                                    
-                                    <div style="background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); padding: 32px 20px; text-align: center;">
-                                        <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">GhostClass 👻</h1>
-                                    </div>
-
-                                    <div style="padding: 40px 30px;">
-                                        <h2 style="color: #111827; font-size: 20px; font-weight: 600; margin-top: 0; margin-bottom: 16px;">Attendance Conflict Detected</h2>
-                                        
-                                        <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
-                                            Hi <strong>${user.username}</strong>,<br>
-                                            We found a discrepancy between your self-marked attendance and the official record.
-                                        </p>
-
-                                        <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 20px;">
-                                            <table style="width: 100%; border-collapse: collapse;">
-                                                <tr>
-                                                    <td style="padding: 8px 0; border-bottom: 1px solid #ffe4e6; color: #be123c; font-size: 14px; font-weight: 600;">📚 Course</td>
-                                                    <td style="padding: 8px 0; border-bottom: 1px solid #ffe4e6; color: #111827; text-align: right; font-size: 14px;">${courseLabel}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 8px 0; border-bottom: 1px solid #ffe4e6; color: #be123c; font-size: 14px; font-weight: 600;">📅 Date</td>
-                                                    <td style="padding: 8px 0; border-bottom: 1px solid #ffe4e6; color: #111827; text-align: right; font-size: 14px;">${item.date} - (${item.session})</td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 8px 0; border-bottom: 1px solid #ffe4e6; color: #be123c; font-size: 14px; font-weight: 600;">👤 You Marked</td>
-                                                    <td style="padding: 8px 0; border-bottom: 1px solid #ffe4e6; text-align: right;">
-                                                        <span style="background-color: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px;">Present</span>
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 8px 0; color: #be123c; font-size: 14px; font-weight: 600;">🏫 Official</td>
-                                                    <td style="padding: 8px 0; text-align: right;">
-                                                        <span style="background-color: #fee2e2; color: #b91c1c; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px;">Absent</span>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </div>
-
-                                        <p style="color: #6b7280; font-size: 14px; margin-top: 24px; line-height: 1.5; text-align: center;">
-                                            We have automatically flagged this entry as a <strong>Correction</strong> in your dashboard to keep your stats accurate.
-                                        </p>
-
-                                        <div style="text-align: center; margin-top: 32px;">
-                                            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="background-color: #7c3aed; color: #ffffff; padding: 12px 32px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(124, 58, 237, 0.25);">
-                                                Open Dashboard
-                                            </a>
-                                        </div>
-                                    </div>
-
-                                    <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-                                        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-                                            GhostClass 👻
-                                        </p>
-                                    </div>
-                                    </div>
-                                </body>
-                                </html>
-                                `
+                                html: renderAttendanceConflictEmail({
+                                    username: user.username,
+                                    courseLabel,
+                                    date: item.date,
+                                    session: item.session,
+                                    dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+                                })
                             });
                         }  
                      }
