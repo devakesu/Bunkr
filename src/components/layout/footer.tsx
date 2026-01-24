@@ -25,7 +25,7 @@ export const Footer = ({ className }: { className?: string }) => {
   // Validate and log warnings for invalid donation URLs
   const donateUrl = donateUrlRaw && isValidUrl(donateUrlRaw) ? donateUrlRaw : null;
   
-  if (donateUrlRaw && !donateUrl) {
+  if (donateUrlRaw && !donateUrl && process.env.NODE_ENV === "development") {
     console.warn(
       `[Footer] Invalid NEXT_PUBLIC_DONATE_URL: "${donateUrlRaw}". ` +
       "Please ensure it's a valid HTTP/HTTPS URL. The donation button will not be displayed."
