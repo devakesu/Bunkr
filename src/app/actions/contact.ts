@@ -24,9 +24,11 @@ const sanitizeForEmail = (text: string): string => {
   const withBreaks = normalizedText.replace(/\n/g, "<br>");
   
   // Sanitize with a whitelist of safe tags
-  // Only allows basic formatting tags with no attributes to prevent XSS
+  // Only allows basic inline formatting tags with no attributes to prevent XSS
+  // Note: <p> is intentionally disallowed to avoid nested/invalid paragraphs
+  // when this content is interpolated inside an existing <p> in email templates.
   return sanitizeHtml(withBreaks, {
-    allowedTags: ["br", "p", "strong", "em", "b", "i"],
+    allowedTags: ["br", "strong", "em", "b", "i"],
     allowedAttributes: {},
     disallowedTagsMode: "escape",
   });
