@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { z } from "zod";
+import sanitizeHtml from "sanitize-html";
 
 const contactSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -13,7 +14,20 @@ const contactSchema = z.object({
   token: z.string().min(1, "CAPTCHA verification failed"),
 });
 
-// Escape HTML to prevent injection attacks
+// Sanitize HTML to prevent injection attacks while preserving safe formatting
+const sanitizeForEmail = (text: string): string => {
+  // First, convert newlines to <br> tags before sanitization
+  const withBreaks = text.replace(/\n/g, "<br>");
+  
+  // Then sanitize with a whitelist of safe tags
+  return sanitizeHtml(withBreaks, {
+    allowedTags: ["br", "p", "strong", "em", "b", "i"],
+    allowedAttributes: {},
+    disallowedTagsMode: "escape",
+  });
+};
+
+// Escape HTML completely (for attributes and non-HTML contexts)
 const escapeHtml = (text: string) => {
   return text
     .replace(/&/g, "&amp;")
@@ -124,7 +138,7 @@ export async function submitContactForm(formData: FormData) {
     // Sanitize inputs for Email
     const safeName = escapeHtml(name);
     const safeSubject = escapeHtml(subject || "General Inquiry");
-    const safeMessage = escapeHtml(message).replace(/\n/g, "<br/>");
+    const safeMessage = sanitizeForEmail(message);
     const safeEmail = escapeHtml(email);
     const userType = user ? "Registered User" : "Guest Visitor";
 
