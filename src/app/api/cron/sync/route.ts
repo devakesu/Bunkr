@@ -164,7 +164,7 @@ export async function GET(req: Request) {
             const notifications: any[] = [];
             const emailsToSend: any[] = [];
             
-            trackingData.forEach((item) => {
+            for (const item of trackingData) {
                const normalizedTrackerSession = toRoman(parseInt(normalizeSession(item.session)) || item.session);
                const key = `${item.date}|${normalizedTrackerSession}`;
                
@@ -194,7 +194,7 @@ export async function GET(req: Request) {
                             emailsToSend.push({
                                 to: user.email,
                                 subject: `💀 Course Mismatch: ${manualCourseName}`,
-                                html: renderCourseMismatchEmail({
+                                html: await renderCourseMismatchEmail({
                                     username: user.username,
                                     date: item.date,
                                     session: item.session,
@@ -205,7 +205,7 @@ export async function GET(req: Request) {
                             });
                         }
                     }
-                    return; 
+                    continue; 
                 }
 
                  const isOfficialPositive = officialCode === 110 || officialCode === 225 || officialCode === 112; 
@@ -260,7 +260,7 @@ export async function GET(req: Request) {
                             emailsToSend.push({
                                 to: user.email,
                                 subject: `💀 Attendance Conflict: ${courseLabel}`,
-                                html: renderAttendanceConflictEmail({
+                                html: await renderAttendanceConflictEmail({
                                     username: user.username,
                                     courseLabel,
                                     date: item.date,
@@ -272,7 +272,7 @@ export async function GET(req: Request) {
                      }
                  }
                }
-            });
+            }
 
             if (toDelete.length > 0) {
                await supabaseAdmin.from("tracker").delete().in("id", toDelete);

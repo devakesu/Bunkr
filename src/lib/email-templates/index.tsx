@@ -7,23 +7,23 @@ export { CourseMismatchEmail, AttendanceConflictEmail };
 /**
  * Render email templates to HTML strings
  */
-export const renderCourseMismatchEmail = (props: {
+export const renderCourseMismatchEmail = async (props: {
   username: string;
   date: string;
   session: string;
   manualCourseName: string;
   courseLabel: string;
   dashboardUrl: string;
-}): string => {
+}): Promise<string> => {
   return render(<CourseMismatchEmail {...props} />);
 };
 
-export const renderAttendanceConflictEmail = (props: {
+export const renderAttendanceConflictEmail = async (props: {
   username: string;
   courseLabel: string;
   date: string;
   session: string;
   dashboardUrl: string;
-}): string => {
+}): Promise<string> => {
   return render(<AttendanceConflictEmail {...props} />);
 };
