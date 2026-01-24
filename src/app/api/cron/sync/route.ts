@@ -40,6 +40,16 @@ interface UserSyncData {
 
 export async function GET(req: Request) {
   const supabaseAdmin = getAdminClient();
+  
+  // Validate required environment variables for email notifications
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!appUrl) {
+    console.error("NEXT_PUBLIC_APP_URL is not set - email dashboard links will be broken");
+    return NextResponse.json(
+      { error: "Server configuration error: NEXT_PUBLIC_APP_URL is not set" },
+      { status: 500 }
+    );
+  }
 
   const headerList = await headers();
   const forwardedFor = headerList.get("x-forwarded-for");
@@ -190,7 +200,7 @@ export async function GET(req: Request) {
                                     session: item.session,
                                     manualCourseName,
                                     courseLabel,
-                                    dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+                                    dashboardUrl: `${appUrl}/dashboard`
                                 })
                             });
                         }
@@ -255,7 +265,7 @@ export async function GET(req: Request) {
                                     courseLabel,
                                     date: item.date,
                                     session: item.session,
-                                    dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+                                    dashboardUrl: `${appUrl}/dashboard`
                                 })
                             });
                         }  
