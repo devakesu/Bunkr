@@ -45,6 +45,32 @@ export function useNotifications(enabled = true) {
     refetchInterval: 30000,
   });
 
+  // DEDICATED QUERY: Total Unread Count
+  // This provides an accurate count of all unread notifications,
+  // regardless of how many pages have been loaded.
+  const { data: unreadCountData, isLoading: isUnreadCountLoading } = useQuery({
+    queryKey: ["notifications", "unreadCount"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return 0;
+
+      const { count, error } = await supabase
+        .from("notification")
+        .select("*", { count: "exact", head: true })
+        .eq("auth_user_id", user.id)
+        .eq("is_read", false);
+
+      if (error) {
+        console.error(`Error fetching unread count for user ${user.id}:`, error);
+        return 0;
+      }
+
+      return count ?? 0;
+    },
+    enabled: enabled,
+    refetchInterval: 30000,
+  });
+
   // 2. INFINITE FEED: Fetch Everything Else
   // (Regular items + Read Conflicts)
   const {
@@ -97,11 +123,8 @@ export function useNotifications(enabled = true) {
   const actionIds = new Set(actionNotifications.map(n => n.id));
   const regularNotifications = rawFeed.filter(n => !actionIds.has(n.id));
 
-  // Calculate Unread Count (Action + Feed)
-  // Note: This is an approximation based on loaded data. 
-  // For 100% accuracy on unread count badge, you might need a separate 'count' query, 
-  // but combining loaded lists is usually sufficient for UI.
-  const unreadCount = actionNotifications.length + regularNotifications.filter(n => !n.is_read).length;
+  // Use the dedicated unread count query for accuracy
+  const unreadCount = unreadCountData ?? 0;
 
   // 4. MUTATIONS
   const markReadMutation = useMutation({
@@ -130,7 +153,7 @@ export function useNotifications(enabled = true) {
     actionNotifications,   // Always Unread Conflicts
     regularNotifications,  // Everything else
     unreadCount,
-    isLoading: isActionLoading || isFeedLoading,
+    isLoading: isActionLoading || isFeedLoading || isUnreadCountLoading,
     error,
     fetchNextPage,
     hasNextPage,
