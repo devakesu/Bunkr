@@ -43,7 +43,7 @@ export async function GET(req: Request) {
   const headerList = await headers();
   const forwardedFor = headerList.get("x-forwarded-for");
   const ip = (forwardedFor?.split(",")[0] || "127.0.0.1").trim();
-  const { success, reset, remaining } = await syncRateLimiter.limit(ip);
+  const { success, reset } = await syncRateLimiter.limit(ip);
 
   if (!success) {
     return new Response(JSON.stringify({ error: "Too many requests", retryAfter: reset }), {
@@ -412,7 +412,7 @@ export async function GET(req: Request) {
         return acc;
     }, { processed: 0, deletions: 0, conflicts: 0, updates: 0, errors: 0 });
 
-    return NextResponse.json({ success: true, ...finalResults }, { headers: { "X-RateLimit-Remaining": remaining.toString()}});
+    return NextResponse.json({ success: true, ...finalResults });
 
   } catch (error: any) {
     console.error("Cron Error:", error);
