@@ -30,7 +30,7 @@ import {
   useSetAcademicYear,
 } from "@/hooks/users/settings";
 import { getToken } from "@/lib/auth";
-import { generateSlotKey, normalizeDate, toRoman } from "@/lib/utils";
+import { generateSlotKey } from "@/lib/utils";
 import { Loading as CompLoading } from "@/components/loading";
 import { useUser } from "@/hooks/users/user";
 import {
