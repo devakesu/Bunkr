@@ -93,10 +93,7 @@ export function PasswordResetForm({
         return;
       }
     } catch (error: any) {
-      setError(
-        `Ezygo: ${error.response?.data?.message}` ||
-          "Ezygo: Failed to fetch reset options."
-      );
+      setError(`Ezygo: ${error.response?.data?.message || "Failed to fetch reset options."}`);
     } finally {
       setIsLoading(false);
     }
@@ -114,10 +111,7 @@ export function PasswordResetForm({
       });
       setStep("otp");
     } catch (error: any) {
-      setError(
-        `Ezygo: ${error.response?.data?.message}` ||
-          "Ezygo: Failed to fetch reset options."
-      );
+      setError(`Ezygo: ${error.response?.data?.message || "Failed to fetch reset options."}`);
     } finally {
       setIsLoading(false);
     }
@@ -140,10 +134,7 @@ export function PasswordResetForm({
       setToken(token);
       router.push("/dashboard");
     } catch (error: any) {
-      setError(
-        `Ezygo: ${error.response?.data?.message}` ||
-          "Ezygo: Failed to fetch reset options."
-      );
+      setError(`Ezygo: ${error.response?.data?.message || "Failed to fetch reset options."}`);
     } finally {
       setIsLoading(false);
     }

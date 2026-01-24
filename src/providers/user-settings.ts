@@ -29,6 +29,8 @@ export function useUserSettings() {
 
       return data as UserSettings | null;
     },
+    // Ensure fresh fetch on mount to detect "New User" state immediately
+    staleTime: 0, 
     refetchOnWindowFocus: false,
   });
 
@@ -47,11 +49,9 @@ export function useUserSettings() {
       if (error) throw error;
       return data;
     },
-    // Optimistic Update / Cache Update
     onSuccess: (newData) => {
       queryClient.setQueryData(["userSettings"], newData);
       
-      // Update LocalStorage immediately for responsiveness
       if (newData.bunk_calculator_enabled !== undefined) {
          localStorage.setItem("showBunkCalc", newData.bunk_calculator_enabled.toString());
          window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newData.bunk_calculator_enabled }));
@@ -72,17 +72,19 @@ export function useUserSettings() {
     // Case A: DB has data -> Sync to LocalStorage
     if (settings) {
       const localBunk = localStorage.getItem("showBunkCalc");
-      const dbBunk = settings.bunk_calculator_enabled.toString();
+      // Handle potential nulls in DB
+      const dbBunk = (settings.bunk_calculator_enabled ?? true).toString();
       
-      // Only write if different to avoid loop/events spam
       if (localBunk !== dbBunk) {
         localStorage.setItem("showBunkCalc", dbBunk);
-        window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: settings.bunk_calculator_enabled }));
+        window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: settings.bunk_calculator_enabled ?? true }));
       }
       
       const localTarget = localStorage.getItem("targetPercentage");
-      if (localTarget !== settings.target_percentage.toString()) {
-        localStorage.setItem("targetPercentage", settings.target_percentage.toString());
+      const dbTarget = (settings.target_percentage ?? 75).toString();
+      
+      if (localTarget !== dbTarget) {
+        localStorage.setItem("targetPercentage", dbTarget);
       }
     } 
     // Case B: DB is empty (New User) -> Try to migrate LocalStorage to DB
@@ -93,8 +95,8 @@ export function useUserSettings() {
       // Only migrate if we actually have local data
       if (localBunk !== null || localTarget !== null) {
         updateSettings.mutate({
-          bunk_calculator_enabled: localBunk === "true",
-          target_percentage: localTarget ? Number(localTarget) : 75
+          bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
+          target_percentage: localTarget !== null ? Number(localTarget) : 75
         });
       }
     }

@@ -27,7 +27,8 @@ export async function POST(req: Request) {
 
   // 1. Rate Limit Check
   const headerList = await headers();
-  const ip = headerList.get("x-forwarded-for") ?? "127.0.0.1";
+  const forwardedFor = headerList.get("x-forwarded-for");
+  const ip = (forwardedFor ?? "127.0.0.1").split(",")[0].trim();
   const { success, limit, reset, remaining } = await syncRateLimiter.limit(ip);
 
   if (!success) {
@@ -137,7 +138,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.log("Auth Bridge Failed:", error);
+    console.error("Auth Bridge Failed:", error);
     return NextResponse.json({ message: error.message + "Failed to establish secure session" }, { status: 500 });
   }
 }

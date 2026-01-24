@@ -23,15 +23,15 @@ export function PublicNavbar() {
   }, []);
 
   return (
-    <nav className="flex h-20 items-center justify-between px-6 border-b border-white/10 bg-background">
-      <div className="flex items-center gap-2 h-full py-2">
+    <nav className="flex h-20 items-center justify-between gap-4 px-4 md:px-6 border-b border-white/10 bg-background">
+      <div className="flex items-center gap-2 h-full">
         <Link href="/" className="group h-full flex items-center">
-          <div className="relative w-60 h-full"> 
+          <div className="relative w-40 sm:w-64 md:w-80 h-20 overflow-hidden"> 
             <Image 
               src="/logo.png" 
               alt="GhostClass Logo"
               fill
-              sizes="(max-width: 768px) 100vw, 33vw"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               priority
               className="object-contain object-left transition-transform group-hover:scale-105"
             />
@@ -39,7 +39,7 @@ export function PublicNavbar() {
         </Link>
       </div>
       
-      <div className="flex gap-4 items-center">
+      <div className="flex gap-2 sm:gap-4 items-center">
          {loading ? (
            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
          ) : user ? (

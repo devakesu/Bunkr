@@ -8,26 +8,91 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// 1. Normalize to Database Format (i, ii, iii)
-export function toRoman(input: string | number): string {
-  const clean = String(input).toLowerCase().trim().replace(/session|hour/g, "").trim();
+export const toRoman = (num: number | string): string => {
+  const n = typeof num === 'string' ? parseInt(num, 10) : num;
+  if (isNaN(n) || n < 1) return String(num);
+  const romans = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+  return romans[n - 1] || String(n);
+};
+
+/**
+ * Converts various session inputs ("Session 1", "2nd Hour", "iii", "Lab")
+ * into a standardized string number ("1", "2", "3") or upper case string ("LAB").
+ */
+export const normalizeSession = (session: string | number): string => {
+  let s = String(session).toLowerCase().trim();
   
-  const romans = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"];
-  if (romans.includes(clean)) return clean;
+  // 1. Remove common noise
+  s = s.replace(/session|lecture|lec|lab|hour|hr|period/g, '').trim();
+  s = s.replace(/(st|nd|rd|th)$/, '').trim(); // Remove ordinals
 
-  const map: Record<string, string> = {
-    "1st": "i", "2nd": "ii", "3rd": "iii", "4th": "iv", "5th": "v", 
-    "6th": "vi", "7th": "vii", "8th": "viii"
+  // 2. Roman to Number Map
+  const romans: Record<string, string> = {
+      'viii': '8', 'vii': '7', 'vi': '6', 'v': '5',
+      'iv': '4', 'iii': '3', 'ii': '2', 'i': '1',
+      'ix': '9', 'x': '10'
   };
-  if (map[clean]) return map[clean];
 
-  const num = parseInt(clean.match(/\d+/)?.[0] || "0", 10);
-  if (num > 0 && num <= 10) return romans[num - 1];
+  if (romans[s]) return romans[s];
 
-  return clean;
-}
+  // 3. Parse Integer
+  const num = parseInt(s, 10);
+  if (!isNaN(num)) return num.toString();
 
-// 2. Format for Display (1st Hour, 2nd Hour)
+  // 4. Fallback (e.g. "A", "B", "Extra")
+  return s.toUpperCase();
+};
+
+/**
+ * Standardizes date to YYYYMMDD format.
+ * Handles Date objects, ISO strings, and "DD-MM-YYYY".
+ */
+export const normalizeDate = (date: string | Date): string => {
+  if (!date) return "";
+  
+  if (date instanceof Date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}${m}${d}`;
+  }
+
+  const dateStr = String(date).trim();
+  
+  // Handle ISO "2023-01-01T..."
+  if (dateStr.includes("T")) {
+      return dateStr.split("T")[0].replace(/-/g, "");
+  }
+  
+  // Handle "YYYY-MM-DD" or "DD-MM-YYYY"
+  if (dateStr.includes("-")) {
+    const parts = dateStr.split("-");
+    // If first part is year (4 digits)
+    if (parts[0].length === 4) return parts.join(""); 
+    // Assume DD-MM-YYYY -> YYYYMMDD
+    return `${parts[2]}${parts[1]}${parts[0]}`;
+  }
+  
+  return dateStr.replace(/[^0-9]/g, "");
+};
+
+/**
+ * Generates the canonical key for maps and deduplication.
+ * Format: {COURSEID}_{YYYYMMDD}_{SESSION_ROMAN_OR_UPPER}
+ */
+export const generateSlotKey = (courseId: string | number, date: string | Date, session: string | number) => {
+  const cId = String(courseId).trim();
+  const d = normalizeDate(date);
+  
+  // Logic: Normalized Number -> Roman (matches DB/Legacy logic)
+  const normSession = normalizeSession(session);
+  const n = parseInt(normSession, 10);
+  const finalSession = !isNaN(n) ? toRoman(n) : normSession;
+
+  return `${cId}_${d}_${finalSession}`;
+};
+
+// Format for Display (1st Hour, 2nd Hour)
 export function formatSessionName(sessionName: string): string {
   if (!sessionName) return "";
   const clean = sessionName.toString().replace(/Session|Hour/gi, "").trim();
@@ -55,7 +120,7 @@ export function formatSessionName(sessionName: string): string {
   return sessionName.toLowerCase().includes("session") ? sessionName : `Session ${sessionName}`;
 }
 
-// 3. Get Sortable Number (1, 2, 3)
+// Get Sortable Number (1, 2, 3)
 export function getSessionNumber(name: string): number {
   if (!name) return 999;
   const clean = name.toString().toLowerCase().replace(/session|hour/g, "").replace(/hour/g, "").trim();
@@ -68,6 +133,15 @@ export function getSessionNumber(name: string): number {
   const match = clean.match(/\d+/);
   return match ? parseInt(match[0], 10) : 999;
 }
+
+export const formatCourseCode = (code: string): string => {
+  if (code.includes("-")) {
+    const subcode = code.split("-")[0].trim();
+    return subcode.replace(/[\s\u00A0]/g, "");
+  }
+
+  return code.replace(/[\s\u00A0]/g, "");
+};
 
 // Helper function to compress image
 export const compressImage = (file: File, quality = 0.7): Promise<File> => {
@@ -131,13 +205,3 @@ export const compressImage = (file: File, quality = 0.7): Promise<File> => {
     reader.onerror = (error) => reject(error);
   });
 };
-
-export const formatCourseCode = (code: string): string => {
-  if (code.includes("-")) {
-    const subcode = code.split("-")[0].trim();
-    return subcode.replace(/[\s\u00A0]/g, "");
-  }
-
-  return code.replace(/[\s\u00A0]/g, "");
-};
-
