@@ -7,7 +7,6 @@ import { z } from "zod";
 import sanitizeHtml from "sanitize-html";
 import { headers } from "next/headers";
 import { syncRateLimiter } from "@/lib/ratelimit";
-import { get } from "http";
 
 // VALIDATION SCHEMA
 const contactSchema = z.object({
