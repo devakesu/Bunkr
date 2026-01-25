@@ -22,8 +22,7 @@ info:
     
     All endpoints are rate-limited to prevent abuse:
     
-    - `/api/auth/save-token`: 5 requests per 15 minutes per IP
-    - `/api/cron/sync`: 10 requests per 60 seconds per IP
+    - `/api/auth/save-token` & `/api/cron/sync`: 10 requests per 10 seconds per IP (shared sliding window across both endpoints)
     - Contact Form (Server Action): 3 requests per 15 minutes per IP
     
     Rate limit information is returned in response headers:
