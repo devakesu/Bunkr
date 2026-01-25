@@ -53,7 +53,7 @@ export const Footer = ({ className }: { className?: string }) => {
         );
       }
     }
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, [donateUrlRaw, donateUrl, githubUrlRaw, githubUrl, authorUrlRaw, authorUrl]);
 
   return (
     <footer className={cn(

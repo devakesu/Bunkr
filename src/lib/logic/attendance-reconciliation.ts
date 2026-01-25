@@ -109,7 +109,7 @@ export function getReconciledStats(
       const offDL = officialStatus === ATTENDANCE_STATUS.DUTY_LEAVE;
 
       // CORE LOGIC: If status='extra' AND no official record exists -> TRUE EXTRA
-      const isTrulyExtra = (item as any).status === "extra" && officialStatus === undefined;
+      const isTrulyExtra = item.status === "extra" && officialStatus === undefined;
 
       if (isTrulyExtra) {
           stats.extrasCount++;

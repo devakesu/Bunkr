@@ -5,13 +5,33 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { z } from "zod";
 import sanitizeHtml from "sanitize-html";
+import { headers } from "next/headers";
+import { syncRateLimiter as contactRateLimiter } from "@/lib/ratelimit";
 
+// VALIDATION SCHEMA
 const contactSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.email("Invalid email address"),
-  subject: z.string().optional(),
-  message: z.string().min(10, "Message must be at least 10 characters"),
-  token: z.string().min(1, "CAPTCHA verification failed"),
+  name: z.string()
+    .min(2, "Name must be at least 2 characters")
+    .max(100, "Name too long")
+    .regex(/^[a-zA-Z\s'-]+$/, "Name contains invalid characters"),
+  
+  email: z.string()
+    .email("Invalid email format")
+    .max(255, "Email too long")
+    .transform(val => val.toLowerCase().trim()),
+  
+  subject: z.string()
+    .max(200, "Subject too long")
+    .transform(val => val.trim())
+    .optional(),
+  
+  message: z.string()
+    .min(10, "Message must be at least 10 characters")
+    .max(5000, "Message too long")
+    .transform(val => val.trim()),
+  
+  token: z.string()
+    .min(20, "Invalid CAPTCHA token"),
 });
 
 // Sanitize HTML to prevent injection attacks while preserving safe formatting
@@ -77,7 +97,33 @@ const FOOTER_STYLE = `
   color: #6b7280;
 `;
 
+const getContactEmail = () => {
+  const appEmail = process.env.NEXT_PUBLIC_APP_EMAIL;
+  if (!appEmail) {
+    throw new Error('NEXT_PUBLIC_APP_EMAIL is not configured');
+  }
+  return 'contact' + appEmail;
+};
+
+
 export async function submitContactForm(formData: FormData) {
+
+  // ✅ ADD HONEYPOT CHECK (anti-bot)
+  const honeypot = formData.get("website"); // Hidden field
+  if (honeypot) {
+    console.warn("Honeypot triggered");
+    return { error: "Invalid submission" };
+  }
+
+  // RATE LIMIT BY IP 
+  const headersList = await headers();
+  const ip = headersList.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
+  const { success } = await syncRateLimiter.limit(`contact:${ip}`);
+  
+  if (!success) {
+    return { error: "Too many requests. Please try again later." };
+  }
+  
   const rawData = {
     name: formData.get("name"),
     email: formData.get("email"),
@@ -151,7 +197,7 @@ export async function submitContactForm(formData: FormData) {
 
     // 6. Send Notification to ADMIN
     const adminEmailResult = await sendEmail({
-      to: "contact" + process.env.NEXT_PUBLIC_APP_EMAIL,
+      to: getContactEmail(),
       subject: `[New Inquiry] ${safeSubject}`,
       html: `
         <div style="${CONTAINER_STYLE}">

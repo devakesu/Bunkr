@@ -100,7 +100,7 @@ export function useUserSettings() {
         });
       }
     }
-  }, [settings, isLoading]);
+  }, [settings, isLoading, updateSettings]);
 
   return {
     settings,

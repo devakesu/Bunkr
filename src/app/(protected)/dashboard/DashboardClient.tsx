@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/select";
 import { AttendanceCalendar } from "@/components/attendance/attendance-calendar";
 import { CourseCard } from "@/components/attendance/course-card";
-import { AttendanceChart } from "@/components/attendance/attendance-chart";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useProfile } from "@/hooks/users/profile";
 import { useAttendanceReport } from "@/hooks/courses/attendance";
@@ -47,6 +46,18 @@ import {
 import { useAttendanceSettings } from "@/providers/attendance-settings";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useQueryClient } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
+
+const ChartSkeleton = () => (
+  <div className="flex items-center justify-center h-full">
+    <CompLoading />
+  </div>
+);
+
+const AttendanceChart = dynamic(() => import('@/components/attendance/attendance-chart').then((mod) => mod.AttendanceChart), {
+  loading: () => <ChartSkeleton />,
+  ssr: false
+});
 
 // --- Types & Constants ---
 const ATTENDANCE_STATUS = {
@@ -362,15 +373,9 @@ export default function DashboardClient() {
         
         let trackerStatus = ATTENDANCE_STATUS.PRESENT;
         if (typeof item.attendance === "number") trackerStatus = item.attendance;
-        else if (typeof item.status === "string" && item.status !== "extra" && item.status !== "correction") {
-            const s = item.status.toLowerCase();
-            if (s === "absent") trackerStatus = ATTENDANCE_STATUS.ABSENT;
-            else if (s === "duty leave") trackerStatus = ATTENDANCE_STATUS.DUTY_LEAVE;
-            else if (s === "other leave") trackerStatus = ATTENDANCE_STATUS.OTHER_LEAVE;
-        }
 
         const officialStatus = officialMap.get(key);
-        const isTrulyExtra = (item as any).status === "extra" && officialStatus === undefined; 
+        const isTrulyExtra = item.status === "extra" && officialStatus === undefined; 
         
         const trackerPositive = isPositive(trackerStatus);
         const trackerDL = trackerStatus === ATTENDANCE_STATUS.DUTY_LEAVE;
