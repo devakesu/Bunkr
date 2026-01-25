@@ -4,16 +4,20 @@
 import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 
-if (!ENCRYPTION_KEY) {
-  throw new Error("ENCRYPTION_KEY is not defined");
+// Lazy validation: validate and get key only when needed
+function getEncryptionKey(): Buffer {
+  const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+  
+  if (!ENCRYPTION_KEY) {
+    throw new Error("ENCRYPTION_KEY is not defined");
+  }
+  if (!/^[a-f0-9]{64}$/i.test(ENCRYPTION_KEY)) {
+    throw new Error("ENCRYPTION_KEY must be 64 hex characters (32 bytes)");
+  }
+  
+  return Buffer.from(ENCRYPTION_KEY, 'hex');
 }
-if (!/^[a-f0-9]{64}$/i.test(ENCRYPTION_KEY)) {
-  throw new Error("ENCRYPTION_KEY must be 64 hex characters (32 bytes)");
-}
-
-const KEY = Buffer.from(ENCRYPTION_KEY, 'hex');
 
 export const encrypt = (text: string) => {
 
@@ -24,6 +28,7 @@ export const encrypt = (text: string) => {
     throw new Error("Input text too long (max 100KB)");
   }
 
+  const KEY = getEncryptionKey();
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
   let encrypted = cipher.update(text, 'utf8', 'hex');
@@ -58,13 +63,14 @@ export const decrypt = (ivHex: string, content: string) => {
     throw new Error("Invalid content format (non-hex characters)");
   }
 
+  const KEY = getEncryptionKey();
   try {
     const decipher = crypto.createDecipheriv(ALGORITHM, KEY, Buffer.from(ivHex, 'hex'));
     decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
     let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
-  } catch (error) {
+  } catch (_error) {
     throw new Error("Decryption failed");
   }
 };
