@@ -104,7 +104,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
         } catch (error) {
           // Swallow or log the error to avoid breaking the resize loop
           if (process.env.NODE_ENV !== "production") {
-            // eslint-disable-next-line no-console
+             
             console.error("AttendanceChart resize observer error:", error);
           }
         }
