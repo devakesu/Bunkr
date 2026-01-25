@@ -10,6 +10,7 @@ export function GET() {
     {
       commit: commitSha,
       build_id: commitSha,
+      app_version: process.env.APP_VERSION ?? "dev",
       image_digest: commitSha,
       container: Boolean(commitSha !== "dev"),
       node_env: process.env.NODE_ENV,
