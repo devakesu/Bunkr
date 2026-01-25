@@ -92,8 +92,8 @@ export function validateEnvironment() {
 
   if (!process.env.NEXT_PUBLIC_APP_EMAIL) {
     errors.push('❌ NEXT_PUBLIC_APP_EMAIL is required (used for sender addresses)');
-  } else if (!process.env.NEXT_PUBLIC_APP_EMAIL.includes('@')) {
-    errors.push('❌ NEXT_PUBLIC_APP_EMAIL must contain "@" and be a valid email/suffix (e.g. support@example.com)');
+  } else if (!/^@[^@]+$/.test(process.env.NEXT_PUBLIC_APP_EMAIL)) {
+    errors.push('❌ NEXT_PUBLIC_APP_EMAIL must start with "@" and be a valid email suffix (e.g. @example.com)');
   }
 
   // ============================================================================
