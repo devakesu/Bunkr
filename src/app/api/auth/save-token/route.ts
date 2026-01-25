@@ -101,13 +101,13 @@ export async function POST(req: Request) {
 
       // Check status before validating response body
       if (ezygoRes.status === 401) {
-        return new NextResponse("Invalid or expired token", { status: 401 });
+        return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
       }
       
       if (ezygoRes.status !== 200) {
         console.error("Unexpected Ezygo response status:", ezygoRes.status);
-        return new NextResponse(
-          "Authentication service error",
+        return NextResponse.json(
+          { message: "Authentication service error" },
           { status: 502 }
         );
       }
@@ -116,8 +116,8 @@ export async function POST(req: Request) {
       const userValidation = EzygoUserSchema.safeParse(ezygoRes.data);
       if (!userValidation.success) {
         console.error("Invalid Ezygo response:", userValidation.error);
-        return new NextResponse(
-          "Invalid user data from authentication service",
+        return NextResponse.json(
+          { message: "Invalid user data from authentication service" },
           { status: 502 }
         );
       }
@@ -127,24 +127,24 @@ export async function POST(req: Request) {
 
     } catch (err: any) {
       if (err.code === 'ECONNABORTED') {
-        return new NextResponse("Authentication service timeout", { status: 504 });
+        return NextResponse.json({ message: "Authentication service timeout" }, { status: 504 });
       }
       if (err.response?.status === 401) {
-        return new NextResponse("Invalid or expired token", { status: 401 });
+        return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
       }
       console.error("Ezygo verification error:", err);
-      return new NextResponse("Authentication service error", { status: 502 });
+      return NextResponse.json({ message: "Authentication service error" }, { status: 502 });
     }
 
     if (!verifiedUsername || !verifieduserId) {
-      return new NextResponse("Could not verify user identity", { status: 401 });
+      return NextResponse.json({ message: "Could not verify user identity" }, { status: 401 });
     }
 
     // Sanitize User ID
     const sanitizedUserId = verifieduserId.replace(/[^a-zA-Z0-9_-]/g, '');
     if (sanitizedUserId !== verifieduserId) {
       console.warn(`User ID contained invalid characters: ${verifieduserId}`);
-      return new NextResponse("Invalid user identifier", { status: 400 });
+      return NextResponse.json({ message: "Invalid user identifier" }, { status: 400 });
     }
 
     // 3. Ghost Login for Supabase
@@ -158,7 +158,7 @@ export async function POST(req: Request) {
       `^[a-zA-Z0-9_-]+@${escapeRegExp(ghostDomain)}$`
     );
     if (!emailRegex.test(email)) {
-      return new NextResponse("Invalid email format", { status: 500 });
+      return NextResponse.json({ message: "Invalid email format" }, { status: 500 });
     }
 
     const ghostPassword = crypto
