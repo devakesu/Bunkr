@@ -543,11 +543,7 @@ export default function DashboardClient() {
                 </CardHeader>
                 <CardContent className="flex-1 pb-6">
                   <div className="h-[300px] w-full">
-                    {isLoadingAttendance ? (
-                      <div className="flex items-center justify-center h-full">
-                        <CompLoading />
-                      </div>
-                    ) : attendanceData ? (
+                    {attendanceData ? (
                       <ErrorBoundary 
                         fallback={
                           <div className="flex items-center justify-center h-full">
