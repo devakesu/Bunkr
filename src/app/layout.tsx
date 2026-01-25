@@ -66,7 +66,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
-  const hasGoogleAnalytics = gaId && gaId !== 'undefined' && gaId.startsWith('G-');
+  const hasGoogleAnalytics = !!gaId && gaId !== 'undefined' && gaId.startsWith('G-');
 
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
