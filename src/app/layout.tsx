@@ -6,12 +6,6 @@ import Script from "next/script";
 import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import { GlobalInit } from "@/lib/global-init";
-import { validateEnvironment } from "@/lib/validate-env";
-
-// VALIDATE ON SERVER STARTUP
-if (typeof window === 'undefined') {
-  validateEnvironment();
-}
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || ''),
