@@ -5,6 +5,7 @@ import { Footer } from "@/components/layout/footer";
 import { Toaster } from "sonner";
 import { useState, useRef } from "react";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export default function PublicLayout({
   children,
@@ -28,26 +29,30 @@ export default function PublicLayout({
   });
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <ErrorBoundary>
+      <div className="flex min-h-screen flex-col">
 
-      <motion.div
-        variants={{
-          visible: { y: 0 },
-          hidden: { y: "-100%" },
-        }}
-        animate={isHidden ? "hidden" : "visible"}
-        transition={{ duration: 0.35, ease: "easeInOut" }}
-        className="fixed top-0 left-0 right-0 z-50"
-      >
-        <PublicNavbar />
-      </motion.div>
+        <motion.div
+          variants={{
+            visible: { y: 0 },
+            hidden: { y: "-100%" },
+          }}
+          animate={isHidden ? "hidden" : "visible"}
+          transition={{ duration: 0.35, ease: "easeInOut" }}
+          className="fixed top-0 left-0 right-0 z-50"
+        >
+          <PublicNavbar />
+        </motion.div>
 
-      <main className="flex-1 w-full pt-20">
-        {children}
-      </main>
-      
-      <Footer />
-      <Toaster richColors position="bottom-right" />
-    </div>
+        <main className="flex-1 w-full pt-20">
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
+        </main>
+        
+        <Footer />
+        <Toaster richColors position="bottom-right" />
+      </div>
+    </ErrorBoundary>
   );
 }
