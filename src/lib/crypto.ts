@@ -9,6 +9,11 @@ const ALGORITHM = 'aes-256-gcm';
 let cachedKey: Buffer | null = null;
 
 // Lazy validation: validate and get key only when needed
+// Note: This validation duplicates the checks in validateEnvironment() (validate-env.ts).
+// This is intentional defense-in-depth to handle edge cases where validateEnvironment()
+// might not run (e.g., in unit tests, CLI scripts, or non-standard entry points).
+// In production, validateEnvironment() runs at server startup (app/layout.tsx) and will
+// catch invalid keys before this function is ever called.
 function getEncryptionKey(): Buffer {
   // Return cached key if already validated
   if (cachedKey) {
