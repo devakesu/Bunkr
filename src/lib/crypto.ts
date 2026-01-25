@@ -48,7 +48,11 @@ export const decrypt = (ivHex: string, content: string) => {
     throw new Error("Invalid content format (missing separator)");
   }
 
-  const [authTagHex, encryptedText] = content.split(':');
+  const parts = content.split(':');
+  if (parts.length !== 2) {
+    throw new Error("Invalid content format (unexpected separators)");
+  }
+  const [authTagHex, encryptedText] = parts;
   
   if (!/^[a-f0-9]+$/i.test(authTagHex) || !/^[a-f0-9]+$/i.test(encryptedText)) {
     throw new Error("Invalid content format (non-hex characters)");
