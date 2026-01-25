@@ -126,6 +126,22 @@ export async function POST(req: Request) {
     if (!verifiedUsername || !verifieduserId) {
       return new NextResponse("Could not verify user identity", { status: 401 });
     }
+  // 2. Verify Token with EzyGo
+  let verifiedUsername = "";
+  let verifieduserId = "";
+  try {
+      const ezygoRes = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}user`, {
+          headers: { Authorization: `Bearer ${token}` }
+      });
+      verifiedUsername = ezygoRes.data.username;
+      verifieduserId = ezygoRes.data.id;
+  } catch (err) {
+      return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
+  }
+
+  if (!verifiedUsername) {
+      return NextResponse.json({ message: "Could not verify user identity" }, { status: 401 });
+  }
 
     // Sanitize User ID
     const sanitizedUserId = verifieduserId.replace(/[^a-zA-Z0-9_-]/g, '');

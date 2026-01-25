@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/select";
 import { AttendanceCalendar } from "@/components/attendance/attendance-calendar";
 import { CourseCard } from "@/components/attendance/course-card";
+import { AttendanceChart } from "@/components/attendance/attendance-chart";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { useProfile } from "@/hooks/users/profile";
 import { useAttendanceReport } from "@/hooks/courses/attendance";
 import { useFetchCourses } from "@/hooks/courses/courses";
@@ -539,8 +541,35 @@ export default function DashboardClient() {
           <div className="lg:col-span-2">
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4 }} className="h-full">
               <Card className="h-full custom-container flex flex-col">
-                <CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Attendance Overview</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">See where you&apos;ve been keeping up</CardDescription></CardHeader>
-                <CardContent className="flex-1 pb-6"><div className="h-[300px] w-full">{isLoadingAttendance ? <div className="flex items-center justify-center h-full"><CompLoading /></div> : attendanceData ? <AttendanceChart attendanceData={filteredChartData} trackingData={trackingData} coursesData={coursesData} /> : <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">No attendance data available</p></div>}</div></CardContent>
+                <CardHeader className="flex flex-col gap-0.5">
+                  <CardTitle className="text-[16px]">Attendance Overview</CardTitle>
+                  <CardDescription className="text-accent-foreground/60 text-sm">
+                    See where you&apos;ve been keeping up
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 pb-6">
+                  <div className="h-[300px] w-full">
+                    {attendanceData ? (
+                      <ErrorBoundary 
+                        fallback={
+                          <div className="flex items-center justify-center h-full">
+                            <p className="text-muted-foreground">Unable to load chart. Please try refreshing.</p>
+                          </div>
+                        }
+                      >
+                        <AttendanceChart 
+                          attendanceData={filteredChartData} 
+                          trackingData={trackingData} 
+                          coursesData={coursesData} 
+                        />
+                      </ErrorBoundary>
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-muted-foreground">No attendance data available</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
               </Card>
             </motion.div>
           </div>
@@ -601,15 +630,15 @@ export default function DashboardClient() {
 
         <div className="mb-6 mt-10">
           <div className="mb-6 flex flex-col justify-center items-center mx-3"><h2 className="text-lg font-bold mb-0.5 italic">Your Courses Lineup <span className="ml-1">⬇️📚</span></h2><p className="italic text-muted-foreground text-sm text-center">Your current courses — organized for easy access.</p></div>
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{isLoadingCourses ? Array(6).fill(0).map((_, i) => <Card key={i} className="overflow-hidden"><CardHeader className="p-0"><Skeleton className="h-40 w-full rounded-none" /></CardHeader><CardContent className="p-6"><Skeleton className="h-6 w-3/4 mb-2" /><Skeleton className="h-4 w-1/2" /></CardContent></Card>) : sortedCourses.length > 0 ? sortedCourses.map((course: any) => <div key={course.id}><CourseCard course={course} /></div>) : <div className="col-span-full text-center py-8 bg-accent/50 rounded-xl border-2 border-accent-foreground/12"><p className="text-muted-foreground">No courses found for this semester</p></div>}</div>
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{sortedCourses.length > 0 ? sortedCourses.map((course: any) => <div key={course.id}><CourseCard course={course} /></div>) : <div className="col-span-full text-center py-8 bg-accent/50 rounded-xl border-2 border-accent-foreground/12"><p className="text-muted-foreground">No courses found for this semester</p></div>}</div>
         </div>
 
         <div className="mb-6">
-          <Card className="custom-container"><CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Attendance Calendar</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">Your attendance history at a glance</CardDescription></CardHeader><CardContent>{isLoadingAttendance ? <div className="flex items-center justify-center h-[200px]"><CompLoading /></div> : attendanceData ? <AttendanceCalendar attendanceData={attendanceData} /> : <div className="flex items-center justify-center h-[200px]"><p className="text-muted-foreground">No attendance data available</p></div>}</CardContent></Card>
+          <Card className="custom-container"><CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Attendance Calendar</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">Your attendance history at a glance</CardDescription></CardHeader><CardContent>{attendanceData ? <AttendanceCalendar attendanceData={attendanceData} /> : <div className="flex items-center justify-center h-[200px]"><p className="text-muted-foreground">No attendance data available</p></div>}</CardContent></Card>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
-          <Card className="custom-container"><CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Instructor Details</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">Get to know your instructors</CardDescription></CardHeader><CardContent>{isLoadingCourses ? <div className="flex items-center justify-center h-[200px]"><CompLoading /></div> : coursesData?.courses && Object.keys(coursesData.courses).length > 0 ? (
+          <Card className="custom-container"><CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Instructor Details</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">Get to know your instructors</CardDescription></CardHeader><CardContent>{coursesData?.courses && Object.keys(coursesData.courses).length > 0 ? (
             <div className="rounded-md custom-container overflow-clip">
               <div className="w-full overflow-auto">
                 <table className="w-full caption-bottom text-sm">

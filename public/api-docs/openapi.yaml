@@ -1,0 +1,481 @@
+openapi: 3.1.0
+
+info:
+  title: GhostClass API
+  version: 1.0.0
+  description: |
+    **GhostClass API** provides endpoints for managing attendance synchronization with EzyGo.
+    
+    ## Authentication
+    
+    The API supports two authentication methods:
+    
+    1. **Bearer Token (CRON_SECRET)**: For automated cron jobs
+       - Add `Authorization: Bearer <CRON_SECRET>` header
+       - Used by automated sync processes
+    
+    2. **Session Cookie (SupabaseAuth)**: For authenticated users
+       - Automatically included when logged in through the web interface
+       - Managed by Supabase Auth
+    
+    ## Rate Limiting
+    
+    All endpoints are rate-limited to prevent abuse:
+    
+    - `/api/auth/save-token` & `/api/cron/sync`: 10 requests per 10 seconds per IP (shared sliding window across both endpoints)
+    - Contact Form (Server Action): 3 requests per 15 minutes per IP
+    
+    Rate limit information is returned in response headers:
+    - `X-RateLimit-Limit`: Maximum requests allowed
+    - `X-RateLimit-Remaining`: Remaining requests in current window
+    - `X-RateLimit-Reset`: Unix timestamp when limit resets
+    
+    ## Base URLs
+    
+    - Production: `https://ghostclass.devakesu.com`
+    - Development: `http://localhost:3000`
+    
+    ## Error Handling
+    
+    All error responses follow a consistent format with appropriate HTTP status codes and descriptive messages.
+
+  contact:
+    name: GhostClass Support
+    email: contact@ghostclass.devakesu.com
+    url: https://github.com/devakesu/GhostClass
+  
+  license:
+    name: MIT
+    url: https://github.com/devakesu/GhostClass/blob/main/LICENSE
+
+servers:
+  - url: https://ghostclass.devakesu.com
+    description: Production
+  - url: http://localhost:3000
+    description: Development
+
+tags:
+  - name: Authentication
+    description: Endpoints for managing EzyGo authentication tokens
+  - name: Sync
+    description: Endpoints for synchronizing attendance data with EzyGo
+  - name: Health
+    description: System health and status endpoints
+
+paths:
+  /api/auth/save-token:
+    post:
+      tags:
+        - Authentication
+      summary: Save EzyGo authentication token
+      security: []  # No authentication required for this endpoint
+      description: |
+        Saves the EzyGo JWT authentication token and establishes a secure session for the user.
+        
+        **What it does:**
+        - Validates the EzyGo token by verifying with EzyGo API
+        - Creates or retrieves a Supabase authentication account (ghost login)
+        - Encrypts and stores the token securely in the database
+        - Establishes a session cookie for subsequent authenticated requests
+        
+        **Authentication:** No authentication required (this endpoint creates authentication)
+        
+        **Rate Limiting:** 5 requests per 15 minutes per IP address
+        
+        **Side Effects:**
+        - Creates a new user account in Supabase Auth if not exists
+        - Stores encrypted token in the database
+        - Sets session cookies in the response
+        
+        **Use Cases:**
+        - Initial user authentication from EzyGo
+        - Token refresh when existing token expires
+      
+      operationId: saveAuthToken
+      
+      requestBody:
+        required: true
+        description: EzyGo authentication token
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  minLength: 20
+                  maxLength: 2000
+                  description: Valid EzyGo JWT token obtained from EzyGo authentication
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            examples:
+              validToken:
+                summary: Valid EzyGo token
+                description: Example of a valid JWT token from EzyGo
+                value:
+                  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcm5hbWUiOiJzdHVkZW50MTIzIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+      
+      responses:
+        '200':
+          description: Token successfully saved and session established
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+              examples:
+                success:
+                  summary: Successful authentication
+                  value:
+                    success: true
+        
+        '400':
+          description: Bad request - Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                missingToken:
+                  summary: Token not provided
+                  value:
+                    message: "Missing credentials"
+        
+        '401':
+          description: Unauthorized - Token verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidToken:
+                  summary: Invalid or expired token
+                  value:
+                    message: "Invalid or expired token"
+                verificationFailed:
+                  summary: Could not verify user identity
+                  value:
+                    message: "Could not verify user identity"
+        
+        '429':
+          description: Rate limit exceeded
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              description: Maximum number of requests allowed in the time window
+              example: 5
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Number of requests remaining in current window
+              example: 0
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: Unix timestamp when the rate limit resets
+              example: 1706108400
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+              examples:
+                tooManyRequests:
+                  summary: Rate limit exceeded
+                  value:
+                    error: "Too many requests. Slow down!"
+                    retryAfter: 900
+        
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                serverError:
+                  summary: Failed to establish session
+                  value:
+                    message: "Failed to establish secure session"
+
+  /api/cron/sync:
+    get:
+      tags:
+        - Sync
+      summary: Sync attendance data with EzyGo
+      description: |
+        Synchronizes attendance records from EzyGo with the local database. Supports both automated cron jobs and authenticated user-initiated syncs.
+        
+        **What it does:**
+        - Fetches latest attendance data from EzyGo API
+        - Compares with local tracking records
+        - Detects and resolves conflicts (course mismatches, attendance discrepancies)
+        - Sends email notifications for conflicts
+        - Updates sync timestamps
+        
+        **Authentication:** 
+        - **Option 1 (Cron)**: Bearer token with CRON_SECRET in Authorization header
+        - **Option 2 (Users)**: Valid session cookie (authenticated users)
+        
+        **Rate Limiting:** 10 requests per 60 seconds per IP address
+        
+        **Side Effects:**
+        - Deletes verified/matched attendance records
+        - Updates conflicted records with 'correction' status
+        - Creates notifications in the database
+        - Sends email alerts for attendance conflicts
+        - Updates `last_synced_at` timestamp for users
+        
+        **Use Cases:**
+        - Automated daily/hourly sync via cron job
+        - Manual sync triggered by users from dashboard
+        - Batch sync for multiple users (cron only)
+        - Single user sync with optional username filter
+      
+      operationId: syncAttendance
+      
+      security:
+        - BearerAuth: []
+        - SupabaseAuth: []
+      
+      parameters:
+        - name: username
+          in: query
+          required: false
+          description: |
+            Filter sync to a specific user by username. Only applicable when using Bearer token authentication (cron mode).
+            
+            - If provided with cron auth: syncs only the specified user
+            - If omitted with cron auth: syncs up to 10 least-recently-synced users
+            - Ignored for authenticated user requests (always syncs the current user)
+          schema:
+            type: string
+            example: "student123"
+      
+      responses:
+        '200':
+          description: Sync completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    description: Whether sync operation completed successfully
+                    example: true
+                  processed:
+                    type: integer
+                    description: Number of users processed
+                    example: 5
+                  deletions:
+                    type: integer
+                    description: Number of tracking records deleted (verified/matched)
+                    example: 23
+                  conflicts:
+                    type: integer
+                    description: Number of attendance conflicts detected
+                    example: 2
+                  updates:
+                    type: integer
+                    description: Number of records updated to 'correction' status
+                    example: 2
+                  errors:
+                    type: integer
+                    description: Number of users that failed to sync
+                    example: 0
+              examples:
+                successfulSync:
+                  summary: Successful sync with multiple users
+                  value:
+                    success: true
+                    processed: 5
+                    deletions: 23
+                    conflicts: 2
+                    updates: 2
+                    errors: 0
+                noUsers:
+                  summary: No eligible users to sync
+                  value:
+                    success: true
+                    processed: 0
+                    deletions: 0
+                    conflicts: 0
+                    updates: 0
+                    errors: 0
+        
+        '401':
+          description: Unauthorized - Invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                unauthorized:
+                  summary: Not authenticated
+                  value:
+                    message: "Unauthorized"
+        
+        '429':
+          description: Rate limit exceeded
+          headers:
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: Unix timestamp when the rate limit resets
+              example: 1706108460
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+              examples:
+                tooManyRequests:
+                  summary: Rate limit exceeded
+                  value:
+                    error: "Too many requests"
+                    retryAfter: 60
+        
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                serverError:
+                  summary: Configuration error
+                  value:
+                    error: "Server configuration error: NEXT_PUBLIC_APP_URL is not set"
+
+  /api/health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      security: []  # No authentication required for health checks
+      description: |
+        Returns the health status of the API service. Used for monitoring and uptime checks.
+        
+        **What it does:**
+        - Confirms the API is responsive
+        - Returns current version information
+        - Provides timestamp for monitoring
+        
+        **Authentication:** None required
+        
+        **Rate Limiting:** None (health checks should always be available)
+        
+        **Use Cases:**
+        - Monitoring tools and uptime checkers
+        - Load balancer health checks
+        - Deployment verification
+      
+      operationId: healthCheck
+      
+      responses:
+        '200':
+          description: Service is healthy and operational
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                    description: Health status of the service
+                    example: "ok"
+                  version:
+                    type: string
+                    description: Current version of the application
+                    example: "1.0.0"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Current server timestamp in ISO 8601 format
+                    example: "2026-01-24T20:52:27.674Z"
+              examples:
+                healthy:
+                  summary: Service is healthy
+                  value:
+                    status: "ok"
+                    version: "1.0.0"
+                    timestamp: "2026-01-24T20:52:27.674Z"
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message describing what went wrong
+        message:
+          type: string
+          description: Detailed error message
+      example:
+        error: "Internal Server Error"
+    
+    ValidationError:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Validation error message
+        errors:
+          type: array
+          description: List of validation errors (if multiple fields failed)
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                description: Field that failed validation
+              message:
+                type: string
+                description: Validation error message for this field
+      example:
+        message: "Missing credentials"
+    
+    RateLimitError:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Rate limit error message
+          example: "Too many requests. Slow down!"
+        retryAfter:
+          type: integer
+          description: Unix timestamp (in seconds) when the rate limit resets. Matches the `X-RateLimit-Reset` header.
+          example: 1735689600
+      required:
+        - error
+        - retryAfter
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Bearer token authentication using CRON_SECRET environment variable.
+        Used for automated cron jobs.
+        
+        Example: `Authorization: Bearer <CRON_SECRET>`
+    
+    SupabaseAuth:
+      type: apiKey
+      in: cookie
+      name: sb-*
+      description: |
+        Session cookie authentication managed by Supabase Auth.
+        Automatically included when users are logged in through the web interface.
+        Cookie names typically start with 'sb-' prefix.
+
+externalDocs:
+  description: GitHub Repository
+  url: https://github.com/devakesu/GhostClass
