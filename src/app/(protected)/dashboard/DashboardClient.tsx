@@ -376,7 +376,7 @@ export default function DashboardClient() {
         if (typeof item.attendance === "number") trackerStatus = item.attendance;
 
         const officialStatus = officialMap.get(key);
-        const isTrulyExtra = (item as any).status === "extra" && officialStatus === undefined; 
+        const isTrulyExtra = item.status === "extra" && officialStatus === undefined; 
         
         const trackerPositive = isPositive(trackerStatus);
         const trackerDL = trackerStatus === ATTENDANCE_STATUS.DUTY_LEAVE;
