@@ -6,15 +6,23 @@ import { AlertTriangle } from "lucide-react";
 
 export default function GlobalError({
   error,
+  reset,
 }: {
   error: Error & { digest?: string };
+  reset: () => void;
 }) {
   useEffect(() => {
     Sentry.captureException(error);
   }, [error]);
 
   const handleRefresh = () => {
-    window.location.reload();
+    // Try to reset the error boundary first
+    try {
+      reset();
+    } catch {
+      // Fallback to full page reload if reset fails
+      window.location.reload();
+    }
   };
 
   return (
