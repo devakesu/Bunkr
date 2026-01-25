@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/select";
 import { AttendanceCalendar } from "@/components/attendance/attendance-calendar";
 import { CourseCard } from "@/components/attendance/course-card";
-import { AttendanceChart } from "@/components/attendance/attendance-chart";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useProfile } from "@/hooks/users/profile";
 import { useAttendanceReport } from "@/hooks/courses/attendance";
