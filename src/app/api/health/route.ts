@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   return NextResponse.json({
     status: "ok",
-    version: packageJson.version || "1.0.0",
+    version: process.env.APP_VERSION || packageJson.version || "1.0.0",
     timestamp: new Date().toISOString(),
   });
 }
