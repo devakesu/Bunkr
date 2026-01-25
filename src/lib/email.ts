@@ -172,7 +172,7 @@ export async function sendEmail(props: SendEmailProps) {
         console.error("All email providers failed.");
         return {
           success: false,
-          provider: secondaryName as "Brevo" | "SendPulse",
+          provider: secondaryName! as "Brevo" | "SendPulse",
           error: `Primary: ${primaryError.message} | Secondary: ${secondaryError.message}`,
         };
       }
