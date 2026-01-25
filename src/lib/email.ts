@@ -135,6 +135,7 @@ export async function sendEmail(props: SendEmailProps) {
   let primary: typeof sendViaSendPulse | typeof sendViaBrevo;
   let secondary: typeof sendViaSendPulse | typeof sendViaBrevo | null = null;
   let primaryName: string;
+  let secondaryName: string | null = null;
 
   // If both available, randomize
   if (hasBrevo && hasSendPulse) {
@@ -142,6 +143,7 @@ export async function sendEmail(props: SendEmailProps) {
     primary = startWithSendPulse ? sendViaSendPulse : sendViaBrevo;
     secondary = startWithSendPulse ? sendViaBrevo : sendViaSendPulse;
     primaryName = startWithSendPulse ? "SendPulse" : "Brevo";
+    secondaryName = startWithSendPulse ? "Brevo" : "SendPulse";
   } 
   // If only one available, use it
   else if (hasSendPulse) {
@@ -170,7 +172,7 @@ export async function sendEmail(props: SendEmailProps) {
         console.error("All email providers failed.");
         return {
           success: false,
-          provider: "Brevo" as const,
+          provider: secondaryName! as "Brevo" | "SendPulse",
           error: `Primary: ${primaryError.message} | Secondary: ${secondaryError.message}`,
         };
       }
