@@ -64,15 +64,25 @@ export function validateEnvironment() {
   if (!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) {
     errors.push('❌ NEXT_PUBLIC_TURNSTILE_SITE_KEY is required');
   } else if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY === '1x00000000000000000000AA') {
-    errors.push('❌ NEXT_PUBLIC_TURNSTILE_SITE_KEY is using TEST KEY!');
-    errors.push('   Replace with production key from https://dash.cloudflare.com/');
+    // Test keys are acceptable in development, but not in production
+    if (process.env.NODE_ENV === 'production') {
+      errors.push('❌ NEXT_PUBLIC_TURNSTILE_SITE_KEY is using TEST KEY in production!');
+      errors.push('   Replace with production key from https://dash.cloudflare.com/');
+    } else {
+      warnings.push('⚠️  NEXT_PUBLIC_TURNSTILE_SITE_KEY is using Cloudflare test key (development only)');
+    }
   }
 
   if (!process.env.TURNSTILE_SECRET_KEY) {
     errors.push('❌ TURNSTILE_SECRET_KEY is required');
   } else if (process.env.TURNSTILE_SECRET_KEY === '1x0000000000000000000000000000000AA') {
-    errors.push('❌ TURNSTILE_SECRET_KEY is using TEST KEY!');
-    errors.push('   Replace with production key from https://dash.cloudflare.com/');
+    // Test keys are acceptable in development, but not in production
+    if (process.env.NODE_ENV === 'production') {
+      errors.push('❌ TURNSTILE_SECRET_KEY is using TEST KEY in production!');
+      errors.push('   Replace with production key from https://dash.cloudflare.com/');
+    } else {
+      warnings.push('⚠️  TURNSTILE_SECRET_KEY is using Cloudflare test key (development only)');
+    }
   }
 
   // App Configuration
