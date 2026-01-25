@@ -9,18 +9,19 @@ interface ErrorFallbackProps {
   error: Error;
   reset?: () => void;
   showDetails?: boolean;
+  homeUrl?: string;
 }
 
 /**
  * ErrorFallback component that displays a user-friendly error message
  * with options to try again or go back to the dashboard.
  */
-export function ErrorFallback({ error, reset, showDetails }: ErrorFallbackProps) {
+export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard" }: ErrorFallbackProps) {
   const router = useRouter();
   const isDevelopment = process.env.NODE_ENV === "development";
 
   const handleGoHome = () => {
-    router.push("/dashboard");
+    router.push(homeUrl);
   };
 
   const handleTryAgain = () => {

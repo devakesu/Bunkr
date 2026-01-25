@@ -20,5 +20,5 @@ export default function ContactError({
     });
   }, [error]);
 
-  return <ErrorFallback error={error} reset={reset} />;
+  return <ErrorFallback error={error} reset={reset} homeUrl="/" />;
 }

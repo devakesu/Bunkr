@@ -20,5 +20,5 @@ export default function LegalError({
     });
   }, [error]);
 
-  return <ErrorFallback error={error} reset={reset} />;
+  return <ErrorFallback error={error} reset={reset} homeUrl="/" />;
 }

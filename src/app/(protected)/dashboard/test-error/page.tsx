@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -9,6 +10,11 @@ import { Button } from "@/components/ui/button";
  * This page allows testing error boundary functionality by intentionally throwing errors
  */
 export default function TestErrorPage() {
+  // Prevent access in production
+  if (process.env.NODE_ENV === "production") {
+    redirect("/dashboard");
+  }
+
   const [shouldThrow, setShouldThrow] = useState(false);
 
   if (shouldThrow) {
