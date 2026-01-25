@@ -87,7 +87,14 @@ export async function GET(req: Request) {
         if (data) usersToSync = data;
     }
 
-    if (usersToSync.length === 0) return NextResponse.json({ message: "No eligible users" });
+    if (usersToSync.length === 0) return NextResponse.json({ 
+      success: true,
+      processed: 0,
+      deletions: 0,
+      conflicts: 0,
+      updates: 0,
+      errors: 0
+    });
 
     const syncPromises = usersToSync.map(async (user) => {
       const userStats = { processed: 0, deletions: 0, conflicts: 0, updates: 0, errors: 0 };

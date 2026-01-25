@@ -61,11 +61,11 @@ export async function POST(req: Request) {
       verifiedUsername = ezygoRes.data.username;
       verifieduserId = ezygoRes.data.id;
   } catch (err) {
-      return new NextResponse("Invalid or expired token" + err, { status: 401 });
+      return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
   }
 
   if (!verifiedUsername) {
-      return new NextResponse("Could not verify user identity", { status: 401 });
+      return NextResponse.json({ message: "Could not verify user identity" }, { status: 401 });
   }
 
   // 3. Ghost Login for Supabase User Auth
