@@ -6,7 +6,7 @@ import { sendEmail } from "@/lib/email";
 import { z } from "zod";
 import sanitizeHtml from "sanitize-html";
 import { headers } from "next/headers";
-import { syncRateLimiter } from "@/lib/ratelimit";
+import { syncRateLimiter as contactRateLimiter } from "@/lib/ratelimit";
 
 // VALIDATION SCHEMA
 const contactSchema = z.object({
