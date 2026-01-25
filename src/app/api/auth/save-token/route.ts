@@ -148,10 +148,15 @@ export async function POST(req: Request) {
     }
 
     // 3. Ghost Login for Supabase
-    const email = `ezygo_${sanitizedUserId}@ghostclass.devakesu.com`;
+    const ghostDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "ghostclass.devakesu.com";
+    const email = `ezygo_${sanitizedUserId}@${ghostDomain}`;
     
-    // Validate Email Format
-    const emailRegex = /^[a-zA-Z0-9_-]+@ghostclass\.devakesu\.com$/;
+    // Validate Email Format (derive from configured domain)
+    const escapeRegExp = (value: string) =>
+      value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const emailRegex = new RegExp(
+      `^[a-zA-Z0-9_-]+@${escapeRegExp(ghostDomain)}$`
+    );
     if (!emailRegex.test(email)) {
       return new NextResponse("Invalid email format", { status: 500 });
     }
