@@ -203,17 +203,27 @@ export async function POST(req: Request) {
       });
 
       // IF USER ALREADY EXISTS, FORCE PASSWORD UPDATE
-      if (signUpError?.message?.includes("already registered")) {
-        const { data: existingUser } = await supabaseAdmin
-          .from("users")
-          .select("auth_id")
-          .eq("id", verifieduserId) 
-          .single();
-        
-        if (existingUser?.auth_id) {
-          await supabaseAdmin.auth.admin.updateUserById(existingUser.auth_id, {
-            password: ghostPassword
-          });
+      if (signUpError) {
+        if (signUpError.message?.includes("already registered")) {
+          const { data: existingUser } = await supabaseAdmin
+            .from("users")
+            .select("auth_id")
+            .eq("id", verifieduserId) 
+            .single();
+          
+          if (existingUser?.auth_id) {
+            const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+              existingUser.auth_id,
+              {
+                password: ghostPassword
+              }
+            );
+
+            if (updateError) throw updateError;
+          }
+        } else {
+          // For any other sign-up error, abort the flow immediately
+          throw signUpError;
         }
       }
 
