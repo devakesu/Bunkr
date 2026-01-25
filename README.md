@@ -8,7 +8,7 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 
 ## 🎯 Key "Vibe" Features
 - **The Bunk Calc** 🧮: Know exactly how many classes you can miss before the threshold comes for your neck.
-- **Visual Reciepts** 📊: Performance charts and a detailed calendar history so you can see your attendance glow-up in real-time.
+- **Visual Receipts** 📊: Performance charts and a detailed calendar history so you can see your attendance glow-up in real-time.
 - **Anti-Ghosting Tracker** 👻: A personalized list to watch wrongly marked absences like a hawk until they get updated.
 - **Ezygo Integration** 🔄 - Use your existing ezygo credentials - no new accounts needed
 - **Real-time Updates** ⚡ - Get instant updates on your attendance status and skip calculations
@@ -167,4 +167,4 @@ This project is licensed under the **GNU General Public License v3.0** - see the
 
 <br />
 
-***Thank you for your interest in GhostClass! Bunk classes & enjoy, but don't forgot to study!! 😝🤝***
+***Thank you for your interest in GhostClass! Bunk classes & enjoy, but don't forget to study!! 😝🤝***

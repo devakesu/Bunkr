@@ -262,7 +262,7 @@ export function AttendanceCalendar({
       if (hasAbsent) return "absent";
       if (hasLeave) return "dutyLeave";
       return "present";
-  }, [rawEvents, isSameDay, trackingData]);
+  }, [rawEvents, isSameDay, trackingData, semesterData, academicYearData]);
 
   // --- 2. MERGE LOGIC ---
   const selectedDateEvents = useMemo(() => {
@@ -361,7 +361,7 @@ export function AttendanceCalendar({
     }
 
     return merged.sort((a, b) => getNormalizedSession(a.sessionName) - getNormalizedSession(b.sessionName));
-  }, [selectedDate, rawEvents, filter, trackingData, attendanceData, coursesData]);
+  }, [selectedDate, rawEvents, filter, trackingData, attendanceData, coursesData, semesterData, academicYearData, isSameDay]);
   
   const calendarCells = useMemo(() => {
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);

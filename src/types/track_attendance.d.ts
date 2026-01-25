@@ -7,7 +7,7 @@ export interface TrackAttendance {
   session : string;
   year: string;
   semester: string;
-  status?: string;
+  status?: 'extra' | 'correction';
   attendance?: number
   remarks?: string;
 };

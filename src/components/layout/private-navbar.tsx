@@ -21,7 +21,6 @@ import {
   useUpdateDefaultInstitutionUser,
 } from "@/hooks/users/institutions";
 import Image from "next/image";
-import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -40,7 +39,6 @@ import {
   Percent,
   SquareAsterisk,
   Calculator,
-  Plus,
   Contact,
 } from "lucide-react";
 import { usePathname } from "next/navigation";

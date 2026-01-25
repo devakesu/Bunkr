@@ -1,3 +1,4 @@
+// src/lib/email.ts
 import axios from "axios";
 
 // Types
@@ -15,11 +16,25 @@ interface ProviderResult {
   error?: any;
 }
 
+const hasBrevo = !!process.env.BREVO_API_KEY;
+const hasSendPulse = !!(
+  process.env.SENDPULSE_CLIENT_ID && 
+  process.env.SENDPULSE_CLIENT_SECRET
+);
+
+const getSenderEmail = () => {
+  const appEmail = process.env.NEXT_PUBLIC_APP_EMAIL;
+  if (!appEmail) {
+    throw new Error('NEXT_PUBLIC_APP_EMAIL is not configured');
+  }
+  return 'admin' + appEmail;
+};
+
 // Configuration
 const CONFIG = {
   sender: {
-    name: process.env.NEXT_PUBLIC_APP_NAME,
-    email: 'admin' + process.env.NEXT_PUBLIC_APP_EMAIL,
+    name: process.env.NEXT_PUBLIC_APP_NAME || 'GhostClass',
+    email: getSenderEmail(),
   },
   brevo: {
     url: "https://api.brevo.com/v3/smtp/email",
@@ -34,12 +49,13 @@ const CONFIG = {
 };
 
 /**
- * ------------------------------------------------------------------
- * 1. SendPulse Adapter
- * Requirement: HTML must be Base64 encoded
- * ------------------------------------------------------------------
+ * SendPulse Adapter
  */
 async function getSendPulseToken() {
+  if (!hasSendPulse) {
+    throw new Error("SendPulse credentials not configured");
+  }
+  
   try {
     const res = await axios.post(CONFIG.sendpulse.authUrl, {
       grant_type: "client_credentials",
@@ -54,6 +70,10 @@ async function getSendPulseToken() {
 }
 
 async function sendViaSendPulse({ to, subject, html, text }: SendEmailProps): Promise<ProviderResult> {
+  if (!hasSendPulse) {
+    throw new Error("SendPulse not configured");
+  }
+
   try {
     const token = await getSendPulseToken();
 
@@ -71,19 +91,20 @@ async function sendViaSendPulse({ to, subject, html, text }: SendEmailProps): Pr
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    return { success: true, provider: "SendPulse", id: data.id }; //
+    return { success: true, provider: "SendPulse", id: data.id };
   } catch (error: any) {
     throw new Error(error.response?.data?.message || error.message);
   }
 }
 
 /**
- * ------------------------------------------------------------------
- * 2. Brevo Adapter
- * Requirement: Raw HTML string in 'htmlContent'
- * ------------------------------------------------------------------
+ * Brevo Adapter
  */
 async function sendViaBrevo({ to, subject, html, text }: SendEmailProps): Promise<ProviderResult> {
+  if (!hasBrevo) {
+    throw new Error("Brevo not configured");
+  }
+
   try {
     const payload = {
       sender: CONFIG.sender,
@@ -95,46 +116,70 @@ async function sendViaBrevo({ to, subject, html, text }: SendEmailProps): Promis
 
     const { data } = await axios.post(CONFIG.brevo.url, payload, {
       headers: {
-        "api-key": CONFIG.brevo.key, //
+        "api-key": CONFIG.brevo.key,
         "content-type": "application/json",
         accept: "application/json",
       },
     });
 
-    return { success: true, provider: "Brevo", id: data.messageId }; //
+    return { success: true, provider: "Brevo", id: data.messageId };
   } catch (error: any) {
     throw new Error(error.response?.data?.message || error.message);
   }
 }
 
 /**
- * ------------------------------------------------------------------
- * 3. Main Controller (Load Balancer & Failover)
- * ------------------------------------------------------------------
+ * Main Controller (Load Balancer & Failover)
  */
 export async function sendEmail(props: SendEmailProps) {
-  const startWithSendPulse = Math.random() < 0.5;
+  let primary: typeof sendViaSendPulse | typeof sendViaBrevo;
+  let secondary: typeof sendViaSendPulse | typeof sendViaBrevo | null = null;
+  let primaryName: string;
 
-  const primary = startWithSendPulse ? sendViaSendPulse : sendViaBrevo;
-  const secondary = startWithSendPulse ? sendViaBrevo : sendViaSendPulse;
-  const primaryName = startWithSendPulse ? "SendPulse" : "Brevo";
+  // If both available, randomize
+  if (hasBrevo && hasSendPulse) {
+    const startWithSendPulse = Math.random() < 0.5;
+    primary = startWithSendPulse ? sendViaSendPulse : sendViaBrevo;
+    secondary = startWithSendPulse ? sendViaBrevo : sendViaSendPulse;
+    primaryName = startWithSendPulse ? "SendPulse" : "Brevo";
+  } 
+  // If only one available, use it
+  else if (hasSendPulse) {
+    primary = sendViaSendPulse;
+    primaryName = "SendPulse";
+  } else if (hasBrevo) {
+    primary = sendViaBrevo;
+    primaryName = "Brevo";
+  } else {
+    // This should never happen due to startup validation
+    throw new Error("No email provider configured");
+  }
 
   try {
     // Attempt Primary
     return await primary(props);
   } catch (primaryError: any) {
     console.warn(`Primary provider (${primaryName}) failed:`, primaryError.message);
-    console.log("Switching to secondary provider...");
 
-    try {
-      // Failover to Secondary
-      return await secondary(props);
-    } catch (secondaryError: any) {
-      console.error("All email providers failed.");
+    // Try secondary if available
+    if (secondary) {
+      console.log("Switching to secondary provider...");
+      try {
+        return await secondary(props);
+      } catch (secondaryError: any) {
+        console.error("All email providers failed.");
+        return {
+          success: false,
+          provider: "Brevo" as const,
+          error: `Primary: ${primaryError.message} | Secondary: ${secondaryError.message}`,
+        };
+      }
+    } else {
+      // No secondary available
       return {
         success: false,
-        provider: "Brevo",
-        error: `Primary: ${primaryError.message} | Secondary: ${secondaryError.message}`,
+        provider: primaryName as "Brevo" | "SendPulse",
+        error: primaryError.message,
       };
     }
   }
