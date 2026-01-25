@@ -1,7 +1,8 @@
 // src/lib/validate-env.ts
 /**
  * Validates required and critical environment variables at startup.
- * Throws an error and prevents app from starting if critical vars are missing.
+ * In production or during `npm run build`, throws if critical vars are missing to prevent the app from starting.
+ * In development, logs validation errors/warnings but does not throw, allowing the app to start.
  */
 export function validateEnvironment() {
   const errors: string[] = [];
