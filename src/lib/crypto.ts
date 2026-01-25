@@ -5,8 +5,16 @@ import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 
+// Cache for validated encryption key
+let cachedKey: Buffer | null = null;
+
 // Lazy validation: validate and get key only when needed
 function getEncryptionKey(): Buffer {
+  // Return cached key if already validated
+  if (cachedKey) {
+    return cachedKey;
+  }
+  
   const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
   
   if (!ENCRYPTION_KEY) {
@@ -16,7 +24,8 @@ function getEncryptionKey(): Buffer {
     throw new Error("ENCRYPTION_KEY must be 64 hex characters (32 bytes)");
   }
   
-  return Buffer.from(ENCRYPTION_KEY, 'hex');
+  cachedKey = Buffer.from(ENCRYPTION_KEY, 'hex');
+  return cachedKey;
 }
 
 export const encrypt = (text: string) => {
