@@ -4,16 +4,34 @@
 import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 
-if (!ENCRYPTION_KEY) {
-  throw new Error("ENCRYPTION_KEY is not defined");
-}
-if (!/^[a-f0-9]{64}$/i.test(ENCRYPTION_KEY)) {
-  throw new Error("ENCRYPTION_KEY must be 64 hex characters (32 bytes)");
-}
+// Cache for validated encryption key
+let cachedKey: Buffer | null = null;
 
-const KEY = Buffer.from(ENCRYPTION_KEY, 'hex');
+// Lazy validation: validate and get key only when needed
+// Note: This validation duplicates the checks in validateEnvironment() (validate-env.ts).
+// This is intentional defense-in-depth to handle edge cases where validateEnvironment()
+// might not run (e.g., in unit tests, CLI scripts, or non-standard entry points).
+// In production, validateEnvironment() runs at server startup (app/layout.tsx) and will
+// catch invalid keys before this function is ever called.
+function getEncryptionKey(): Buffer {
+  // Return cached key if already validated
+  if (cachedKey) {
+    return cachedKey;
+  }
+  
+  const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+  
+  if (!ENCRYPTION_KEY) {
+    throw new Error("ENCRYPTION_KEY is not defined");
+  }
+  if (!/^[a-f0-9]{64}$/i.test(ENCRYPTION_KEY)) {
+    throw new Error("ENCRYPTION_KEY must be 64 hex characters (32 bytes)");
+  }
+  
+  cachedKey = Buffer.from(ENCRYPTION_KEY, 'hex');
+  return cachedKey;
+}
 
 export const encrypt = (text: string) => {
 
@@ -24,6 +42,7 @@ export const encrypt = (text: string) => {
     throw new Error("Input text too long (max 100KB)");
   }
 
+  const KEY = getEncryptionKey();
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
   let encrypted = cipher.update(text, 'utf8', 'hex');
@@ -58,13 +77,14 @@ export const decrypt = (ivHex: string, content: string) => {
     throw new Error("Invalid content format (non-hex characters)");
   }
 
+  const KEY = getEncryptionKey();
   try {
     const decipher = crypto.createDecipheriv(ALGORITHM, KEY, Buffer.from(ivHex, 'hex'));
     decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
     let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
-  } catch (error) {
+  } catch (_error) {
     throw new Error("Decryption failed");
   }
 };
