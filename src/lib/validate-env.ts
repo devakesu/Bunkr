@@ -78,10 +78,21 @@ export function validateEnvironment() {
   // App Configuration
   if (!process.env.NEXT_PUBLIC_APP_URL) {
     errors.push('❌ NEXT_PUBLIC_APP_URL is required');
+  } else {
+    try {
+      // Ensure it's a valid absolute URL (e.g. includes protocol like https://)
+      // This matches usage elsewhere: new URL(process.env.NEXT_PUBLIC_APP_URL)
+      // eslint-disable-next-line no-new
+      new URL(process.env.NEXT_PUBLIC_APP_URL);
+    } catch {
+      errors.push('❌ NEXT_PUBLIC_APP_URL must be a valid absolute URL (e.g. https://example.com)');
+    }
   }
 
   if (!process.env.NEXT_PUBLIC_APP_EMAIL) {
     errors.push('❌ NEXT_PUBLIC_APP_EMAIL is required (used for sender addresses)');
+  } else if (!process.env.NEXT_PUBLIC_APP_EMAIL.includes('@')) {
+    errors.push('❌ NEXT_PUBLIC_APP_EMAIL must contain "@" and be a valid email/suffix (e.g. support@example.com)');
   }
 
   // ============================================================================
