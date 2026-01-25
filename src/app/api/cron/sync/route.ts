@@ -177,11 +177,16 @@ export async function GET(req: Request) {
         } catch (axiosError: any) {
           if (axiosError.code === 'ECONNABORTED') {
             console.error(`Timeout fetching courses for ${user.username}`);
-          } else if (axiosError.response?.status === 401) {
-            console.error(`Token expired for ${user.username}`);
           } else {
             console.error(`Axios error for ${user.username}:`, axiosError.message);
           }
+          userStats.errors = 1;
+          return userStats;
+        }
+
+        // Handle auth failures explicitly (validateStatus allows 401/403 through)
+        if (courseRes.status === 401 || courseRes.status === 403) {
+          console.error(`Token expired or forbidden for ${user.username}: status ${courseRes.status}`);
           userStats.errors = 1;
           return userStats;
         }
@@ -229,6 +234,13 @@ export async function GET(req: Request) {
           );
         } catch (axiosError: any) {
           console.error(`Error fetching attendance for ${user.username}:`, axiosError.message);
+          userStats.errors = 1;
+          return userStats;
+        }
+
+        // Handle auth failures explicitly (validateStatus allows 401/403 through)
+        if (attRes.status === 401 || attRes.status === 403) {
+          console.error(`Token expired or forbidden for ${user.username}: status ${attRes.status}`);
           userStats.errors = 1;
           return userStats;
         }
