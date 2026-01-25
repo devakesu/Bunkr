@@ -450,8 +450,8 @@ components:
           example: "Too many requests. Slow down!"
         retryAfter:
           type: integer
-          description: Seconds until the rate limit resets
-          example: 900
+          description: Unix timestamp (in seconds) when the rate limit resets. Matches the `X-RateLimit-Reset` header.
+          example: 1735689600
       required:
         - error
         - retryAfter
