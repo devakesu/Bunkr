@@ -255,9 +255,9 @@ export const Navbar = () => {
 
           <Link href="/notifications">
             <Button variant="ghost" className="relative h-9 w-9 p-0 rounded-full">
-              <Bell className="h-5 w-5 text-muted-foreground" />
+              <Bell className="h-5 w-5 text-muted-foreground" aria-label="Notifications" />
               {unreadCount > 0 && (
-                <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold ring-2 ring-background">
+                <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold ring-2 ring-background" aria-label={`${unreadCount} unread notifications`}>
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}

@@ -202,9 +202,9 @@ return (
                       className="h-6 w-6 p-3"
                       onClick={() => setLoginMethod(method)}
                     >
-                      {method === "username" && <User className="h-4 w-4" />}
-                      {method === "email" && <Mail className="h-4 w-4" />}
-                      {method === "phone" && <Phone className="h-4 w-4" />}
+                      {method === "username" && <User className="h-4 w-4" aria-label="Username" />}
+                      {method === "email" && <Mail className="h-4 w-4" aria-label="Email" />}
+                      {method === "phone" && <Phone className="h-4 w-4" aria-label="Phone" />}
                     </Button>
                   ))}
                 </div>
@@ -232,6 +232,7 @@ return (
                   type="button"
                   onClick={() => setShowPasswordResetForm(true)}
                   className="text-[13px] text-muted-foreground hover:text-primary duration-100 font-medium"
+                  aria-label="Forgot password"
                 >
                   Forgot password?
                 </button>

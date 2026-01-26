@@ -9,7 +9,7 @@ import { syncRateLimiter } from "@/lib/ratelimit";
 import { toRoman, normalizeSession } from "@/lib/utils"; 
 import { Course } from "@/types";
 import { sendEmail } from "@/lib/email";
-import { renderAttendanceConflictEmail } from "@/lib/email-templates";
+import { renderAttendanceConflictEmail, renderCourseMismatchEmail } from "@/lib/email-templates";
 import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
@@ -235,6 +235,21 @@ export async function GET(req: Request) {
                                         description: `Removed ${coursesMap[String(item.course)]?.name}. Official: ${official.course_name}`,
                                         topic: `conflict-course-${key}`
                                     });
+
+                                    if (user.email) {
+                                        emailsToSend.push({
+                                            to: user.email,
+                                            subject: `💀 Course Conflict: ${official.course_name}`,
+                                            html: await renderCourseMismatchEmail({
+                                                username: user.username,
+                                                date: item.date,
+                                                session: item.session,
+                                                manualCourseName: coursesMap[String(item.course)]?.name || String(item.course),
+                                                courseLabel: official.course_name,
+                                                dashboardUrl: `${appUrl}/dashboard`
+                                            })
+                                        });
+                                    }
                                 }
                                 continue;
                             }

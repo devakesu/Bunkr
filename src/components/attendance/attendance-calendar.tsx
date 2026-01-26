@@ -403,7 +403,7 @@ export function AttendanceCalendar({
             <Select value={currentMonth.toString()} onValueChange={(value) => setCurrentMonth(parseInt(value, 10))}><SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown"><SelectValue>{monthNames[currentMonth]}</SelectValue></SelectTrigger><SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">{monthNames.map((month, index) => (<SelectItem key={month} value={index.toString()} className={currentMonth === index ? "bg-white/5 mt-0.5" : "capitalize"}>{month}</SelectItem>))}</SelectContent></Select>
             <Select value={currentYear.toString()} onValueChange={(value) => { const newYear = parseInt(value, 10); if (newYear >= 2018) setCurrentYear(newYear); }}><SelectTrigger className="w-[90px] h-9 bg-background/60 border-border/60 text-sm custom-dropdown"><SelectValue>{currentYear}</SelectValue></SelectTrigger><SelectContent className="bg-background/90 border-border/60 max-h-70 backdrop-blur-md custom-dropdown">{yearOptions.map((year) => (<SelectItem key={year} value={year.toString()} className={currentYear === year ? "bg-white/5 mt-0.5" : "mt-0.5"}>{year}</SelectItem>))}</SelectContent></Select>
           </div>
-          <div className="flex items-center gap-2"><Button variant="ghost" size="icon" onClick={handlePreviousMonth} className="h-9 w-9 rounded-lg bg-accent/50 flex justify-center items-center"><ChevronLeft className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-9 w-9 rounded-lg bg-accent/50 flex justify-center items-center"><ChevronRight className="h-4 w-4" /></Button></div>
+          <div className="flex items-center gap-2"><Button variant="ghost" size="icon" onClick={handlePreviousMonth} className="h-9 w-9 rounded-lg bg-accent/50 flex justify-center items-center"><ChevronLeft className="h-4 w-4" aria-label="Previous month" /></Button><Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-9 w-9 rounded-lg bg-accent/50 flex justify-center items-center"><ChevronRight className="h-4 w-4" aria-label="Next month" /></Button></div>
         </CardHeader>
         <CardContent className="p-4 flex-1 flex flex-col h-full">
           <div className="grid grid-cols-7 mb-2 shrink-0">{daysOfWeek.map((day, index) => <div key={index} className="text-xs font-medium text-muted-foreground text-center py-2">{day}</div>)}</div>
@@ -468,7 +468,7 @@ export function AttendanceCalendar({
                             return (
                                 <div className="flex-shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
                                     <Badge variant="outline" className="text-[10px] h-6 px-2 bg-indigo-500/10 text-indigo-400 border-indigo-500/20 gap-1.5"><Sparkles className="w-3 h-3" />Self-Marked</Badge>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-500/10" disabled={isDeleting} onClick={() => handleDeleteTrackData(sessionForDB, event.courseId, dbDate)}>{isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}</Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-500/10" disabled={isDeleting} onClick={() => handleDeleteTrackData(sessionForDB, event.courseId, dbDate)}>{isDeleting ? <Loader2 className="h-3 w-3 text-primary animate-spin" aria-label="Loading" role="status" /> : <Trash2 className="h-3.5 w-3.5" aria-label="Delete record" />}</Button>
                                 </div>
                             );
                         }
@@ -484,9 +484,9 @@ export function AttendanceCalendar({
                                         </Badge>
                                     )}
                                     <Link href="/tracking">
-                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><ArrowUpRight className="w-3 h-3" /></Button>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><ArrowUpRight className="w-3 h-3" aria-label="View tracking details" /></Button>
                                     </Link>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-500/10" disabled={isDeleting} onClick={() => handleDeleteTrackData(sessionForDB, event.courseId, dbDate)}>{isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}</Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-500/10" disabled={isDeleting} onClick={() => handleDeleteTrackData(sessionForDB, event.courseId, dbDate)}>{isDeleting ? <Loader2 className="h-3 w-3 animate-spin" aria-label="Deleting" /> : <Trash2 className="h-3 w-3" aria-label="Delete record" />}</Button>
                                 </div>
                             );
                         }

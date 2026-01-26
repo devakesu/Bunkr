@@ -61,7 +61,7 @@ export function InstitutionSelector() {
           <CardDescription>Select your default institution</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center py-6">
-          <Loader2 className="h-fit w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-fit w-6 animate-spin text-muted-foreground" aria-label="Loading" />
         </CardContent>
       </Card>
     );
@@ -121,6 +121,7 @@ export function InstitutionSelector() {
                   <label
                     htmlFor={`institution-${institution.id}`}
                     className="flex flex-1 items-center justify-between cursor-pointer"
+                    aria-label={`Select institution ${institution.institution.name} with role ${institution.institution_role.name}`}
                   >
                     <div className="flex items-center space-x-2 md:space-x-3">
                       <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -163,7 +164,7 @@ export function InstitutionSelector() {
                 className="w-full font-semibold min-h-[46px] rounded-[12px] mt-4 font-md"
               >
                 {updateDefaultInstitutionUser.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-label="Saving" />
                 )}
                 Save as Default
               </Button>

@@ -186,7 +186,7 @@ export function PasswordResetForm({
                   className="h-6 w-6 p-3"
                   onClick={() => setLoginMethod("username")}
                 >
-                  <User className="h-4 w-4" />
+                  <User className="h-4 w-4" aria-label="Username" />
                 </Button>
                 <Button
                   type="button"
@@ -195,7 +195,7 @@ export function PasswordResetForm({
                   className="h-6 w-6 p-3"
                   onClick={() => setLoginMethod("email")}
                 >
-                  <Mail className="h-4 w-4" />
+                  <Mail className="h-4 w-4" aria-label="Email" />
                 </Button>
                 <Button
                   type="button"
@@ -204,7 +204,7 @@ export function PasswordResetForm({
                   className="h-6 w-6 p-3"
                   onClick={() => setLoginMethod("phone")}
                 >
-                  <Phone className="h-4 w-4" />
+                  <Phone className="h-4 w-4" aria-label="Phone" />
                 </Button>
               </div>
             </div>
@@ -250,7 +250,7 @@ export function PasswordResetForm({
                 className="flex items-center space-x-2 custom-input justify-between px-4 pr-2"
               >
                 <Label htmlFor={email}>{email}</Label>
-                <RadioGroupItem value="mail" id={email} />
+                <RadioGroupItem value="mail" id={email} aria-label={`Send reset code to email ${email}`} />
               </div>
             ))}
             {resetOptions.options.mobiles.map((mobile) => (
@@ -259,7 +259,7 @@ export function PasswordResetForm({
                 className="flex items-center space-x-2 custom-input justify-between pl-4 pr-2"
               >
                 <Label htmlFor={mobile}>{mobile}</Label>
-                <RadioGroupItem value="sms" id={mobile} />
+                <RadioGroupItem value="sms" id={mobile} aria-label={`Send reset code to phone ${mobile}`} />
               </div>
             ))}
           </RadioGroup>

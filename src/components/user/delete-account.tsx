@@ -74,7 +74,7 @@ export function DeleteAccount() {
         <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
           <AlertDialogTrigger asChild>
             <Button variant="destructive" size="sm" className="shrink-0 bg-red-600 hover:bg-red-700">
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2 className="h-4 w-4 mr-2" aria-label="Delete account" />
               Delete Account
             </Button>
           </AlertDialogTrigger>
@@ -112,7 +112,7 @@ export function DeleteAccount() {
               >
                 {isDeleting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-label="Deleting account" />
                     Deleting...
                   </>
                 ) : (

@@ -3,7 +3,7 @@ import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { encrypt } from "@/lib/crypto";
-import { syncRateLimiter } from "@/lib/ratelimit";
+import { authRateLimiter } from "@/lib/ratelimit";
 import { headers } from "next/headers";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
@@ -139,7 +139,7 @@ export async function POST(req: Request) {
   const headerList = await headers();
   const forwardedFor = headerList.get("x-forwarded-for");
   const ip = (forwardedFor ?? "127.0.0.1").split(",")[0].trim();
-  const { success, limit, reset, remaining } = await syncRateLimiter.limit(ip);
+  const { success, limit, reset, remaining } = await authRateLimiter.limit(ip);
 
   if (!success) {
     return new Response(JSON.stringify({ 

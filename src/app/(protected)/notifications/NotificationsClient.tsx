@@ -49,7 +49,7 @@ const NotificationCard = ({
       {!n.is_read && <div className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full bg-primary" />}
       
       <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5", bg)}>
-        <Icon className={cn("h-5 w-5", color)} />
+        <Icon className={cn("h-5 w-5", color)} aria-hidden="true" />
       </div>
       
       <div className="flex-1 min-w-0">
@@ -68,7 +68,7 @@ const NotificationCard = ({
       
       {!n.is_read && isReading && (
          <div className="absolute right-4 top-1/2 -translate-y-1/2">
-            <Loader2 className="h-3 w-3 text-primary animate-spin" />
+            <Loader2 className="h-3 w-3 text-primary animate-spin" aria-label="Loading" />
          </div>
       )}
     </div>
@@ -320,12 +320,12 @@ export default function NotificationsPage() {
         <div className="container mx-auto max-w-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-semibold tracking-tight">Notifications 
-              {unreadCount > 0 && <span className="ml-2 bg-primary/10 text-primary text-[11px] font-bold px-1.5 py-0.5 rounded-full">{unreadCount}</span>}
+              {unreadCount > 0 && <span className="ml-2 bg-primary/10 text-primary text-[11px] font-bold px-1.5 py-0.5 rounded-full" aria-label={`${unreadCount} unread notifications`}>{unreadCount}</span>}
             </h1>
           </div>
           {unreadCount > 0 && (
             <Button variant="ghost" size="sm" onClick={() => markAllAsRead()} className="text-xs text-muted-foreground hover:text-primary">
-              <CheckCheck className="mr-1.5 h-3.5 w-3.5" /> Mark all read
+              <CheckCheck className="mr-1.5 h-3.5 w-3.5" aria-label="Mark all notifications as read" /> Mark all read
             </Button>
           )}
         </div>
@@ -372,7 +372,7 @@ export default function NotificationsPage() {
                     "flex items-center gap-2 px-1",
                     item.label === 'ACTION REQUIRED' ? "text-amber-500 pt-6 pb-3" : "text-muted-foreground pt-6 pb-3"
                   )}>
-                    {item.label === 'ACTION REQUIRED' && <AlertCircle className="h-4 w-4" />}
+                    {item.label === 'ACTION REQUIRED' && <AlertCircle className="h-4 w-4" aria-hidden="true" />}
                     <h3 className="text-xs font-bold uppercase tracking-wider">{item.label}</h3>
                   </div>
                 ) : (
@@ -392,7 +392,7 @@ export default function NotificationsPage() {
         {isFetchingNextPage && (
           <div className="py-4 flex justify-center w-full">
             <div className="flex items-center gap-2 text-muted-foreground text-xs animate-pulse">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading more...
+              <Loader2 className="h-4 w-4 animate-spin" aria-label="Loading more notifications" /> Loading more...
             </div>
           </div>
         )}

@@ -366,13 +366,13 @@ export function AddAttendanceDialog({
                     {/* Header */}
                     <div className="flex items-center justify-between mb-2">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                        <ChevronLeft className="h-4 w-4" />
+                        <ChevronLeft className="h-4 w-4" aria-label="Previous month" />
                       </Button>
                       <div className="text-sm font-semibold">
                         {format(currentMonth, "MMMM yyyy")}
                       </div>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="h-4 w-4" aria-label="Next month" />
                       </Button>
                     </div>
 
@@ -505,7 +505,7 @@ export function AddAttendanceDialog({
              disabled={isSubmitting || isSessionBlocked || !session || !courseId}
              className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" aria-label="Submitting" /> : <Plus className="w-4 h-4 mr-2" aria-label="Add record" />}
             Add Record
           </Button>
         </DialogFooter>

@@ -208,13 +208,13 @@ export default function ProfileClient() {
                     {/* Loading Overlay */}
                     {isUploading && (
                       <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center z-30">
-                        <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        <Loader2 className="w-8 h-8 text-white animate-spin" aria-label="Loading" />
                       </div>
                     )}
 
                     {!isUploading && (
                         <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-1.5 rounded-full border-[3px] border-background shadow-sm z-20 flex items-center justify-center">
-                            <Camera className="w-3.5 h-3.5" />
+                            <Camera className="w-3.5 h-3.5" aria-label="Change avatar" />
                         </div>
                     )}
                   </div>
