@@ -88,7 +88,7 @@ export function validateEnvironment() {
     try {
       const url = new URL(process.env.NEXT_PUBLIC_APP_URL);
       if (url.pathname !== '/') {
-         warnings.push(`⚠️ NEXT_PUBLIC_APP_URL contains a path '${url.pathname}' but should typically only specify the domain (e.g., https://example.com)`);
+         warnings.push(`⚠️  NEXT_PUBLIC_APP_URL contains a path '${url.pathname}' but should typically only specify the domain (e.g., https://example.com)`);
       }
       if (process.env.NEXT_PUBLIC_APP_URL.endsWith('/')) {
          warnings.push('⚠️  NEXT_PUBLIC_APP_URL ends with a slash. Recommended: remove the trailing slash.');
