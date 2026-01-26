@@ -14,8 +14,11 @@ import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
 
-const BATCH_SIZE = 12;
-const CONCURRENCY_LIMIT = 3;
+const BATCH_SIZE = 10;
+// Keep concurrency low to avoid overwhelming the external EzyGo API.
+// Each user sync makes 2 API calls (courses + attendance).
+// CONCURRENCY_LIMIT=2 processes 2 users in parallel, limiting peak to 4 concurrent API calls.
+const CONCURRENCY_LIMIT = 2;
 
 // Validation schemas
 const UsernameSchema = z.string()
@@ -104,14 +107,14 @@ export async function GET(req: Request) {
     // ---------------------------------------------------------
     const finalResults = { processed: 0, deletions: 0, conflicts: 0, updates: 0, errors: 0 };
     
-    // Split users into chunks (e.g. groups of 3)
+    // Split users into chunks based on CONCURRENCY_LIMIT
     const chunks = [];
     for (let i = 0; i < usersToSync.length; i += CONCURRENCY_LIMIT) {
         chunks.push(usersToSync.slice(i, i + CONCURRENCY_LIMIT));
     }
 
     for (const chunk of chunks) {
-        // Process this chunk in Parallel
+        // Process users in this chunk concurrently
         const promises = chunk.map(async (user) => {
             try {
                 if (!user.ezygo_token || !user.ezygo_iv || !user.auth_id) throw new Error("Missing credentials");
