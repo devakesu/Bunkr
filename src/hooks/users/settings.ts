@@ -13,6 +13,20 @@ type AcademicYearData = {
   default_academic_year: string;
 };
 
+// Shared retry logic for settings queries
+// Don't retry on auth errors (401/403) - these need user intervention
+const MAX_RETRIES = 2;
+
+const settingsRetryFn = (failureCount: number, error: unknown) => {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    if (status === 401 || status === 403) {
+      return false;
+    }
+  }
+  return failureCount < MAX_RETRIES;
+};
+
 export const useFetchSemester = () => {
   return useQuery<"even" | "odd" | null>({
     queryKey: ["semester"],
@@ -20,14 +34,12 @@ export const useFetchSemester = () => {
       try {
         const res = await axios.get("/user/setting/default_semester");
         return res.data;
-      } catch (error: any) {
-        if (error.response?.status === 404) return null;
-        
-        console.error("Error fetching semester setting:", error);
-        Sentry.captureException(error, { tags: { type: "setting_fetch_error", location: "useFetchSemester/queryFn" } });
-        return null;
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) return null;
+        throw error;
       }
     },
+    retry: settingsRetryFn,
     staleTime: 1000 * 60 * 5, 
     refetchOnWindowFocus: true, 
   });
@@ -40,14 +52,12 @@ export const useFetchAcademicYear = () => {
       try {
         const res = await axios.get("/user/setting/default_academic_year");
         return res.data;
-      } catch (error: any) {
-        if (error.response?.status === 404) return null;
-
-        console.error("Error fetching academic year setting:", error);
-        Sentry.captureException(error, { tags: { type: "setting_fetch_error", location: "useFetchAcademicYear/queryFn" } });
-        return null;
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) return null;
+        throw error;
       }
     },
+    retry: settingsRetryFn,
     staleTime: 1000 * 60 * 5, 
     refetchOnWindowFocus: true,
   });
