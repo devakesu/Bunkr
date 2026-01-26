@@ -14,11 +14,11 @@ import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
 
-const BATCH_SIZE = 12;
+const BATCH_SIZE = 10;
 // Keep concurrency low to avoid overwhelming the external EzyGo API.
 // Each user sync makes 2 API calls (courses + attendance).
-// CONCURRENCY_LIMIT=1 ensures sequential processing to respect rate limits.
-const CONCURRENCY_LIMIT = 1;
+// CONCURRENCY_LIMIT=2 processes 2 users in parallel, limiting peak to 4 concurrent API calls.
+const CONCURRENCY_LIMIT = 2;
 
 // Validation schemas
 const UsernameSchema = z.string()
