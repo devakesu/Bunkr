@@ -80,7 +80,9 @@ export default function TermsModal() {
     try {
       await acceptTermsAction(TERMS_VERSION);
       // Set cookie immediately for instant feedback on reload
-      document.cookie = `terms_version=${TERMS_VERSION}; path=/; max-age=31536000; SameSite=Lax; Secure`;
+      const isSecureContext =
+        typeof window !== "undefined" && window.location.protocol === "https:";
+      document.cookie = `terms_version=${TERMS_VERSION}; path=/; max-age=31536000; SameSite=Lax${isSecureContext ? "; Secure" : ""}`;
       setOpen(false);
     } catch (error) {
       console.error("Failed to accept terms", error);
