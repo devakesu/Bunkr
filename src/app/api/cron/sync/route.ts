@@ -15,7 +15,10 @@ import { z } from "zod";
 export const dynamic = 'force-dynamic';
 
 const BATCH_SIZE = 12;
-const CONCURRENCY_LIMIT = 3;
+// Keep concurrency low to avoid overwhelming the external EzyGo API.
+// Each user sync makes 2 API calls (courses + attendance).
+// CONCURRENCY_LIMIT=1 ensures sequential processing to respect rate limits.
+const CONCURRENCY_LIMIT = 1;
 
 // Validation schemas
 const UsernameSchema = z.string()
@@ -104,7 +107,7 @@ export async function GET(req: Request) {
     // ---------------------------------------------------------
     const finalResults = { processed: 0, deletions: 0, conflicts: 0, updates: 0, errors: 0 };
     
-    // Split users into chunks (e.g. groups of 3)
+    // Split users into chunks based on CONCURRENCY_LIMIT
     const chunks = [];
     for (let i = 0; i < usersToSync.length; i += CONCURRENCY_LIMIT) {
         chunks.push(usersToSync.slice(i, i + CONCURRENCY_LIMIT));
