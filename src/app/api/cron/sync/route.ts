@@ -90,13 +90,23 @@ export async function GET(req: Request) {
         let query = supabaseAdmin.from("users").select("username, email, ezygo_token, ezygo_iv, auth_id").not("ezygo_token", "is", null);
         if (targetUsername) query = query.eq("username", targetUsername);
         else query = query.order("last_synced_at", { ascending: true, nullsFirst: true }).limit(BATCH_SIZE);
-        const { data } = await query;
+        const { data, error } = await query;
+        if (error) {
+          console.error("Failed to fetch users:", error);
+          Sentry.captureException(error, { tags: { type: "db_query_error", location: "cron/sync" } });
+          return NextResponse.json({ error: "Database query failed" }, { status: 500 });
+        }
         if (data) usersToSync = data;
     } else {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-        const { data } = await supabaseAdmin.from("users").select("username, email, ezygo_token, ezygo_iv, auth_id").eq("auth_id", user.id).not("ezygo_token", "is", null);
+        const { data, error } = await supabaseAdmin.from("users").select("username, email, ezygo_token, ezygo_iv, auth_id").eq("auth_id", user.id).not("ezygo_token", "is", null);
+        if (error) {
+          console.error("Failed to fetch users:", error);
+          Sentry.captureException(error, { tags: { type: "db_query_error", location: "cron/sync" } });
+          return NextResponse.json({ error: "Database query failed" }, { status: 500 });
+        }
         if (data) usersToSync = data;
     }
 
