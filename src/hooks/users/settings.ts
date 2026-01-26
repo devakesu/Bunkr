@@ -13,6 +13,17 @@ type AcademicYearData = {
   default_academic_year: string;
 };
 
+// Shared retry logic for settings queries
+// Don't retry on auth errors (401/403) - these need user intervention
+const MAX_RETRIES = 2;
+
+const settingsRetryFn = (failureCount: number, error: any) => {
+  if (error.response?.status === 401 || error.response?.status === 403) {
+    return false;
+  }
+  return failureCount < MAX_RETRIES;
+};
+
 export const useFetchSemester = () => {
   return useQuery<"even" | "odd" | null>({
     queryKey: ["semester"],
@@ -25,12 +36,7 @@ export const useFetchSemester = () => {
         throw error;
       }
     },
-    retry: (failureCount, error: any) => {
-      // Don't retry on auth errors (401/403) - these need user intervention
-      if (error.response?.status === 401 || error.response?.status === 403) return false;
-      // Use default retry logic for other errors (up to 2 retries from react-query config)
-      return failureCount < 2;
-    },
+    retry: settingsRetryFn,
     staleTime: 1000 * 60 * 5, 
     refetchOnWindowFocus: true, 
   });
@@ -48,12 +54,7 @@ export const useFetchAcademicYear = () => {
         throw error;
       }
     },
-    retry: (failureCount, error: any) => {
-      // Don't retry on auth errors (401/403) - these need user intervention
-      if (error.response?.status === 401 || error.response?.status === 403) return false;
-      // Use default retry logic for other errors (up to 2 retries from react-query config)
-      return failureCount < 2;
-    },
+    retry: settingsRetryFn,
     staleTime: 1000 * 60 * 5, 
     refetchOnWindowFocus: true,
   });
