@@ -42,8 +42,17 @@ export async function uploadUserAvatar(file: File) {
         .eq('auth_id', user.id);
 
       if (updateError) {
-        await supabase.storage.from('avatars').remove([filePath]); 
-        throw new Error(`Profile update failed: ${updateError.message}`);
+        const profileUpdateError = new Error(`Profile update failed: ${updateError.message}`);
+        try {
+          await supabase.storage.from('avatars').remove([filePath]);
+        } catch (cleanupErr) {
+          console.warn("Avatar cleanup after profile update failure failed (non-critical):", cleanupErr);
+          Sentry.captureException(cleanupErr, {
+            level: "warning",
+            tags: { type: "avatar_cleanup_fail", location: "uploadUserAvatar_cleanupOnUpdateFail" },
+          });
+        }
+        throw profileUpdateError;
       }
 
       // 6. Cleanup: Delete old avatars in the background
