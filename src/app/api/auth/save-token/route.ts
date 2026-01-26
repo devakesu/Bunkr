@@ -186,39 +186,65 @@ export async function POST(req: Request) {
           // --- CASE 1: ORPHAN USER (Exists in Auth, missing in DB) ---
           console.warn(`Orphan Auth User detected for ${verifieduserId}. Initiating exhaustive cleanup...`);
 
-          let orphanUserId: string | null = null;
-          let page = 1;
-          const PER_PAGE = 1000;
-          let hasMore = true;
+          const orphanLookupStart = Date.now();
+          const MAX_LOOKUP_RETRIES = 3;
 
-          // Paginated Search Loop
-          while (hasMore) {
-            const { data, error: listError } = await supabaseAdmin.auth.admin.listUsers({ 
-              page: page, 
-              perPage: PER_PAGE 
-            });
+          async function findOrphanUserIdByEmail(emailToFind: string): Promise<string | null> {
+            let attempt = 0;
 
-            if (listError) {
-               console.error("Failed to list users during cleanup:", listError);
-               throw listError;
+            while (attempt < MAX_LOOKUP_RETRIES) {
+              attempt++;
+              const attemptStart = Date.now();
+
+              try {
+                // Add a timeout to prevent the request from hanging indefinitely
+                const lookupPromise = supabaseAdmin.auth.admin.getUserByEmail(emailToFind);
+                const timeoutPromise = new Promise<never>((_, reject) =>
+                  setTimeout(() => reject(new Error("Orphan user lookup timed out")), 5000)
+                );
+
+                const result: any = await Promise.race([lookupPromise, timeoutPromise]);
+                const { data, error } = result;
+
+                if (error) {
+                  throw error;
+                }
+
+                const user = data?.user ?? null;
+
+                console.log(
+                  `Orphan user lookup attempt ${attempt} for ${emailToFind} took ${
+                    Date.now() - attemptStart
+                  }ms`
+                );
+
+                return user ? user.id : null;
+              } catch (err) {
+                if (attempt >= MAX_LOOKUP_RETRIES) {
+                  console.error(
+                    `Failed orphan user lookup for ${emailToFind} after ${attempt} attempts:`,
+                    err
+                  );
+                  throw err;
+                }
+
+                // Exponential backoff between retries
+                const backoffMs = 200 * Math.pow(2, attempt - 1);
+                console.warn(
+                  `Orphan user lookup attempt ${attempt} failed, retrying in ${backoffMs}ms...`
+                );
+                await new Promise((resolve) => setTimeout(resolve, backoffMs));
+              }
             }
 
-            const users = data.users || [];
-            
-            // Try to find the user in the current page
-            const found = users.find(u => u.email === email);
-            if (found) {
-              orphanUserId = found.id;
-              break;
-            }
-
-            if (users.length < PER_PAGE) {
-              hasMore = false;
-            } else {
-              page++;
-            }
+            return null;
           }
 
+          const orphanUserId: string | null = await findOrphanUserIdByEmail(email);
+
+          console.log(
+            `Total orphan user lookup time for ${email}: ${Date.now() - orphanLookupStart}ms`
+          );
           if (orphanUserId) {
             // Delete the orphan Auth record
             const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(orphanUserId);
