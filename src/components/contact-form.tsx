@@ -75,13 +75,7 @@ export function ContactForm({ userDetails }: ContactFormProps) {
       {/* --- HONEYPOT FIELD (Hidden from users, visible to bots) --- */}
       {/* Bots will fill this, Server Action will block them. Real users won't see it. */}
       <div
-        style={{
-          position: "absolute",
-          left: "-9999px",
-          width: "1px",
-          height: "1px",
-          overflow: "hidden",
-        }}
+        className="absolute -left-[9999px] w-px h-px overflow-hidden"
         aria-hidden="true"
       >
         <Label htmlFor="website">Website</Label>
