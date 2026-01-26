@@ -1,7 +1,7 @@
 // Manage user settings such as default semester and academic year
 // src/hooks/users/settings.ts
 
-import axios from "@/lib/axios";
+import axios, { AxiosError } from "@/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Sentry from "@sentry/nextjs";
 
@@ -17,18 +17,19 @@ type AcademicYearData = {
 // Don't retry on auth errors (401/403) - these need user intervention
 const MAX_RETRIES = 2;
 
-const settingsRetryFn = (failureCount: number, error: unknown) => {
-  const axiosError = error as { response?: { status?: number } };
-  const status = axiosError.response?.status;
-  if (status === 401 || status === 403) {
-    return false;
-  }
-  return failureCount < MAX_RETRIES;
+// Type guard for axios errors
+const isAxiosError = (error: unknown): error is AxiosError => {
+  return typeof error === 'object' && error !== null && 'isAxiosError' in error;
 };
 
-// Type guard for axios errors
-const isAxiosError = (error: unknown): error is { response?: { status?: number } } => {
-  return typeof error === 'object' && error !== null && 'response' in error;
+const settingsRetryFn = (failureCount: number, error: unknown) => {
+  if (isAxiosError(error)) {
+    const status = error.response?.status;
+    if (status === 401 || status === 403) {
+      return false;
+    }
+  }
+  return failureCount < MAX_RETRIES;
 };
 
 export const useFetchSemester = () => {
