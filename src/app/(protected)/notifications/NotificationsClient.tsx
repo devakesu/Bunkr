@@ -205,10 +205,28 @@ export default function NotificationsPage() {
           signal: abortController.signal
         });
 
-        if (!res.ok) throw new Error(`Sync failed with status: ${res.status}`);
         const data = await res.json();
 
-        if (data.success && (data.deletions > 0 || data.conflicts > 0 || data.updates > 0)) {
+        // Handle different response status codes
+        if (res.status === 207) {
+          // Partial failure: Some records synced, some failed
+          toast.warning("Partial Sync Completed", {
+            description: "Some notifications couldn't be synced. Please refresh if data seems incomplete."
+          });
+          
+          Sentry.captureMessage("Partial sync failure in notifications", {
+            level: "warning",
+            tags: { type: "notification_partial_sync", location: "NotificationsClient/useEffect/syncNotifications" },
+            extra: { username: user.username, response: data }
+          });
+          
+          // Still invalidate queries as partial sync may have updated some records
+          queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        } else if (!res.ok) {
+          // Complete failure (500 or other error codes)
+          throw new Error(`Sync failed with status: ${res.status}`);
+        } else if (data.success && (data.deletions > 0 || data.conflicts > 0 || data.updates > 0)) {
+          // Success with changes
           toast.info("Notifications Updated", { description: "New attendance data found." });
           queryClient.invalidateQueries({ queryKey: ["notifications"] });
         }
