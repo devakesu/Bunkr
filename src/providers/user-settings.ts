@@ -32,7 +32,7 @@ export function useUserSettings() {
 
       return data as UserSettings | null;
     },
-    staleTime: 0,
+    staleTime: 30000, // 30 seconds - reduces API load while keeping data reasonably fresh
     gcTime: 0,
     refetchOnWindowFocus: true, 
   });
