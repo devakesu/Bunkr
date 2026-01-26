@@ -2,6 +2,7 @@
 // src/hooks/users/settings.ts
 
 import axios from "@/lib/axios";
+import { isAxiosError } from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Sentry from "@sentry/nextjs";
 
@@ -18,7 +19,7 @@ type AcademicYearData = {
 const MAX_RETRIES = 2;
 
 const settingsRetryFn = (failureCount: number, error: unknown) => {
-  if (axios.isAxiosError(error)) {
+  if (isAxiosError(error)) {
     const status = error.response?.status;
     if (status === 401 || status === 403) {
       return false;
@@ -35,7 +36,7 @@ export const useFetchSemester = () => {
         const res = await axios.get("/user/setting/default_semester");
         return res.data;
       } catch (error: unknown) {
-        if (axios.isAxiosError(error) && error.response?.status === 404) return null;
+        if (isAxiosError(error) && error.response?.status === 404) return null;
         throw error;
       }
     },
@@ -53,7 +54,7 @@ export const useFetchAcademicYear = () => {
         const res = await axios.get("/user/setting/default_academic_year");
         return res.data;
       } catch (error: unknown) {
-        if (axios.isAxiosError(error) && error.response?.status === 404) return null;
+        if (isAxiosError(error) && error.response?.status === 404) return null;
         throw error;
       }
     },
