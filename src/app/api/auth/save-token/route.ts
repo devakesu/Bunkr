@@ -16,9 +16,9 @@ export const dynamic = 'force-dynamic';
 // Validation schemas
 const SaveTokenRequestSchema = z.object({
   token: z.string()
-    .min(20, "Token too short")
-    .max(2000, "Token too long")
-    .regex(/^[A-Za-z0-9_\-.]+$/, "Invalid token format"),
+    .min(18, "Token too short")
+    .max(5000, "Token too long") 
+    .trim(),
 });
 
 const EzygoUserSchema = z.object({

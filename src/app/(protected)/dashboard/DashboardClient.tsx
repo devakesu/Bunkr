@@ -53,10 +53,13 @@ const ChartSkeleton = () => (
   </div>
 );
 
-const AttendanceChart = dynamic(() => import('@/components/attendance/attendance-chart').then((mod) => mod.AttendanceChart), {
-  loading: () => <ChartSkeleton />,
-  ssr: false
-});
+const AttendanceChart = dynamic(
+  () => import('@/components/attendance/attendance-chart').then((mod) => mod.AttendanceChart), 
+  {
+    loading: () => <ChartSkeleton />,
+    ssr: false
+  }
+);
 
 // --- Types & Constants ---
 const ATTENDANCE_STATUS = {
@@ -96,7 +99,6 @@ export default function DashboardClient() {
   const [hoveredCourseId, setHoveredCourseId] = useState<string | null>(null);
 
   const [isSyncing, setIsSyncing] = useState(true);
-  const syncAttempted = useRef(false);
 
   const [pendingChange, setPendingChange] = useState<
     | { type: "semester"; value: "even" | "odd" }
@@ -269,18 +271,25 @@ export default function DashboardClient() {
   }, [academicYearData, isLoadingAcademicYear, isAcademicYearError, getDefaultDefaults, setAcademicYearMutation, refetchCourses, refetchAttendance]);
   
   // --- SYNC ---
+  const mountId = useRef(Math.random().toString(36));
+  const lastSyncMountId = useRef<string | null>(null);
+
+  // --- SYNC ---
   useEffect(() => {
     // 1. Wait until user is loaded and initial data fetch is complete
     if (!user?.username || isLoadingAttendance || isLoadingTracking) {
         return;
     }
 
-    // 2. Prevent Double-Firing (Strict Mode safety)
-    if (syncAttempted.current) return;
-    syncAttempted.current = true;
+    // 2. Check if sync already ran for THIS mount
+    if (lastSyncMountId.current === mountId.current) {
+        setIsSyncing(false);
+        return;
+    }
 
     setIsSyncing(true);
     const abortController = new AbortController();
+    let isCleanedUp = false;
 
     const performSync = async () => {
         try {
@@ -290,9 +299,11 @@ export default function DashboardClient() {
 
             const data = await res.json();
 
+            // Only process if not cleaned up
+            if (isCleanedUp) return;
+
             // Handle different response status codes
             if (res.status === 207) {
-                // Partial failure: Some records synced, some failed
                 toast.warning("Partial Sync Completed", {
                     description: "Some attendance data couldn't be synced. Your dashboard may be incomplete."
                 });
@@ -303,22 +314,18 @@ export default function DashboardClient() {
                     extra: { username: user.username, response: data }
                 });
                 
-                // Still refetch queries as partial sync may have updated some records
                 await Promise.all([
                     refetchTracking(),
                     refetchAttendance(),
                     queryClient.invalidateQueries({ queryKey: ["notifications"] })
                 ]);
             } else if (!res.ok) {
-                // Complete failure (500 or other error codes)
                 throw new Error(`Sync API responded with status: ${res.status}`);
             } else if (data.success && (data.deletions > 0 || data.conflicts > 0 || data.updates > 0)) {
-                // Success with changes
                 toast.info("Attendance Synced", {
                     description: `Dashboard updated. ${data.deletions + data.updates} records synced.`
                 });
                 
-                // Refetch queries to show new data
                 await Promise.all([
                     refetchTracking(),
                     refetchAttendance(),
@@ -326,37 +333,36 @@ export default function DashboardClient() {
                 ]);
             }
         } catch (error: any) {
-            // Ignore AbortErrors (user navigated away)
             if (error.name === 'AbortError') return;
 
             console.error("Background sync failed", error);
             
-            // Capture API failures in Sentry
             Sentry.captureException(error, {
                 tags: { type: "background_sync", location: "DashboardClient/useEffect/performSync" },
                 extra: { username: user.username }
             });
         } finally {
-            setIsSyncing(false);
+            if (!isCleanedUp) {
+                setIsSyncing(false);
+                lastSyncMountId.current = mountId.current;
+            }
         }
     };
 
     performSync();
 
-    // Cleanup: Cancel request if component unmounts
-    // Reset sync flag after a delay to allow reruns after navigation while preventing strict mode double-fire
+    // Cleanup
     return () => {
+      isCleanedUp = true;
       abortController.abort();
-      // Use setTimeout to distinguish between strict mode cleanup (immediate remount) 
-      // and actual unmount (navigation away). Strict mode remounts happen synchronously,
-      // so the flag stays true. Real navigation has enough delay for the reset to take effect.
-      setTimeout(() => {
-        syncAttempted.current = false;
-      }, 100);
     };
 
-  }, [user?.username, isLoadingAttendance, isLoadingTracking, refetchTracking, refetchAttendance, queryClient
-  ]);
+  }, [user?.username, isLoadingAttendance, isLoadingTracking, refetchTracking, refetchAttendance, queryClient]);
+
+  // Reset mountId on navigation
+  useEffect(() => {
+    mountId.current = Math.random().toString(36);
+  }, []);
 
   // CALCULATE ACTIVE COURSES (Courses with at least 1 record)
   const activeCourseCount = useMemo(() => {
@@ -641,7 +647,7 @@ export default function DashboardClient() {
                     See where you&apos;ve been keeping up
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 pb-6">
+                <CardContent className="flex-1">
                   <div className="h-[300px] w-full">
                     {attendanceData ? (
                       <ErrorBoundary 

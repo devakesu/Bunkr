@@ -228,81 +228,80 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
   const calculatedMin = Math.floor(minRef / 5) * 5 - 5;
   const yAxisMin = Math.max(0, calculatedMin);
 
-  return (
-    <div className="w-full h-full">
-      {data.length > 0 ? (
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart 
-              data={data} 
-              margin={{ top: 30, right: 25, left: -20, bottom: 0 }} 
-              barSize={getBarSize()}
-          >
-              <defs>
-                <pattern id="striped-green" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-                  <rect width="8" height="8" fill="#10b981" fillOpacity="0.25" />
-                  <line x1="0" y="0" x2="0" y2="8" stroke="#10b981" strokeWidth="4" strokeOpacity={0.4} />
-                </pattern>
-                <pattern id="striped-red" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-                  <rect width="8" height="8" fill="#ef4444" fillOpacity="0.25" />
-                  <line x1="0" y="0" x2="0" y2="8" stroke="#ef4444" strokeWidth="4" strokeOpacity={0.4} />
-                </pattern>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.2} />
-              
-              {/* FIX: Reverted to height=48 and tickMargin=20 (Preferred layout) */}
-              <XAxis 
-                dataKey="name" 
-                interval={0} 
-                textAnchor="end" 
-                angle={-45} 
-                height={48} 
-                tick={{ fontSize: 11, fill: "#888" }} 
-                tickMargin={20} 
-              />
-              <YAxis domain={[yAxisMin, 100]} type="number" allowDecimals={false} allowDataOverflow={true} tickCount={Math.ceil((100 - yAxisMin) / 5) + 1} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ backgroundColor: "rgba(20, 20, 20, 0.95)", border: "1px solid #333", borderRadius: "8px", fontSize: "13px", boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)" }}
-                itemStyle={{ color: "#ffffff", padding: 0 }} labelStyle={{ color: "#a1a1aa", marginBottom: '0.5rem' }} cursor={{ fill: "rgba(255, 255, 255, 0.05)" }} formatter={() => null} 
-                content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const d = payload[0].payload;
-                      return (
-                        <div className="bg-[#141414] border border-[#333] p-3 rounded-lg shadow-xl text-xs">
-                          <p className="text-gray-400 mb-2 font-medium">{d.fullName}</p>
-                          <div className="flex justify-between gap-4 mb-1">
-                            <span className="text-gray-500">Official:</span>
-                            <span className={`font-mono font-bold ${d.officialPercentage < safeTarget ? 'text-red-400' : 'text-green-400'}`}>
-                              {d.officialPercentage}% <span className="text-gray-600 font-normal">({d.present}/{d.total})</span>
-                            </span>
-                          </div>
-                          {(d.displayedExtra > 0) && (
-                              <div className="flex justify-between gap-4">
-                                <span className="text-primary">{d.isLoss ? "Adjusted (Loss):" : "Adjusted (Gain):"}</span>
-                                <span className={`font-mono font-bold ${d.totalPercentage < safeTarget ? 'text-red-400' : 'text-green-400'}`}>
-                                  {d.totalPercentage}% <span className="text-gray-600 font-normal">({d.mergedPresent}/{d.mergedTotal})</span>
-                                </span>
-                              </div>
-                          )}
+return (
+  <div className="w-full h-full min-h-[300px] -mb-12">
+    {data.length > 0 ? (
+      <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={300} debounce={1}>
+        <BarChart 
+            data={data} 
+            margin={{ top: 10, right: 25, left: -20, bottom: 0 }} 
+            barSize={getBarSize()}
+        >
+            <defs>
+              <pattern id="striped-green" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+                <rect width="8" height="8" fill="#10b981" fillOpacity="0.25" />
+                <line x1="0" y="0" x2="0" y2="8" stroke="#10b981" strokeWidth="4" strokeOpacity={0.4} />
+              </pattern>
+              <pattern id="striped-red" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+                <rect width="8" height="8" fill="#ef4444" fillOpacity="0.25" />
+                <line x1="0" y="0" x2="0" y2="8" stroke="#ef4444" strokeWidth="4" strokeOpacity={0.4} />
+              </pattern>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.2} />
+            
+            <XAxis 
+              dataKey="name" 
+              interval={0} 
+              textAnchor="end" 
+              angle={-45} 
+              height={50} 
+              tick={{ fontSize: 11, fill: "#888" }} 
+              tickMargin={18} 
+            />
+            <YAxis domain={[yAxisMin, 100]} type="number" allowDecimals={false} allowDataOverflow={true} tickCount={Math.ceil((100 - yAxisMin) / 5) + 1} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
+            <Tooltip
+              contentStyle={{ backgroundColor: "rgba(20, 20, 20, 0.95)", border: "1px solid #333", borderRadius: "8px", fontSize: "13px", boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)" }}
+              itemStyle={{ color: "#ffffff", padding: 0 }} labelStyle={{ color: "#a1a1aa", marginBottom: '0.5rem' }} cursor={{ fill: "rgba(255, 255, 255, 0.05)" }} formatter={() => null} 
+              content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const d = payload[0].payload;
+                    return (
+                      <div className="bg-[#141414] border border-[#333] p-3 rounded-lg shadow-xl text-xs">
+                        <p className="text-gray-400 mb-2 font-medium">{d.fullName}</p>
+                        <div className="flex justify-between gap-4 mb-1">
+                          <span className="text-gray-500">Official:</span>
+                          <span className={`font-mono font-bold ${d.officialPercentage < safeTarget ? 'text-red-400' : 'text-green-400'}`}>
+                            {d.officialPercentage}% <span className="text-gray-600 font-normal">({d.present}/{d.total})</span>
+                          </span>
                         </div>
-                      );
-                    }
-                    return null;
-                }}
-              />
-              <Bar dataKey="baseSuccess" stackId="a" isAnimationActive={false} fill="#10b981" shape={<BottomBarShape />} />
-              <Bar dataKey="baseDanger" stackId="a" isAnimationActive={false} fill="#ef4444" shape={<BottomBarShape />} />
-              <Bar dataKey="extraSuccess" stackId="a" isAnimationActive={false} fill="url(#striped-green)" stroke="#10b981" shape={<HatchedBarShape />} />
-              <Bar dataKey="extraDanger" stackId="a" isAnimationActive={false} fill="url(#striped-red)" stroke="#ef4444" shape={<HatchedBarShape />} />
+                        {(d.displayedExtra > 0) && (
+                            <div className="flex justify-between gap-4">
+                              <span className="text-primary">{d.isLoss ? "Adjusted (Loss):" : "Adjusted (Gain):"}</span>
+                              <span className={`font-mono font-bold ${d.totalPercentage < safeTarget ? 'text-red-400' : 'text-green-400'}`}>
+                                {d.totalPercentage}% <span className="text-gray-600 font-normal">({d.mergedPresent}/{d.mergedTotal})</span>
+                              </span>
+                            </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+              }}
+            />
+            <Bar dataKey="baseSuccess" stackId="a" isAnimationActive={false} fill="#10b981" shape={<BottomBarShape />} />
+            <Bar dataKey="baseDanger" stackId="a" isAnimationActive={false} fill="#ef4444" shape={<BottomBarShape />} />
+            <Bar dataKey="extraSuccess" stackId="a" isAnimationActive={false} fill="url(#striped-green)" stroke="#10b981" shape={<HatchedBarShape />} />
+            <Bar dataKey="extraDanger" stackId="a" isAnimationActive={false} fill="url(#striped-red)" stroke="#ef4444" shape={<HatchedBarShape />} />
 
-              <ReferenceLine y={safeTarget} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={2} strokeOpacity={1} label={<CustomTargetLabel value={safeTarget} />} />
-            </BarChart>
-        </ResponsiveContainer>
-      ) : (
-        <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground/30">
-           <BarChart3 className="w-8 h-8 mb-2 opacity-50" />
-           <span className="text-xs font-medium">No attendance data</span>
-        </div>
-      )}
-    </div>
-  );
+            <ReferenceLine y={safeTarget} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={2} strokeOpacity={1} label={<CustomTargetLabel value={safeTarget} />} />
+          </BarChart>
+      </ResponsiveContainer>
+    ) : (
+      <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground/30">
+         <BarChart3 className="w-8 h-8 mb-2 opacity-50" />
+         <span className="text-xs font-medium">No attendance data</span>
+      </div>
+    )}
+  </div>
+);
 }

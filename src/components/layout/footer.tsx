@@ -61,6 +61,26 @@ export const Footer = ({ className }: { className?: string }) => {
             
             <span className="text-muted-foreground/40 mx-1">·</span>
             
+            <div className="flex gap-2">
+              <Link 
+                target="_blank"
+                href="/legal"
+                className="hover:text-foreground hover:underline underline-offset-4 transition-all"
+              >
+                Legal
+              </Link>
+              <span className="text-muted-foreground/40 mx-1">·</span>
+              <Link
+                target="_blank"
+                href="/contact"
+                className="hover:text-foreground hover:underline underline-offset-4 transition-all"
+              >
+                Contact
+              </Link>
+            </div>
+
+            <span className="text-muted-foreground/40 mx-1">·</span>
+            
             <a
               href="https://github.com/ABHAY-100/Bunkr"
               target="_blank"
@@ -69,24 +89,6 @@ export const Footer = ({ className }: { className?: string }) => {
             >
               Credits
             </a>
-
-            <span className="text-muted-foreground/40 mx-1">·</span>
-            
-            <div className="flex gap-2">
-              <Link 
-                href="/legal"
-                className="hover:text-foreground hover:underline underline-offset-4 transition-all"
-              >
-                Legal
-              </Link>
-              <span className="text-muted-foreground/40 mx-1">·</span>
-              <Link 
-                href="/contact"
-                className="hover:text-foreground hover:underline underline-offset-4 transition-all"
-              >
-                Contact
-              </Link>
-            </div>
           </div>
         </div>
 
