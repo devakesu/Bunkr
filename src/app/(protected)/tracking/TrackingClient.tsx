@@ -134,8 +134,8 @@ export default function TrackingClient() {
     // Cleanup: Cancel request if component unmounts
     // Reset sync flag after a delay to allow reruns after navigation while preventing strict mode double-fire
     return () => {
-      isMountedRef.current = false;
       abortController.abort();
+      isMountedRef.current = false;
       // Use setTimeout to distinguish between strict mode cleanup (immediate remount) 
       // and actual unmount (navigation away). Strict mode remounts happen synchronously,
       // so the flag stays true. Real navigation has enough delay for the reset to take effect.
