@@ -102,6 +102,12 @@ async function releaseAuthLock(userId: string, lockValue: string): Promise<void>
       tags: { type: 'redis_lock_error', location: 'release_auth_lock' },
       extra: { userId },
     });
+    // Re-throw so callers can handle Redis lock release failures consistently
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Failed to release auth lock');
+    }
   }
 }
 
