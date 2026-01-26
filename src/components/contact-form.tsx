@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { submitContactForm } from "@/app/actions/contact";
 import Turnstile, { useTurnstile } from "react-turnstile";
 import { Loader2, Send, AlertCircle } from "lucide-react";
+import * as Sentry from "@sentry/nextjs";
 
 interface ContactFormProps {
   userDetails?: {
@@ -37,6 +38,7 @@ export function ContactForm({ userDetails }: ContactFormProps) {
 
     try {
         const formData = new FormData(e.currentTarget);
+        // Explicitly set the token in case the library input isn't picked up automatically
         formData.set("cf-turnstile-response", token);
 
         const result = await submitContactForm(formData);
@@ -54,6 +56,11 @@ export function ContactForm({ userDetails }: ContactFormProps) {
     } catch (error) {
         console.error("Form Error:", error);
         toast.error("Something went wrong. Please try again.");
+        
+        // Capture Client-Side Submission Errors
+        Sentry.captureException(error, { 
+            tags: { type: "contact_form_client_error", location: "ContactForm/handleSubmit" } 
+        });
     } finally {
         setLoading(false);
     }
@@ -65,6 +72,16 @@ export function ContactForm({ userDetails }: ContactFormProps) {
       onSubmit={handleSubmit}
       className="space-y-4 max-w-md mx-auto p-6 bg-card border rounded-xl shadow-sm"
     >
+      {/* --- HONEYPOT FIELD (Hidden) --- */}
+      {/* Bots will fill this, Server Action will block them. Real users won't see it. */}
+      <input 
+        type="text" 
+        name="website" 
+        className="hidden" 
+        tabIndex={-1} 
+        autoComplete="off" 
+      />
+
       <div className="grid gap-2">
         <Label htmlFor="name">Name</Label>
         <Input id="name" name="name" defaultValue={userDetails?.name || ""} required />
@@ -99,6 +116,7 @@ export function ContactForm({ userDetails }: ContactFormProps) {
               console.error("Turnstile Error:", err);
               setCaptchaError(true);
               toast.error("Security check failed. Please refresh.");
+              Sentry.captureException(err, { tags: { type: "turnstile_client_error", location: "ContactForm/Turnstile" } });
             }}
             onExpire={() => setToken("")}
             theme="auto"

@@ -57,8 +57,8 @@ export function AddRecordTrigger({ user, onSuccess }: AddRecordTriggerProps) {
          coursesData={coursesData}
          user={user}
          onSuccess={handleSuccess}
-         selectedSemester={selectedSemester}
-         selectedYear={selectedYear}
+         selectedSemester={selectedSemester ?? undefined}
+         selectedYear={selectedYear ?? undefined}
       />
     </>
   );

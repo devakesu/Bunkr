@@ -1,9 +1,15 @@
 // src/lib/validate-env.ts
+
 /**
  * Validates required and critical environment variables at startup.
  * Throws an error and prevents app from starting if critical vars are missing or invalid.
+ * * NOTE: This must only run on the server (instrumentation.ts or next.config.js).
  */
 export function validateEnvironment() {
+  // 1. Prevent Client-Side Execution
+  // Secrets like CRON_SECRET are undefined in the browser, so this would falsely fail on the client.
+  if (typeof window !== 'undefined') return;
+
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -20,12 +26,6 @@ export function validateEnvironment() {
 
   if (!process.env.CRON_SECRET) {
     errors.push('❌ CRON_SECRET is required');
-  }
-
-  if (!process.env.GHOST_PASSWORD_SALT) {
-    errors.push('❌ GHOST_PASSWORD_SALT is required');
-  } else if (!/^[a-f0-9]{64}$/i.test(process.env.GHOST_PASSWORD_SALT)) {
-    errors.push('❌ GHOST_PASSWORD_SALT must be 64 hex characters (32 bytes)');
   }
 
   // Supabase
@@ -63,11 +63,9 @@ export function validateEnvironment() {
   // Cloudflare Turnstile
   if (!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) {
     errors.push('❌ NEXT_PUBLIC_TURNSTILE_SITE_KEY is required');
-  } else if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY === '1x00000000000000000000AA') {
-    // Test keys are acceptable in development, but not in production
+  } else if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY.startsWith('1x0000')) {
     if (process.env.NODE_ENV === 'production') {
       errors.push('❌ NEXT_PUBLIC_TURNSTILE_SITE_KEY is using TEST KEY in production!');
-      errors.push('   Replace with production key from https://dash.cloudflare.com/');
     } else {
       warnings.push('⚠️  NEXT_PUBLIC_TURNSTILE_SITE_KEY is using Cloudflare test key (development only)');
     }
@@ -75,11 +73,9 @@ export function validateEnvironment() {
 
   if (!process.env.TURNSTILE_SECRET_KEY) {
     errors.push('❌ TURNSTILE_SECRET_KEY is required');
-  } else if (process.env.TURNSTILE_SECRET_KEY === '1x0000000000000000000000000000000AA') {
-    // Test keys are acceptable in development, but not in production
+  } else if (process.env.TURNSTILE_SECRET_KEY.startsWith('1x0000')) {
     if (process.env.NODE_ENV === 'production') {
       errors.push('❌ TURNSTILE_SECRET_KEY is using TEST KEY in production!');
-      errors.push('   Replace with production key from https://dash.cloudflare.com/');
     } else {
       warnings.push('⚠️  TURNSTILE_SECRET_KEY is using Cloudflare test key (development only)');
     }
@@ -90,13 +86,20 @@ export function validateEnvironment() {
     errors.push('❌ NEXT_PUBLIC_APP_URL is required');
   } else {
     try {
-      // Ensure it's a valid absolute URL (e.g. includes protocol like https://)
-      // This matches usage elsewhere: new URL(process.env.NEXT_PUBLIC_APP_URL)
-       
-      new URL(process.env.NEXT_PUBLIC_APP_URL);
+      const url = new URL(process.env.NEXT_PUBLIC_APP_URL);
+      if (url.pathname !== '/') {
+         warnings.push(`⚠️  NEXT_PUBLIC_APP_URL has a path "${url.pathname}". usually it should be just the domain (e.g. https://example.com)`);
+      }
+      if (process.env.NEXT_PUBLIC_APP_URL.endsWith('/')) {
+         warnings.push('⚠️  NEXT_PUBLIC_APP_URL ends with a slash. Recommended: remove the trailing slash.');
+      }
     } catch {
       errors.push('❌ NEXT_PUBLIC_APP_URL must be a valid absolute URL (e.g. https://example.com)');
     }
+  }
+
+  if (!process.env.NEXT_PUBLIC_APP_DOMAIN) {
+      errors.push('❌ NEXT_PUBLIC_APP_DOMAIN is required (e.g. "ghostclass.com")');
   }
 
   if (!process.env.NEXT_PUBLIC_APP_EMAIL) {
@@ -113,9 +116,7 @@ export function validateEnvironment() {
   if (!process.env.NEXT_PUBLIC_SENTRY_DSN) {
     warnings.push('⚠️  NEXT_PUBLIC_SENTRY_DSN not set - error monitoring disabled');
   }
-  if (!process.env.SENTRY_AUTH_TOKEN) {
-    warnings.push('⚠️  SENTRY_AUTH_TOKEN not set - source maps won\'t upload');
-  }
+  // SENTRY_AUTH_TOKEN is build-time only, often not available at runtime, so skipping warning
 
   // Google Analytics
   if (!process.env.NEXT_PUBLIC_GA_ID) {
@@ -134,10 +135,10 @@ export function validateEnvironment() {
     errors.forEach(error => console.error(error));
     console.error('\n' + '='.repeat(80));
     console.error('📚 Fix: Copy .example.env to .env and fill in all required values');
-    console.error('📖 See README.md for setup instructions');
     console.error('='.repeat(80) + '\n');
     
-    throw new Error('Environment validation failed - see errors above');
+    // We throw an Error to stop the build/startup
+    throw new Error('Environment validation failed');
   }
 
   if (warnings.length > 0) {
@@ -148,7 +149,8 @@ export function validateEnvironment() {
     console.warn('='.repeat(80) + '\n');
   }
 
-  if (errors.length === 0) {
+  // Only log success in dev to keep prod logs clean
+  if (errors.length === 0 && process.env.NODE_ENV === 'development') {
     console.log('✅ Environment validation passed');
   }
 }

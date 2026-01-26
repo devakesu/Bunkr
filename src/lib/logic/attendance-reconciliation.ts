@@ -1,6 +1,11 @@
 import { TrackAttendance } from "@/types";
 import { generateSlotKey } from "../utils";
 
+interface RawSessionData {
+  session?: string | number | null;
+  [key: string]: unknown; // Allow other properties if necessary
+}
+
 export const ATTENDANCE_STATUS = {
   PRESENT: 110,
   ABSENT: 111,
@@ -11,7 +16,10 @@ export const ATTENDANCE_STATUS = {
 export const isPositive = (code: number) => code === ATTENDANCE_STATUS.PRESENT || code === ATTENDANCE_STATUS.DUTY_LEAVE;
 export const isAbsent = (code: number) => code === ATTENDANCE_STATUS.ABSENT || code === 0;
 
-export const getOfficialSessionRaw = (session: any, sessionKey: string | number) => {
+export const getOfficialSessionRaw = (
+  session: RawSessionData | null | undefined, 
+  sessionKey: string | number
+): string | number => {
   if (session && session.session != null && session.session !== "") {
     return session.session;
   }

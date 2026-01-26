@@ -1,5 +1,6 @@
 "use server";
 
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
@@ -15,7 +16,7 @@ const contactSchema = z.object({
     .max(100, "Name too long")
     .regex(/^[a-zA-Z\s'-]+$/, "Name contains invalid characters"),
   
-  email: z.string()
+  email: z
     .email("Invalid email format")
     .max(255, "Email too long")
     .transform(val => val.toLowerCase().trim()),
@@ -36,17 +37,9 @@ const contactSchema = z.object({
 
 // Sanitize HTML to prevent injection attacks while preserving safe formatting
 const sanitizeForEmail = (text: string): string => {
-  // Normalize different newline conventions (Windows \r\n, old Mac \r) to \n
   const normalizedText = text.replace(/\r\n?/g, "\n");
-  // Convert newlines to <br> tags before sanitization
-  // Note: sanitize-html will automatically convert these to <br /> (XHTML style)
-  // which is the most compatible format for email clients
   const withBreaks = normalizedText.replace(/\n/g, "<br>");
   
-  // Sanitize with a whitelist of safe tags
-  // Only allows basic inline formatting tags with no attributes to prevent XSS
-  // Note: <p> is intentionally disallowed to avoid nested/invalid paragraphs
-  // when this content is interpolated inside an existing <p> in email templates.
   return sanitizeHtml(withBreaks, {
     allowedTags: ["br", "strong", "em", "b", "i"],
     allowedAttributes: {},
@@ -54,7 +47,6 @@ const sanitizeForEmail = (text: string): string => {
   });
 };
 
-// Escape HTML completely (for attributes and non-HTML contexts)
 const escapeHtml = (text: string) => {
   return text
     .replace(/&/g, "&amp;")
@@ -108,8 +100,8 @@ const getContactEmail = () => {
 
 export async function submitContactForm(formData: FormData) {
 
-  // ✅ ADD HONEYPOT CHECK (anti-bot)
-  const honeypot = formData.get("website"); // Hidden field
+  // HONEYPOT CHECK (anti-bot)
+  const honeypot = formData.get("website"); 
   if (honeypot) {
     console.warn("Honeypot triggered");
     return { error: "Invalid submission" };
@@ -281,12 +273,28 @@ export async function submitContactForm(formData: FormData) {
       });
     } catch (confirmationError) {
       console.warn("Failed to send user confirmation email:", confirmationError);
+      // Non-fatal error: Capture as warning
+      Sentry.captureException(confirmationError, {
+        level: "warning",
+        tags: { type: "email_confirmation_failed", location: "contact_form" },
+        extra: { email }
+      });
     }
 
     return { success: true };
 
   } catch (error: any) {
     console.error("Contact flow failed:", error);
+
+    // Capture the main failure
+    Sentry.captureException(error, {
+        tags: { type: "contact_form_failure", location: "contact_form" },
+        extra: { 
+            email, 
+            has_inserted_db: !!insertedId,
+            user_ip_truncated: ip.split('.').slice(0,3).join('.') + '.0',
+        }
+    });
 
     // 8. ROLLBACK (Using Admin Client)
     if (insertedId) {
@@ -299,12 +307,16 @@ export async function submitContactForm(formData: FormData) {
 
       if (deleteError) {
         console.error("CRITICAL: Rollback failed!", deleteError);
+        // Critical failure: Data inconsistency
+        Sentry.captureException(deleteError, {
+             tags: { type: "rollback_failed", location: "contact_form" },
+             extra: { insertedId }
+        });
       } else {
         console.log("Rollback successful.");
       }
     }
 
-    console.error("SERVER ACTION ERROR:", error);
     return { error: "Failed to send message. Please try again." };
   }
 }

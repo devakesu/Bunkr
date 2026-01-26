@@ -13,6 +13,6 @@ const redisClient = () => {
 export const redis = new Proxy({} as Redis, {
   get: (_target, prop) => {
     const client = redisClient();
-    return (client as any)[prop];
+    return client[prop as keyof Redis]
   }
 });

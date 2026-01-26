@@ -1,9 +1,12 @@
+// src/app/(protected)/notifications/NotificationsClient.tsx
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useNotifications, Notification } from "@/hooks/notifications/useNotifications";
 import { useUser } from "@/hooks/users/user";
 import { useQueryClient } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import * as Sentry from "@sentry/nextjs";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,10 +15,8 @@ import {
   AlertTriangle, Info, CalendarClock, AlertCircle 
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-// --- 1. HELPER FUNCTIONS ---
 const getNotificationIcon = (topic?: string) => {
   if (topic?.includes("sync")) return { icon: RefreshCcw, color: "text-green-500", bg: "bg-green-500/10" };
   if (topic?.includes("conflict")) return { icon: AlertTriangle, color: "text-amber-500", bg: "bg-amber-500/10" };
@@ -23,47 +24,34 @@ const getNotificationIcon = (topic?: string) => {
   return { icon: Info, color: "text-primary", bg: "bg-primary/10" };
 };
 
-// --- 2. NOTIFICATION CARD COMPONENT ---
 const NotificationCard = ({ 
   n, 
-  index, 
   onMarkRead, 
   isReading 
 }: { 
   n: Notification; 
-  index: number; 
   onMarkRead: (id: number) => void; 
   isReading: boolean;
 }) => {
   const { icon: Icon, color, bg } = getNotificationIcon(n.topic);
-  
-  // Reset delay every 15 items so late items don't wait forever
-  const animationDelay = (index % 15) * 0.03;
 
   return (
-    <motion.div
-      layout="position"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-      transition={{ delay: animationDelay }} 
+    <div
       onClick={() => !n.is_read && onMarkRead(n.id)}
       onKeyDown={(e) => !n.is_read && (e.key === 'Enter' || e.key === ' ') && onMarkRead(n.id)}
       role="button"
       tabIndex={!n.is_read ? 0 : -1}
       className={cn(
-        "group relative flex gap-4 p-4 rounded-2xl border transition-all duration-200 overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "group relative flex gap-4 p-4 rounded-2xl border transition-all duration-200 overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary mb-3",
         !n.is_read ? "bg-card border-border/60 shadow-sm hover:shadow-md cursor-pointer" : "bg-transparent border-transparent opacity-70"
       )}
     >
       {!n.is_read && <div className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full bg-primary" />}
       
-      {/* Icon Container */}
       <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5", bg)}>
         <Icon className={cn("h-5 w-5", color)} />
       </div>
       
-      {/* Text Content */}
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start gap-2 mb-1">
           <h4 className={cn("text-sm font-semibold leading-tight break-words", !n.is_read ? "text-foreground" : "text-muted-foreground")}>
@@ -83,15 +71,20 @@ const NotificationCard = ({
             <Loader2 className="h-3 w-3 text-primary animate-spin" />
          </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 
-// --- 3. MAIN PAGE COMPONENT ---
+// Virtual item type to include headers
+type VirtualItem = 
+  | { type: 'header'; id: string; label: string }
+  | { type: 'notification'; id: number; data: Notification };
+
 export default function NotificationsPage() {
   const queryClient = useQueryClient();
   const { data: user } = useUser();
-  const scrollTrigger = useRef<HTMLDivElement>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
+  const syncAttempted = useRef(false);
 
   const { 
     actionNotifications, 
@@ -107,41 +100,131 @@ export default function NotificationsPage() {
 
   const [readingId, setReadingId] = useState<number | null>(null);
 
-  // --- INFINITE SCROLL ---
-  useEffect(() => {
-    if (!scrollTrigger.current || !hasNextPage) return;
-    const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && !isFetchingNextPage) fetchNextPage();
-    }, { threshold: 0.1, rootMargin: "200px" });
-    observer.observe(scrollTrigger.current);
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  // BUILD VIRTUAL LIST WITH HEADERS
+  const virtualItems = useMemo<VirtualItem[]>(() => {
+    const items: VirtualItem[] = [];
 
-  // --- SYNC ON MOUNT ---
-  useEffect(() => {
-    if (user?.username) {
-        fetch(`/api/cron/sync?username=${user.username}`)
-        .then(async (res) => {
-            const data = await res.json();
-            if (data.success && (data.deletions > 0 || data.conflicts > 0 || data.updates > 0)) {
-                toast.info("Notifications Updated", { description: "New attendance data found." });
-                queryClient.invalidateQueries({ queryKey: ["notifications"] });
-            }
-        }).catch(console.error);
+    // Add Action Required section
+    if (actionNotifications.length > 0) {
+      items.push({ type: 'header', id: 'action-header', label: 'ACTION REQUIRED' });
+      actionNotifications.forEach(n => {
+        items.push({ type: 'notification', id: n.id, data: n });
+      });
     }
+
+    // Add Recent Activity section
+    if (regularNotifications.length > 0) {
+      items.push({ type: 'header', id: 'recent-header', label: 'RECENT ACTIVITY' });
+      regularNotifications.forEach(n => {
+        items.push({ type: 'notification', id: n.id, data: n });
+      });
+    }
+
+    return items;
+  }, [actionNotifications, regularNotifications]);
+
+  // VIRTUALIZER WITH DYNAMIC HEIGHT ESTIMATION
+  const rowVirtualizer = useVirtualizer({
+    count: virtualItems.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (index) => {
+      const item = virtualItems[index];
+      
+      if (item.type === 'header') {
+        return 50; // Section header height
+      }
+      
+      // Notification card height
+      const notification = item.data;
+      const baseHeight = notification.description ? 100 : 70;
+      const marginBottom = 12; // mb-3 (3 * 4px)
+      return baseHeight + marginBottom;
+    },
+    overscan: 5,
+  });
+
+  // INFINITE SCROLL
+  useEffect(() => {
+    const [lastItem] = [...rowVirtualizer.getVirtualItems()].reverse();
+
+    if (!lastItem) return;
+
+    if (
+      lastItem.index >= virtualItems.length - 1 &&
+      hasNextPage &&
+      !isFetchingNextPage
+    ) {
+      fetchNextPage();
+    }
+  }, [
+    hasNextPage,
+    fetchNextPage,
+    virtualItems.length,
+    isFetchingNextPage,
+    rowVirtualizer,
+  ]);
+
+  // SYNC ON MOUNT
+  useEffect(() => {
+    if (!user?.username || syncAttempted.current) return;
+    syncAttempted.current = true;
+
+    const abortController = new AbortController();
+
+    const syncNotifications = async () => {
+      try {
+        const res = await fetch(`/api/cron/sync?username=${user.username}`, {
+          signal: abortController.signal
+        });
+
+        if (!res.ok) throw new Error(`Sync failed with status: ${res.status}`);
+        const data = await res.json();
+
+        if (data.success && (data.deletions > 0 || data.conflicts > 0 || data.updates > 0)) {
+          toast.info("Notifications Updated", { description: "New attendance data found." });
+          queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        }
+      } catch (error: any) {
+        if (error.name === 'AbortError') return;
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Notification background sync failed", error);
+        }
+        Sentry.captureException(error, {
+          tags: { type: "notification_sync", location: "NotificationsClient/useEffect/syncNotifications" },
+          extra: { username: user.username }
+        });
+      }
+    };
+
+    syncNotifications();
+    return () => abortController.abort();
   }, [user?.username, queryClient]);
 
+  // MARK READ HANDLER
   const handleMarkRead = useCallback(async (id: number) => {
-    if (readingId === id) return;
-    setReadingId(id);
-    try { await markAsRead(id); } 
-    catch (e) { console.error(e); } 
-    finally { setReadingId(null); }
+      if (readingId === id) return;
+      
+      setReadingId(id);
+      try { 
+          await markAsRead(id); 
+      } catch (error) { 
+          if (process.env.NODE_ENV === 'development') {
+            console.error("Failed to mark notification read", error);
+          }
+          toast.error("Could not update notification");
+          Sentry.captureException(error, {
+              tags: { type: "mark_notification_read", location: "NotificationsClient/handleMarkRead" },
+              extra: { notification_id: id, action: "mark_read" } 
+          });
+      } finally { 
+          setReadingId(null); 
+      }
   }, [markAsRead, readingId]);
 
   if (isLoading) return <LoadingSkeleton />;
 
-  const isEmpty = actionNotifications.length === 0 && regularNotifications.length === 0;
+  const isEmpty = virtualItems.length === 0;
 
   return (
     <div className="min-h-screen bg-background relative">
@@ -160,82 +243,73 @@ export default function NotificationsPage() {
         </div>
       </header>
 
-      <main className="container mx-auto p-4 max-w-2xl pb-10">
-        <div className="space-y-6 mt-2">
-          
-          {isEmpty && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="h-20 w-20 rounded-full bg-muted/30 flex items-center justify-center mb-4"><BellOff className="h-9 w-9 text-muted-foreground/50" /></div>
-              <h3 className="text-lg font-medium">All caught up!</h3>
-              <p className="text-sm text-muted-foreground max-w-[250px] mt-1">You have no new notifications.</p>
-            </motion.div>
-          )}
-
-          {/* 1. ACTION REQUIRED SECTION */}
-          <AnimatePresence mode="popLayout">
-            {actionNotifications.length > 0 && (
-              <motion.div 
-                layout 
-                key="action-section"
-                className="space-y-3" 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                exit={{ opacity: 0 }}
-              >
-                <div className="flex items-center gap-2 px-1 text-amber-500">
-                  <AlertCircle className="h-4 w-4" /><h3 className="text-xs font-bold uppercase tracking-wider">Action Required</h3>
-                </div>
-                {actionNotifications.map((n, i) => (
-                  <NotificationCard 
-                    key={n.id} 
-                    n={n} 
-                    index={i} 
-                    onMarkRead={handleMarkRead} 
-                    isReading={readingId === n.id} 
-                  />
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* 2. REGULAR FEED SECTION */}
-          {regularNotifications.length > 0 && (
-            <div className="space-y-3">
-                 {actionNotifications.length > 0 && (
-                    <div className="flex items-center gap-2 px-1 pt-4 text-muted-foreground">
-                        <h3 className="text-xs font-bold uppercase tracking-wider">Recent Activity</h3>
-                    </div>
-                 )}
-                 
-                 <AnimatePresence mode="popLayout" initial={false}>
-                    {regularNotifications.map((n, i) => (
-                        <NotificationCard 
-                          key={n.id} 
-                          n={n} 
-                          index={i} 
-                          onMarkRead={handleMarkRead} 
-                          isReading={readingId === n.id}
-                        />
-                    ))}
-                 </AnimatePresence>
+      <main 
+        ref={parentRef} 
+        className="container mx-auto max-w-2xl overflow-auto"
+        style={{ height: 'calc(100vh - 73px)' }}
+      >
+        {isEmpty ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="h-20 w-20 rounded-full bg-muted/30 flex items-center justify-center mb-4">
+              <BellOff className="h-9 w-9 text-muted-foreground/50" />
             </div>
-          )}
+            <h3 className="text-lg font-medium">All caught up!</h3>
+            <p className="text-sm text-muted-foreground max-w-[250px] mt-1">You have no new notifications.</p>
+          </div>
+        ) : (
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const item = virtualItems[virtualRow.index];
 
-          {/* 3. INFINITE SCROLL TRIGGER */}
-          {hasNextPage && (
-            <>
-               <div ref={scrollTrigger} className="h-4 w-full invisible" />
-               {isFetchingNextPage && (
-                 <div className="py-4 flex justify-center w-full">
-                    <div className="flex items-center gap-2 text-muted-foreground text-xs animate-pulse">
-                        <Loader2 className="h-4 w-4 animate-spin" /> Loading more...
+              return (
+                <div
+                  key={item.type === 'header' ? item.id : `notification-${item.id}`}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                  className="px-4"
+                >
+                  {item.type === 'header' ? (
+                    // SECTION HEADER
+                    <div className={cn(
+                      "flex items-center gap-2 px-1 py-3",
+                      item.label === 'ACTION REQUIRED' ? "text-amber-500" : "text-muted-foreground"
+                    )}>
+                      {item.label === 'ACTION REQUIRED' && <AlertCircle className="h-4 w-4" />}
+                      <h3 className="text-xs font-bold uppercase tracking-wider">{item.label}</h3>
                     </div>
-                 </div>
-               )}
-            </>
-          )}
+                  ) : (
+                    // NOTIFICATION CARD
+                    <NotificationCard
+                      n={item.data}
+                      onMarkRead={handleMarkRead}
+                      isReading={readingId === item.id}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-        </div>
+        {isFetchingNextPage && (
+          <div className="py-4 flex justify-center w-full">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs animate-pulse">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading more...
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

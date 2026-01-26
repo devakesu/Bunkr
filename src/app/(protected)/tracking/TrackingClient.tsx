@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useTrackingCount } from "@/hooks/tracker/useTrackingCount";
 import { useUser } from "@/hooks/users/user";
@@ -70,6 +71,7 @@ export default function TrackingClient() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [isSyncing, setIsSyncing] = useState(true);
+  const syncAttempted = useRef(false);
 
   const coursesPerPage = 3; 
 
@@ -82,31 +84,51 @@ export default function TrackingClient() {
 
   useEffect(() => { if (user) setEnabled(true); }, [user]);
 
-  // --- AUTO SYNC ---
+ // --- AUTO SYNC ---
   useEffect(() => {
     if (!user?.username) return;
 
+    // 1. Prevent Double-Firing
+    if (syncAttempted.current) return;
+    syncAttempted.current = true;
+
+    const abortController = new AbortController();
+
     const runSync = async () => {
-        try {
-            const res = await fetch(`/api/cron/sync?username=${user.username}`, {
-                headers: { Authorization: `Bearer ${accessToken}` }
-            });
-            const data = await res.json();
-            
-            if (data.success && (data.deletions > 0 || data.conflicts > 0)) {
-                toast.info("Data Synced", {
-                    description: `${data.deletions} outdated records removed.`
-                });
-                await Promise.all([refetchTrackingData(), refetchCount()]);
-            }
-        } catch (err) {
-            console.error("Sync error", err);
-        } finally {
-            setIsSyncing(false);
+      try {
+        const res = await fetch(`/api/cron/sync?username=${user.username}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          signal: abortController.signal
+        });
+
+        if (!res.ok) throw new Error(`Sync failed with status: ${res.status}`);
+
+        const data = await res.json();
+        
+        if (data.success && (data.deletions > 0 || data.conflicts > 0)) {
+          toast.info("Data Synced", {
+            description: `${data.deletions} outdated records removed.`
+          });
+          await Promise.all([refetchTrackingData(), refetchCount()]);
         }
+      } catch (err: any) {
+        if (err.name === 'AbortError') return; // Ignore user navigation
+
+        console.error("Tracking sync error", err);
+        
+        Sentry.captureException(err, {
+          tags: { type: "tracking_sync", location: "TrackingClient/useEffect/runSync" },
+          extra: { username: user.username }
+        });
+      } finally {
+        setIsSyncing(false);
+      }
     };
 
     runSync();
+
+    // Cleanup: Cancel request if component unmounts
+    return () => abortController.abort();
   }, [user?.username, accessToken, refetchTrackingData, refetchCount]);
 
   // --- 1. GROUP AND SORT DATA ---
@@ -174,6 +196,7 @@ export default function TrackingClient() {
 
       } catch (error) {
         toast.error("Error deleting the record.");
+        Sentry.captureException(error, { tags: { type: "tracking_delete_single", location: "TrackingClient/handleDeleteTrackData" }, extra: { userId: user.id, session, course, date } });
       } finally {
         setDeleteId("");
       }
@@ -199,6 +222,7 @@ export default function TrackingClient() {
 
       } catch (error) {
         toast.error("Failed to delete all tracking data.");
+        Sentry.captureException(error, { tags: { type: "tracking_delete_all", location: "TrackingClient/deleteAllTrackingData" }, extra: { userId: user.id }   });
       } finally {
         setIsProcessing(false);
       }

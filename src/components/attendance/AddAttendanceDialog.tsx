@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import * as Sentry from "@sentry/nextjs";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +23,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, Plus, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { getToken } from "@/lib/auth";
 import { 
   format, 
   addMonths, 
@@ -69,7 +69,6 @@ export function AddAttendanceDialog({
   selectedSemester,
   selectedYear,
 }: AddAttendanceDialogProps) {
-  const accessToken = getToken();
 
   // --- STATE ---
   const [date, setDate] = useState<Date>(new Date());
@@ -88,19 +87,26 @@ export function AddAttendanceDialog({
   const semesterBounds = useMemo(() => {
     if (!selectedYear || !selectedSemester) return { min: undefined, max: undefined };
 
-    const startYear = parseInt(selectedYear.split("-")[0], 10);
-    const endYear = startYear + 1;
+    try {
+      const startYear = parseInt(selectedYear.split("-")[0], 10);
+      if (isNaN(startYear)) throw new Error("Invalid year format");
 
-    if (selectedSemester === "odd") {
-      return {
-        min: new Date(startYear, 6, 1), 
-        max: new Date(startYear, 11, 31)
-      };
-    } else {
-      return {
-        min: new Date(endYear, 0, 1),   
-        max: new Date(endYear, 5, 30)   
-      };
+      const endYear = startYear + 1;
+
+      if (selectedSemester === "odd") {
+        return {
+          min: new Date(startYear, 6, 1), 
+          max: new Date(startYear, 11, 31)
+        };
+      } else {
+        return {
+          min: new Date(endYear, 0, 1),   
+          max: new Date(endYear, 5, 30)   
+        };
+      }
+    } catch (e) {
+      console.warn("Invalid semester bounds:", e);
+      return { min: undefined, max: undefined };
     }
   }, [selectedSemester, selectedYear]);
 
@@ -108,11 +114,13 @@ export function AddAttendanceDialog({
   useEffect(() => {
     if (open && semesterBounds.min && semesterBounds.max) {
       if (isBefore(date, semesterBounds.min)) {
-        setDate(semesterBounds.min);
-        setCurrentMonth(semesterBounds.min);
+        const newDate = semesterBounds.min;
+        setDate(newDate);
+        setCurrentMonth(newDate);
       } else if (isAfter(date, semesterBounds.max)) {
-        setDate(semesterBounds.max);
-        setCurrentMonth(semesterBounds.max);
+        const newDate = semesterBounds.max;
+        setDate(newDate);
+        setCurrentMonth(newDate);
       }
     }
   }, [open, semesterBounds, date]);
@@ -129,7 +137,6 @@ export function AddAttendanceDialog({
         Object.keys(officialDay).forEach((key) => {
            const s = officialDay[key];
            
-           // ✅ STRICTER CHECK: course cannot be "0", 0, null, or "null"
            if (!s.course || s.course === "null" || s.course === 0 || s.course === "0") return;
 
            let effectiveName = attendanceData.sessions?.[key]?.name;
@@ -220,12 +227,10 @@ export function AddAttendanceDialog({
          isBlocked = Object.keys(officialDay).some((key) => {
             const s = officialDay[key];
             
-              // 1. STRICTER FREE CHECK
             if (!s.course || s.course === "null" || s.course === 0 || s.course === "0") {
                 return false;
             }
 
-            // 2. DETERMINE NAME
             let effectiveName = attendanceData.sessions?.[key]?.name;
 
             if (!effectiveName && s.session && s.session !== "null") {
@@ -239,7 +244,6 @@ export function AddAttendanceDialog({
                 }
             }
 
-            // 3. COMPARE
             if (effectiveName && normalizeSession(effectiveName) === targetSession) {
                 return true;
             }
@@ -248,11 +252,11 @@ export function AddAttendanceDialog({
       }
 
       if (!isBlocked && trackingData) {
-         const targetDbDate = normalizeDate(date);
-         isBlocked = trackingData.some(t => {
-            const isMatch = normalizeDate(t.date) === targetDbDate && normalizeSession(t.session) === targetSession;
-            return isMatch;
-         });
+          const targetDbDate = normalizeDate(date);
+          isBlocked = trackingData.some(t => {
+             const isMatch = normalizeDate(t.date) === targetDbDate && normalizeSession(t.session) === targetSession;
+             return isMatch;
+          });
       }
       
       return isBlocked;
@@ -302,9 +306,18 @@ export function AddAttendanceDialog({
       onSuccess();
       onOpenChange(false);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Add Record Failed:", error);
       toast.error("Failed to add record");
+      
+      Sentry.captureException(error, {
+          tags: { type: "add_attendance_failure", location: "AddAttendanceDialog/handleSubmit" },
+          extra: { 
+              courseId, 
+              date: format(date, "yyyy-MM-dd"),
+              session 
+          }
+      });
     } finally {
       setIsSubmitting(false);
     }

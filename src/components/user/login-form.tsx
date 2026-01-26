@@ -18,6 +18,7 @@ import { Loading } from "@/components/loading";
 import { PasswordResetForm } from "./password-reset-form";
 import NProgress from "nprogress";
 import { motion, HTMLMotionProps, Variants } from "framer-motion";
+import * as Sentry from "@sentry/nextjs";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
@@ -84,7 +85,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
 
       if (!token) throw new Error("Invalid response from server");
 
-      // 2. Securely Save Token
+      // 2. Securely Save Token (Bridge to GhostClass)
       await axios.post("/api/auth/save-token", { token });
 
       // 3. Success
@@ -96,13 +97,22 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       NProgress.done();
       setIsLoading(false);
       
+      let errorMsg = "An unexpected error occurred";
+
       if (err.config?.url?.includes("save-token")) {
-         setError("Secure session setup failed. Please try again.");
+         // This is a critical failure in OUR backend bridge
+         errorMsg = "Secure session setup failed. Please try again.";
+         Sentry.captureException(error, { tags: { type: "auth_bridge_client_error", location: "LoginForm/handleSubmit" } });
+      } else if (err.response?.status === 401) {
+         // User error (wrong password) - No Sentry needed
+         errorMsg = "Invalid credentials. Please check your password.";
       } else if (err.response?.data?.message) {
-        setError(err.response.data.message);
-      } else {
-        setError("An unexpected error occurred");
+         errorMsg = err.response.data.message;
+      } else if (err.code === "ERR_NETWORK") {
+         errorMsg = "Network error. Please check your connection.";
       }
+
+      setError(errorMsg);
       console.error("Login failed:", error);
     }
   };
@@ -270,7 +280,7 @@ return (
                 animate={{ opacity: 1, y: 0 }}
                 className="text-center text-sm text-red-400 border rounded-lg bg-red-500/10 border-red-500/20 p-2"
               >
-                {"Ezygo: "}{error}
+                {error}
               </motion.div>
             )}
           </div>

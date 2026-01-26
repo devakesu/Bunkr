@@ -1,8 +1,8 @@
+import * as Sentry from "@sentry/nextjs";
 import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { encrypt } from "@/lib/crypto";
-import type { User as AuthUser } from "@supabase/auth-js";
 import { syncRateLimiter } from "@/lib/ratelimit";
 import { headers } from "next/headers";
 import { cookies } from "next/headers";
@@ -27,8 +27,6 @@ const EzygoUserSchema = z.object({
   mobile: z.string().optional(),
 });
 
-
-
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -41,13 +39,7 @@ function getAdminClient() {
 }
 
 export async function POST(req: Request) {
-
   const supabaseAdmin = getAdminClient();
-  const GHOST_PASSWORD_SALT = process.env.GHOST_PASSWORD_SALT;
-  if (!GHOST_PASSWORD_SALT) {
-      console.error("Server Misconfiguration: Missing GHOST_PASSWORD_SALT");
-      return NextResponse.json({ message: "Server configuration error" }, { status: 500 });
-  }
 
   // 1. Rate Limit Check
   const headerList = await headers();
@@ -99,23 +91,28 @@ export async function POST(req: Request) {
         }
       );
 
-      // Check status before validating response body
       if (ezygoRes.status === 401) {
         return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
       }
       
       if (ezygoRes.status !== 200) {
         console.error("Unexpected Ezygo response status:", ezygoRes.status);
+        Sentry.captureException(new Error(`EzyGo Unexpected Status: ${ezygoRes.status}`), {
+             tags: { type: "ezygo_api_error", location: "save_token" },
+        });
         return NextResponse.json(
           { message: "Authentication service error" },
           { status: 502 }
         );
       }
 
-      // Validate EzyGo Response
       const userValidation = EzygoUserSchema.safeParse(ezygoRes.data);
       if (!userValidation.success) {
         console.error("Invalid Ezygo response:", userValidation.error);
+        Sentry.captureException(userValidation.error, {
+            tags: { type: "ezygo_schema_mismatch", location: "save_token" },
+            extra: { data: ezygoRes.data }
+        });
         return NextResponse.json(
           { message: "Invalid user data from authentication service" },
           { status: 502 }
@@ -132,7 +129,10 @@ export async function POST(req: Request) {
       if (err.response?.status === 401) {
         return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
       }
+      
       console.error("Ezygo verification error:", err);
+      Sentry.captureException(err, { tags: { type: "ezygo_network_error", location: "save_token" } });
+      
       return NextResponse.json({ message: "Authentication service error" }, { status: 502 });
     }
 
@@ -143,38 +143,139 @@ export async function POST(req: Request) {
     // Sanitize User ID
     const sanitizedUserId = verifieduserId.replace(/[^a-zA-Z0-9_-]/g, '');
     if (sanitizedUserId !== verifieduserId) {
-      console.warn(`User ID contained invalid characters: ${verifieduserId}`);
       return NextResponse.json({ message: "Invalid user identifier" }, { status: 400 });
     }
 
-    // 3. Ghost Login for Supabase
+    // 3. Ghost Login Logic (Ephemeral Password)
     const ghostDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "ghostclass.devakesu.com";
     const email = `ezygo_${sanitizedUserId}@${ghostDomain}`;
     
-    // Validate Email Format (derive from configured domain)
-    const escapeRegExp = (value: string) =>
-      value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const emailRegex = new RegExp(
-      `^[a-zA-Z0-9_-]+@${escapeRegExp(ghostDomain)}$`
-    );
+    // Validate Email Format
+    const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const emailRegex = new RegExp(`^[a-zA-Z0-9_-]+@${escapeRegExp(ghostDomain)}$`);
+    
     if (!emailRegex.test(email)) {
       return NextResponse.json({ message: "Invalid email format" }, { status: 500 });
     }
 
-    const ghostPassword = crypto
-    .createHash('sha256')
-    .update(`${verifieduserId}${GHOST_PASSWORD_SALT}`)
-    .digest('hex');
+    // Generate a fresh random password for this session
+    const ephemeralPassword = crypto.randomBytes(32).toString('hex');
+    let userId: string | undefined;
 
+    // A. Try to Create User First
+    const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: ephemeralPassword,
+      email_confirm: true,
+      user_metadata: { ezygo_id: verifieduserId },
+    });
+
+    if (createError) {
+      // B. If User Exists -> Update Password
+      if (createError.message?.toLowerCase().includes("already registered") || createError.status === 422) {
+        // Let's use the 'users' table to resolve the Auth UUID
+        const { data: existingMap } = await supabaseAdmin
+            .from("users")
+            .select("auth_id")
+            .eq("id", verifieduserId)
+            .single();
+
+        const targetAuthId = existingMap?.auth_id;
+
+        if (!targetAuthId) {
+          // --- CASE 1: ORPHAN USER (Exists in Auth, missing in DB) ---
+          console.warn(`Orphan Auth User detected for ${verifieduserId}. Initiating exhaustive cleanup...`);
+
+          let orphanUserId: string | null = null;
+          let page = 1;
+          const PER_PAGE = 1000;
+          let hasMore = true;
+
+          // Paginated Search Loop
+          while (hasMore) {
+            const { data, error: listError } = await supabaseAdmin.auth.admin.listUsers({ 
+              page: page, 
+              perPage: PER_PAGE 
+            });
+
+            if (listError) {
+               console.error("Failed to list users during cleanup:", listError);
+               throw listError;
+            }
+
+            const users = data.users || [];
+            
+            // Try to find the user in the current page
+            const found = users.find(u => u.email === email);
+            if (found) {
+              orphanUserId = found.id;
+              break;
+            }
+
+            if (users.length < PER_PAGE) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+          }
+
+          if (orphanUserId) {
+            // Delete the orphan Auth record
+            const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(orphanUserId);
+            if (deleteError) throw deleteError;
+            
+            console.log(`Deleted orphan user ${orphanUserId}. Retrying creation...`);
+
+            // Retry Creation (Fresh Start)
+            const { data: retryData, error: retryError } = await supabaseAdmin.auth.admin.createUser({
+              email,
+              password: ephemeralPassword,
+              email_confirm: true,
+              user_metadata: { ezygo_id: verifieduserId },
+            });
+
+            if (retryError) throw retryError;
+            userId = retryData.user.id;
+
+          } else {
+             const errorMsg = `Critical: 'User already registered' error, but email ${email} not found in Auth scan.`;
+             console.error(errorMsg);
+             
+             // CAPTURE CRITICAL SYNC ERROR
+             Sentry.captureException(new Error(errorMsg), {
+                 tags: { type: "critical_auth_sync", location: "save_token" },
+                 extra: { verifieduserId, email }
+             });
+
+             return NextResponse.json({ message: "Account synchronization error" }, { status: 500 });
+          }
+
+        } else {
+          // --- CASE 2: NORMAL USER (Exists in both) ---
+          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+            targetAuthId,
+            { password: ephemeralPassword }
+          );
+
+          if (updateError) throw updateError;
+          userId = targetAuthId;
+        }
+        
+      } else {
+        throw createError;
+      }
+    } else {
+      userId = createData.user.id;
+    }
+
+    // 4. Sign In
     const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
+          getAll() { return cookieStore.getAll(); },
           setAll(cookiesToSet) {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
@@ -184,77 +285,22 @@ export async function POST(req: Request) {
       }
     );
 
-    let signUpUser: AuthUser | null = null;
-    let retryData: any = null;
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+    const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
-      password: ghostPassword,
+      password: ephemeralPassword,
     });
 
-    // If Sign In fails (User doesn't exist), Sign Up!
-    if (signInError) {
-      console.log(`User ${verifieduserId} (EzyGo) not found in Auth, creating...`);
-      
-      const { data: signUpDataTemp, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password: ghostPassword,
-        email_confirm: true,
-        user_metadata: { ezygo_id: verifieduserId },
-      });
+    if (signInError) throw signInError;
 
-      // IF USER ALREADY EXISTS, FORCE PASSWORD UPDATE
-      if (signUpError) {
-        if (signUpError.message?.includes("already registered")) {
-          const { data: existingUser } = await supabaseAdmin
-            .from("users")
-            .select("auth_id")
-            .eq("id", verifieduserId) 
-            .single();
-          
-          if (existingUser?.auth_id) {
-            const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-              existingUser.auth_id,
-              {
-                password: ghostPassword
-              }
-            );
-
-            if (updateError) throw updateError;
-          }
-        } else {
-          // For any other sign-up error, abort the flow immediately
-          throw signUpError;
-        }
-      }
-
-      signUpUser = signUpDataTemp.user;
-      const { data: retryDataTemp, error: retryError } = await supabase.auth.signInWithPassword({
-        email,
-        password: ghostPassword,
-      });
-
-      if (retryError) throw retryError;
-      retryData = retryDataTemp;
-    }
-
-    const userId = signInData?.user?.id || signUpUser?.id || retryData?.user?.id;
-
-    // Validate UUID
-    if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
-      return NextResponse.json(
-        { message: "Invalid user session" },
-        { status: 500 }
-      );
-    }
-
+    // 5. Encrypt & Save Token
     const { iv, content } = encrypt(token);
-
-    // Validate Encryption Output
+    
+    // Validate Encryption
     if (!iv || !content || !/^[a-f0-9]{32}$/i.test(iv)) {
-      return NextResponse.json(
-        { message: "Encryption failed" },
-        { status: 500 }
-      );
+      Sentry.captureException(new Error("Encryption failed during token save"), {
+          extra: { userId }
+      });
+      return NextResponse.json({ message: "Encryption failed" }, { status: 500 });
     }
 
     const { error: dbError } = await supabaseAdmin
@@ -275,6 +321,12 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("Auth Bridge Failed:", error);
     
+    // Capture Main Failure
+    Sentry.captureException(error, {
+        tags: { type: "auth_bridge_failure", location: "save_token" },
+        extra: { ip_truncated: ip.split('.').slice(0,3).join('.') }
+    });
+
     return NextResponse.json(
       {
         message: "Failed to establish secure session",

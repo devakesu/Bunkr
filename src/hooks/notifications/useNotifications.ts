@@ -2,6 +2,9 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import * as Sentry from "@sentry/nextjs";
+
 export interface Notification {
   id: number;
   title: string;
@@ -23,7 +26,6 @@ export function useNotifications(enabled = true) {
   const PAGE_SIZE = 15;
 
   // 1. PRIORITY QUERY: Fetch ALL Unread Conflicts (Action Required)
-  // This ensures they are ALWAYS at the top, regardless of date.
   const { data: actionData, isLoading: isActionLoading } = useQuery({
     queryKey: ["notifications", "actions"],
     queryFn: async () => {
@@ -38,7 +40,10 @@ export function useNotifications(enabled = true) {
         .eq("is_read", false)        // Only unread
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+         Sentry.captureException(error, { tags: { type: "notification_fetch_actions" } });
+         throw error;
+      }
       return data as Notification[];
     },
     enabled: enabled,
@@ -46,8 +51,6 @@ export function useNotifications(enabled = true) {
   });
 
   // DEDICATED QUERY: Total Unread Count
-  // This provides an accurate count of all unread notifications,
-  // regardless of how many pages have been loaded.
   const { data: unreadCountData, isLoading: isUnreadCountLoading } = useQuery({
     queryKey: ["notifications", "unreadCount"],
     queryFn: async () => {
@@ -72,7 +75,6 @@ export function useNotifications(enabled = true) {
   });
 
   // 2. INFINITE FEED: Fetch Everything Else
-  // (Regular items + Read Conflicts)
   const {
     data: feedData,
     isLoading: isFeedLoading,
@@ -89,8 +91,6 @@ export function useNotifications(enabled = true) {
       const from = (pageParam as number) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      // Fetch notifications that are NOT (conflict AND unread)
-      // Strategy: Fetch ALL by date, deduplicate in UI.
       const { data, error } = await supabase
         .from("notification")
         .select("*")
@@ -98,7 +98,10 @@ export function useNotifications(enabled = true) {
         .order("created_at", { ascending: false })
         .range(from, to);
 
-      if (error) throw error;
+      if (error) {
+          Sentry.captureException(error, { tags: { type: "notification_fetch_feed" } });
+          throw error;
+      }
 
       const notifications = data as Notification[];
       const nextPage = notifications.length === PAGE_SIZE ? (pageParam as number) + 1 : null;
@@ -111,22 +114,20 @@ export function useNotifications(enabled = true) {
     refetchInterval: 30000,
   });
 
-  // 3. COMBINE & DEDUPLICATE
-  // We have "Action Items" and "Feed Items". 
-  // We need to remove Action Items from the Feed to avoid showing them twice.
-  const actionNotifications = actionData || [];
-  
-  // Flatten feed pages
-  const rawFeed = feedData?.pages.flatMap((page) => page.data) || [];
-  
-  // Filter out items that are already in the "Action" list
-  const actionIds = new Set(actionNotifications.map(n => n.id));
-  const regularNotifications = rawFeed.filter(n => !actionIds.has(n.id));
+  // 3. COMBINE & DEDUPLICATE (Memoized)
+  const { actionNotifications, regularNotifications } = useMemo(() => {
+      const actions = actionData || [];
+      const rawFeed = feedData?.pages.flatMap((page) => page.data) || [];
+      
+      const actionIds = new Set(actions.map(n => n.id));
+      const regular = rawFeed.filter(n => !actionIds.has(n.id));
 
-  // Use the dedicated unread count query for accuracy
+      return { actionNotifications: actions, regularNotifications: regular };
+  }, [actionData, feedData]);
+
   const unreadCount = unreadCountData ?? 0;
 
-  // 4. MUTATIONS
+  // 4. MUTATIONS (With Optimistic Updates)
   const markReadMutation = useMutation({
     mutationFn: async (id?: number) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -143,8 +144,26 @@ export function useNotifications(enabled = true) {
       const { error } = await query;
       if (error) throw error;
     },
-    onSuccess: () => {
-      // Invalidate both lists so items move from "Action" -> "Feed"
+    // Optimistic Update: Update UI instantly
+    onMutate: async (targetId?: number) => {
+        await queryClient.cancelQueries({ queryKey: ["notifications"] });
+
+        // Update Unread Count
+        queryClient.setQueryData(["notifications", "unreadCount"], (old: number | undefined) => {
+            if (old === undefined) return 0;
+            if (targetId) return Math.max(0, old - 1);
+            return 0; // Mark All Read
+        });
+    },
+    onError: (err, targetId) => {
+        Sentry.captureException(err, { 
+            tags: { type: "notification_mark_read_failure", location: "useNotifications/markReadMutation" },
+            extra: { notificationId: targetId }
+        });
+        // Revert on error could be implemented here if using full optimistic state
+    },
+    onSettled: () => {
+      // Always refetch to ensure server sync
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
@@ -160,5 +179,6 @@ export function useNotifications(enabled = true) {
     isFetchingNextPage,
     markAsRead: (id?: number) => markReadMutation.mutate(id),
     markAllAsRead: () => markReadMutation.mutate(undefined),
+    isMarkingRead: markReadMutation.isPending
   };
 }

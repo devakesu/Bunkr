@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { useProfile } from "@/hooks/users/profile";
 import { useUser } from "@/hooks/users/user";
 import { ProfileForm } from "@/components/user/profile-form";
@@ -64,49 +65,74 @@ export default function ProfileClient() {
       toast.error("Please upload an image file.");
       return;
     }
-  
+
+    // Keep track of the temporary URL to clean it up later
+    let optimisticPreviewUrl: string | null = null;
+
     try {
       setIsUploading(true);
 
-      // Set local preview immediately
-      const objectUrl = URL.createObjectURL(originalFile);
-      setAvatarPreview(objectUrl);
+      // 1. Optimistic UI: Show immediate local preview
+      optimisticPreviewUrl = URL.createObjectURL(originalFile);
+      setAvatarPreview(optimisticPreviewUrl);
 
       let fileToUpload: File = originalFile;
 
-      // Compression logic for large files (>5MB)
+      // 2. Compression Logic
       if (originalFile.size > 5 * 1024 * 1024) {
         toast.info("Compressing large image...", { duration: 2000 });
         try {
           const compressed = await compressImage(originalFile, 0.7);
-          // Recursively compress if still too big
+          // Recursive check: Compress harder if still > 5MB
           fileToUpload = compressed.size > 5 * 1024 * 1024 
             ? await compressImage(originalFile, 0.5) 
             : compressed;
         } catch (error) {
-          console.error("Compression failed:", error);
+          console.warn("Compression failed, falling back to original:", error);
+          
+          // Report non-fatal error to Sentry
+          Sentry.captureException(error, { 
+              tags: { type: "image_compression", location: "ProfileClient/handleFileChange" },
+              extra: { original_size: originalFile.size, user_id: user.id, file_name: originalFile.name }
+          });
           toast.warning("Could not compress image. Uploading original.");
         }
       }
       
-      // Upload to Supabase Storage
+      // 3. Upload to Supabase
       const newAvatarUrl = await uploadUserAvatar(fileToUpload);
       
-      // Update state with the confirmed remote URL
+      // 4. Success: Switch to remote URL
       setAvatarPreview(newAvatarUrl);
       toast.success("Profile picture updated!");
       
-      // Refetch profile to sync DB changes
+      // Sync DB changes
       refetchProfile(); 
 
     } catch (error: any) {
       console.error("Upload error:", error);
+      
+      // 5. Revert to previous valid avatar on failure (Better UX than showing nothing)
+      setAvatarPreview(profile?.avatar_url || null); 
+      
       toast.error(error.message || "Failed to update profile picture");
-      setAvatarPreview(null); // Revert on failure
+      
+      // Report fatal error to Sentry
+      Sentry.captureException(error, {
+          tags: { type: "avatar_upload", location: "ProfileClient/handleFileChange"  },
+          extra: { user_id: user.id, file_size: originalFile.size, file_name: originalFile.name}
+      });
+
     } finally {
       setIsUploading(false);
+      
       // Reset input to allow re-uploading the same file if needed
       if (fileInputRef.current) fileInputRef.current.value = "";
+
+      // 6. Cleanup Memory: Revoke the blob URL now that we have the real URL (or reverted)
+      if (optimisticPreviewUrl) {
+          URL.revokeObjectURL(optimisticPreviewUrl);
+      }
     }
   };
 
