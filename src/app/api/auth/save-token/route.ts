@@ -41,8 +41,14 @@ function getAdminClient() {
 
 // Lock TTL in seconds - configurable via environment variable
 const AUTH_LOCK_TTL = (() => {
-  const ttl = parseInt(process.env.AUTH_LOCK_TTL || '10', 10);
-  return (isNaN(ttl) || ttl <= 0) ? 10 : Math.min(ttl, 60); // Default 10s, max 60s
+  // Default 20s, min 15s, max 60s to reduce risk of lock expiry during slow auth flows
+  const raw = process.env.AUTH_LOCK_TTL;
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  if (isNaN(parsed) || parsed <= 0) {
+    return 20;
+  }
+  const clamped = Math.max(15, Math.min(parsed, 60));
+  return clamped;
 })();
 
 /**
