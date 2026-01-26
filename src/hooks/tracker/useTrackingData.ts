@@ -17,6 +17,11 @@ export function useTrackingData(user: User | null | undefined, options?: { enabl
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return [];
 
+      // Explicit null checks to prevent race conditions
+      if (!semesterData || !academicYearData) {
+        return [];
+      }
+
       const { data, error } = await supabase
         .from("tracker")
         .select("*")
