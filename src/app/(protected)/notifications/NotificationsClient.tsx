@@ -189,7 +189,7 @@ export default function NotificationsPage() {
     fetchNextPage,
     virtualItems.length,
     isFetchingNextPage,
-    rowVirtualizer.getVirtualItems(),
+    rowVirtualizer,
   ]);
 
   // SYNC ON MOUNT
