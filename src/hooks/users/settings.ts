@@ -1,7 +1,7 @@
 // Manage user settings such as default semester and academic year
 // src/hooks/users/settings.ts
 
-import axios, { AxiosError } from "@/lib/axios";
+import axios from "@/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Sentry from "@sentry/nextjs";
 
