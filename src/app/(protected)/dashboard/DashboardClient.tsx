@@ -322,8 +322,11 @@ export default function DashboardClient() {
 
     performSync();
 
-    // Cleanup: Cancel request if component unmounts
-    return () => abortController.abort();
+    // Cleanup: Cancel request if component unmounts and reset sync flag
+    return () => {
+      abortController.abort();
+      syncAttempted.current = false;
+    };
 
   }, [user?.username, isLoadingAttendance, isLoadingTracking, refetchTracking, refetchAttendance, queryClient
   ]);
