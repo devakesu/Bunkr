@@ -9,13 +9,13 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import * as Sentry from "@sentry/nextjs";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { 
   CheckCheck, BellOff, Loader2, RefreshCcw, 
   AlertTriangle, Info, CalendarClock, AlertCircle 
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Loading } from "@/components/loading";
 
 const getNotificationIcon = (topic?: string) => {
   if (topic?.includes("sync")) return { icon: RefreshCcw, color: "text-green-500", bg: "bg-green-500/10" };
@@ -84,7 +84,14 @@ export default function NotificationsPage() {
   const queryClient = useQueryClient();
   const { data: user } = useUser();
   const parentRef = useRef<HTMLDivElement>(null);
-  const syncAttempted = useRef(false);
+  
+  // Use mountId-based sync logic
+  const mountId = useRef(Math.random().toString(36));
+  const lastSyncMountId = useRef<string | null>(null);
+  
+  // Add sync state
+  const [isSyncing, setIsSyncing] = useState(true);
+  const [syncCompleted, setSyncCompleted] = useState(false);
 
   const { 
     actionNotifications, 
@@ -128,12 +135,11 @@ export default function NotificationsPage() {
     count: virtualItems.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
-      const item = virtualItems[index];
+    const item = virtualItems[index];
 
-      if (item.type === "header") {
-        // Section header height (including padding)
-        return 45;
-      }
+    if (item.type === "header") {
+      return 57; // pt-6 (24px) + pb-3 (12px) + content (~21px)
+    }
 
       // Notification card height
       const notification = item.data;
@@ -182,20 +188,35 @@ export default function NotificationsPage() {
     rowVirtualizer,
   ]);
 
-  // SYNC ON MOUNT
+  // SYNC ON MOUNT (with mountId-based deduplication)
   useEffect(() => {
-    if (!user?.username || syncAttempted.current) return;
-    syncAttempted.current = true;
+    if (!user?.username) return;
+
+    // Check if sync already ran for THIS mount
+    if (lastSyncMountId.current === mountId.current) {
+      console.log('[Notifications] Sync already completed for this mount, skipping');
+      setIsSyncing(false);
+      setSyncCompleted(true);
+      return;
+    }
 
     const abortController = new AbortController();
+    let isCleanedUp = false;
 
     const syncNotifications = async () => {
+      console.log('[Notifications] Starting sync for mount:', mountId.current);
+      setIsSyncing(true);
+      setSyncCompleted(false);
+
       try {
         const res = await fetch(`/api/cron/sync?username=${user.username}`, {
           signal: abortController.signal
         });
 
         const data = await res.json();
+
+        // Only process if not cleaned up
+        if (isCleanedUp) return;
 
         // Handle different response status codes
         if (res.status === 207) {
@@ -221,7 +242,10 @@ export default function NotificationsPage() {
           queryClient.invalidateQueries({ queryKey: ["notifications"] });
         }
       } catch (error: any) {
-        if (error.name === 'AbortError') return;
+        if (error.name === 'AbortError') {
+          console.log('[Notifications] Sync request aborted');
+          return;
+        }
         
         if (process.env.NODE_ENV === 'development') {
           console.error("Notification background sync failed", error);
@@ -230,23 +254,29 @@ export default function NotificationsPage() {
           tags: { type: "notification_sync", location: "NotificationsClient/useEffect/syncNotifications" },
           extra: { username: user.username }
         });
+      } finally {
+        if (!isCleanedUp) {
+          console.log('[Notifications] Sync completed for mount:', mountId.current);
+          lastSyncMountId.current = mountId.current;
+          setIsSyncing(false);
+          setSyncCompleted(true);
+        }
       }
     };
 
     syncNotifications();
     
-    // Cleanup: Cancel request if component unmounts
-    // Reset sync flag after a delay to allow reruns after navigation while preventing strict mode double-fire
+    // Cleanup
     return () => {
+      isCleanedUp = true;
       abortController.abort();
-      // Use setTimeout to distinguish between strict mode cleanup (immediate remount) 
-      // and actual unmount (navigation away). Strict mode remounts happen synchronously,
-      // so the flag stays true. Real navigation has enough delay for the reset to take effect.
-      setTimeout(() => {
-        syncAttempted.current = false;
-      }, 100);
     };
   }, [user?.username, queryClient]);
+
+  // Reset mountId on true navigation
+  useEffect(() => {
+    mountId.current = Math.random().toString(36);
+  }, []);
 
   // MARK READ HANDLER
   const handleMarkRead = useCallback(async (id: number) => {
@@ -254,7 +284,17 @@ export default function NotificationsPage() {
       
       setReadingId(id);
       try { 
-          await markAsRead(id); 
+          await markAsRead(id);
+          
+          // Force immediate remeasure by scrolling to current position
+          // This prevents glitches when items move between sections
+          requestAnimationFrame(() => {
+            const currentScroll = parentRef.current?.scrollTop || 0;
+            rowVirtualizer.measure();
+            if (parentRef.current) {
+              parentRef.current.scrollTop = currentScroll;
+            }
+          });
       } catch (error) { 
           if (process.env.NODE_ENV === 'development') {
             console.error("Failed to mark notification read", error);
@@ -267,9 +307,10 @@ export default function NotificationsPage() {
       } finally { 
           setReadingId(null); 
       }
-  }, [markAsRead, readingId]);
+  }, [markAsRead, readingId, rowVirtualizer]);
 
-  if (isLoading) return <LoadingSkeleton />;
+  // Wait for both data loading AND sync completion
+  if (isLoading || isSyncing || !syncCompleted) return <Loading />;
 
   const isEmpty = virtualItems.length === 0;
 
@@ -301,6 +342,7 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <div
+            key={`${actionNotifications.length}-${regularNotifications.length}`}
             style={{
               height: `${rowVirtualizer.getTotalSize()}px`,
               width: '100%',
@@ -325,22 +367,22 @@ export default function NotificationsPage() {
                   className="px-4"
                 >
                   {item.type === 'header' ? (
-                    // SECTION HEADER
-                    <div className={cn(
-                      "flex items-center gap-2 px-1 py-3",
-                      item.label === 'ACTION REQUIRED' ? "text-amber-500" : "text-muted-foreground"
-                    )}>
-                      {item.label === 'ACTION REQUIRED' && <AlertCircle className="h-4 w-4" />}
-                      <h3 className="text-xs font-bold uppercase tracking-wider">{item.label}</h3>
-                    </div>
-                  ) : (
-                    // NOTIFICATION CARD
-                    <NotificationCard
-                      n={item.data}
-                      onMarkRead={handleMarkRead}
-                      isReading={readingId === item.id}
-                    />
-                  )}
+                  // SECTION HEADER
+                  <div className={cn(
+                    "flex items-center gap-2 px-1",
+                    item.label === 'ACTION REQUIRED' ? "text-amber-500 pt-6 pb-3" : "text-muted-foreground pt-6 pb-3"
+                  )}>
+                    {item.label === 'ACTION REQUIRED' && <AlertCircle className="h-4 w-4" />}
+                    <h3 className="text-xs font-bold uppercase tracking-wider">{item.label}</h3>
+                  </div>
+                ) : (
+                  // NOTIFICATION CARD
+                  <NotificationCard
+                    n={item.data}
+                    onMarkRead={handleMarkRead}
+                    isReading={readingId === item.id}
+                  />
+                )}
                 </div>
               );
             })}
@@ -357,13 +399,4 @@ export default function NotificationsPage() {
       </main>
     </div>
   );
-}
-
-function LoadingSkeleton() {
-    return (
-      <div className="container mx-auto p-4 md:p-6 max-w-2xl min-h-screen space-y-6">
-        <div className="flex items-center justify-between mb-8"><Skeleton className="h-8 w-32" /></div>
-        {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
-      </div>
-    );
 }

@@ -71,8 +71,11 @@ export default function TrackingClient() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [isSyncing, setIsSyncing] = useState(true);
-  const syncAttempted = useRef(false);
-  const isMountedRef = useRef(true);
+  const [syncCompleted, setSyncCompleted] = useState(false);
+  
+  // Use a unique ID per mount to detect Strict Mode remounts
+  const mountId = useRef(Math.random().toString(36));
+  const lastSyncMountId = useRef<string | null>(null);
 
   const coursesPerPage = 3; 
 
@@ -89,13 +92,24 @@ export default function TrackingClient() {
   useEffect(() => {
     if (!user?.username) return;
 
-    // 1. Prevent Double-Firing
-    if (syncAttempted.current) return;
-    syncAttempted.current = true;
+    // Check if sync already ran for THIS mount
+    // In Strict Mode, the remount will have the SAME mountId, so we skip
+    // On real navigation, mountId changes, so sync runs
+    if (lastSyncMountId.current === mountId.current) {
+      console.log('[Tracking] Sync already completed for this mount, skipping');
+      setIsSyncing(false);
+      setSyncCompleted(true);
+      return;
+    }
 
     const abortController = new AbortController();
+    let isCleanedUp = false;
 
     const runSync = async () => {
+      console.log('[Tracking] Starting sync for mount:', mountId.current);
+      setIsSyncing(true);
+      setSyncCompleted(false);
+
       try {
         const res = await fetch(`/api/cron/sync?username=${user.username}`, {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -103,6 +117,9 @@ export default function TrackingClient() {
         });
 
         const data = await res.json();
+
+        // Only process if not cleaned up
+        if (isCleanedUp) return;
 
         // Handle different response status codes
         if (res.status === 207) {
@@ -130,7 +147,10 @@ export default function TrackingClient() {
           await Promise.all([refetchTrackingData(), refetchCount()]);
         }
       } catch (err: any) {
-        if (err.name === 'AbortError') return; // Ignore user navigation
+        if (err.name === 'AbortError') {
+          console.log('[Tracking] Sync request aborted');
+          return;
+        }
 
         console.error("Tracking sync error", err);
         
@@ -139,28 +159,30 @@ export default function TrackingClient() {
           extra: { username: user.username }
         });
       } finally {
-        // Only update state if component is still mounted
-        if (isMountedRef.current) {
+        // Only update state if not cleaned up
+        if (!isCleanedUp) {
+          console.log('[Tracking] Sync completed for mount:', mountId.current);
+          lastSyncMountId.current = mountId.current;
           setIsSyncing(false);
+          setSyncCompleted(true);
         }
       }
     };
 
     runSync();
 
-    // Cleanup: Cancel request if component unmounts
-    // Reset sync flag after a delay to allow reruns after navigation while preventing strict mode double-fire
+    // Cleanup
     return () => {
-      isMountedRef.current = false;
+      isCleanedUp = true;
       abortController.abort();
-      // Use setTimeout to distinguish between strict mode cleanup (immediate remount) 
-      // and actual unmount (navigation away). Strict mode remounts happen synchronously,
-      // so the flag stays true. Real navigation has enough delay for the reset to take effect.
-      setTimeout(() => {
-        syncAttempted.current = false;
-      }, 100);
     };
   }, [user?.username, accessToken, refetchTrackingData, refetchCount]);
+
+  // Reset mountId on real navigation (when component truly remounts with new state)
+  useEffect(() => {
+    // Generate new mount ID for each true navigation
+    mountId.current = Math.random().toString(36);
+  }, []);
 
   // --- 1. GROUP AND SORT DATA ---
   const groupedAllData = useMemo(() => {
@@ -234,31 +256,33 @@ export default function TrackingClient() {
   };
 
   const deleteAllTrackingData = async () => {
-      if (!user) return;
-      try {
-        setIsProcessing(true);
-        const supabase = createClient();
-        const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!user) return;
+    try {
+      setIsProcessing(true);
+      const supabase = createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
 
-        const { error } = await supabase
-          .from('tracker')
-          .delete()
-          .eq('auth_user_id', authUser?.id); 
+      const { error } = await supabase
+        .from('tracker')
+        .delete()
+        .eq('auth_user_id', authUser?.id)
+        .eq('semester', semesterData)
+        .eq('year', academicYearData);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        toast.success("All records cleared.");
-        await Promise.all([refetchTrackingData(), refetchCount()]);
-        setCurrentPage(0);
+      toast.success("All records cleared.");
+      await Promise.all([refetchTrackingData(), refetchCount()]);
+      setCurrentPage(0);
 
-      } catch (error) {
-        toast.error("Failed to delete all tracking data.");
-        Sentry.captureException(error, { tags: { type: "tracking_delete_all", location: "TrackingClient/deleteAllTrackingData" }, extra: { userId: user.id }   });
-      } finally {
-        setIsProcessing(false);
-      }
+    } catch (error) {
+      toast.error("Failed to delete all tracking data.");
+      Sentry.captureException(error, { tags: { type: "tracking_delete_all", location: "TrackingClient/deleteAllTrackingData" }, extra: { userId: user.id }   });
+    } finally {
+      setIsProcessing(false);
+    }
   };
-
+  
   // --- 2. OFFICIAL SESSION LOOKUP MAP ---
   const officialSessionsMap = useMemo(() => {
     const map = new Map<string, any>();
@@ -280,7 +304,8 @@ export default function TrackingClient() {
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.3, staggerChildren: 0.05 } } };
   const pageVariants = { enter: (d: number) => ({ x: d > 0 ? 50 : -50, opacity: 0 }), center: { x: 0, opacity: 1 }, exit: (d: number) => ({ x: d < 0 ? 50 : -50, opacity: 0 }) };
 
-  if (isDataLoading || isSyncing) return <Loading />;
+  // Wait for both data loading AND sync completion
+  if (isDataLoading || isSyncing || !syncCompleted) return <Loading />;
 
   return isProcessing ? ( <div className="h-screen flex items-center justify-center"><Loading /></div> ) : (
     <LazyMotion features={domAnimation}>
