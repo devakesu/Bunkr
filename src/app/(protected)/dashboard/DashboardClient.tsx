@@ -83,8 +83,8 @@ export default function DashboardClient() {
   const { data: user } = useUser();
   const queryClient = useQueryClient();
   
-  const { data: semesterData, isLoading: isLoadingSemester } = useFetchSemester();
-  const { data: academicYearData, isLoading: isLoadingAcademicYear } = useFetchAcademicYear();
+  const { data: semesterData, isLoading: isLoadingSemester, isError: isSemesterError } = useFetchSemester();
+  const { data: academicYearData, isLoading: isLoadingAcademicYear, isError: isAcademicYearError } = useFetchAcademicYear();
   
   const setSemesterMutation = useSetSemester();
   const setAcademicYearMutation = useSetAcademicYear();
@@ -208,8 +208,9 @@ export default function DashboardClient() {
     if (semesterData) {
       setSelectedSemester(semesterData);
     } 
-    // Case B: No setting found on server (First time user?) -> Auto-set Default
-    else if (!isLoadingSemester && !semesterData) {
+    // Case B: No setting found on server (404) -> Auto-set Default
+    // Only initialize if data is explicitly null (404), not on errors
+    else if (!isLoadingSemester && !isSemesterError && semesterData === null) {
       const defaultSem = getDefaultDefaults().currentSemester;
       
       // Optimistic Update (Immediate UI feedback)
@@ -234,13 +235,15 @@ export default function DashboardClient() {
       };
       initializeSemester();
     }
-  }, [semesterData, isLoadingSemester, getDefaultDefaults, setSemesterMutation, refetchCourses, refetchAttendance]);
+  }, [semesterData, isLoadingSemester, isSemesterError, getDefaultDefaults, setSemesterMutation, refetchCourses, refetchAttendance]);
 
 // 2. Academic Year Initialization
   useEffect(() => {
     if (academicYearData) {
       setSelectedYear(academicYearData);
-    } else if (!isLoadingAcademicYear && !academicYearData) {
+    } 
+    // Only initialize if data is explicitly null (404), not on errors
+    else if (!isLoadingAcademicYear && !isAcademicYearError && academicYearData === null) {
       const defaultYear = getDefaultDefaults().currentYearStr;
 
       setSelectedYear(defaultYear);
@@ -263,7 +266,7 @@ export default function DashboardClient() {
       };
       initializeYear();
     }
-  }, [academicYearData, isLoadingAcademicYear, getDefaultDefaults, setAcademicYearMutation, refetchCourses, refetchAttendance]);
+  }, [academicYearData, isLoadingAcademicYear, isAcademicYearError, getDefaultDefaults, setAcademicYearMutation, refetchCourses, refetchAttendance]);
   
   // --- SYNC ---
   useEffect(() => {

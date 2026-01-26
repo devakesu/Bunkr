@@ -22,11 +22,14 @@ export const useFetchSemester = () => {
         return res.data;
       } catch (error: any) {
         if (error.response?.status === 404) return null;
-        if (error.response?.status === 401) throw error; // Auth issues should propagate
-        
-        // For other errors, let React Query handle retry logic
         throw error;
       }
+    },
+    retry: (failureCount, error: any) => {
+      // Don't retry on auth errors (401/403) - these need user intervention
+      if (error.response?.status === 401 || error.response?.status === 403) return false;
+      // Use default retry logic for other errors (up to 2 retries from react-query config)
+      return failureCount < 2;
     },
     staleTime: 1000 * 60 * 5, 
     refetchOnWindowFocus: true, 
@@ -42,11 +45,14 @@ export const useFetchAcademicYear = () => {
         return res.data;
       } catch (error: any) {
         if (error.response?.status === 404) return null;
-        if (error.response?.status === 401) throw error; // Auth issues should propagate
-
-        // For other errors, let React Query handle retry logic
         throw error;
       }
+    },
+    retry: (failureCount, error: any) => {
+      // Don't retry on auth errors (401/403) - these need user intervention
+      if (error.response?.status === 401 || error.response?.status === 403) return false;
+      // Use default retry logic for other errors (up to 2 retries from react-query config)
+      return failureCount < 2;
     },
     staleTime: 1000 * 60 * 5, 
     refetchOnWindowFocus: true,
