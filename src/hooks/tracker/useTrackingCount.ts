@@ -16,6 +16,11 @@ export function useTrackingCount(user: User | null | undefined) {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return 0;
 
+      // Explicit null checks to prevent race conditions
+      if (!semesterData || !academicYearData) {
+        return 0;
+      }
+
       const { count, error } = await supabase
         .from("tracker")
         .select("*", { count: "exact", head: true })
