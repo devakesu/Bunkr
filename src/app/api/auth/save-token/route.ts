@@ -40,7 +40,10 @@ function getAdminClient() {
 }
 
 // Lock TTL in seconds - configurable via environment variable
-const AUTH_LOCK_TTL = parseInt(process.env.AUTH_LOCK_TTL || '10', 10);
+const AUTH_LOCK_TTL = (() => {
+  const ttl = parseInt(process.env.AUTH_LOCK_TTL || '10', 10);
+  return (isNaN(ttl) || ttl <= 0) ? 10 : Math.min(ttl, 60); // Default 10s, max 60s
+})();
 
 /**
  * Acquires a distributed lock for user authentication operations
@@ -87,7 +90,12 @@ async function releaseAuthLock(userId: string, lockValue: string): Promise<void>
       end
     `;
     
-    await redis.eval(luaScript, [lockKey], [lockValue]);
+    const result = await redis.eval(luaScript, [lockKey], [lockValue]);
+    
+    // Log if lock was already released or taken by another process
+    if (result === 0) {
+      console.warn(`Lock for user ${userId} was already released or expired`);
+    }
   } catch (error) {
     console.error('Failed to release auth lock:', error);
     Sentry.captureException(error, {
