@@ -4,11 +4,18 @@ import * as Sentry from "@sentry/nextjs";
 // Allowed MIME types for avatar uploads to prevent MIME type confusion attacks
 const ALLOWED_IMAGE_TYPES = [
   'image/jpeg',
-  'image/jpg',
   'image/png',
   'image/webp',
   'image/gif'
 ] as const;
+
+// Map MIME types to file extensions
+const MIME_TO_EXT: Record<typeof ALLOWED_IMAGE_TYPES[number], string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif'
+};
 
 export async function uploadUserAvatar(file: File) {
   const supabase = createClient();
@@ -22,7 +29,7 @@ export async function uploadUserAvatar(file: File) {
   }
 
   // 2. Validate MIME type to prevent MIME type confusion attacks
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type as any)) {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type as typeof ALLOWED_IMAGE_TYPES[number])) {
       const err = new Error(`Invalid file type: ${file.type}. Allowed types: ${ALLOWED_IMAGE_TYPES.join(', ')}`);
       Sentry.captureException(err, { 
           tags: { type: "avatar_invalid_mime", location: "uploadUserAvatar" },
@@ -36,8 +43,8 @@ export async function uploadUserAvatar(file: File) {
   }
 
   try {
-      // 3. Prepare File Path
-      const fileExt = file.name.split('.').pop() || 'png';
+      // 3. Prepare File Path - use extension from validated MIME type
+      const fileExt = MIME_TO_EXT[file.type as typeof ALLOWED_IMAGE_TYPES[number]];
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
 
