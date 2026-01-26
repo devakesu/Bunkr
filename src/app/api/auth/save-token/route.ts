@@ -409,9 +409,7 @@ export async function POST(req: Request) {
 
     } finally {
       // Always release the lock after all operations complete
-      if (lockValue) {
-        await releaseAuthLock(verifieduserId, lockValue);
-      }
+      await releaseAuthLock(verifieduserId, lockValue);
     }
 
   } catch (error: any) {
