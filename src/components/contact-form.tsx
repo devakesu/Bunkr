@@ -72,15 +72,27 @@ export function ContactForm({ userDetails }: ContactFormProps) {
       onSubmit={handleSubmit}
       className="space-y-4 max-w-md mx-auto p-6 bg-card border rounded-xl shadow-sm"
     >
-      {/* --- HONEYPOT FIELD (Hidden) --- */}
+      {/* --- HONEYPOT FIELD (Hidden from users, visible to bots) --- */}
       {/* Bots will fill this, Server Action will block them. Real users won't see it. */}
-      <input 
-        type="text" 
-        name="website" 
-        className="hidden" 
-        tabIndex={-1} 
-        autoComplete="off" 
-      />
+      <div
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          width: "1px",
+          height: "1px",
+          overflow: "hidden",
+        }}
+        aria-hidden="true"
+      >
+        <Label htmlFor="website">Website</Label>
+        <input
+          id="website"
+          type="text"
+          name="website"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
 
       <div className="grid gap-2">
         <Label htmlFor="name">Name</Label>

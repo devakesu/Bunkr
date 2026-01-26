@@ -322,6 +322,87 @@ export async function POST(req: Request) {
                 email_confirm: true,
                 user_metadata: { ezygo_id: verifieduserId },
               });
+    if (createError) {
+      // B. If User Exists -> Update Password
+      if (createError.message?.toLowerCase().includes("already registered") || createError.status === 422) {
+        // Let's use the 'users' table to resolve the Auth UUID
+        const { data: existingMap } = await supabaseAdmin
+            .from("users")
+            .select("auth_id")
+            .eq("id", verifieduserId)
+            .single();
+
+        const targetAuthId = existingMap?.auth_id;
+
+        if (!targetAuthId) {
+          // --- CASE 1: ORPHAN USER (Exists in Auth, missing in DB) ---
+          console.warn(`Orphan Auth User detected for ${verifieduserId}. Initiating exhaustive cleanup...`);
+
+          const orphanLookupStart = Date.now();
+          const MAX_LOOKUP_RETRIES = 3;
+
+          async function findOrphanUserIdByEmail(emailToFind: string): Promise<string | null> {
+            let attempt = 0;
+
+            while (attempt < MAX_LOOKUP_RETRIES) {
+              attempt++;
+              const attemptStart = Date.now();
+
+              try {
+                // Add a timeout to prevent the request from hanging indefinitely
+                const lookupPromise = supabaseAdmin.auth.admin.getUserByEmail(emailToFind);
+                const timeoutPromise = new Promise<never>((_, reject) =>
+                  setTimeout(() => reject(new Error("Orphan user lookup timed out")), 5000)
+                );
+
+                const result: any = await Promise.race([lookupPromise, timeoutPromise]);
+                const { data, error } = result;
+
+                if (error) {
+                  throw error;
+                }
+
+                const user = data?.user ?? null;
+
+                console.log(
+                  `Orphan user lookup attempt ${attempt} for ${emailToFind} took ${
+                    Date.now() - attemptStart
+                  }ms`
+                );
+
+                return user ? user.id : null;
+              } catch (err) {
+                if (attempt >= MAX_LOOKUP_RETRIES) {
+                  console.error(
+                    `Failed orphan user lookup for ${emailToFind} after ${attempt} attempts:`,
+                    err
+                  );
+                  throw err;
+                }
+
+                // Exponential backoff between retries
+                const backoffMs = 200 * Math.pow(2, attempt - 1);
+                console.warn(
+                  `Orphan user lookup attempt ${attempt} failed, retrying in ${backoffMs}ms...`
+                );
+                await new Promise((resolve) => setTimeout(resolve, backoffMs));
+              }
+            }
+
+            return null;
+          }
+
+          const orphanUserId: string | null = await findOrphanUserIdByEmail(email);
+
+          console.log(
+            `Total orphan user lookup time for ${email}: ${Date.now() - orphanLookupStart}ms`
+          );
+          if (orphanUserId) {
+            // Delete the orphan Auth record
+            const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(orphanUserId);
+            if (deleteError) throw deleteError;
+            
+            console.log(`Deleted orphan user ${orphanUserId}. Retrying creation...`);
 
               if (retryError) throw retryError;
               userId = retryData.user.id;
