@@ -59,7 +59,7 @@ const BottomBarShape = (props: any) => {
 
 const CustomTargetLabel = (props: any) => {
   const { viewBox, value } = props;
-  const x = viewBox.width - 5;
+  const x = viewBox.width - 15;
   const y = viewBox.y;
   return (
     <g style={{ pointerEvents: 'none' }}>
@@ -178,13 +178,13 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
         const displayedExtra = parseFloat(Math.abs(mergedPct - officialPct).toFixed(2));
         const isSafe = mergedPct >= safeTarget;
 
-        // Split data for declarative coloring (avoids Recharts 'Cell')
         const baseSuccess = isSafe ? displayedBase : 0;
         const baseDanger = !isSafe ? displayedBase : 0;
         
-        // Extra Logic: Green if Safe AND Not a Loss. Otherwise Red.
-        const extraSuccess = (displayedExtra > 0 && !isLoss && isSafe) ? displayedExtra : 0;
-        const extraDanger = (displayedExtra > 0 && (isLoss || !isSafe)) ? displayedExtra : 0;
+        // FIX: Decoupled 'extra' coloring from 'isSafe'.
+        // Gains (!isLoss) are always Green. Losses (isLoss) are always Red.
+        const extraSuccess = (displayedExtra > 0 && !isLoss) ? displayedExtra : 0;
+        const extraDanger = (displayedExtra > 0 && isLoss) ? displayedExtra : 0;
 
         return {
           ...course,
@@ -192,7 +192,6 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
           totalPercentage: mergedPct, 
           displayedBase,
           displayedExtra,
-          // Split fields for coloring
           baseSuccess,
           baseDanger,
           extraSuccess,
@@ -211,6 +210,8 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
 
   const getBarSize = () => {
     const courseCount = data.length;
+    if (courseCount === 1) return 80; 
+    if (courseCount <= 3) return 60;  
     if (courseCount <= 5) return 40;
     if (courseCount <= 8) return 30;
     return 20;
@@ -218,7 +219,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
 
   const allPercentages = data.flatMap(d => [d.totalPercentage, d.officialPercentage]);
   const nonZeroHeights = allPercentages.filter(h => h > 0);
-  
+   
   let minRef = safeTarget;
   if (nonZeroHeights.length > 0) {
       const absoluteMin = Math.min(...nonZeroHeights);
@@ -228,12 +229,12 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
   const yAxisMin = Math.max(0, calculatedMin);
 
   return (
-    <div className="w-full min-w-0 min-h-[240px] h-[30vh] max-h-[400px]">
+    <div className="w-full h-full">
       {data.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
           <BarChart 
               data={data} 
-              margin={{ top: 30, right: 10, left: -20, bottom: 5 }} 
+              margin={{ top: 30, right: 25, left: -20, bottom: 0 }} 
               barSize={getBarSize()}
           >
               <defs>
@@ -247,7 +248,17 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
                 </pattern>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.2} />
-              <XAxis dataKey="name" interval={0} textAnchor="end" angle={-45} height={60} tick={{ fontSize: 11, fill: "#888" }} tickMargin={10} />
+              
+              {/* FIX: Reverted to height=48 and tickMargin=20 (Preferred layout) */}
+              <XAxis 
+                dataKey="name" 
+                interval={0} 
+                textAnchor="end" 
+                angle={-45} 
+                height={48} 
+                tick={{ fontSize: 11, fill: "#888" }} 
+                tickMargin={20} 
+              />
               <YAxis domain={[yAxisMin, 100]} type="number" allowDecimals={false} allowDataOverflow={true} tickCount={Math.ceil((100 - yAxisMin) / 5) + 1} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
               <Tooltip
                 contentStyle={{ backgroundColor: "rgba(20, 20, 20, 0.95)", border: "1px solid #333", borderRadius: "8px", fontSize: "13px", boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)" }}
@@ -278,11 +289,8 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
                     return null;
                 }}
               />
-              {/* Base Bars - Stacked */}
               <Bar dataKey="baseSuccess" stackId="a" isAnimationActive={false} fill="#10b981" shape={<BottomBarShape />} />
               <Bar dataKey="baseDanger" stackId="a" isAnimationActive={false} fill="#ef4444" shape={<BottomBarShape />} />
-              
-              {/* Extra Bars - Stacked */}
               <Bar dataKey="extraSuccess" stackId="a" isAnimationActive={false} fill="url(#striped-green)" stroke="#10b981" shape={<HatchedBarShape />} />
               <Bar dataKey="extraDanger" stackId="a" isAnimationActive={false} fill="url(#striped-red)" stroke="#ef4444" shape={<HatchedBarShape />} />
 
