@@ -8,12 +8,11 @@ export function GlobalInit() {
   const { settings } = useUserSettings();
 
   useEffect(() => {
-    Sentry.setContext(
-      "user_preferences",
-      settings ? { ...settings } : null
-    );
-
     if (process.env.NODE_ENV === "development") {
+      Sentry.setContext(
+        "user_preferences",
+        settings ? { ...settings } : null
+      );
       console.log("Global Init: Syncing settings...", settings);
     }
   }, [settings]);
