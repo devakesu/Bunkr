@@ -17,8 +17,9 @@ type AcademicYearData = {
 // Don't retry on auth errors (401/403) - these need user intervention
 const MAX_RETRIES = 2;
 
-const settingsRetryFn = (failureCount: number, error: any) => {
-  if (error.response?.status === 401 || error.response?.status === 403) {
+const settingsRetryFn = (failureCount: number, error: unknown) => {
+  const axiosError = error as { response?: { status?: number } };
+  if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
     return false;
   }
   return failureCount < MAX_RETRIES;
