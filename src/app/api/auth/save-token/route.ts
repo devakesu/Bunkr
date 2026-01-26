@@ -322,87 +322,6 @@ export async function POST(req: Request) {
                 email_confirm: true,
                 user_metadata: { ezygo_id: verifieduserId },
               });
-    if (createError) {
-      // B. If User Exists -> Update Password
-      if (createError.message?.toLowerCase().includes("already registered") || createError.status === 422) {
-        // Let's use the 'users' table to resolve the Auth UUID
-        const { data: existingMap } = await supabaseAdmin
-            .from("users")
-            .select("auth_id")
-            .eq("id", verifieduserId)
-            .single();
-
-        const targetAuthId = existingMap?.auth_id;
-
-        if (!targetAuthId) {
-          // --- CASE 1: ORPHAN USER (Exists in Auth, missing in DB) ---
-          console.warn(`Orphan Auth User detected for ${verifieduserId}. Initiating exhaustive cleanup...`);
-
-          const orphanLookupStart = Date.now();
-          const MAX_LOOKUP_RETRIES = 3;
-
-          async function findOrphanUserIdByEmail(emailToFind: string): Promise<string | null> {
-            let attempt = 0;
-
-            while (attempt < MAX_LOOKUP_RETRIES) {
-              attempt++;
-              const attemptStart = Date.now();
-
-              try {
-                // Add a timeout to prevent the request from hanging indefinitely
-                const lookupPromise = supabaseAdmin.auth.admin.getUserByEmail(emailToFind);
-                const timeoutPromise = new Promise<never>((_, reject) =>
-                  setTimeout(() => reject(new Error("Orphan user lookup timed out")), 5000)
-                );
-
-                const result: any = await Promise.race([lookupPromise, timeoutPromise]);
-                const { data, error } = result;
-
-                if (error) {
-                  throw error;
-                }
-
-                const user = data?.user ?? null;
-
-                console.log(
-                  `Orphan user lookup attempt ${attempt} for ${emailToFind} took ${
-                    Date.now() - attemptStart
-                  }ms`
-                );
-
-                return user ? user.id : null;
-              } catch (err) {
-                if (attempt >= MAX_LOOKUP_RETRIES) {
-                  console.error(
-                    `Failed orphan user lookup for ${emailToFind} after ${attempt} attempts:`,
-                    err
-                  );
-                  throw err;
-                }
-
-                // Exponential backoff between retries
-                const backoffMs = 200 * Math.pow(2, attempt - 1);
-                console.warn(
-                  `Orphan user lookup attempt ${attempt} failed, retrying in ${backoffMs}ms...`
-                );
-                await new Promise((resolve) => setTimeout(resolve, backoffMs));
-              }
-            }
-
-            return null;
-          }
-
-          const orphanUserId: string | null = await findOrphanUserIdByEmail(email);
-
-          console.log(
-            `Total orphan user lookup time for ${email}: ${Date.now() - orphanLookupStart}ms`
-          );
-          if (orphanUserId) {
-            // Delete the orphan Auth record
-            const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(orphanUserId);
-            if (deleteError) throw deleteError;
-            
-            console.log(`Deleted orphan user ${orphanUserId}. Retrying creation...`);
 
               if (retryError) throw retryError;
               userId = retryData.user.id;
@@ -437,62 +356,63 @@ export async function POST(req: Request) {
       } else {
         userId = createData.user.id;
       }
+
+      // 4. Sign In
+      const cookieStore = await cookies();
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() { return cookieStore.getAll(); },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              );
+            },
+          },
+        }
+      );
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: ephemeralPassword,
+      });
+
+      if (signInError) throw signInError;
+
+      // 5. Encrypt & Save Token
+      const { iv, content } = encrypt(token);
+      
+      // Validate Encryption
+      if (!iv || !content || !/^[a-f0-9]{32}$/i.test(iv)) {
+        Sentry.captureException(new Error("Encryption failed during token save"), {
+            extra: { userId }
+        });
+        return NextResponse.json({ message: "Encryption failed" }, { status: 500 });
+      }
+
+      const { error: dbError } = await supabaseAdmin
+        .from("users")
+        .upsert({ 
+          id: verifieduserId,
+          username: verifiedUsername,
+          ezygo_token: content, 
+          ezygo_iv: iv,
+          auth_id: userId,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "id" });
+
+      if (dbError) throw dbError;
+
+      return NextResponse.json({ success: true });
+
     } finally {
-      // Always release the lock, even if an error occurred
+      // Always release the lock after all operations complete
       if (lockValue) {
         await releaseAuthLock(verifieduserId, lockValue);
       }
     }
-
-    // 4. Sign In
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll(); },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          },
-        },
-      }
-    );
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password: ephemeralPassword,
-    });
-
-    if (signInError) throw signInError;
-
-    // 5. Encrypt & Save Token
-    const { iv, content } = encrypt(token);
-    
-    // Validate Encryption
-    if (!iv || !content || !/^[a-f0-9]{32}$/i.test(iv)) {
-      Sentry.captureException(new Error("Encryption failed during token save"), {
-          extra: { userId }
-      });
-      return NextResponse.json({ message: "Encryption failed" }, { status: 500 });
-    }
-
-    const { error: dbError } = await supabaseAdmin
-      .from("users")
-      .upsert({ 
-        id: verifieduserId,
-        username: verifiedUsername,
-        ezygo_token: content, 
-        ezygo_iv: iv,
-        auth_id: userId,
-        updated_at: new Date().toISOString()
-      }, { onConflict: "id" });
-
-    if (dbError) throw dbError;
-
-    return NextResponse.json({ success: true });
 
   } catch (error: any) {
     console.error("Auth Bridge Failed:", error);
