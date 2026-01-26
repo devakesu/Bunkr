@@ -289,8 +289,53 @@ export async function GET(req: Request) {
         }
     }
 
-    return NextResponse.json({ success: true, ...finalResults });
+    // Derive overall success and HTTP status from aggregated results
+    const finalAny: any = finalResults as any;
+    const totalUsers =
+      typeof finalAny?.totalUsers === "number"
+        ? finalAny.totalUsers
+        : typeof finalAny?.total === "number"
+          ? finalAny.total
+          : 0;
+    const errorCount =
+      typeof finalAny?.errorCount === "number"
+        ? finalAny.errorCount
+        : typeof finalAny?.failed === "number"
+          ? finalAny.failed
+          : 0;
 
+    let statusCode = 200;
+    let successFlag = true;
+
+    if (totalUsers > 0 && errorCount > 0) {
+      const errorRate = errorCount / totalUsers;
+
+      // All users failed to sync: treat as hard failure
+      if (errorRate >= 1) {
+        statusCode = 500;
+        successFlag = false;
+      } else {
+        // Partial failure: indicate multi-status
+        statusCode = 207;
+        successFlag = false;
+      }
+
+      // Capture high error rates so they can be monitored/alerted
+      Sentry.captureMessage("High error rate in cron/sync", {
+        level: "error",
+        tags: {
+          type: "cron_partial_failure",
+          location: "cron/sync",
+        },
+        extra: {
+          totalUsers,
+          errorCount,
+          errorRate: totalUsers > 0 ? errorCount / totalUsers : null,
+        },
+      });
+    }
+
+    return NextResponse.json({ success: successFlag, ...finalResults }, { status: statusCode });
   } catch (error: any) {
     console.error("Cron Error:", error);
     
