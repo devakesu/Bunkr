@@ -136,11 +136,30 @@ export default function NotificationsPage() {
       
       // Notification card height
       const notification = item.data;
-      const baseHeight = notification.description ? 100 : 70;
+      const description = notification.description ?? "";
+
+      // Start from a conservative base height for notifications without description
+      const baseHeightWithoutDescription = 80;
+
+      // Roughly estimate number of text lines based on character length.
+      // Assume ~80 characters per line as a heuristic.
+      const approxCharsPerLine = 80;
+      const approxLines =
+        description.length > 0
+          ? Math.max(1, Math.ceil(description.length / approxCharsPerLine))
+          : 0;
+
+      // Add height per estimated line; 22px is a reasonable line height including spacing.
+      const heightPerLine = 22;
+      const estimatedDescriptionHeight = approxLines * heightPerLine;
+
+      const baseHeight = baseHeightWithoutDescription + estimatedDescriptionHeight;
       const marginBottom = 12; // mb-3 (3 * 4px)
+
       return baseHeight + marginBottom;
     },
-    overscan: 5,
+    // Use a larger overscan to reduce visible layout shifts when estimates are adjusted
+    overscan: 10,
   });
 
   // INFINITE SCROLL
