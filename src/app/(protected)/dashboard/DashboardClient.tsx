@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import * as Sentry from "@sentry/nextjs";
 import {
   Card,
   CardContent,
@@ -28,7 +29,6 @@ import {
   useSetSemester,
   useSetAcademicYear,
 } from "@/hooks/users/settings";
-import { getToken } from "@/lib/auth";
 import { generateSlotKey } from "@/lib/utils";
 import { Loading as CompLoading } from "@/components/loading";
 import { useUser } from "@/hooks/users/user";
@@ -81,11 +81,10 @@ const getOfficialSessionRaw = (session: any, sessionKey: string | number): strin
 export default function DashboardClient() {
   const { data: profile } = useProfile();
   const { data: user } = useUser();
-  const accessToken = getToken();
   const queryClient = useQueryClient();
   
-  const { data: semesterData, isLoading: isLoadingSemester } = useFetchSemester();
-  const { data: academicYearData, isLoading: isLoadingAcademicYear } = useFetchAcademicYear();
+  const { data: semesterData, isLoading: isLoadingSemester, isError: isSemesterError } = useFetchSemester();
+  const { data: academicYearData, isLoading: isLoadingAcademicYear, isError: isAcademicYearError } = useFetchAcademicYear();
   
   const setSemesterMutation = useSetSemester();
   const setAcademicYearMutation = useSetAcademicYear();
@@ -97,6 +96,7 @@ export default function DashboardClient() {
   const [hoveredCourseId, setHoveredCourseId] = useState<string | null>(null);
 
   const [isSyncing, setIsSyncing] = useState(true);
+  const syncAttempted = useRef(false);
 
   const [pendingChange, setPendingChange] = useState<
     | { type: "semester"; value: "even" | "odd" }
@@ -158,19 +158,32 @@ export default function DashboardClient() {
     setIsUpdating(true);
     setShowConfirmDialog(false);
     try {
-      if (pendingChange.type === "semester") {
-        setSelectedSemester(pendingChange.value);
-        await setSemesterMutation.mutateAsync({ default_semester: pendingChange.value });
-      } else {
-        setSelectedYear(pendingChange.value);
-        await setAcademicYearMutation.mutateAsync({ default_academic_year: pendingChange.value });
-      }
-      await Promise.all([refetchCourses(), refetchAttendance()]);
+        if (pendingChange.type === "semester") {
+            setSelectedSemester(pendingChange.value);
+            await setSemesterMutation.mutateAsync({ default_semester: pendingChange.value });
+        } else {
+            setSelectedYear(pendingChange.value);
+            await setAcademicYearMutation.mutateAsync({ default_academic_year: pendingChange.value });
+        }
+        await Promise.all([refetchCourses(), refetchAttendance()]);
+
     } catch (error) {
-      console.error(error);
+        console.error("Settings Update Failed:", error);
+        
+        // Send to Sentry with context
+        Sentry.captureException(error, {
+            tags: { type: "update_settings_failed", location: "DashboardClient/handleConfirmChange" },
+            extra: {
+                change_type: pendingChange?.type,
+                target_value: pendingChange?.value,
+            }
+        });
+
+        toast.error("Failed to update settings");
+
     } finally {
-      setIsUpdating(false);
-      setPendingChange(null);
+        setIsUpdating(false);
+        setPendingChange(null);
     }
   };
 
@@ -191,32 +204,46 @@ export default function DashboardClient() {
 
   // 1. Semester Initialization
   useEffect(() => {
+    // Case A: User already has a setting on the server
     if (semesterData) {
       setSelectedSemester(semesterData);
-    } else if (!isLoadingSemester && !semesterData) {
+    } 
+    // Case B: No setting found on server (404) -> Auto-set Default
+    // Only initialize if data is explicitly null (404), not on errors
+    else if (!isLoadingSemester && !isSemesterError && semesterData === null) {
       const defaultSem = getDefaultDefaults().currentSemester;
       
+      // Optimistic Update (Immediate UI feedback)
       setSelectedSemester(defaultSem);
 
       const initializeSemester = async () => {
         if (!setSemesterMutation.isPending) {
           try {
             await setSemesterMutation.mutateAsync({ default_semester: defaultSem });
+            // Only refetch data once we confirm the setting is saved
             await Promise.all([refetchCourses(), refetchAttendance()]); 
           } catch (error) {
             console.error("Failed to set default semester", error);
+            Sentry.captureException(error, {
+                tags: { type: "auto_init_semester", location: "DashboardClient/useEffect/SemesterInitialization" },
+                extra: { 
+                    attempted_value: defaultSem,
+                }
+            });
           }
         }
       };
       initializeSemester();
     }
-  }, [semesterData, isLoadingSemester, getDefaultDefaults, setSemesterMutation, refetchCourses, refetchAttendance]);
+  }, [semesterData, isLoadingSemester, isSemesterError, getDefaultDefaults, setSemesterMutation, refetchCourses, refetchAttendance]);
 
-  // 2. Academic Year Initialization
+// 2. Academic Year Initialization
   useEffect(() => {
     if (academicYearData) {
       setSelectedYear(academicYearData);
-    } else if (!isLoadingAcademicYear && !academicYearData) {
+    } 
+    // Only initialize if data is explicitly null (404), not on errors
+    else if (!isLoadingAcademicYear && !isAcademicYearError && academicYearData === null) {
       const defaultYear = getDefaultDefaults().currentYearStr;
 
       setSelectedYear(defaultYear);
@@ -228,39 +255,108 @@ export default function DashboardClient() {
             await Promise.all([refetchCourses(), refetchAttendance()]);
           } catch (error) {
              console.error("Failed to set default year", error);
+             Sentry.captureException(error, {
+                tags: { type: "auto_init_year", location: "DashboardClient/useEffect/AcademicYearInitialization" },
+                extra: { 
+                    attempted_value: defaultYear,
+                }
+            });
           }
         }
       };
       initializeYear();
     }
-  }, [academicYearData, isLoadingAcademicYear, getDefaultDefaults, setAcademicYearMutation, refetchCourses, refetchAttendance]);
-
+  }, [academicYearData, isLoadingAcademicYear, isAcademicYearError, getDefaultDefaults, setAcademicYearMutation, refetchCourses, refetchAttendance]);
+  
   // --- SYNC ---
   useEffect(() => {
-    if (user?.username && !isLoadingAttendance && !isLoadingTracking) {
-        
-        fetch(`/api/cron/sync?username=${user.username}`)
-            .then(async (res) => {
-                const data = await res.json();
-                if (data.success && (data.deletions > 0 || data.conflicts > 0 || data.updates > 0)) {
-                    toast.info("Attendance Synced", {
-                        description: `Dashboard updated. ${data.deletions + data.updates} records synced.`
-                    });
-                    await Promise.all([
-                        refetchTracking(), 
-                        refetchAttendance(),
-                        queryClient.invalidateQueries({ queryKey: ["notifications"] }) // 👈 Updates the Navbar Bell
-                    ]);
-                }
-            })
-            .catch((err) => console.error("Background sync failed", err))
-            .finally(() => {
-                setIsSyncing(false);
-            });
-    } else if (!user?.username && !isLoadingAttendance) {
-        setIsSyncing(false);
+    // 1. Wait until user is loaded and initial data fetch is complete
+    if (!user?.username || isLoadingAttendance || isLoadingTracking) {
+        return;
     }
-  }, [user?.username, isLoadingAttendance, isLoadingTracking, refetchTracking, refetchAttendance, accessToken, queryClient]);
+
+    // 2. Prevent Double-Firing (Strict Mode safety)
+    if (syncAttempted.current) return;
+    syncAttempted.current = true;
+
+    setIsSyncing(true);
+    const abortController = new AbortController();
+
+    const performSync = async () => {
+        try {
+            const res = await fetch(`/api/cron/sync?username=${user.username}`, {
+                signal: abortController.signal
+            });
+
+            const data = await res.json();
+
+            // Handle different response status codes
+            if (res.status === 207) {
+                // Partial failure: Some records synced, some failed
+                toast.warning("Partial Sync Completed", {
+                    description: "Some attendance data couldn't be synced. Your dashboard may be incomplete."
+                });
+                
+                Sentry.captureMessage("Partial sync failure in dashboard", {
+                    level: "warning",
+                    tags: { type: "dashboard_partial_sync", location: "DashboardClient/useEffect/performSync" },
+                    extra: { username: user.username, response: data }
+                });
+                
+                // Still refetch queries as partial sync may have updated some records
+                await Promise.all([
+                    refetchTracking(),
+                    refetchAttendance(),
+                    queryClient.invalidateQueries({ queryKey: ["notifications"] })
+                ]);
+            } else if (!res.ok) {
+                // Complete failure (500 or other error codes)
+                throw new Error(`Sync API responded with status: ${res.status}`);
+            } else if (data.success && (data.deletions > 0 || data.conflicts > 0 || data.updates > 0)) {
+                // Success with changes
+                toast.info("Attendance Synced", {
+                    description: `Dashboard updated. ${data.deletions + data.updates} records synced.`
+                });
+                
+                // Refetch queries to show new data
+                await Promise.all([
+                    refetchTracking(),
+                    refetchAttendance(),
+                    queryClient.invalidateQueries({ queryKey: ["notifications"] })
+                ]);
+            }
+        } catch (error: any) {
+            // Ignore AbortErrors (user navigated away)
+            if (error.name === 'AbortError') return;
+
+            console.error("Background sync failed", error);
+            
+            // Capture API failures in Sentry
+            Sentry.captureException(error, {
+                tags: { type: "background_sync", location: "DashboardClient/useEffect/performSync" },
+                extra: { username: user.username }
+            });
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    performSync();
+
+    // Cleanup: Cancel request if component unmounts
+    // Reset sync flag after a delay to allow reruns after navigation while preventing strict mode double-fire
+    return () => {
+      abortController.abort();
+      // Use setTimeout to distinguish between strict mode cleanup (immediate remount) 
+      // and actual unmount (navigation away). Strict mode remounts happen synchronously,
+      // so the flag stays true. Real navigation has enough delay for the reset to take effect.
+      setTimeout(() => {
+        syncAttempted.current = false;
+      }, 100);
+    };
+
+  }, [user?.username, isLoadingAttendance, isLoadingTracking, refetchTracking, refetchAttendance, queryClient
+  ]);
 
   // CALCULATE ACTIVE COURSES (Courses with at least 1 record)
   const activeCourseCount = useMemo(() => {

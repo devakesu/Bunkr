@@ -8,10 +8,8 @@ import Link from "next/link";
 
 const isValidUrl = (urlString: string | undefined): boolean => {
   if (!urlString) return false;
-  
   try {
     const url = new URL(urlString);
-    // Only allow http and https protocols for security
     return url.protocol === "http:" || url.protocol === "https:";
   } catch {
     return false;
@@ -26,32 +24,18 @@ export const Footer = ({ className }: { className?: string }) => {
   const donateUrlRaw = process.env.NEXT_PUBLIC_DONATE_URL;
   const githubUrlRaw = process.env.NEXT_PUBLIC_GITHUB_URL;
   const authorUrlRaw = process.env.NEXT_PUBLIC_AUTHOR_URL;
+  const authorName = process.env.NEXT_PUBLIC_AUTHOR_NAME || "Author";
   
-  const donateUrl = donateUrlRaw && isValidUrl(donateUrlRaw) ? donateUrlRaw : null;
-  const githubUrl = githubUrlRaw && isValidUrl(githubUrlRaw) ? githubUrlRaw : null;
-  const authorUrl = authorUrlRaw && isValidUrl(authorUrlRaw) ? authorUrlRaw : null;
+  const donateUrl = isValidUrl(donateUrlRaw) ? donateUrlRaw : null;
+  const githubUrl = isValidUrl(githubUrlRaw) ? githubUrlRaw : null;
+  const authorUrl = isValidUrl(authorUrlRaw) ? authorUrlRaw : null;
   
-  // Log validation warnings once on mount (development only)
+  // Log validation warnings (development only)
   useEffect(() => {
     if (process.env.NODE_ENV === "development") {
-      if (donateUrlRaw && !donateUrl) {
-        console.warn(
-          `[Footer] Invalid NEXT_PUBLIC_DONATE_URL: "${donateUrlRaw}". ` +
-          "Please ensure it's a valid HTTP/HTTPS URL. The donation button will not be displayed."
-        );
-      }
-      if (githubUrlRaw && !githubUrl) {
-        console.warn(
-          `[Footer] Invalid NEXT_PUBLIC_GITHUB_URL: "${githubUrlRaw}". ` +
-          "Please ensure it's a valid HTTP/HTTPS URL. GitHub-related links may not work correctly."
-        );
-      }
-      if (authorUrlRaw && !authorUrl) {
-        console.warn(
-          `[Footer] Invalid NEXT_PUBLIC_AUTHOR_URL: "${authorUrlRaw}". ` +
-          "Please ensure it's a valid HTTP/HTTPS URL. The author link may not work correctly."
-        );
-      }
+      if (donateUrlRaw && !donateUrl) console.warn(`[Footer] Invalid Donate URL: ${donateUrlRaw}`);
+      if (githubUrlRaw && !githubUrl) console.warn(`[Footer] Invalid GitHub URL: ${githubUrlRaw}`);
+      if (authorUrlRaw && !authorUrl) console.warn(`[Footer] Invalid Author URL: ${authorUrlRaw}`);
     }
   }, [donateUrlRaw, donateUrl, githubUrlRaw, githubUrl, authorUrlRaw, authorUrl]);
 
@@ -72,13 +56,13 @@ export const Footer = ({ className }: { className?: string }) => {
               rel="noopener noreferrer"
               className="font-medium text-foreground hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-red-500 hover:to-orange-500 transition-all duration-300"
             >
-              {process.env.NEXT_PUBLIC_AUTHOR_NAME}
+              {authorName}
             </a>
             
             <span className="text-muted-foreground/40 mx-1">·</span>
             
             <a
-              href="https://github.com/ABHAY-100/Bunkr"
+              href={githubUrl || "#"}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-foreground transition-colors"
@@ -91,14 +75,12 @@ export const Footer = ({ className }: { className?: string }) => {
             <div className="flex gap-4">
               <Link 
                 href="/legal"
-                target="_blank"
                 className="hover:text-foreground hover:underline underline-offset-4 transition-all"
               >
                 Legal
               </Link>
               <Link 
                 href="/contact"
-                target="_blank"
                 className="hover:text-foreground hover:underline underline-offset-4 transition-all"
               >
                 Contact
@@ -110,10 +92,10 @@ export const Footer = ({ className }: { className?: string }) => {
         {/* Right Side: Actions & System Status */}
         <div className="flex flex-col-reverse sm:flex-row items-center gap-4">
           
-          {/* Build Indicator (Sleeker Pill) */}
+          {/* Build Indicator */}
           <div
             className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/5 border border-primary/10 text-[10px] font-mono text-muted-foreground hover:bg-primary/10 transition-colors cursor-help"
-            title="This build is verified and traceable."
+            title={`Commit: ${commitSha}`}
           >
             <div className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -131,30 +113,32 @@ export const Footer = ({ className }: { className?: string }) => {
                 {shortSha}
               </a>
               <span className="opacity-30">/</span>
-              <a
+              <Link
                 href="/api/provenance"
                 target="_blank"
                 className="flex items-center gap-1 hover:text-emerald-500 transition-colors"
               >
                 <ShieldCheck className="w-3 h-3" />
                 <span>secure</span>
-              </a>
+              </Link>
             </div>
           </div>
 
           <div className="hidden sm:block h-4 w-[1px] bg-border/60" />
 
-          {/* Action Buttons */}
+          {/* Action Buttons with Semantic Links */}
           <div className="flex items-center gap-2">
             {donateUrl && (
               <Button
                 variant="outline"
                 size="sm"
                 className="h-8 rounded-full bg-background hover:bg-pink-500/10 hover:text-pink-500 hover:border-pink-500/20 transition-all group"
-                onClick={() => window.open(donateUrl, "_blank")}
+                asChild
               >
-                <Coffee className="w-3.5 h-3.5 mr-2 text-muted-foreground group-hover:text-pink-500 transition-colors" />
-                <span className="text-xs font-medium">Buy Me a Coffee</span>
+                <a href={donateUrl} target="_blank" rel="noopener noreferrer">
+                  <Coffee className="w-3.5 h-3.5 mr-2 text-muted-foreground group-hover:text-pink-500 transition-colors" />
+                  <span className="text-xs font-medium">Buy Me a Coffee</span>
+                </a>
               </Button>
             )}
 
@@ -162,10 +146,12 @@ export const Footer = ({ className }: { className?: string }) => {
               variant="outline"
               size="sm"
               className="h-8 rounded-full bg-background hover:bg-yellow-500/10 hover:text-yellow-500 hover:border-yellow-500/20 transition-all group"
-              onClick={() => githubUrl && window.open(githubUrl, "_blank")}
+              asChild
             >
-              <Star className="w-3.5 h-3.5 mr-2 text-muted-foreground group-hover:text-yellow-500 transition-colors" />
-              <span className="text-xs font-medium">Star</span>
+              <a href={githubUrl || "#"} target="_blank" rel="noopener noreferrer">
+                <Star className="w-3.5 h-3.5 mr-2 text-muted-foreground group-hover:text-yellow-500 transition-colors" />
+                <span className="text-xs font-medium">Star</span>
+              </a>
             </Button>
           </div>
 

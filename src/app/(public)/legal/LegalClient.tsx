@@ -35,11 +35,11 @@ function PolicySection({ title, content }: { title: string, content: string }) {
       <div className="prose prose-sm prose-invert max-w-none text-zinc-400 bg-zinc-900/30 p-6 rounded-lg border border-zinc-800/50">
         <ReactMarkdown 
            components={{
-             h1: ({node, ...props}) => <h3 className="text-sm font-bold text-white mt-4 mb-2" {...props} />,
-             p: ({node, ...props}) => <p className="leading-relaxed mb-3" {...props} />,
-             ul: ({node, ...props}) => <ul className="list-disc pl-5 space-y-1 mb-3" {...props} />,
-             li: ({node, ...props}) => <li className="pl-1" {...props} />,
-             strong: ({node, ...props}) => <strong className="text-zinc-200" {...props} />
+             h1: ({node: _node, ...props}) => <h3 className="text-sm font-bold text-white mt-4 mb-2" {...props} />,
+             p: ({node: _node, ...props}) => <p className="leading-relaxed mb-3" {...props} />,
+             ul: ({node: _node, ...props}) => <ul className="list-disc pl-5 space-y-1 mb-3" {...props} />,
+             li: ({node: _node, ...props}) => <li className="pl-1" {...props} />,
+             strong: ({node: _node, ...props}) => <strong className="text-zinc-200" {...props} />
            }}
         >
           {content}

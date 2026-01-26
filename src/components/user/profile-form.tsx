@@ -7,6 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Pencil, X, Check } from "lucide-react";
+import * as Sentry from "@sentry/nextjs";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -38,10 +39,42 @@ const profileFormSchema = z.object({
   gender: z.string().min(1, {
     message: "Please select a gender.",
   }),
-  birth_date: z.string().optional().nullable(),
+  birth_date: z.string().optional().nullable().refine((val) => {
+    if (!val) return true;
+
+    // Normalize both the birth date and today's date to UTC midnight to avoid timezone issues
+    const [year, month, day] = val.split("-").map(Number);
+    const birthDate = new Date(Date.UTC(year, month - 1, day));
+
+    const today = new Date();
+    const todayUtc = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+    );
+
+    return birthDate.getTime() <= todayUtc.getTime();
+  }, "Birth date cannot be in the future"),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
+
+const ReadOnlyField = ({ value, placeholder = "Not set" }: { value?: string | null, placeholder?: string }) => (
+  <div className={cn(
+    "flex h-11 w-full items-center rounded-lg border border-border/40 px-3 py-2 text-sm transition-all",
+    "bg-secondary/20 text-foreground/90",
+    !value && "text-muted-foreground italic"
+  )}>
+    {value || placeholder}
+  </div>
+);
+
+const fieldVariants = {
+  hidden: { opacity: 0, y: 5 },
+  visible: (custom: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: custom * 0.05, duration: 0.2 },
+  }),
+};
 
 export function ProfileForm({ profile }: { profile: UserProfile }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -95,29 +128,16 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
         onError: (error) => {
           toast.error("Failed to update profile");
           console.error(error);
+          
+          // Capture failure in Sentry
+          Sentry.captureException(error, {
+              tags: { type: "profile_update_error", location: "ProfileForm/onSubmit" },
+              extra: { userId: profile.id }
+          });
         },
       }
     );
   }
-
-  const fieldVariants = {
-    hidden: { opacity: 0, y: 5 },
-    visible: (custom: number) => ({
-      opacity: 1,
-      y: 0,
-      transition: { delay: custom * 0.05, duration: 0.2 },
-    }),
-  };
-
-  const ReadOnlyField = ({ value, placeholder = "Not set" }: { value?: string | null, placeholder?: string }) => (
-    <div className={cn(
-      "flex h-11 w-full items-center rounded-lg border border-border/40 px-3 py-2 text-sm transition-all",
-      "bg-secondary/20 text-foreground/90",
-      !value && "text-muted-foreground italic"
-    )}>
-      {value || placeholder}
-    </div>
-  );
 
   return (
     <Form {...form}>
@@ -304,12 +324,17 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
           )}
         </AnimatePresence>
       </motion.form>
+      
       <Separator className="my-8" />
       
       {/* Danger Zone */}
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-destructive">Danger Zone</h3>
-        <DeleteAccount />
+        <div className="flex items-center gap-2 text-destructive">
+           <h3 className="text-lg font-medium">Danger Zone</h3>
+        </div>
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+            <DeleteAccount />
+        </div>
       </div>
     </Form>
   );

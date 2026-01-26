@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -156,7 +157,8 @@ export function AttendanceCalendar({
         await refetchTrackData(); 
         await refetchCount();
       } catch (error: any) { 
-        toast.error("Failed to add record"); 
+        toast.error("Failed to add record");
+        Sentry.captureException(error, { tags: { type: "tracking_add_error", location: "AttendanceCalendar/handleWriteTracking" }, extra: { courseId, dateStr, status, sessionName, attendanceCode, remarks } });
       } finally { 
         setLoadingStates((prev) => ({ ...prev, [buttonKey]: false })); 
         clickedButtons.current?.delete(buttonKey); 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { 
   Dialog, 
   DialogContent, 
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useProfile } from "@/hooks/users/profile";
+import * as Sentry from "@sentry/nextjs";
 
 export default function TermsModal() {
   const pathname = usePathname();
@@ -28,11 +29,17 @@ export default function TermsModal() {
   const [loading, setLoading] = useState(false);
   const [checked, setChecked] = useState(false);
   const [hasCheckedStatus, setHasCheckedStatus] = useState(false);
+  
+  // Prevent duplicate checks in Strict Mode
+  const checkAttempted = useRef(false);
 
   useEffect(() => {
+    if (checkAttempted.current) return;
+    
     // 1. Blacklist Paths
     if (pathname === "/legal" || pathname === "/" || pathname === "/contact") {
         setOpen(false);
+        setHasCheckedStatus(true);
         return;
     }
 
@@ -49,9 +56,12 @@ export default function TermsModal() {
 
     // 3. Check DB (if profile loaded)
     if (profile) {
+        checkAttempted.current = true;
         if (profile.terms_version === TERMS_VERSION) {
             // Sync cookie if missing
-            document.cookie = `terms_version=${TERMS_VERSION}; path=/; max-age=31536000; SameSite=Lax`;
+            const isSecureContext =
+              typeof window !== "undefined" && window.location.protocol === "https:";
+            document.cookie = `terms_version=${TERMS_VERSION}; path=/; max-age=31536000; SameSite=Lax${isSecureContext ? "; Secure" : ""}`;
             setHasCheckedStatus(true);
             return; // Already agreed (DB)
         }
@@ -70,10 +80,16 @@ export default function TermsModal() {
     try {
       await acceptTermsAction(TERMS_VERSION);
       // Set cookie immediately for instant feedback on reload
-      document.cookie = `terms_version=${TERMS_VERSION}; path=/; max-age=31536000; SameSite=Lax`;
+      const isSecureContext =
+        typeof window !== "undefined" && window.location.protocol === "https:";
+      document.cookie = `terms_version=${TERMS_VERSION}; path=/; max-age=31536000; SameSite=Lax${isSecureContext ? "; Secure" : ""}`;
       setOpen(false);
     } catch (error) {
       console.error("Failed to accept terms", error);
+      Sentry.captureException(error, {
+          tags: { type: "terms_acceptance_failure", location: "TermsModal/handleAgree" },
+          extra: { version: TERMS_VERSION }
+      });
     } finally {
       setLoading(false);
     }

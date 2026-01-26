@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { UserSettings } from "@/types/user-settings";
+import * as Sentry from "@sentry/nextjs";
 
 export function useUserSettings() {
   const supabase = createClient();
@@ -21,21 +22,23 @@ export function useUserSettings() {
         .from("user_settings")
         .select("bunk_calculator_enabled, target_percentage")
         .eq("user_id", session.user.id)
-        .maybeSingle();
+        .maybeSingle(); // Returns null if row missing (cleaner than .single() + error catching)
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error("Error fetching settings:", error);
+        Sentry.captureException(error, { tags: { type: "settings_fetch_error", location: "useUserSettings" } });
+        return null;
       }
 
       return data as UserSettings | null;
     },
-    // Ensure fresh fetch on mount to detect "New User" state immediately
-    staleTime: 0, 
-    refetchOnWindowFocus: false,
+    staleTime: 30 * 1000, // 30 seconds - reduces API load while keeping data reasonably fresh
+    gcTime: 0,
+    refetchOnWindowFocus: true, 
   });
-
+  
   // 2. Mutation to update settings
-  const updateSettings = useMutation({
+  const updateSettingsMutation = useMutation({
     mutationFn: async (newSettings: { bunk_calculator_enabled?: boolean; target_percentage?: number }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) throw new Error("No user");
@@ -50,29 +53,35 @@ export function useUserSettings() {
       return data;
     },
     onSuccess: (newData) => {
+      // Instant UI update via Cache
       queryClient.setQueryData(["userSettings"], newData);
       
+      // Sync to Local Storage & Events immediately
       if (newData.bunk_calculator_enabled !== undefined) {
-         localStorage.setItem("showBunkCalc", newData.bunk_calculator_enabled.toString());
-         window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newData.bunk_calculator_enabled }));
+          localStorage.setItem("showBunkCalc", newData.bunk_calculator_enabled.toString());
+          window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newData.bunk_calculator_enabled }));
       }
       if (newData.target_percentage) {
-         localStorage.setItem("targetPercentage", newData.target_percentage.toString());
+          localStorage.setItem("targetPercentage", newData.target_percentage.toString());
       }
     },
     onError: (err) => {
-      if (err.message !== "No user") toast.error("Failed to save settings");
+      if (err.message !== "No user") {
+          toast.error("Failed to save settings");
+          Sentry.captureException(err, { tags: { type: "settings_update_error", location: "useUserSettings" } });
+      }
     }
   });
+
+  const { mutate: mutateSettings } = updateSettingsMutation;
 
   // 3. Centralized Sync Logic
   useEffect(() => {
     if (isLoading) return;
 
-    // Case A: DB has data -> Sync to LocalStorage
+    // Case A: DB has data -> Sync to LocalStorage (Source of Truth = DB)
     if (settings) {
       const localBunk = localStorage.getItem("showBunkCalc");
-      // Handle potential nulls in DB
       const dbBunk = (settings.bunk_calculator_enabled ?? true).toString();
       
       if (localBunk !== dbBunk) {
@@ -87,25 +96,28 @@ export function useUserSettings() {
         localStorage.setItem("targetPercentage", dbTarget);
       }
     } 
-    // Case B: DB is empty (New User) -> Try to migrate LocalStorage to DB
+    // Case B: DB is empty (New User) -> Migrate LocalStorage to DB
     else if (settings === null) {
       const localBunk = localStorage.getItem("showBunkCalc");
       const localTarget = localStorage.getItem("targetPercentage");
 
-      // Only migrate if we actually have local data
+      // Only migrate if we actually have legacy local data
       if (localBunk !== null || localTarget !== null) {
-        updateSettings.mutate({
+        console.log("Migrating local settings to cloud...");
+        mutateSettings({
           bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
           target_percentage: localTarget !== null ? Number(localTarget) : 75
         });
       }
     }
-  }, [settings, isLoading, updateSettings]);
+    // mutateSettings is stable - it's the mutate function from useMutation and doesn't change between renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings, isLoading]);
 
   return {
     settings,
     isLoading,
-    updateBunkCalc: (enabled: boolean) => updateSettings.mutate({ bunk_calculator_enabled: enabled }),
-    updateTarget: (target: number) => updateSettings.mutate({ target_percentage: target })
+    updateBunkCalc: (enabled: boolean) => mutateSettings({ bunk_calculator_enabled: enabled }),
+    updateTarget: (target: number) => mutateSettings({ target_percentage: target })
   };
 }

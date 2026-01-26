@@ -1,5 +1,6 @@
 // src/lib/email.ts
 import axios from "axios";
+import * as Sentry from "@sentry/nextjs";
 
 // Types
 interface SendEmailProps {
@@ -25,7 +26,9 @@ const hasSendPulse = !!(
 const getSenderEmail = () => {
   const appEmail = process.env.NEXT_PUBLIC_APP_EMAIL;
   if (!appEmail) {
-    throw new Error('NEXT_PUBLIC_APP_EMAIL is not configured');
+    const err = new Error('NEXT_PUBLIC_APP_EMAIL is not configured');
+    Sentry.captureException(err, { tags: { type: "config_error", location: "getSenderEmail" } });
+    throw err;
   }
   return 'admin' + appEmail;
 };
@@ -52,9 +55,7 @@ const CONFIG = {
  * SendPulse Adapter
  */
 async function getSendPulseToken() {
-  if (!hasSendPulse) {
-    throw new Error("SendPulse credentials not configured");
-  }
+  if (!hasSendPulse) throw new Error("SendPulse credentials not configured");
   
   try {
     const res = await axios.post(CONFIG.sendpulse.authUrl, {
@@ -70,9 +71,7 @@ async function getSendPulseToken() {
 }
 
 async function sendViaSendPulse({ to, subject, html, text }: SendEmailProps): Promise<ProviderResult> {
-  if (!hasSendPulse) {
-    throw new Error("SendPulse not configured");
-  }
+  if (!hasSendPulse) throw new Error("SendPulse not configured");
 
   try {
     const token = await getSendPulseToken();
@@ -93,7 +92,8 @@ async function sendViaSendPulse({ to, subject, html, text }: SendEmailProps): Pr
 
     return { success: true, provider: "SendPulse", id: data.id };
   } catch (error: any) {
-    throw new Error(error.response?.data?.message || error.message);
+    const msg = error.response?.data?.message || error.message;
+    throw new Error(msg);
   }
 }
 
@@ -101,9 +101,7 @@ async function sendViaSendPulse({ to, subject, html, text }: SendEmailProps): Pr
  * Brevo Adapter
  */
 async function sendViaBrevo({ to, subject, html, text }: SendEmailProps): Promise<ProviderResult> {
-  if (!hasBrevo) {
-    throw new Error("Brevo not configured");
-  }
+  if (!hasBrevo) throw new Error("Brevo not configured");
 
   try {
     const payload = {
@@ -124,7 +122,8 @@ async function sendViaBrevo({ to, subject, html, text }: SendEmailProps): Promis
 
     return { success: true, provider: "Brevo", id: data.messageId };
   } catch (error: any) {
-    throw new Error(error.response?.data?.message || error.message);
+    const msg = error.response?.data?.message || error.message;
+    throw new Error(msg);
   }
 }
 
@@ -137,7 +136,7 @@ export async function sendEmail(props: SendEmailProps) {
   let primaryName: string;
   let secondaryName: string | null = null;
 
-  // If both available, randomize
+  // If both available, randomize load
   if (hasBrevo && hasSendPulse) {
     const startWithSendPulse = Math.random() < 0.5;
     primary = startWithSendPulse ? sendViaSendPulse : sendViaBrevo;
@@ -145,7 +144,7 @@ export async function sendEmail(props: SendEmailProps) {
     primaryName = startWithSendPulse ? "SendPulse" : "Brevo";
     secondaryName = startWithSendPulse ? "Brevo" : "SendPulse";
   } 
-  // If only one available, use it
+  // If only one available
   else if (hasSendPulse) {
     primary = sendViaSendPulse;
     primaryName = "SendPulse";
@@ -153,8 +152,9 @@ export async function sendEmail(props: SendEmailProps) {
     primary = sendViaBrevo;
     primaryName = "Brevo";
   } else {
-    // This should never happen due to startup validation
-    throw new Error("No email provider configured");
+    const error = new Error("No email provider configured");
+    Sentry.captureException(error, { tags: { type: "config_critical", location: "sendEmail" } });
+    throw error;
   }
 
   try {
@@ -163,21 +163,44 @@ export async function sendEmail(props: SendEmailProps) {
   } catch (primaryError: any) {
     console.warn(`Primary provider (${primaryName}) failed:`, primaryError.message);
 
+    // Report non-fatal primary failure to Sentry
+    Sentry.captureMessage(`Email Failover Triggered: ${primaryName} failed`, {
+        level: "warning",
+        tags: { 
+            failed_provider: primaryName,
+            recipient_domain: props.to.split('@')[1],
+            location: "sendEmail"
+        },
+        extra: { error: primaryError.message }
+    });
+
     // Try secondary if available
     if (secondary) {
-      console.log("Switching to secondary provider...");
+      console.log(`Switching to secondary provider (${secondaryName})...`);
       try {
         return await secondary(props);
       } catch (secondaryError: any) {
-        console.error("All email providers failed.");
+        const errorMsg = `All email providers failed. Primary: ${primaryError.message} | Secondary: ${secondaryError.message}`;
+        console.error(errorMsg);
+        
+        // Report CRITICAL total failure
+        Sentry.captureException(new Error(errorMsg), {
+            tags: { type: "email_delivery_critical", location: "sendEmail" },
+            extra: { to: props.to, subject: props.subject }
+        });
+
         return {
           success: false,
           provider: secondaryName! as "Brevo" | "SendPulse",
-          error: `Primary: ${primaryError.message} | Secondary: ${secondaryError.message}`,
+          error: errorMsg,
         };
       }
     } else {
-      // No secondary available
+      Sentry.captureException(primaryError, {
+         tags: { type: "email_delivery_fail_no_backup", location: "sendEmail" },
+         extra: { provider: primaryName }
+      });
+      
       return {
         success: false,
         provider: primaryName as "Brevo" | "SendPulse",

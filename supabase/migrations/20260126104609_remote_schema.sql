@@ -286,7 +286,23 @@ CREATE INDEX "idx_contact_messages_user" ON "public"."contact_messages" USING "b
 
 
 
+CREATE INDEX "idx_notification_unread" ON "public"."notification" USING "btree" ("auth_user_id", "created_at" DESC) WHERE ("is_read" = false);
+
+
+
+COMMENT ON INDEX "public"."idx_notification_unread" IS 'Optimizes queries for unread notifications (most common use case)';
+
+
+
 CREATE INDEX "idx_notification_user" ON "public"."notification" USING "btree" ("auth_user_id");
+
+
+
+CREATE INDEX "idx_notification_user_read_created" ON "public"."notification" USING "btree" ("auth_user_id", "is_read", "created_at" DESC);
+
+
+
+COMMENT ON INDEX "public"."idx_notification_user_read_created" IS 'Optimizes queries for all notifications with read status filter';
 
 
 
