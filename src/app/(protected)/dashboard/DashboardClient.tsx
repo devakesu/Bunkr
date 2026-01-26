@@ -288,14 +288,32 @@ export default function DashboardClient() {
                 signal: abortController.signal
             });
 
-            if (!res.ok) {
-                throw new Error(`Sync API responded with status: ${res.status}`);
-            }
-
             const data = await res.json();
 
-            // Only toast if there were actual changes
-            if (data.success && (data.deletions > 0 || data.conflicts > 0 || data.updates > 0)) {
+            // Handle different response status codes
+            if (res.status === 207) {
+                // Partial failure: Some records synced, some failed
+                toast.warning("Partial Sync Completed", {
+                    description: "Some attendance data couldn't be synced. Your dashboard may be incomplete."
+                });
+                
+                Sentry.captureMessage("Partial sync failure in dashboard", {
+                    level: "warning",
+                    tags: { type: "dashboard_partial_sync", location: "DashboardClient/useEffect/performSync" },
+                    extra: { username: user.username, response: data }
+                });
+                
+                // Still refetch queries as partial sync may have updated some records
+                await Promise.all([
+                    refetchTracking(),
+                    refetchAttendance(),
+                    queryClient.invalidateQueries({ queryKey: ["notifications"] })
+                ]);
+            } else if (!res.ok) {
+                // Complete failure (500 or other error codes)
+                throw new Error(`Sync API responded with status: ${res.status}`);
+            } else if (data.success && (data.deletions > 0 || data.conflicts > 0 || data.updates > 0)) {
+                // Success with changes
                 toast.info("Attendance Synced", {
                     description: `Dashboard updated. ${data.deletions + data.updates} records synced.`
                 });

@@ -102,11 +102,28 @@ export default function TrackingClient() {
           signal: abortController.signal
         });
 
-        if (!res.ok) throw new Error(`Sync failed with status: ${res.status}`);
-
         const data = await res.json();
-        
-        if (data.success && (data.deletions > 0 || data.conflicts > 0)) {
+
+        // Handle different response status codes
+        if (res.status === 207) {
+          // Partial failure: Some records synced, some failed
+          toast.warning("Partial Sync Completed", {
+            description: "Some tracking records couldn't be synced. Your data may be incomplete."
+          });
+          
+          Sentry.captureMessage("Partial sync failure in tracking", {
+            level: "warning",
+            tags: { type: "tracking_partial_sync", location: "TrackingClient/useEffect/runSync" },
+            extra: { username: user.username, response: data }
+          });
+          
+          // Still refetch data as partial sync may have updated some records
+          await Promise.all([refetchTrackingData(), refetchCount()]);
+        } else if (!res.ok) {
+          // Complete failure (500 or other error codes)
+          throw new Error(`Sync failed with status: ${res.status}`);
+        } else if (data.success && (data.deletions > 0 || data.conflicts > 0)) {
+          // Success with changes
           toast.info("Data Synced", {
             description: `${data.deletions} outdated records removed.`
           });

@@ -300,19 +300,8 @@ export async function GET(req: Request) {
     }
 
     // Derive overall success and HTTP status from aggregated results
-    const finalAny: any = finalResults as any;
-    const totalUsers =
-      typeof finalAny?.totalUsers === "number"
-        ? finalAny.totalUsers
-        : typeof finalAny?.total === "number"
-          ? finalAny.total
-          : 0;
-    const errorCount =
-      typeof finalAny?.errorCount === "number"
-        ? finalAny.errorCount
-        : typeof finalAny?.failed === "number"
-          ? finalAny.failed
-          : 0;
+    const totalUsers = usersToSync.length;
+    const errorCount = finalResults.errors;
 
     let statusCode = 200;
     let successFlag = true;
