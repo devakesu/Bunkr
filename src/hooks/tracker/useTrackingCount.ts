@@ -44,7 +44,7 @@ export function useTrackingCount(user: User | null | undefined) {
 
       return count ?? 0;
     },
-    enabled: !!user?.username && !!semesterData && !!academicYearData,
+    enabled: !!user?.username,
     staleTime: 1000 * 60, 
   });
 }
