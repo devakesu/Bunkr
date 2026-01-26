@@ -214,7 +214,18 @@ export async function POST(req: Request) {
     }
 
     // 3. Ghost Login Logic (Ephemeral Password)
-    const ghostDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "ghostclass.devakesu.com";
+    const ghostDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+    if (!ghostDomain) {
+      const configError = new Error("NEXT_PUBLIC_APP_DOMAIN is not configured");
+      console.error(configError.message);
+      Sentry.captureException(configError, {
+        tags: { type: "config_error", location: "save_token" },
+      });
+      return NextResponse.json(
+        { message: "Server configuration error" },
+        { status: 500 }
+      );
+    }
     const email = `ezygo_${sanitizedUserId}@${ghostDomain}`;
     
     // Validate Email Format
