@@ -44,11 +44,26 @@ const AUTH_LOCK_TTL = (() => {
   // Default 20s, min 15s, max 60s to reduce risk of lock expiry during slow auth flows
   const raw = process.env.AUTH_LOCK_TTL;
   const parsed = raw ? parseInt(raw, 10) : NaN;
+
+  let ttl: number;
+  let source: "default" | "env" | "clamped";
+
   if (isNaN(parsed) || parsed <= 0) {
-    return 20;
+    ttl = 20;
+    source = "default";
+  } else {
+    const clamped = Math.max(15, Math.min(parsed, 60));
+    ttl = clamped;
+    source = clamped === parsed ? "env" : "clamped";
   }
-  const clamped = Math.max(15, Math.min(parsed, 60));
-  return clamped;
+
+  if (process.env.NODE_ENV === "development") {
+    console.log(
+      `[auth] AUTH_LOCK_TTL set to ${ttl}s (${source}${raw ? `, raw="${raw}"` : ""})`
+    );
+  }
+
+  return ttl;
 })();
 
 /**
