@@ -93,7 +93,7 @@ export async function GET(req: Request) {
         const { data, error } = await query;
         if (error) {
           console.error("Failed to fetch users for sync:", error);
-          Sentry.captureException(error, { tags: { type: "db_query_error", location: "cron/sync" } });
+          Sentry.captureException(error, { tags: { type: "db_query_error", location: "api/cron/sync", auth: "cron" } });
           return NextResponse.json({ error: "Failed to fetch users for sync" }, { status: 500 });
         }
         if (data) usersToSync = data;
@@ -104,7 +104,7 @@ export async function GET(req: Request) {
         const { data, error } = await supabaseAdmin.from("users").select("username, email, ezygo_token, ezygo_iv, auth_id").eq("auth_id", user.id).not("ezygo_token", "is", null);
         if (error) {
           console.error("Failed to fetch users for sync:", error);
-          Sentry.captureException(error, { tags: { type: "db_query_error", location: "cron/sync" } });
+          Sentry.captureException(error, { tags: { type: "db_query_error", location: "api/cron/sync", auth: "user" } });
           return NextResponse.json({ error: "Failed to fetch users for sync" }, { status: 500 });
         }
         if (data) usersToSync = data;
