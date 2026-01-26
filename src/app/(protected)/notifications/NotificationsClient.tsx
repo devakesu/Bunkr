@@ -217,7 +217,18 @@ export default function NotificationsPage() {
     };
 
     syncNotifications();
-    return () => abortController.abort();
+    
+    // Cleanup: Cancel request if component unmounts
+    // Reset sync flag after a delay to allow reruns after navigation while preventing strict mode double-fire
+    return () => {
+      abortController.abort();
+      // Use setTimeout to distinguish between strict mode cleanup (immediate remount) 
+      // and actual unmount (navigation away). Strict mode remounts happen synchronously,
+      // so the flag stays true. Real navigation has enough delay for the reset to take effect.
+      setTimeout(() => {
+        syncAttempted.current = false;
+      }, 100);
+    };
   }, [user?.username, queryClient]);
 
   // MARK READ HANDLER
