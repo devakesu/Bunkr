@@ -41,7 +41,19 @@ const profileFormSchema = z.object({
   }),
   birth_date: z.string().optional().nullable().refine((val) => {
     if (!val) return true;
-    return new Date(val) <= new Date();
+
+    // Normalize both the birth date and today's date to UTC midnight
+    const [year, month, day] = val.split("-").map(Number);
+    const birthDateUtcMidnight = Date.UTC(year, month - 1, day);
+
+    const now = new Date();
+    const todayUtcMidnight = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate()
+    );
+
+    return birthDateUtcMidnight <= todayUtcMidnight;
   }, "Birth date cannot be in the future"),
 });
 
