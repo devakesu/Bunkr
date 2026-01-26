@@ -71,10 +71,13 @@ export function __resetRedisClient(): void {
  * 
  * Note: This creates a getter that initializes Redis on first access
  */
+let proxyClient: Redis | null = null;
 export const redis = new Proxy({} as Redis, {
   get(_target, prop) {
-    const client = getRedis();
-    const value = client[prop as keyof Redis];
-    return typeof value === 'function' ? value.bind(client) : value;
+    if (!proxyClient) {
+      proxyClient = getRedis();
+    }
+    const value = proxyClient[prop as keyof Redis];
+    return typeof value === 'function' ? value.bind(proxyClient) : value;
   }
 });
