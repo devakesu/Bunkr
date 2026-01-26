@@ -59,7 +59,9 @@ export default function TermsModal() {
         checkAttempted.current = true;
         if (profile.terms_version === TERMS_VERSION) {
             // Sync cookie if missing
-            document.cookie = `terms_version=${TERMS_VERSION}; path=/; max-age=31536000; SameSite=Lax; Secure`;
+            const isSecureContext =
+              typeof window !== "undefined" && window.location.protocol === "https:";
+            document.cookie = `terms_version=${TERMS_VERSION}; path=/; max-age=31536000; SameSite=Lax${isSecureContext ? "; Secure" : ""}`;
             setHasCheckedStatus(true);
             return; // Already agreed (DB)
         }
