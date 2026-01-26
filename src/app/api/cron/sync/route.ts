@@ -114,7 +114,7 @@ export async function GET(req: Request) {
     }
 
     for (const chunk of chunks) {
-        // Process this chunk in Parallel
+        // Process users in this chunk concurrently
         const promises = chunk.map(async (user) => {
             try {
                 if (!user.ezygo_token || !user.ezygo_iv || !user.auth_id) throw new Error("Missing credentials");
