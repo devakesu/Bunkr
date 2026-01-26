@@ -72,6 +72,7 @@ export default function TrackingClient() {
   const [enabled, setEnabled] = useState(false);
   const [isSyncing, setIsSyncing] = useState(true);
   const syncAttempted = useRef(false);
+  const isMountedRef = useRef(true);
 
   const coursesPerPage = 3; 
 
@@ -121,7 +122,10 @@ export default function TrackingClient() {
           extra: { username: user.username }
         });
       } finally {
-        setIsSyncing(false);
+        // Only update state if component is still mounted
+        if (isMountedRef.current) {
+          setIsSyncing(false);
+        }
       }
     };
 
@@ -130,6 +134,7 @@ export default function TrackingClient() {
     // Cleanup: Cancel request if component unmounts
     // Reset sync flag after a delay to allow reruns after navigation while preventing strict mode double-fire
     return () => {
+      isMountedRef.current = false;
       abortController.abort();
       // Use setTimeout to distinguish between strict mode cleanup (immediate remount) 
       // and actual unmount (navigation away). Strict mode remounts happen synchronously,
