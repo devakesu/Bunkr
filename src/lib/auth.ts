@@ -57,11 +57,10 @@ export const handleLogout = async () => {
 
     // Force redirect anyway so user isn't stuck on a broken page
     if (typeof window !== "undefined") {
-       // Clear cookies manually as a last resort backup if API failed
-       document.cookie.split(";").forEach((c) => {
-          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-       });
-       window.location.href = "/";
+      // Best-effort cleanup of known app cookies; HttpOnly cookies cannot be cleared client-side
+      removeToken();
+      deleteCookie("terms_version", { path: '/' });
+      window.location.href = "/";
     }
   }
 };
