@@ -110,7 +110,9 @@ export function useUserSettings() {
         });
       }
     }
-  }, [settings, isLoading, mutateSettings]);
+    // mutateSettings is stable - it's the mutate function from useMutation and doesn't change between renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings, isLoading]);
 
   return {
     settings,
