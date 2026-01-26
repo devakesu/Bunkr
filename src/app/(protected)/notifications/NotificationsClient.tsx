@@ -129,35 +129,44 @@ export default function NotificationsPage() {
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
       const item = virtualItems[index];
-      
-      if (item.type === 'header') {
-        return 50; // Section header height
+
+      if (item.type === "header") {
+        // Section header height (including top/bottom padding)
+        return 50;
       }
-      
+
       // Notification card height
       const notification = item.data;
       const description = notification.description ?? "";
 
-      // Start from a conservative base height for notifications without description
+      // Empirically chosen base heights, tuned for the current card layout.
       const baseHeightWithoutDescription = 80;
+      const baseHeightWithDescription = 110;
 
-      // Roughly estimate number of text lines based on character length.
-      // Assume ~80 characters per line as a heuristic.
-      const approxCharsPerLine = 80;
-      const approxLines =
+      // Add a small, capped extra height based on description length.
+      // This avoids relying on characters-per-line assumptions while still
+      // giving longer descriptions a bit more space initially.
+      const extraPer100Chars = 18;
+      const maxExtra = 120;
+      const extraHeight =
         description.length > 0
-          ? Math.max(1, Math.ceil(description.length / approxCharsPerLine))
+          ? Math.min(
+              maxExtra,
+              Math.ceil(description.length / 100) * extraPer100Chars
+            )
           : 0;
 
-      // Add height per estimated line; 22px is a reasonable line height including spacing.
-      const heightPerLine = 22;
-      const estimatedDescriptionHeight = approxLines * heightPerLine;
+      const baseHeight =
+        description.length > 0
+          ? baseHeightWithDescription
+          : baseHeightWithoutDescription;
 
-      const baseHeight = baseHeightWithoutDescription + estimatedDescriptionHeight;
       const marginBottom = 12; // mb-3 (3 * 4px)
 
-      return baseHeight + marginBottom;
+      return baseHeight + extraHeight + marginBottom;
     },
+    // Use actual DOM measurements when available to correct the estimates.
+    measureElement: (el) => el.getBoundingClientRect().height,
     // Use a larger overscan to reduce visible layout shifts when estimates are adjusted
     overscan: 10,
   });
