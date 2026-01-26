@@ -39,41 +39,55 @@ function getAdminClient() {
   return createClient(url, key);
 }
 
+// Lock TTL in seconds - configurable via environment variable
+const AUTH_LOCK_TTL = parseInt(process.env.AUTH_LOCK_TTL || '10', 10);
+
 /**
  * Acquires a distributed lock for user authentication operations
  * to prevent race conditions during concurrent logins
+ * @returns Lock value if acquired successfully, null otherwise
  */
-async function acquireAuthLock(userId: string): Promise<boolean> {
+async function acquireAuthLock(userId: string): Promise<string | null> {
   const lockKey = `auth_lock:${userId}`;
   const lockValue = crypto.randomBytes(16).toString('hex');
-  const lockTTL = 10; // 10 seconds TTL
   
   try {
     // SET NX (only set if doesn't exist) with expiration
     const result = await redis.set(lockKey, lockValue, {
       nx: true,
-      ex: lockTTL,
+      ex: AUTH_LOCK_TTL,
     });
     
-    return result === 'OK';
+    return result === 'OK' ? lockValue : null;
   } catch (error) {
     console.error('Failed to acquire auth lock:', error);
     Sentry.captureException(error, {
       tags: { type: 'redis_lock_error', location: 'acquire_auth_lock' },
       extra: { userId },
     });
-    return false;
+    // Throw error to distinguish Redis failures from lock contention
+    throw error;
   }
 }
 
 /**
  * Releases the distributed lock for user authentication operations
+ * Uses atomic compare-and-delete to ensure only the lock owner can release it
  */
-async function releaseAuthLock(userId: string): Promise<void> {
+async function releaseAuthLock(userId: string, lockValue: string): Promise<void> {
   const lockKey = `auth_lock:${userId}`;
   
   try {
-    await redis.del(lockKey);
+    // Lua script for atomic compare-and-delete
+    const luaScript = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    
+    await redis.eval(luaScript, [lockKey], [lockValue]);
   } catch (error) {
     console.error('Failed to release auth lock:', error);
     Sentry.captureException(error, {
@@ -208,8 +222,20 @@ export async function POST(req: Request) {
     let userId: string | undefined;
 
     // Acquire lock to prevent concurrent password updates
-    const lockAcquired = await acquireAuthLock(verifieduserId);
-    if (!lockAcquired) {
+    let lockValue: string | null = null;
+    try {
+      lockValue = await acquireAuthLock(verifieduserId);
+    } catch (error) {
+      // Redis error - fail fast
+      console.error('Redis lock service unavailable:', error);
+      return NextResponse.json(
+        { message: "Authentication service temporarily unavailable" },
+        { status: 503 }
+      );
+    }
+    
+    if (!lockValue) {
+      // Lock is held by another request - client should retry
       return NextResponse.json(
         { message: "Another login is in progress. Please try again." },
         { status: 409 }
@@ -324,7 +350,9 @@ export async function POST(req: Request) {
       }
     } finally {
       // Always release the lock, even if an error occurred
-      await releaseAuthLock(verifieduserId);
+      if (lockValue) {
+        await releaseAuthLock(verifieduserId, lockValue);
+      }
     }
 
     // 4. Sign In
