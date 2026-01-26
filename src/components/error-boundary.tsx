@@ -37,8 +37,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    // 1. Log to console in ALL environments
-    console.error("ErrorBoundary caught an error:", error, errorInfo);
+    // 1. Log to console with environment-aware detail level
+    if (process.env.NODE_ENV !== "production") {
+      // In non-production, log full error details for easier debugging
+      console.error("ErrorBoundary caught an error:", error, errorInfo);
+    } else {
+      // In production, avoid logging potentially sensitive details to the console
+      console.error("ErrorBoundary caught an error. Full details have been reported to monitoring.");
+    }
 
     // 2. Report error to Sentry
     Sentry.captureException(error, {
