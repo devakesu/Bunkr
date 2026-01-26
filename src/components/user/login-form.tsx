@@ -113,7 +113,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       }
 
       setError(errorMsg);
-      console.error("Login failed:", error);
+      console.error("Login failed:", err);
     }
   };
 
