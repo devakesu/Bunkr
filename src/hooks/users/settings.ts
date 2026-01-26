@@ -19,10 +19,16 @@ const MAX_RETRIES = 2;
 
 const settingsRetryFn = (failureCount: number, error: unknown) => {
   const axiosError = error as { response?: { status?: number } };
-  if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
+  const status = axiosError.response?.status;
+  if (status === 401 || status === 403) {
     return false;
   }
   return failureCount < MAX_RETRIES;
+};
+
+// Type guard for axios errors
+const isAxiosError = (error: unknown): error is { response?: { status?: number } } => {
+  return typeof error === 'object' && error !== null && 'response' in error;
 };
 
 export const useFetchSemester = () => {
@@ -32,8 +38,8 @@ export const useFetchSemester = () => {
       try {
         const res = await axios.get("/user/setting/default_semester");
         return res.data;
-      } catch (error: any) {
-        if (error.response?.status === 404) return null;
+      } catch (error: unknown) {
+        if (isAxiosError(error) && error.response?.status === 404) return null;
         throw error;
       }
     },
@@ -50,8 +56,8 @@ export const useFetchAcademicYear = () => {
       try {
         const res = await axios.get("/user/setting/default_academic_year");
         return res.data;
-      } catch (error: any) {
-        if (error.response?.status === 404) return null;
+      } catch (error: unknown) {
+        if (isAxiosError(error) && error.response?.status === 404) return null;
         throw error;
       }
     },
