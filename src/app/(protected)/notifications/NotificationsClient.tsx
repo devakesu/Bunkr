@@ -211,7 +211,7 @@ export default function NotificationsPage() {
         if (res.status === 207) {
           // Partial failure: Some records synced, some failed
           toast.warning("Partial Sync Completed", {
-            description: "Some notifications couldn't be synced. Please refresh if data seems incomplete."
+            description: "Some notifications couldn't be synced. Your notification list may be incomplete."
           });
           
           Sentry.captureMessage("Partial sync failure in notifications", {

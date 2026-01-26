@@ -107,7 +107,7 @@ export default function TrackingClient() {
         if (res.status === 207) {
           // Partial failure: Some records synced, some failed
           toast.warning("Partial Sync Completed", {
-            description: "Some data couldn't be synced. Please try again later or contact support if this persists."
+            description: "Some tracking records couldn't be synced. Your data may be incomplete."
           });
           
           Sentry.captureMessage("Partial sync failure in tracking", {
