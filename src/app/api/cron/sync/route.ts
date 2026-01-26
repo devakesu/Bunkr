@@ -330,7 +330,7 @@ export async function GET(req: Request) {
         extra: {
           totalUsers,
           errorCount,
-          errorRate: totalUsers > 0 ? errorCount / totalUsers : null,
+          errorRate: errorCount / totalUsers,
         },
       });
     }
