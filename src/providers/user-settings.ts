@@ -32,7 +32,7 @@ export function useUserSettings() {
 
       return data as UserSettings | null;
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
     refetchOnWindowFocus: true, 
   });
   
