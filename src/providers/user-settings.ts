@@ -33,6 +33,7 @@ export function useUserSettings() {
       return data as UserSettings | null;
     },
     staleTime: 0,
+    gcTime: 0,
     refetchOnWindowFocus: true, 
   });
   
