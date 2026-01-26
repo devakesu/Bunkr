@@ -11,7 +11,12 @@ export function useTrackingData(user: User | null | undefined, options?: { enabl
   const { data: academicYearData } = useFetchAcademicYear();
 
   return useQuery<TrackAttendance[]>({
-    queryKey: ["track_data", user?.username, semesterData, academicYearData],
+    queryKey: [
+      "track_data",
+      user?.username,
+      JSON.stringify(semesterData),
+      JSON.stringify(academicYearData),
+    ],
     
     queryFn: async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
