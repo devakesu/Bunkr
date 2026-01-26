@@ -1,6 +1,15 @@
 import { createClient } from "@/lib/supabase/client";
 import * as Sentry from "@sentry/nextjs";
 
+// Allowed MIME types for avatar uploads to prevent MIME type confusion attacks
+const ALLOWED_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/gif'
+] as const;
+
 export async function uploadUserAvatar(file: File) {
   const supabase = createClient();
   
@@ -12,13 +21,27 @@ export async function uploadUserAvatar(file: File) {
       throw err;
   }
 
+  // 2. Validate MIME type to prevent MIME type confusion attacks
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type as any)) {
+      const err = new Error(`Invalid file type: ${file.type}. Allowed types: ${ALLOWED_IMAGE_TYPES.join(', ')}`);
+      Sentry.captureException(err, { 
+          tags: { type: "avatar_invalid_mime", location: "uploadUserAvatar" },
+          extra: { 
+              userId: user.id,
+              attemptedType: file.type,
+              fileName: file.name
+          }
+      });
+      throw err;
+  }
+
   try {
-      // 2. Prepare File Path
+      // 3. Prepare File Path
       const fileExt = file.name.split('.').pop() || 'png';
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
 
-      // 3. Upload File directly to Storage
+      // 4. Upload File directly to Storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { 
@@ -30,12 +53,12 @@ export async function uploadUserAvatar(file: File) {
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      // 4. Get Public URL
+      // 5. Get Public URL
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      // 5. Update User Profile in DB
+      // 6. Update User Profile in DB
       const { error: updateError } = await supabase
         .from('users')
         .update({ avatar_url: publicUrl })
@@ -46,7 +69,7 @@ export async function uploadUserAvatar(file: File) {
         throw new Error(`Profile update failed: ${updateError.message}`);
       }
 
-      // 6. Cleanup: Delete old avatars in the background
+      // 7. Cleanup: Delete old avatars in the background
       (async () => {
           try {
             const { data: files } = await supabase.storage
