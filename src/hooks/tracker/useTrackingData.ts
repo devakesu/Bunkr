@@ -47,7 +47,7 @@ export function useTrackingData(user: User | null | undefined, options?: { enabl
 
       return (data as TrackAttendance[]) || [];
     },
-    enabled: !!user && !!semesterData && !!academicYearData && (options?.enabled !== false),
+    enabled: !!user && (options?.enabled !== false),
     staleTime: 1000 * 60,
   });
 }
