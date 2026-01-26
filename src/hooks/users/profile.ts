@@ -45,10 +45,13 @@ export const useProfile = () => {
         Sentry.captureException(err, { tags: { type: "ezygo_profile_sync_fail", location: "useProfile/queryFn" } });
       }
 
-      // 4. FALLBACK LOGIC: If Ezygo is down, return local profile or null
+      // 4. FALLBACK LOGIC: If Ezygo is down, fail instead of returning potentially stale local data
       if (!ezygoData) {
-        if (existingUser) return existingUser as UserProfile;
-        throw new Error("Failed to load profile data from any source.");
+        Sentry.captureMessage("Failed to load fresh profile data from Ezygo; aborting to avoid serving stale data.", {
+          level: "error",
+          tags: { type: "profile_remote_unavailable", location: "useProfile/queryFn" },
+        });
+        throw new Error("Failed to load profile data from remote source.");
       }
 
       // 5. "Soft Sync" Logic
