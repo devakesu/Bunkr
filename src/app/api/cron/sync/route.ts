@@ -32,6 +32,29 @@ const CourseSchema = z.object({
   code: z.string().optional(),
 });
 
+// Sync statistics type
+interface SyncStats {
+  processed: number;
+  deletions: number;
+  conflicts: number;
+  updates: number;
+  errors: number;
+}
+
+// Create empty stats object
+function createEmptyStats(): SyncStats {
+  return { processed: 0, deletions: 0, conflicts: 0, updates: 0, errors: 0 };
+}
+
+// Aggregate stats from source into target
+function aggregateStats(target: SyncStats, source: SyncStats): void {
+  target.processed += source.processed;
+  target.deletions += source.deletions;
+  target.conflicts += source.conflicts;
+  target.updates += source.updates;
+  target.errors += source.errors;
+}
+
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -115,7 +138,7 @@ export async function GET(req: Request) {
     // ---------------------------------------------------------
     // 3. CHUNKED PARALLEL PROCESSING
     // ---------------------------------------------------------
-    const finalResults = { processed: 0, deletions: 0, conflicts: 0, updates: 0, errors: 0 };
+    const finalResults = createEmptyStats();
     
     // Split users into chunks based on CONCURRENCY_LIMIT
     const chunks = [];
@@ -127,7 +150,7 @@ export async function GET(req: Request) {
         // Process users in this chunk concurrently
         const promises = chunk.map(async (user) => {
             // Per-user stats to avoid race conditions
-            const userStats = { processed: 0, deletions: 0, conflicts: 0, updates: 0, errors: 0 };
+            const userStats = createEmptyStats();
             
             try {
                 if (!user.ezygo_token || !user.ezygo_iv || !user.auth_id) throw new Error("Missing credentials");
@@ -303,11 +326,15 @@ export async function GET(req: Request) {
         // Aggregate stats from all promises in this chunk
         results.forEach((result) => {
             if (result.status === 'fulfilled' && result.value) {
-                finalResults.processed += result.value.processed;
-                finalResults.deletions += result.value.deletions;
-                finalResults.conflicts += result.value.conflicts;
-                finalResults.updates += result.value.updates;
-                finalResults.errors += result.value.errors;
+                aggregateStats(finalResults, result.value);
+            } else if (result.status === 'rejected') {
+                // Ensure rejected user syncs are counted as errors
+                finalResults.errors += 1;
+                
+                // Capture unexpected promise rejections so they are visible
+                Sentry.captureException(result.reason, {
+                    tags: { type: "sync_user_promise_rejection", location: "cron/sync" },
+                });
             }
         });
         
