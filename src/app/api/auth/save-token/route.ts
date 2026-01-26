@@ -9,6 +9,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import crypto from "crypto";
 import { z } from "zod";
+import { redis } from "@/lib/redis";
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,50 @@ function getAdminClient() {
   }
   
   return createClient(url, key);
+}
+
+/**
+ * Acquires a distributed lock for user authentication operations
+ * to prevent race conditions during concurrent logins
+ */
+async function acquireAuthLock(userId: string): Promise<boolean> {
+  const lockKey = `auth_lock:${userId}`;
+  const lockValue = crypto.randomBytes(16).toString('hex');
+  const lockTTL = 10; // 10 seconds TTL
+  
+  try {
+    // SET NX (only set if doesn't exist) with expiration
+    const result = await redis.set(lockKey, lockValue, {
+      nx: true,
+      ex: lockTTL,
+    });
+    
+    return result === 'OK';
+  } catch (error) {
+    console.error('Failed to acquire auth lock:', error);
+    Sentry.captureException(error, {
+      tags: { type: 'redis_lock_error', location: 'acquire_auth_lock' },
+      extra: { userId },
+    });
+    return false;
+  }
+}
+
+/**
+ * Releases the distributed lock for user authentication operations
+ */
+async function releaseAuthLock(userId: string): Promise<void> {
+  const lockKey = `auth_lock:${userId}`;
+  
+  try {
+    await redis.del(lockKey);
+  } catch (error) {
+    console.error('Failed to release auth lock:', error);
+    Sentry.captureException(error, {
+      tags: { type: 'redis_lock_error', location: 'release_auth_lock' },
+      extra: { userId },
+    });
+  }
 }
 
 export async function POST(req: Request) {
@@ -162,110 +207,124 @@ export async function POST(req: Request) {
     const ephemeralPassword = crypto.randomBytes(32).toString('hex');
     let userId: string | undefined;
 
-    // A. Try to Create User First
-    const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: ephemeralPassword,
-      email_confirm: true,
-      user_metadata: { ezygo_id: verifieduserId },
-    });
+    // Acquire lock to prevent concurrent password updates
+    const lockAcquired = await acquireAuthLock(verifieduserId);
+    if (!lockAcquired) {
+      return NextResponse.json(
+        { message: "Another login is in progress. Please try again." },
+        { status: 409 }
+      );
+    }
 
-    if (createError) {
-      // B. If User Exists -> Update Password
-      if (createError.message?.toLowerCase().includes("already registered") || createError.status === 422) {
-        // Let's use the 'users' table to resolve the Auth UUID
-        const { data: existingMap } = await supabaseAdmin
-            .from("users")
-            .select("auth_id")
-            .eq("id", verifieduserId)
-            .single();
+    try {
+      // A. Try to Create User First
+      const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: ephemeralPassword,
+        email_confirm: true,
+        user_metadata: { ezygo_id: verifieduserId },
+      });
 
-        const targetAuthId = existingMap?.auth_id;
+      if (createError) {
+        // B. If User Exists -> Update Password
+        if (createError.message?.toLowerCase().includes("already registered") || createError.status === 422) {
+          // Let's use the 'users' table to resolve the Auth UUID
+          const { data: existingMap } = await supabaseAdmin
+              .from("users")
+              .select("auth_id")
+              .eq("id", verifieduserId)
+              .single();
 
-        if (!targetAuthId) {
-          // --- CASE 1: ORPHAN USER (Exists in Auth, missing in DB) ---
-          console.warn(`Orphan Auth User detected for ${verifieduserId}. Initiating exhaustive cleanup...`);
+          const targetAuthId = existingMap?.auth_id;
 
-          let orphanUserId: string | null = null;
-          let page = 1;
-          const PER_PAGE = 1000;
-          let hasMore = true;
+          if (!targetAuthId) {
+            // --- CASE 1: ORPHAN USER (Exists in Auth, missing in DB) ---
+            console.warn(`Orphan Auth User detected for ${verifieduserId}. Initiating exhaustive cleanup...`);
 
-          // Paginated Search Loop
-          while (hasMore) {
-            const { data, error: listError } = await supabaseAdmin.auth.admin.listUsers({ 
-              page: page, 
-              perPage: PER_PAGE 
-            });
+            let orphanUserId: string | null = null;
+            let page = 1;
+            const PER_PAGE = 1000;
+            let hasMore = true;
 
-            if (listError) {
-               console.error("Failed to list users during cleanup:", listError);
-               throw listError;
+            // Paginated Search Loop
+            while (hasMore) {
+              const { data, error: listError } = await supabaseAdmin.auth.admin.listUsers({ 
+                page: page, 
+                perPage: PER_PAGE 
+              });
+
+              if (listError) {
+                 console.error("Failed to list users during cleanup:", listError);
+                 throw listError;
+              }
+
+              const users = data.users || [];
+              
+              // Try to find the user in the current page
+              const found = users.find(u => u.email === email);
+              if (found) {
+                orphanUserId = found.id;
+                break;
+              }
+
+              if (users.length < PER_PAGE) {
+                hasMore = false;
+              } else {
+                page++;
+              }
             }
 
-            const users = data.users || [];
-            
-            // Try to find the user in the current page
-            const found = users.find(u => u.email === email);
-            if (found) {
-              orphanUserId = found.id;
-              break;
-            }
+            if (orphanUserId) {
+              // Delete the orphan Auth record
+              const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(orphanUserId);
+              if (deleteError) throw deleteError;
+              
+              console.log(`Deleted orphan user ${orphanUserId}. Retrying creation...`);
 
-            if (users.length < PER_PAGE) {
-              hasMore = false;
+              // Retry Creation (Fresh Start)
+              const { data: retryData, error: retryError } = await supabaseAdmin.auth.admin.createUser({
+                email,
+                password: ephemeralPassword,
+                email_confirm: true,
+                user_metadata: { ezygo_id: verifieduserId },
+              });
+
+              if (retryError) throw retryError;
+              userId = retryData.user.id;
+
             } else {
-              page++;
+               const errorMsg = `Critical: 'User already registered' error, but email ${email} not found in Auth scan.`;
+               console.error(errorMsg);
+               
+               // CAPTURE CRITICAL SYNC ERROR
+               Sentry.captureException(new Error(errorMsg), {
+                   tags: { type: "critical_auth_sync", location: "save_token" },
+                   extra: { verifieduserId, email }
+               });
+
+               return NextResponse.json({ message: "Account synchronization error" }, { status: 500 });
             }
-          }
-
-          if (orphanUserId) {
-            // Delete the orphan Auth record
-            const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(orphanUserId);
-            if (deleteError) throw deleteError;
-            
-            console.log(`Deleted orphan user ${orphanUserId}. Retrying creation...`);
-
-            // Retry Creation (Fresh Start)
-            const { data: retryData, error: retryError } = await supabaseAdmin.auth.admin.createUser({
-              email,
-              password: ephemeralPassword,
-              email_confirm: true,
-              user_metadata: { ezygo_id: verifieduserId },
-            });
-
-            if (retryError) throw retryError;
-            userId = retryData.user.id;
 
           } else {
-             const errorMsg = `Critical: 'User already registered' error, but email ${email} not found in Auth scan.`;
-             console.error(errorMsg);
-             
-             // CAPTURE CRITICAL SYNC ERROR
-             Sentry.captureException(new Error(errorMsg), {
-                 tags: { type: "critical_auth_sync", location: "save_token" },
-                 extra: { verifieduserId, email }
-             });
+            // --- CASE 2: NORMAL USER (Exists in both) ---
+            const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+              targetAuthId,
+              { password: ephemeralPassword }
+            );
 
-             return NextResponse.json({ message: "Account synchronization error" }, { status: 500 });
+            if (updateError) throw updateError;
+            userId = targetAuthId;
           }
-
+          
         } else {
-          // --- CASE 2: NORMAL USER (Exists in both) ---
-          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-            targetAuthId,
-            { password: ephemeralPassword }
-          );
-
-          if (updateError) throw updateError;
-          userId = targetAuthId;
+          throw createError;
         }
-        
       } else {
-        throw createError;
+        userId = createData.user.id;
       }
-    } else {
-      userId = createData.user.id;
+    } finally {
+      // Always release the lock, even if an error occurred
+      await releaseAuthLock(verifieduserId);
     }
 
     // 4. Sign In
