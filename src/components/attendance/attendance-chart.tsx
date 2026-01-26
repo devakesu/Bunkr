@@ -228,6 +228,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
   const yAxisMin = Math.max(0, calculatedMin);
 
   return (
+    {/* ResponsiveContainer below fills this fixed-height (300px) parent container */}
     <div className="w-full h-[300px] min-w-0">
       {data.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
