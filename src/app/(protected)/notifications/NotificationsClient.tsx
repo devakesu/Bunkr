@@ -42,7 +42,7 @@ const NotificationCard = ({
       role="button"
       tabIndex={!n.is_read ? 0 : -1}
       className={cn(
-        "group relative flex gap-4 p-4 rounded-2xl border transition-all duration-200 overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary mb-3",
+        "group relative flex gap-4 p-4 rounded-2xl border transition-all duration-200 overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary mb-2",
         !n.is_read ? "bg-card border-border/60 shadow-sm hover:shadow-md cursor-pointer" : "bg-transparent border-transparent opacity-70"
       )}
     >
@@ -131,37 +131,27 @@ export default function NotificationsPage() {
       const item = virtualItems[index];
 
       if (item.type === "header") {
-        // Section header height (including top/bottom padding)
-        return 50;
+        // Section header height (including padding)
+        return 45;
       }
 
       // Notification card height
       const notification = item.data;
       const description = notification.description ?? "";
 
-      // Empirically chosen base heights, tuned for the current card layout.
-      const baseHeightWithoutDescription = 80;
-      const baseHeightWithDescription = 110;
+      // More accurate base heights based on actual card layout
+      const baseHeightShort = 80;  // Single-line description
+      const baseHeightMedium = 95; // 2-line description
+      
+      // Calculate approximate extra height for longer descriptions
+      const extraPer100Chars = 12;
+      const maxExtra = 60;
+      const extraHeight = description.length > 80
+        ? Math.min(maxExtra, Math.ceil((description.length - 80) / 100) * extraPer100Chars)
+        : 0;
 
-      // Add a small, capped extra height based on description length.
-      // This avoids relying on characters-per-line assumptions while still
-      // giving longer descriptions a bit more space initially.
-      const extraPer100Chars = 18;
-      const maxExtra = 120;
-      const extraHeight =
-        description.length > 0
-          ? Math.min(
-              maxExtra,
-              Math.ceil(description.length / 100) * extraPer100Chars
-            )
-          : 0;
-
-      const baseHeight =
-        description.length > 0
-          ? baseHeightWithDescription
-          : baseHeightWithoutDescription;
-
-      const marginBottom = 12; // mb-3 (3 * 4px)
+      const baseHeight = description.length > 80 ? baseHeightMedium : baseHeightShort;
+      const marginBottom = 8; // mb-2 (2 * 4px)
 
       return baseHeight + extraHeight + marginBottom;
     },
@@ -284,7 +274,7 @@ export default function NotificationsPage() {
   const isEmpty = virtualItems.length === 0;
 
   return (
-    <div className="min-h-screen bg-background relative">
+    <div ref={parentRef} className="min-h-screen bg-background relative overflow-auto">
       <header className="sticky top-0 z-20 w-full backdrop-blur-xl bg-background/80 border-b border-border/40">
         <div className="container mx-auto max-w-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -300,11 +290,7 @@ export default function NotificationsPage() {
         </div>
       </header>
 
-      <main 
-        ref={parentRef} 
-        className="container mx-auto max-w-2xl overflow-auto"
-        style={{ height: 'calc(100vh - 73px)' }}
-      >
+      <main className="container mx-auto max-w-2xl">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="h-20 w-20 rounded-full bg-muted/30 flex items-center justify-center mb-4">
@@ -327,12 +313,13 @@ export default function NotificationsPage() {
               return (
                 <div
                   key={item.type === 'header' ? item.id : `notification-${item.id}`}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
                   style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
                     width: '100%',
-                    height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                   className="px-4"

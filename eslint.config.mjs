@@ -40,6 +40,20 @@ export default [
           "caughtErrorsIgnorePattern": "^_"
         }
       ]
+    },
+    settings: {
+      react: {
+        version: "detect"
+      }
+    }
+  },
+  // --- FIX FOR SCRIPTS ---
+  {
+    files: ["scripts/**/*.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/no-var-requires": "off",
+      "no-console": "off" 
     }
   }
 ];

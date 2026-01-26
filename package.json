@@ -1,6 +1,6 @@
 {
   "name": "ghostclass",
-  "version": "1.0.1",
+  "version": "1.1.5",
   "private": false,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "prepare": "husky install",
-    "docs:validate": "npx @redocly/cli lint public/api-docs/openapi.yaml"
+    "docs:validate": "npx @redocly/cli lint public/api-docs/openapi.yaml",
+    "verify-version": "node scripts/verify-version.js"
   },
   "overrides": {
     "tar": "^7.5.6"
