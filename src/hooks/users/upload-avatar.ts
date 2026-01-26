@@ -44,7 +44,7 @@ export async function uploadUserAvatar(file: File) {
 
   try {
       // 3. Prepare File Path - use extension from validated MIME type
-      const fileExt = MIME_TO_EXT[file.type as typeof ALLOWED_IMAGE_TYPES[number]];
+      const fileExt = MIME_TO_EXT[file.type as typeof ALLOWED_IMAGE_TYPES[number]] || 'jpg';
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
 
