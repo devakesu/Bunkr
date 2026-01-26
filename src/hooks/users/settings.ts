@@ -17,13 +17,8 @@ type AcademicYearData = {
 // Don't retry on auth errors (401/403) - these need user intervention
 const MAX_RETRIES = 2;
 
-// Type guard for axios errors
-const isAxiosError = (error: unknown): error is AxiosError => {
-  return typeof error === 'object' && error !== null && 'isAxiosError' in error;
-};
-
 const settingsRetryFn = (failureCount: number, error: unknown) => {
-  if (isAxiosError(error)) {
+  if (axios.isAxiosError(error)) {
     const status = error.response?.status;
     if (status === 401 || status === 403) {
       return false;
@@ -40,7 +35,7 @@ export const useFetchSemester = () => {
         const res = await axios.get("/user/setting/default_semester");
         return res.data;
       } catch (error: unknown) {
-        if (isAxiosError(error) && error.response?.status === 404) return null;
+        if (axios.isAxiosError(error) && error.response?.status === 404) return null;
         throw error;
       }
     },
@@ -58,7 +53,7 @@ export const useFetchAcademicYear = () => {
         const res = await axios.get("/user/setting/default_academic_year");
         return res.data;
       } catch (error: unknown) {
-        if (isAxiosError(error) && error.response?.status === 404) return null;
+        if (axios.isAxiosError(error) && error.response?.status === 404) return null;
         throw error;
       }
     },
