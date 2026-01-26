@@ -420,7 +420,20 @@ export async function POST(req: Request) {
         .upsert({ 
           id: verifieduserId,
           username: verifiedUsername,
-          ezygo_token: content, 
+    
+    // Best-effort: ensure the distributed lock is released even if an error
+    // occurs after lock acquisition but before the inner try/finally block.
+    try {
+      if (typeof verifieduserId !== "undefined" && typeof lockValue !== "undefined") {
+        await releaseAuthLock(verifieduserId, lockValue);
+      }
+    } catch (releaseError) {
+      console.error("Failed to release auth lock after error:", releaseError);
+      Sentry.captureException(releaseError, {
+        tags: { type: "auth_lock_release_failure", location: "save_token_catch" }
+      });
+    }
+    
           ezygo_iv: iv,
           auth_id: userId,
           updated_at: new Date().toISOString()
