@@ -31,7 +31,7 @@ export async function createClient() {
             // The 'setAll' method was called from a Server Component.
             // This can be ignored if you have middleware refreshing the session.
             if (process.env.NODE_ENV === 'development') {
-                console.warn("Supabase cookie set ignored (Server Component context) - This is usually normal." + error);
+                console.warn(`Supabase cookie set ignored (Server Component context) - This is usually normal. Error: ${error instanceof Error ? error.message : String(error)}`);
             }
           }
         },
