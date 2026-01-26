@@ -38,8 +38,42 @@ export function ContactForm({ userDetails }: ContactFormProps) {
 
     try {
         const formData = new FormData(e.currentTarget);
-        // Explicitly set the token in case the library input isn't picked up automatically
-        formData.set("cf-turnstile-response", token);
+        // Explicitly set the Turnstile token. In some integration patterns (e.g. JS-based submission
+        // or certain versions of react-turnstile), the hidden Turnstile input may not be included
+        // in the constructed FormData, so we manually inject it here to ensure server-side
+        // verification always receives the token.
+        if (typeof formData.set === "function") {
+            try {
+                formData.set("cf-turnstile-response", token);
+            } catch (setError) {
+                console.error("Failed to set Turnstile token on FormData:", setError);
+                
+                Sentry.captureException(setError, {
+                    tags: {
+                        type: "contact_form_client_error",
+                        location: "ContactForm/handleSubmit/formDataSet",
+                    },
+                });
+                
+                toast.error("Something went wrong with the security check. Please try again.");
+                setLoading(false);
+                return;
+            }
+        } else {
+            const noSetError = new Error("FormData.set is not available when submitting contact form.");
+            console.error(noSetError);
+            
+            Sentry.captureException(noSetError, {
+                tags: {
+                    type: "contact_form_client_error",
+                    location: "ContactForm/handleSubmit/formDataSetMissing",
+                },
+            });
+            
+            toast.error("Something went wrong with the security check. Please try again.");
+            setLoading(false);
+            return;
+        }
 
         const result = await submitContactForm(formData);
 
