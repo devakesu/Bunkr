@@ -22,10 +22,12 @@ export const useFetchSemester = () => {
         return res.data;
       } catch (error: any) {
         if (error.response?.status === 404) return null;
+        if (error.response?.status === 401) throw error; // Auth issues should propagate
         
         console.error("Error fetching semester setting:", error);
         Sentry.captureException(error, { tags: { type: "setting_fetch_error", location: "useFetchSemester/queryFn" } });
-        return null;
+        // For other errors, let React Query handle retry logic
+        throw error;
       }
     },
     staleTime: 1000 * 60 * 5, 
@@ -42,10 +44,12 @@ export const useFetchAcademicYear = () => {
         return res.data;
       } catch (error: any) {
         if (error.response?.status === 404) return null;
+        if (error.response?.status === 401) throw error; // Auth issues should propagate
 
         console.error("Error fetching academic year setting:", error);
         Sentry.captureException(error, { tags: { type: "setting_fetch_error", location: "useFetchAcademicYear/queryFn" } });
-        return null;
+        // For other errors, let React Query handle retry logic
+        throw error;
       }
     },
     staleTime: 1000 * 60 * 5, 
