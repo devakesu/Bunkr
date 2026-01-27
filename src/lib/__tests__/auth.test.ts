@@ -9,7 +9,7 @@ vi.mock('cookies-next', () => ({
 }))
 
 // Mock Supabase client
-vi.mock('../supabase/client', () => ({
+vi.mock('./supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: {
       signOut: vi.fn().mockResolvedValue({ error: null }),
