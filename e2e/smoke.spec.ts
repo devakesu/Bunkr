@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('Application', () => {
+test.describe('Smoke Tests', () => {
   test('should respond to requests', async ({ page }) => {
     const response = await page.goto('/')
     
