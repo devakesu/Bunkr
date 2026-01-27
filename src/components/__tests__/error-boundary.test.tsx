@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ErrorBoundary } from '@/components/error-boundary'
 
@@ -7,6 +7,10 @@ const ThrowError = () => {
 }
 
 describe('ErrorBoundary', () => {
+  afterEach(() => {
+    // Clean up any stubbed environment variables
+    vi.unstubAllEnvs()
+  })
   it('should render children when no error', () => {
     render(
       <ErrorBoundary>
@@ -46,6 +50,5 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText(/Test error/)).toBeInTheDocument()
     
     spy.mockRestore()
-    vi.unstubAllEnvs()
   })
 })

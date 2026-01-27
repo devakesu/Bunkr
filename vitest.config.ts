@@ -31,7 +31,7 @@ export default defineConfig({
         branches: 4,
         statements: 5,
       },
-    },
+    } as any,
     include: ['**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules', '.next', 'supabase', 'e2e'],
   },

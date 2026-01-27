@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setToken, getToken, removeToken } from '../auth'
 
 // Mock cookies-next
@@ -9,7 +9,7 @@ vi.mock('cookies-next', () => ({
 }))
 
 // Mock Supabase client
-vi.mock('./supabase/client', () => ({
+vi.mock('../supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: {
       signOut: vi.fn().mockResolvedValue({ error: null }),
@@ -27,6 +27,11 @@ import { setCookie, getCookie, deleteCookie } from 'cookies-next'
 describe('auth', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    // Clean up any stubbed environment variables
+    vi.unstubAllEnvs()
   })
 
   describe('setToken', () => {
@@ -80,8 +85,6 @@ describe('auth', () => {
           secure: true,
         })
       )
-
-      vi.unstubAllEnvs()
     })
   })
 
