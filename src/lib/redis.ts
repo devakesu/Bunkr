@@ -1,22 +1,84 @@
+// src/lib/redis.ts
 import { Redis } from '@upstash/redis';
 
-const redisClient = () => {
-  if (!process.env.UPSTASH_REDIS_REST_URL) {
-    throw new Error("Redis URL missing");
+/**
+ * Creates a Redis client with validated environment variables
+ * @throws {Error} If required environment variables are missing
+ */
+function createRedisClient(): Redis {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  
+  if (!url) {
+    throw new Error(
+      "UPSTASH_REDIS_REST_URL is not defined. " +
+      "Please add it to your .env file."
+    );
   }
-  return new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  });
-};
+  
+  if (!token) {
+    throw new Error(
+      "UPSTASH_REDIS_REST_TOKEN is not defined. " +
+      "Please add it to your .env file."
+    );
+  }
+  
+  return new Redis({ url, token });
+}
 
-let cachedClient: Redis | null = null;
+/**
+ * Singleton Redis client instance
+ * Initialized on first access
+ */
+let redisInstance: Redis | null = null;
 
-export const redis = new Proxy({} as Redis, {
-  get: (_target, prop) => {
-    if (!cachedClient) {
-      cachedClient = redisClient();
+/**
+ * Get the singleton Redis client
+ * Creates the client on first call, then returns the cached instance
+ * 
+ * @returns {Redis} The Redis client instance
+ * @example
+ * ```typescript
+ * import { getRedis } from '@/lib/redis';
+ * 
+ * const redis = getRedis();
+ * await redis.set('key', 'value');
+ * ```
+ */
+export function getRedis(): Redis {
+  if (!redisInstance) {
+    redisInstance = createRedisClient();
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Redis] Client initialized successfully');
     }
-    return cachedClient[prop as keyof Redis];
+  }
+  
+  return redisInstance;
+}
+
+/**
+ * Reset the Redis client (useful for testing)
+ * @internal
+ */
+export function __resetRedisClient(): void {
+  redisInstance = null;
+  proxyClient = null;
+}
+
+/**
+ * Default export for convenience - uses lazy initialization
+ * Usage: import redis from '@/lib/redis'
+ * 
+ * Note: This creates a getter that initializes Redis on first access
+ */
+let proxyClient: Redis | null = null;
+export const redis = new Proxy({} as Redis, {
+  get(_target, prop) {
+    if (!proxyClient) {
+      proxyClient = getRedis();
+    }
+    const value = proxyClient[prop as keyof Redis];
+    return typeof value === 'function' ? value.bind(proxyClient) : value;
   }
 });

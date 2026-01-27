@@ -9,7 +9,7 @@ import { getToken } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { Toaster } from "sonner";
 import TermsModal from "@/components/legal/TermsModal";
-import { motion, useScroll, useMotionValueEvent } from "framer-motion";
+import { motion, useScroll } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/error-boundary";
 
@@ -20,22 +20,36 @@ export default function ProtectedLayout({
 }) {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
-  
-  // --- SMART NAVBAR STATE ---
   const [isHidden, setIsHidden] = useState(false);
   const { scrollY } = useScroll();
   const lastScrollY = useRef(0);
+  const ticking = useRef(false);
 
-  // --- SCROLL LOGIC ---
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    const previous = lastScrollY.current;
-    if (latest > previous && latest > 150) {
-      setIsHidden(true); // Hide when scrolling down
-    } else {
-      setIsHidden(false); // Show when scrolling up
-    }
-    lastScrollY.current = latest;
-  });
+  useEffect(() => {
+    const unsubscribe = scrollY.on("change", (latest) => {
+      if (!ticking.current) {
+        window.requestAnimationFrame(() => {
+          const previous = lastScrollY.current;
+          const shouldHide = latest > previous && latest > 150;
+          const shouldShow = latest <= previous || latest <= 150;
+          
+          if (shouldHide && !isHidden) {
+            setIsHidden(true);
+          } else if (shouldShow && isHidden) {
+            setIsHidden(false);
+          }
+          
+          lastScrollY.current = latest;
+          ticking.current = false;
+        });
+        ticking.current = true;
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [scrollY, isHidden]);
 
   const { error: institutionError, isLoading: institutionLoading } = useInstitutions();
 
@@ -51,7 +65,6 @@ export default function ProtectedLayout({
     checkAuth();
   }, [router]);
 
-  // Show loading screen while checking auth or fetching initial data
   if (!isAuthorized || institutionLoading || institutionError) {
     return (
       <div className="h-screen flex items-center justify-center">

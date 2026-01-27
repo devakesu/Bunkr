@@ -201,10 +201,11 @@ return (
                       variant={loginMethod === method ? "secondary" : "ghost"}
                       className="h-6 w-6 p-3"
                       onClick={() => setLoginMethod(method)}
+                      aria-label={method === "username" ? "Login with username" : method === "email" ? "Login with email" : "Login with phone"}
                     >
-                      {method === "username" && <User className="h-4 w-4" />}
-                      {method === "email" && <Mail className="h-4 w-4" />}
-                      {method === "phone" && <Phone className="h-4 w-4" />}
+                      {method === "username" && <User className="h-4 w-4" aria-hidden="true" />}
+                      {method === "email" && <Mail className="h-4 w-4" aria-hidden="true" />}
+                      {method === "phone" && <Phone className="h-4 w-4" aria-hidden="true" />}
                     </Button>
                   ))}
                 </div>
@@ -232,6 +233,7 @@ return (
                   type="button"
                   onClick={() => setShowPasswordResetForm(true)}
                   className="text-[13px] text-muted-foreground hover:text-primary duration-100 font-medium"
+                  aria-label="Forgot password"
                 >
                   Forgot password?
                 </button>

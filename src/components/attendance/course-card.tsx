@@ -310,7 +310,7 @@ export function CourseCard({ course }: CourseCardProps) {
         ) : (
           <div className="flex flex-col items-center justify-center py-4 px-2 h-full gap-1">
             <div className="flex items-center gap-2 mb-1 text-amber-500">
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircle className="h-4 w-4" aria-label="No attendance data" />
               <span className="font-medium text-sm">No attendance data</span>
             </div>
             <p className="text-center text-xs text-muted-foreground">

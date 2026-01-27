@@ -226,7 +226,7 @@ CREATE TABLE IF NOT EXISTS "public"."users" (
     "last_synced_at" timestamp with time zone,
     "auth_id" "uuid",
     "terms_accepted_at" timestamp with time zone,
-    "terms_version" "text" NOT NULL
+    "terms_version" "text"
 );
 
 
@@ -291,10 +291,6 @@ CREATE INDEX "idx_notification_unread" ON "public"."notification" USING "btree" 
 
 
 COMMENT ON INDEX "public"."idx_notification_unread" IS 'Optimizes queries for unread notifications (most common use case)';
-
-
-
-CREATE INDEX "idx_notification_user" ON "public"."notification" USING "btree" ("auth_user_id");
 
 
 

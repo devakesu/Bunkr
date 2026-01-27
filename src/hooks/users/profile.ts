@@ -158,7 +158,7 @@ export function useUpdateProfile() {
     },
 
     // 2. ROLLBACK ON FAILURE
-    onError: (err, variables, context) => {
+    onError: (err, _variables, context) => {
       // Check if we have a saved snapshot
       if (context?.previousProfile) {
           // REVERT: Force the cache back to the old data

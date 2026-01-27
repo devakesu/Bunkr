@@ -41,7 +41,7 @@ export function PublicNavbar() {
       
       <div className="flex gap-2 sm:gap-4 items-center">
          {loading ? (
-           <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+           <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" aria-label="Loading" />
          ) : user ? (
            <Link href="/dashboard">
               <Button className="gap-2">

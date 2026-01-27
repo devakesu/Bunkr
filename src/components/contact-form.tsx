@@ -142,7 +142,7 @@ export function ContactForm({ userDetails }: ContactFormProps) {
       <div className="flex flex-col items-center justify-center py-2 min-h-[65px]">
         {captchaError ? (
           <p className="text-xs text-red-500 flex items-center gap-2 bg-red-500/10 p-2 rounded">
-            <AlertCircle className="w-4 h-4" />
+            <AlertCircle className="w-4 h-4" aria-label="Security check failed" />
             Security check failed to load.
           </p>
         ) : (
@@ -172,12 +172,12 @@ export function ContactForm({ userDetails }: ContactFormProps) {
       >
         {loading ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-label="Sending" />
             Sending...
           </>
         ) : (
           <>
-            <Send className="mr-2 h-4 w-4" />
+            <Send className="mr-2 h-4 w-4" aria-label="Send message" />
             {captchaError 
               ? "Security Check Failed" 
               : (!token ? "Waiting for Verification..." : "Send Message")
