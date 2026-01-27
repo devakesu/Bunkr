@@ -26,6 +26,12 @@ if (RATE_LIMIT_WINDOW < 1 || RATE_LIMIT_WINDOW > 3600) {
 const AUTH_LIMIT = parseInt(process.env.AUTH_RATE_LIMIT_REQUESTS || "5", 10);
 const AUTH_WINDOW = parseInt(process.env.AUTH_RATE_LIMIT_WINDOW || "60", 10);
 
+if (AUTH_LIMIT < 1 || AUTH_LIMIT > 1000) {
+  throw new Error(`AUTH_RATE_LIMIT_REQUESTS must be between 1-1000, got: ${AUTH_LIMIT}`);
+}
+if (AUTH_WINDOW < 1 || AUTH_WINDOW > 3600) {
+  throw new Error(`AUTH_RATE_LIMIT_WINDOW must be between 1-3600 seconds, got: ${AUTH_WINDOW}`);
+}
 // Log configuration in development
 if (process.env.NODE_ENV === 'development') {
   console.log(`[Rate Limit] ${RATE_LIMIT_REQUESTS} requests per ${RATE_LIMIT_WINDOW}s`);
