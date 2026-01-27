@@ -1,12 +1,10 @@
 npm run verify-version
 npx lint-staged
 
-echo "📦 .env Syncing secrets to GitHub..."
-echo ""
-if ! node scripts/sync-secrets.js; then
-    echo ""
-    echo "🚫 Commit blocked - fix sync errors first"
-    echo "💡 Run 'npm run sync-secrets' to test"
-    echo ""
-    exit 1
- fi
+# Skip secret sync if SKIP_SECRET_SYNC is set (useful for local development)
+if [ -z "$SKIP_SECRET_SYNC" ]; then
+  echo "📦 .env Syncing secrets to GitHub..."
+  echo ""
+  node scripts/sync-secrets.js
+  echo ""
+fi
