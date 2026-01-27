@@ -134,6 +134,71 @@ The application will be available at `http://localhost:3000` 🎉
 
 <br />
 
+## 🧪 Testing
+
+GhostClass uses Vitest for unit/component tests and Playwright for E2E tests.
+
+### Running Tests
+
+```bash
+# Run unit tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run E2E tests
+npm run test:e2e
+
+# Run E2E tests with UI
+npm run test:e2e:ui
+
+# Run all tests
+npm run test:all
+```
+
+### Test Coverage
+
+We aim for 60%+ code coverage across:
+- Utilities: 90%+
+- Components: 70%+
+- Hooks: 80%+
+- API Routes: 60%+
+
+View coverage report:
+```bash
+npm run test:coverage
+open coverage/index.html
+```
+
+### Writing Tests
+
+Tests follow the Arrange-Act-Assert pattern and use React Testing Library for component tests.
+
+Example:
+```typescript
+describe('Component', () => {
+  it('should do something when condition', () => {
+    // Arrange
+    render(<Component prop="value" />)
+    
+    // Act
+    fireEvent.click(screen.getByText('Button'))
+    
+    // Assert
+    expect(screen.getByText('Result')).toBeInTheDocument()
+  })
+})
+```
+
+<br />
+
 ## 🤝 Contributing
 
 We welcome contributions! Here's how you can help:
