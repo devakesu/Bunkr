@@ -63,6 +63,7 @@ export function getRedis(): Redis {
  */
 export function __resetRedisClient(): void {
   redisInstance = null;
+  proxyClient = null;
 }
 
 /**
