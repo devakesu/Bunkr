@@ -305,7 +305,7 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
                 }}
                 className="h-9"
               >
-                <X className="w-4 h-4 mr-2" aria-label="Cancel editing" /> Cancel
+                <X className="w-4 h-4 mr-2" aria-hidden="true" /> Cancel
               </Button>
               <Button
                 type="submit"
@@ -314,9 +314,9 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
                 className="h-9 min-w-[100px]"
               >
                 {updateProfileMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" aria-label="Saving profile" />
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden="true" />
                 ) : (
-                  <Check className="w-4 h-4 mr-2" aria-label="Save profile" />
+                  <Check className="w-4 h-4 mr-2" aria-hidden="true" />
                 )}
                 Save
               </Button>

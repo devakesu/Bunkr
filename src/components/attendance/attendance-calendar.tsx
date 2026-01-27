@@ -468,7 +468,20 @@ export function AttendanceCalendar({
                             return (
                                 <div className="flex-shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
                                     <Badge variant="outline" className="text-[10px] h-6 px-2 bg-indigo-500/10 text-indigo-400 border-indigo-500/20 gap-1.5"><Sparkles className="w-3 h-3" />Self-Marked</Badge>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-500/10" disabled={isDeleting} onClick={() => handleDeleteTrackData(sessionForDB, event.courseId, dbDate)}>{isDeleting ? <Loader2 className="h-3 w-3 text-primary animate-spin" aria-label="Loading" role="status" /> : <Trash2 className="h-3.5 w-3.5" aria-label="Delete record" />}</Button>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-500/10" 
+                                        disabled={isDeleting} 
+                                        onClick={() => handleDeleteTrackData(sessionForDB, event.courseId, dbDate)} 
+                                        aria-label={isDeleting ? "Deleting record" : "Delete record"}
+                                    >
+                                        {isDeleting ? (
+                                            <Loader2 className="h-3 w-3 text-primary animate-spin" aria-hidden="true" />
+                                        ) : (
+                                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                        )}
+                                    </Button>
                                 </div>
                             );
                         }

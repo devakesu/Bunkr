@@ -505,7 +505,7 @@ export function AddAttendanceDialog({
              disabled={isSubmitting || isSessionBlocked || !session || !courseId}
              className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" aria-label="Submitting" /> : <Plus className="w-4 h-4 mr-2" aria-label="Add record" />}
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden="true" /> : <Plus className="w-4 h-4 mr-2" aria-hidden="true" />}
             Add Record
           </Button>
         </DialogFooter>

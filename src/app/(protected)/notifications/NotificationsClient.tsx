@@ -325,7 +325,7 @@ export default function NotificationsPage() {
           </div>
           {unreadCount > 0 && (
             <Button variant="ghost" size="sm" onClick={() => markAllAsRead()} className="text-xs text-muted-foreground hover:text-primary">
-              <CheckCheck className="mr-1.5 h-3.5 w-3.5" aria-label="Mark all notifications as read" /> Mark all read
+              <CheckCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Mark all read
             </Button>
           )}
         </div>
@@ -392,7 +392,7 @@ export default function NotificationsPage() {
         {isFetchingNextPage && (
           <div className="py-4 flex justify-center w-full">
             <div className="flex items-center gap-2 text-muted-foreground text-xs animate-pulse">
-              <Loader2 className="h-4 w-4 animate-spin" aria-label="Loading more notifications" /> Loading more...
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading more...
             </div>
           </div>
         )}
