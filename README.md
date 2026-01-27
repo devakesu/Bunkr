@@ -166,9 +166,9 @@ npm run test:all
 ### Test Coverage
 
 We're building test coverage incrementally, starting with critical paths:
-- Current thresholds: ~5% (enforced in CI)
-- Priority: Core utilities and business logic first
-- Future goal: Gradually increase coverage as we add tests for high-priority features
+- Current thresholds: ~5% (enforced in CI via `vitest.config.ts`)
+- Short-term goal: Ensure new and modified critical-path code is covered by tests
+- Long-term goal: Gradually raise the coverage thresholds in `vitest.config.ts` as we add tests for high-priority features (no fixed % target yet)
 
 View coverage report:
 ```bash
