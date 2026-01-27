@@ -16,7 +16,7 @@ describe('ErrorBoundary', () => {
     // Clean up any stubbed environment variables
     vi.unstubAllEnvs()
   })
-  
+
   it('should render children when no error', () => {
     render(
       <ErrorBoundary>
