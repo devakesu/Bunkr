@@ -165,11 +165,10 @@ npm run test:all
 
 ### Test Coverage
 
-We aim for 60%+ code coverage across:
-- Utilities: 90%+
-- Components: 70%+
-- Hooks: 80%+
-- API Routes: 60%+
+We're building test coverage incrementally, starting with critical paths:
+- Current thresholds: ~5% (enforced in CI)
+- Priority: Core utilities and business logic first
+- Future goal: Gradually increase coverage as we add tests for high-priority features
 
 View coverage report:
 ```bash
