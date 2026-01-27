@@ -24,6 +24,7 @@ export default defineConfig({
         'scripts/**',
       ],
       include: ['src/**/*.{ts,tsx}'],
+      all: true,
       thresholds: {
         lines: 5,
         functions: 6,
