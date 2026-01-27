@@ -19,10 +19,16 @@ export function Loading() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen w-full gap-8 p-8">
+    <div 
+      className="flex flex-col items-center justify-center min-h-screen w-full gap-8 p-8"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <span className="sr-only">Loading application, please wait...</span>
       {/* Spinner + Text Container */}
       <div className="flex flex-col items-center gap-6 text-center max-w-md">
-        <Ring2 size="45" stroke="4" speed="1" color="#3b82f6" />
+        <Ring2 size="45" stroke="4" speed="1" color="#3b82f6" aria-hidden="true" />
         
         <div className="space-y-2">
           <p className="text-lg font-medium text-muted-foreground italic leading-relaxed">
@@ -48,6 +54,7 @@ export function Loading() {
             size="sm" 
             onClick={handleLogout}
             className="gap-2"
+            aria-label="Sign out and return to login page"
           >
             <LogOut className="h-4 w-4" />
             Logout & Try Again

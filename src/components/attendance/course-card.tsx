@@ -140,7 +140,9 @@ export function CourseCard({ course }: CourseCardProps) {
     if (canBunk > 0) {
       return (
         <>
-          You can safely bunk <span className="font-bold text-green-500">{canBunk}</span> {canBunk === 1 ? "class 🥳" : "classes 🥳🥳"}
+          <span aria-label={`You can safely bunk ${canBunk} ${canBunk === 1 ? 'class' : 'classes'}`}>
+            You can safely bunk <span className="font-bold text-green-500">{canBunk}</span> {canBunk === 1 ? "class 🥳" : "classes 🥳🥳"}
+          </span>
           {isModified && (
              <span className="text-muted-foreground font-normal opacity-80 block text-xs mt-0.5"> (Based on Tracking Data)</span>
           )}
@@ -175,6 +177,7 @@ export function CourseCard({ course }: CourseCardProps) {
         <Badge
           variant="secondary"
           className="h-7 uppercase custom-button rounded-md! bg-black/20! scale-105 shrink-0"
+          aria-hidden="true"
         >
           {course.code}
         </Badge>
@@ -310,7 +313,7 @@ export function CourseCard({ course }: CourseCardProps) {
         ) : (
           <div className="flex flex-col items-center justify-center py-4 px-2 h-full gap-1">
             <div className="flex items-center gap-2 mb-1 text-amber-500">
-              <AlertCircle className="h-4 w-4" aria-label="No attendance data" />
+              <AlertCircle className="h-4 w-4" aria-hidden="true" />
               <span className="font-medium text-sm">No attendance data</span>
             </div>
             <p className="text-center text-xs text-muted-foreground">

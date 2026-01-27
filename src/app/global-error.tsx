@@ -55,7 +55,7 @@ export default function GlobalError({
               borderRadius: "50%",
               backgroundColor: "rgba(239, 68, 68, 0.1)"
             }}>
-              <AlertTriangle style={{ width: "24px", height: "24px", color: "#ef4444" }} />
+              <AlertTriangle style={{ width: "24px", height: "24px", color: "#ef4444" }} aria-hidden="true" />
             </div>
             <h1 style={{ fontSize: "1.5rem", fontWeight: "600", marginBottom: "0.5rem" }}>
               Critical Error

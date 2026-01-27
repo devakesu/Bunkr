@@ -192,7 +192,16 @@ export default function ProfileClient() {
                   />
                   
                   <div 
+                    role="button"
+                    tabIndex={0}
                     onClick={handleAvatarClick}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleAvatarClick();
+                      }
+                    }}
+                    aria-label="Change profile picture"
                     className={`relative w-full h-full rounded-full ring-4 ring-background border-2 border-white/10 z-10 cursor-pointer transition-all duration-300 ${isUploading ? 'opacity-80' : 'group-hover:opacity-90'}`}
                   >
                     <Image

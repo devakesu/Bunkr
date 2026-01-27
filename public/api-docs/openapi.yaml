@@ -22,8 +22,8 @@ info:
     
     All endpoints are rate-limited to prevent abuse:
     
-    - `/api/auth/save-token` & `/api/cron/sync`: 10 requests per 10 seconds per IP (shared sliding window across both endpoints)
-    - Contact Form (Server Action): 3 requests per 15 minutes per IP
+    - `/api/auth/save-token` & `/api/cron/sync`: Configurable via environment variables
+    - Contact Form (Server Action): Configurable via environment variables
     
     Rate limit information is returned in response headers:
     - `X-RateLimit-Limit`: Maximum requests allowed
@@ -32,7 +32,7 @@ info:
     
     ## Base URLs
     
-    - Production: `https://ghostclass.devakesu.com`
+    - Production: Configured via `NEXT_PUBLIC_APP_URL`
     - Development: `http://localhost:3000`
     
     ## Error Handling
@@ -41,15 +41,15 @@ info:
 
   contact:
     name: GhostClass Support
-    email: contact@ghostclass.devakesu.com
-    url: https://github.com/devakesu/GhostClass
+    email: ${NEXT_PUBLIC_APP_EMAIL}
+    url: ${NEXT_PUBLIC_GITHUB_URL}
   
   license:
     name: MIT
-    url: https://github.com/devakesu/GhostClass/blob/main/LICENSE
+    url: ${NEXT_PUBLIC_GITHUB_URL}/blob/main/LICENSE
 
 servers:
-  - url: https://ghostclass.devakesu.com
+  - url: ${NEXT_PUBLIC_APP_URL}
     description: Production
   - url: http://localhost:3000
     description: Development
@@ -80,7 +80,7 @@ paths:
         
         **Authentication:** No authentication required (this endpoint creates authentication)
         
-        **Rate Limiting:** 5 requests per 15 minutes per IP address
+        **Rate Limiting:** Configured via AUTH_RATE_LIMIT_REQUESTS and AUTH_RATE_LIMIT_WINDOW environment variables
         
         **Side Effects:**
         - Creates a new user account in Supabase Auth if not exists
@@ -167,7 +167,7 @@ paths:
             X-RateLimit-Limit:
               schema:
                 type: integer
-              description: Maximum number of requests allowed in the time window
+              description: Maximum number of requests allowed in the time window (from AUTH_RATE_LIMIT_REQUESTS)
               example: 5
             X-RateLimit-Remaining:
               schema:
@@ -221,7 +221,7 @@ paths:
         - **Option 1 (Cron)**: Bearer token with CRON_SECRET in Authorization header
         - **Option 2 (Users)**: Valid session cookie (authenticated users)
         
-        **Rate Limiting:** 10 requests per 60 seconds per IP address
+        **Rate Limiting:** Configured via RATE_LIMIT_REQUESTS and RATE_LIMIT_WINDOW environment variables
         
         **Side Effects:**
         - Deletes verified/matched attendance records
@@ -478,4 +478,4 @@ components:
 
 externalDocs:
   description: GitHub Repository
-  url: https://github.com/devakesu/GhostClass
+  url: ${NEXT_PUBLIC_GITHUB_URL}

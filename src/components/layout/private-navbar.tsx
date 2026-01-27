@@ -98,12 +98,15 @@ export const Navbar = () => {
         });
       },
       onError: () => {
-        toast("Error", {
-          description: "Failed to update institution. Please try again.",
-        });
+        toast.error("Failed to update institution");
       },
     });
   };
+
+  // Announce unread count changes to screen readers
+  const unreadLabel = unreadCount > 0 
+    ? `Notifications: ${unreadCount} unread` 
+    : "Notifications: No unread messages";
 
   const handleAddSuccess = async () => {
     // 1. Invalidate 'attendance-report' so the Dashboard charts update
@@ -187,7 +190,7 @@ export const Navbar = () => {
                 });
               }}
             >
-              <SelectTrigger className="w-[110px] custom-input cursor-pointer">
+              <SelectTrigger className="w-[110px] custom-input cursor-pointer" aria-label="Set attendance target percentage">
                 <SelectValue>
                   <div className="flex items-center font-medium">
                     <Percent className="mr-2 h-4 w-4" />
@@ -215,14 +218,14 @@ export const Navbar = () => {
                 value={selectedInstitution}
                 onValueChange={handleInstitutionChange}
               >
-                <SelectTrigger className="w-[140px] md:w-[290px] custom-input cursor-pointer">
+                <SelectTrigger className="w-[140px] md:w-[290px] custom-input cursor-pointer" aria-label="Select institution">
                   <SelectValue>
                     {selectedInstitution &&
                       institutions?.find(
                         (i) => i.id.toString() === selectedInstitution
                       ) && (
                         <div className="flex items-center font-medium">
-                          <Building2 className="mr-2 h-4 w-4" />
+                          <Building2 className="mr-2 h-4 w-4" aria-hidden="true" />
                           <span>
                             {(
                               institutions.find(
@@ -238,7 +241,7 @@ export const Navbar = () => {
                   {institutions.map((inst) => (
                     <SelectItem key={inst.id} value={inst.id.toString()}>
                       <div className="flex items-center cursor-pointer">
-                        <Building2 className="mr-2 h-4 w-4 flex-shrink-0" />
+                        <Building2 className="mr-2 h-4 w-4 flex-shrink-0" aria-hidden="true" />
                         <span className="font-medium">
                           {inst.institution.name}
                         </span>
@@ -254,27 +257,40 @@ export const Navbar = () => {
         <div className="flex items-center gap-4">
 
           <Link href="/notifications">
-            <Button variant="ghost" className="relative h-9 w-9 p-0 rounded-full" aria-label="Notifications">
+            <Button 
+              variant="ghost" 
+              className="relative h-9 w-9 p-0 rounded-full" 
+              aria-label={unreadLabel}
+            >
               <Bell className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               {unreadCount > 0 && (
-                <span
-                  className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold ring-2 ring-background"
-                  aria-live="polite"
-                >
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
+                <>
+                  <span
+                    className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold ring-2 ring-background"
+                    aria-hidden="true"
+                  >
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                  <span className="sr-only">
+                    {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
+                  </span>
+                </>
               )}
             </Button>
           </Link>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 rounded-full cursor-pointer">
+              <Button 
+                variant="ghost" 
+                className="relative h-9 w-9 rounded-full cursor-pointer"
+                aria-label="Open user menu"
+              >
                 <Avatar className="h-9 w-9 outline-2 relative">
                   {profile?.avatar_url ? (
                     <Image
                       src={profile.avatar_url}
-                      alt={user?.username || "Profile"}
+                      alt={`${user?.username || 'User'} profile picture`}
                       fill
                       className="object-cover rounded-full"
                       priority
@@ -282,13 +298,13 @@ export const Navbar = () => {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center rounded-full bg-muted">
-                      <Image src={UserPlaceholder} alt="Avatar" width={36} height={36} className="object-contain" priority/>
+                      <Image src={UserPlaceholder} alt="Default avatar" width={36} height={36} className="object-contain" priority/>
                     </div>
                   )}
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="min-w-56 z-50 mt-1 custom-dropdown pr-1 mr-[-4px]" align="end">
+            <DropdownMenuContent className="min-w-56 z-50 mt-1 custom-dropdown pr-1 mr-[-4px]" align="end" role="menu">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium lowercase">{user?.username}</p>
@@ -296,35 +312,39 @@ export const Navbar = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigateTo("/dashboard")} className="cursor-pointer">
-                <Layers2 className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => navigateTo("/dashboard")} className="cursor-pointer" role="menuitem">
+                <Layers2 className="mr-2 h-4 w-4" aria-hidden="true" />
                 <span>Dashboard</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigateTo("/tracking")} className="cursor-pointer">
-                <SquareAsterisk className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => navigateTo("/tracking")} className="cursor-pointer" role="menuitem">
+                <SquareAsterisk className="mr-2 h-4 w-4" aria-hidden="true" />
                 <span>Tracking</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigateTo("/profile")} className="cursor-pointer">
-                <UserRound className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => navigateTo("/profile")} className="cursor-pointer" role="menuitem">
+                <UserRound className="mr-2 h-4 w-4" aria-hidden="true" />
                 <span>Profile</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigateTo("/contact")} className="cursor-pointer">
-                <Contact className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => navigateTo("/contact")} className="cursor-pointer" role="menuitem">
+                <Contact className="mr-2 h-4 w-4" aria-hidden="true" />
                 <span>Contact Us</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
 
-              {/* Bunk Calculator Toggle - UPDATED */}
+              {/* Bunk Calculator Toggle */}
               <div className="px-2 py-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Calculator className="h-4 w-4" />
-                    <span className="text-sm">Bunk Calculator</span>
+                    <Calculator className="h-4 w-4" aria-hidden="true" />
+                    <label htmlFor="bunk-calc-toggle" className="text-sm cursor-pointer">
+                      Bunk Calculator
+                    </label>
                   </div>
                   <Switch
+                    id="bunk-calc-toggle"
                     checked={currentBunkCalc}
                     onCheckedChange={handleBunkCalcToggle}
                     disabled={settingsLoading}
+                    aria-label="Toggle bunk calculator feature"
                   />
                 </div>
               </div>
@@ -333,7 +353,7 @@ export const Navbar = () => {
               <div className="px-2 py-2 sm:hidden border-t border-white/10 mt-1">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Percent className="h-4 w-4" />
+                        <Percent className="h-4 w-4" aria-hidden="true" />
                         <span className="text-sm">Target</span>
                     </div>
                     <Select
@@ -357,7 +377,7 @@ export const Navbar = () => {
 
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="cursor-pointer" variant="destructive">
-                <LogOut className="mr-2 h-4 w-4" />
+                <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>

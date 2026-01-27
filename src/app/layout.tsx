@@ -76,6 +76,13 @@ export default function RootLayout({
       <body
         className={`overflow-x-hidden w-full max-w-[100vw] antialiased ${klick.variable} ${manrope.variable} ${dmMono.variable}`}
       >
+        {/* Skip Navigation Link for Accessibility */}
+        <a 
+          href="#main-content" 
+          className="sr-only focus:not-sr-only"
+        >
+          Skip to main content
+        </a>
         {/* --- GOOGLE ANALYTICS --- */}
         {hasGoogleAnalytics && (
           <>
@@ -108,7 +115,9 @@ export default function RootLayout({
             zIndex={99999}
           />
           <GlobalInit />
-          {children}
+          <main id="main-content" tabIndex={-1}>
+            {children}
+          </main>
         </ReactQueryProvider>
       </body>
     </html>

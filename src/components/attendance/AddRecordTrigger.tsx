@@ -44,9 +44,11 @@ export function AddRecordTrigger({ user, onSuccess }: AddRecordTriggerProps) {
       <Button
         onClick={() => setIsOpen(true)}
         className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md font-semibold gap-2 border-0 cursor-pointer"
+        aria-label="Add new attendance record"
       >
-        <Plus className="h-4 w-4" />
+        <Plus className="h-4 w-4" aria-hidden="true" />
         <span className="max-sm:hidden">Add Record</span>
+        <span className="sr-only sm:hidden">Add Record</span>
       </Button>
 
       <AddAttendanceDialog 

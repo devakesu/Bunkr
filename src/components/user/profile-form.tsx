@@ -62,7 +62,7 @@ const ReadOnlyField = ({ value, placeholder = "Not set" }: { value?: string | nu
     "flex h-11 w-full items-center rounded-lg border border-border/40 px-3 py-2 text-sm transition-all",
     "bg-secondary/20 text-foreground/90",
     !value && "text-muted-foreground italic"
-  )}>
+  )} role="textbox" aria-readonly="true">
     {value || placeholder}
   </div>
 );
@@ -165,8 +165,9 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
                   size="sm"
                   onClick={() => setIsEditing(true)}
                   className="h-8 px-2 text-primary hover:text-primary/80 hover:bg-primary/10"
+                  aria-label="Edit profile"
                 >
-                  <Pencil className="w-3.5 h-3.5 mr-2" />
+                  <Pencil className="w-3.5 h-3.5 mr-2" aria-hidden="true" />
                   Edit
                 </Button>
               </motion.div>
@@ -239,7 +240,7 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
                   {isEditing ? (
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger className="bg-background/50 h-11">
+                        <SelectTrigger className="bg-background/50 h-11" aria-label="Select gender">
                           <SelectValue placeholder="Select gender" />
                         </SelectTrigger>
                       </FormControl>
@@ -274,6 +275,7 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
                         className="bg-background/50 h-11"
                         {...field}
                         value={field.value || ""}
+                        aria-label="Enter date of birth"
                       />
                     ) : (
                       <ReadOnlyField value={field.value} placeholder="YYYY-MM-DD" />
@@ -312,6 +314,7 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
                 size="sm"
                 disabled={updateProfileMutation.isPending}
                 className="h-9 min-w-[100px]"
+                aria-label={updateProfileMutation.isPending ? "Saving profile changes" : "Save profile changes"}
               >
                 {updateProfileMutation.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden="true" />

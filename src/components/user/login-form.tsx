@@ -113,6 +113,16 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       }
 
       setError(errorMsg);
+      // Announce error to screen readers
+      if (typeof window !== 'undefined') {
+        const announcement = document.createElement('div');
+        announcement.setAttribute('role', 'alert');
+        announcement.setAttribute('aria-live', 'assertive');
+        announcement.className = 'sr-only';
+        announcement.textContent = errorMsg;
+        document.body.appendChild(announcement);
+        setTimeout(() => document.body.removeChild(announcement), 1000);
+      }
       console.error("Login failed:", err);
     }
   };
@@ -256,11 +266,12 @@ return (
                   size="icon"
                   className="absolute right-0 top-0 h-full px-3 hover:bg-transparent mr-1.5"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 opacity-70" />
+                    <EyeOff className="h-5 w-5 opacity-70" aria-hidden="true" />
                   ) : (
-                    <Eye className="h-5 w-5 opacity-70" />
+                    <Eye className="h-5 w-5 opacity-70" aria-hidden="true" />
                   )}
                 </Button>
               </div>

@@ -145,10 +145,11 @@ export default function TermsModal() {
               id="terms" 
               checked={checked} 
               onCheckedChange={(c) => setChecked(!!c)}
+              aria-labelledby="terms-label"
               className="border-zinc-600 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
             />
 
-            <span className="text-xs text-zinc-400 font-normal select-none">
+            <span id="terms-label" className="text-xs text-zinc-400 font-normal select-none">
               I have read and accept the{" "}
               <Link 
                 href="/legal" 
@@ -170,6 +171,7 @@ export default function TermsModal() {
                 ? "bg-white text-black hover:bg-zinc-200 shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)]" 
                 : "bg-zinc-800 text-zinc-500 hover:bg-zinc-800"
             )}
+            aria-live="polite"
           >
             {loading ? "Loading..." : "Enter GhostClass"}
           </Button>

@@ -298,7 +298,7 @@ return (
       </ResponsiveContainer>
     ) : (
       <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground/30">
-         <BarChart3 className="w-8 h-8 mb-2 opacity-50" />
+         <BarChart3 className="w-8 h-8 mb-2 opacity-50"  aria-hidden="true" />
          <span className="text-xs font-medium">No attendance data</span>
       </div>
     )}

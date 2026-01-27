@@ -354,8 +354,9 @@ export function AddAttendanceDialog({
                       "w-full justify-start text-left font-normal bg-accent/20 border-accent/30 hover:bg-accent/30",
                       !date && "text-muted-foreground"
                     )}
+                    aria-label={date ? `Selected date: ${format(date, 'MMMM d, yyyy')}. Click to change date` : 'Pick a date'}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <CalendarIcon className="mr-2 h-4 w-4" aria-hidden="true" />
                     {date ? format(date, "PPP") : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
@@ -365,14 +366,14 @@ export function AddAttendanceDialog({
                   <div className="flex flex-col gap-2">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-2">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                        <ChevronLeft className="h-4 w-4" aria-label="Previous month" />
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} aria-label="Previous month">
+                        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                       </Button>
                       <div className="text-sm font-semibold">
                         {format(currentMonth, "MMMM yyyy")}
                       </div>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                        <ChevronRight className="h-4 w-4" aria-label="Next month" />
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} aria-label="Next month">
+                        <ChevronRight className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     </div>
 
@@ -408,6 +409,7 @@ export function AddAttendanceDialog({
                                 setDate(day);
                                 setIsCalendarOpen(false);
                               }}
+                              aria-label={`${format(day, "MMMM d, yyyy")}${isSelected ? ', selected' : ''}${isTodayDate ? ', today' : ''}${isDisabled ? ', unavailable' : ''}`}
                               className={cn(
                                 "h-8 w-8 rounded-full flex items-center justify-center text-sm transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
                                 !isDisabled && "hover:bg-accent hover:text-foreground cursor-pointer",
@@ -432,10 +434,10 @@ export function AddAttendanceDialog({
 
           {/* SESSION */}
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right text-muted-foreground">Session</Label>
+            <Label htmlFor="session-select" className="text-right text-muted-foreground">Session</Label>
             <div className="col-span-3">
               <Select value={session} onValueChange={setSession}>
-                <SelectTrigger className="bg-accent/20 border-accent/30">
+                <SelectTrigger id="session-select" className="bg-accent/20 border-accent/30" aria-label="Select class session">
                   <SelectValue placeholder="Select Session" />
                 </SelectTrigger>
                 <SelectContent className="custom-dropdown max-h-60">
@@ -447,8 +449,8 @@ export function AddAttendanceDialog({
                 </SelectContent>
               </Select>
               {isSessionBlocked && (
-                 <p className="text-[10px] text-red-400 mt-1.5 ml-1 flex items-center gap-1">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                 <p id="session-blocked-warning" className="text-[10px] text-red-400 mt-1.5 ml-1 flex items-center gap-1" role="alert" aria-live="polite">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />
                     Session occupied
                  </p>
               )}
@@ -457,10 +459,10 @@ export function AddAttendanceDialog({
 
           {/* COURSE */}
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right text-muted-foreground">Subject</Label>
+            <Label htmlFor="course-select" className="text-right text-muted-foreground">Subject</Label>
             <div className="col-span-3">
               <Select value={courseId} onValueChange={setCourseId}>
-                <SelectTrigger className="bg-accent/20 border-accent/30 h-auto min-h-[40px] py-2.5 whitespace-normal text-left [&>span]:line-clamp-none">
+                <SelectTrigger id="course-select" className="bg-accent/20 border-accent/30 h-auto min-h-[40px] py-2.5 whitespace-normal text-left [&>span]:line-clamp-none" aria-label="Select course or subject">
                   <SelectValue placeholder="Select Subject" />
                 </SelectTrigger>
                 <SelectContent className="custom-dropdown max-h-60 w-[300px] max-w-[calc(100vw-40px)]"> 
@@ -481,6 +483,7 @@ export function AddAttendanceDialog({
                value={statusType} 
                onValueChange={(v: any) => setStatusType(v)} 
                className="col-span-3 flex gap-4"
+               aria-label="Select attendance status"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="Present" id="r1" className="text-green-500 border-green-500/50" />
@@ -504,6 +507,8 @@ export function AddAttendanceDialog({
              onClick={handleSubmit} 
              disabled={isSubmitting || isSessionBlocked || !session || !courseId}
              className="bg-primary text-primary-foreground hover:bg-primary/90"
+             aria-label="Submit and add attendance record"
+             aria-describedby={isSessionBlocked ? 'session-blocked-warning' : undefined}
           >
             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden="true" /> : <Plus className="w-4 h-4 mr-2" aria-hidden="true" />}
             Add Record

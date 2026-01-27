@@ -103,7 +103,13 @@ export function InstitutionSelector() {
             value={selectedInstitution}
             onValueChange={setPendingSelection}
             className="space-y-1 flex flex-col gap-1"
+            aria-label="Select your default institution"
+            aria-describedby="institution-help"
           >
+            {/* Screen reader helper text */}
+            <span className="sr-only" id="institution-help">
+              Choose your primary educational institution to customize your experience. Your selection will be saved as default.
+            </span>
             <AnimatePresence>
               {institutions.map((institution, index) => (
                 <motion.div
@@ -124,7 +130,7 @@ export function InstitutionSelector() {
                     aria-label={`Select institution ${institution.institution.name} with role ${institution.institution_role.name}`}
                   >
                     <div className="flex items-center space-x-2 md:space-x-3">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <Building2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                       <div className="flex flex-col gap-0.5">
                         <p className="text-sm font-medium line-clamp-1">
                           {institution.institution.name}
@@ -162,11 +168,19 @@ export function InstitutionSelector() {
                   pendingSelection === defaultInstitutionUser?.toString()
                 }
                 className="w-full font-semibold min-h-[46px] rounded-[12px] mt-4 font-md"
+                aria-label="Save selected institution as default"
               >
                 {updateDefaultInstitutionUser.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-label="Saving" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                 )}
-                Save as Default
+                {updateDefaultInstitutionUser.isPending ? (
+                  <>
+                    <span className="sr-only">Saving your institution preference</span>
+                    <span aria-hidden="true">Save as Default</span>
+                  </>
+                ) : (
+                  "Save as Default"
+                )}
               </Button>
             </motion.div>
           </motion.div>
