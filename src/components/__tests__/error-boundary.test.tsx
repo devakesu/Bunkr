@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ErrorBoundary } from '@/components/error-boundary'
 
@@ -7,10 +7,16 @@ const ThrowError = () => {
 }
 
 describe('ErrorBoundary', () => {
+  // Suppress console.error for tests that intentionally trigger errors
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
   afterEach(() => {
     // Clean up any stubbed environment variables
     vi.unstubAllEnvs()
   })
+
   it('should render children when no error', () => {
     render(
       <ErrorBoundary>

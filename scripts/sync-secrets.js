@@ -3,7 +3,8 @@
 /**
  * sync-secrets.js - Push local .env values to GitHub Secrets
  * Works on Windows, macOS, and Linux
- * FORCE MODE: Fails if sync is unsuccessful
+ * Opt-in via pre-commit hook: Set SYNC_SECRETS=1 to enable
+ * Fails if sync is unsuccessful to ensure secrets stay in sync
  */
 
 const { execSync } = require('child_process');
@@ -113,12 +114,11 @@ function setSecret(repo, name, value) {
 
 // Main function
 function main() {
-  log.info('🚀 GitHub Secrets Sync (FORCE MODE)\n');
-  log.info('ℹ️  To skip this check, set SKIP_SECRET_SYNC=1 or run in CI environment\n');
+  log.info('🚀 GitHub Secrets Sync\n');
 
-  // Honor SKIP_SECRET_SYNC or CI to allow callers (e.g., hooks/CI) to bypass this script
-  if (process.env.SKIP_SECRET_SYNC === '1' || process.env.CI) {
-    log.info('⏭️  Secret sync skipped because SKIP_SECRET_SYNC=1 or CI is set.\n');
+  // Auto-skip in CI environments (pre-commit hook already handles opt-in via SYNC_SECRETS=1)
+  if (process.env.CI) {
+    log.info('⏭️  Secret sync skipped in CI environment.\n');
     return;
   }
   // Check prerequisites - FAIL if not met
