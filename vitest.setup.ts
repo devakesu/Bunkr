@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom'
 import { cleanup } from '@testing-library/react'
-import { afterEach, beforeEach, vi } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import React from 'react'
 
 // Cleanup after each test
@@ -58,8 +58,3 @@ process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-key'
 process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 process.env.NEXT_PUBLIC_APP_DOMAIN = 'localhost'
 process.env.NEXT_PUBLIC_APP_EMAIL = '@test.com'
-
-// Suppress console errors in tests
-beforeEach(() => {
-  vi.spyOn(console, 'error').mockImplementation(() => {})
-})
