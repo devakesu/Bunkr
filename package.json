@@ -11,7 +11,15 @@
     "docs:validate": "npx @redocly/cli lint public/api-docs/openapi.yaml",
     "verify-version": "node scripts/verify-version.js",
     "bump-version": "node scripts/bump-version.js",
-    "sync-secrets": "node scripts/sync-secrets.js"
+    "sync-secrets": "node scripts/sync-secrets.js",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:all": "npm run test:coverage && npm run test:e2e"
   },
   "overrides": {
     "tar": "^7.5.6"
@@ -80,6 +88,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.0.9",
+    "@vitest/coverage-v8": "^2.1.8",
     "@types/nprogress": "^0.2.3",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
