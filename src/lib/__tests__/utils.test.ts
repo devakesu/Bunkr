@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cn, toRoman, normalizeSession, generateSlotKey } from '@/lib/utils'
+import { cn, toRoman, normalizeSession, generateSlotKey, formatSessionName, getSessionNumber, formatCourseCode, normalizeDate } from '@/lib/utils'
 
 describe('Utils', () => {
   describe('cn', () => {
@@ -42,6 +42,83 @@ describe('Utils', () => {
       const key1 = generateSlotKey('20260127', '101', '1')
       const key2 = generateSlotKey('20260127', '101', '1')
       expect(key1).toBe(key2)
+    })
+  })
+
+  describe('formatSessionName', () => {
+    it('should format session names correctly', () => {
+      expect(formatSessionName('I')).toBe('1st Hour')
+      expect(formatSessionName('II')).toBe('2nd Hour')
+      expect(formatSessionName('III')).toBe('3rd Hour')
+      expect(formatSessionName('IV')).toBe('4th Hour')
+    })
+
+    it('should handle numeric sessions', () => {
+      expect(formatSessionName('1')).toBe('1st Hour')
+      expect(formatSessionName('2')).toBe('2nd Hour')
+      expect(formatSessionName('3')).toBe('3rd Hour')
+      expect(formatSessionName('11')).toBe('11th Hour')
+      expect(formatSessionName('21')).toBe('21st Hour')
+    })
+
+    it('should return empty string for empty input', () => {
+      expect(formatSessionName('')).toBe('')
+    })
+  })
+
+  describe('getSessionNumber', () => {
+    it('should extract session numbers from Roman numerals', () => {
+      expect(getSessionNumber('I')).toBe(1)
+      expect(getSessionNumber('II')).toBe(2)
+      expect(getSessionNumber('III')).toBe(3)
+    })
+
+    it('should extract session numbers from strings', () => {
+      expect(getSessionNumber('Session 1')).toBe(1)
+      expect(getSessionNumber('2nd Hour')).toBe(2)
+    })
+
+    it('should return 999 for invalid input', () => {
+      expect(getSessionNumber('')).toBe(999)
+      expect(getSessionNumber('invalid')).toBe(999)
+    })
+  })
+
+  describe('formatCourseCode', () => {
+    it('should format course codes with hyphens', () => {
+      expect(formatCourseCode('CS-101')).toBe('CS')
+    })
+
+    it('should remove spaces from course codes', () => {
+      expect(formatCourseCode('CS 101')).toBe('CS101')
+    })
+
+    it('should handle codes without hyphens', () => {
+      expect(formatCourseCode('MATH101')).toBe('MATH101')
+    })
+  })
+
+  describe('normalizeDate', () => {
+    it('should format Date objects to YYYYMMDD', () => {
+      const date = new Date('2026-01-27')
+      const result = normalizeDate(date)
+      expect(result).toMatch(/^20260127$/)
+    })
+
+    it('should handle ISO string dates', () => {
+      expect(normalizeDate('2026-01-27T00:00:00.000Z')).toBe('20260127')
+    })
+
+    it('should handle YYYY-MM-DD format', () => {
+      expect(normalizeDate('2026-01-27')).toBe('20260127')
+    })
+
+    it('should handle DD-MM-YYYY format', () => {
+      expect(normalizeDate('27-01-2026')).toBe('20260127')
+    })
+
+    it('should return empty string for empty input', () => {
+      expect(normalizeDate('')).toBe('')
     })
   })
 })

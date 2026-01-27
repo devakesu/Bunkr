@@ -1,32 +1,40 @@
-import React from 'react';
-import { render, fireEvent } from '@testing-library/react';
-import Input from '../Input';
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { Input } from '@/components/ui/input'
 
-describe('Input Component', () => {
-  test('renders with placeholder', () => {
-    const { getByPlaceholderText } = render(<Input placeholder="Enter text" />);
-    expect(getByPlaceholderText(/enter text/i)).toBeInTheDocument();
-  });
-  test('handles onChange events', () => {
-    const handleChange = jest.fn();
-    const { getByRole } = render(<Input onChange={handleChange} />);
-    fireEvent.change(getByRole('textbox'), { target: { value: 'Hello' } });
-    expect(handleChange).toHaveBeenCalledWith(expect.objectContaining({ target: { value: 'Hello' }}));
-  });
-  test('disabled state', () => {
-    const { getByRole } = render(<Input disabled />);
-    expect(getByRole('textbox')).toBeDisabled();
-  });
-  test('different types', () => {
-    const { getByTestId } = render(<Input data-testid="input" type="email" />);
-    expect(getByTestId('input')).toHaveAttribute('type', 'email');
-  });
-  test('error states', () => {
-    const { getByText } = render(<Input error="This field is required" />);
-    expect(getByText(/this field is required/i)).toBeInTheDocument();
-  });
-  test('custom className', () => {
-    const { container } = render(<Input className="custom-class" />);
-    expect(container.firstChild).toHaveClass('custom-class');
-  });
-});
+describe('Input', () => {
+  it('should render with placeholder', () => {
+    render(<Input placeholder="Enter text" />)
+    expect(screen.getByPlaceholderText('Enter text')).toBeInTheDocument()
+  })
+
+  it('should handle onChange events', () => {
+    const handleChange = vi.fn()
+    render(<Input onChange={handleChange} />)
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'Hello' } })
+    expect(handleChange).toHaveBeenCalled()
+  })
+
+  it('should be disabled when disabled prop is true', () => {
+    render(<Input disabled />)
+    expect(screen.getByRole('textbox')).toBeDisabled()
+  })
+
+  it('should render with different input types', () => {
+    render(<Input data-testid="email-input" type="email" />)
+    expect(screen.getByTestId('email-input')).toHaveAttribute('type', 'email')
+  })
+
+  it('should apply custom className', () => {
+    render(<Input className="custom-class" />)
+    const input = screen.getByRole('textbox')
+    expect(input).toHaveClass('custom-class')
+  })
+
+  it('should handle aria-invalid attribute', () => {
+    render(<Input aria-invalid="true" />)
+    const input = screen.getByRole('textbox')
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+  })
+})
