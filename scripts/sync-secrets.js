@@ -3,7 +3,8 @@
 /**
  * sync-secrets.js - Push local .env values to GitHub Secrets
  * Works on Windows, macOS, and Linux
- * FORCE MODE: Fails if sync is unsuccessful
+ * Opt-in via pre-commit hook: Set SYNC_SECRETS=1 to enable
+ * Fails if sync is unsuccessful to ensure secrets stay in sync
  */
 
 const { execSync } = require('child_process');
