@@ -98,7 +98,16 @@ function setSecret(repo, name, value) {
     });
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    let message;
+    if (error instanceof Error) {
+      const stderr = error.stderr
+        ? String(error.stderr).trim()
+        : '';
+      message = stderr ? `${error.message}: ${stderr}` : error.message;
+    } else {
+      message = String(error);
+    }
+    return { success: false, error: message };
   }
 }
 
