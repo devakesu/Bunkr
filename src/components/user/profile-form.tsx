@@ -58,13 +58,16 @@ const profileFormSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 const ReadOnlyField = ({ value, placeholder = "Not set" }: { value?: string | null, placeholder?: string }) => (
-  <div className={cn(
-    "flex h-11 w-full items-center rounded-lg border border-border/40 px-3 py-2 text-sm transition-all",
-    "bg-secondary/20 text-foreground/90",
-    !value && "text-muted-foreground italic"
-  )} role="textbox" aria-readonly="true">
-    {value || placeholder}
-  </div>
+  <input
+    readOnly
+    value={value || placeholder}
+    className={cn(
+      "flex h-11 w-full rounded-lg border border-border/40 px-3 py-2 text-sm transition-all",
+      "bg-secondary/20 text-foreground/90 cursor-default",
+      !value && "text-muted-foreground italic"
+    )}
+    tabIndex={0}
+  />
 );
 
 const fieldVariants = {
