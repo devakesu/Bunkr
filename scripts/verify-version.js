@@ -104,11 +104,8 @@ try {
 
   // Check 4: Branch validation (for non-protected, non-automation branches)
   const protectedBranches = ['main', 'master', 'dev', 'development', 'staging', 'HEAD'];
-  const skipBranchPatterns = [/^copilot\//];
-  const shouldValidateBranch = !protectedBranches.includes(branchName) && 
-    !skipBranchPatterns.some(pattern => pattern.test(branchName));
-  
-  if (shouldValidateBranch && normalizedBranch !== pkgVersion) {
+  const isCopilotBranch = branchName.startsWith('copilot/');
+  if (!protectedBranches.includes(branchName) && !isCopilotBranch && normalizedBranch !== pkgVersion) {
     errors.push(`Branch mismatch: Branch '${branchName}' implies version '${normalizedBranch}', but package is '${pkgVersion}'`);
   }
 
