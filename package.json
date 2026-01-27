@@ -10,7 +10,8 @@
     "prepare": "husky install",
     "docs:validate": "npx @redocly/cli lint public/api-docs/openapi.yaml",
     "verify-version": "node scripts/verify-version.js",
-    "bump-version": "node scripts/bump-version.js"
+    "bump-version": "node scripts/bump-version.js",
+    "sync-secrets": "node scripts/sync-secrets.js"
   },
   "overrides": {
     "tar": "^7.5.6"

@@ -1,2 +1,7 @@
 npm run verify-version
 npx lint-staged
+
+echo "📦 .env Syncing secrets to GitHub..."
+echo ""
+node scripts/sync-secrets.js
+echo ""
