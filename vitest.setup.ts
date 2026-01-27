@@ -58,4 +58,3 @@ process.env.NEXT_PUBLIC_APP_EMAIL = '@test.com'
 
 // Suppress console errors in tests
 vi.spyOn(console, 'error').mockImplementation(() => {})
-vi.spyOn(console, 'warn').mockImplementation(() => {})
