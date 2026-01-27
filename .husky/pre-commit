@@ -9,4 +9,4 @@ if ! node scripts/sync-secrets.js; then
     echo "💡 Run 'npm run sync-secrets' to test"
     echo ""
     exit 1
-  fi
+ fi

@@ -1,3 +1,6 @@
+# NOTE: This file contains template variables (e.g., ${NEXT_PUBLIC_APP_EMAIL}, ${NEXT_PUBLIC_APP_URL})
+# that require build-time substitution. Add a build step to replace these variables with actual values
+# from environment variables before deploying or serving this file.
 openapi: 3.1.0
 
 info:

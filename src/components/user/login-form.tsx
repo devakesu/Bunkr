@@ -121,7 +121,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         announcement.className = 'sr-only';
         announcement.textContent = errorMsg;
         document.body.appendChild(announcement);
-        setTimeout(() => document.body.removeChild(announcement), 1000);
+        setTimeout(() => document.body.removeChild(announcement), 5000);
       }
       console.error("Login failed:", err);
     }

@@ -176,7 +176,7 @@ export function InstitutionSelector() {
                 {updateDefaultInstitutionUser.isPending ? (
                   <>
                     <span className="sr-only">Saving your institution preference</span>
-                    <span aria-hidden="true">Save as Default</span>
+                    <span aria-hidden="true">Saving...</span>
                   </>
                 ) : (
                   "Save as Default"
