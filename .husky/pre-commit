@@ -3,5 +3,10 @@ npx lint-staged
 
 echo "📦 .env Syncing secrets to GitHub..."
 echo ""
-node scripts/sync-secrets.js
-echo ""
+if ! node scripts/sync-secrets.js; then
+    echo ""
+    echo "🚫 Commit blocked - fix sync errors first"
+    echo "💡 Run 'npm run sync-secrets' to test"
+    echo ""
+    exit 1
+  fi
