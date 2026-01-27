@@ -1,5 +1,5 @@
 // Auth token management utilities
-// src/utils/auth.ts
+// src/lib/auth.ts
 
 import { deleteCookie, getCookie, setCookie } from "cookies-next"; 
 import { createClient } from "@/lib/supabase/client";
