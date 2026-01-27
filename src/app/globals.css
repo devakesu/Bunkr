@@ -117,18 +117,6 @@
 }
 
 /* Make sr-only content visible when focused (for skip links) */
-.sr-only:not(:focus):not(:active) {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
-
 .sr-only.focus\:not-sr-only:focus {
   position: fixed;
   top: 1rem;
