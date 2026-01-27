@@ -1,11 +1,12 @@
 import '@testing-library/jest-dom'
 import { cleanup } from '@testing-library/react'
-import { afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 import React from 'react'
 
 // Cleanup after each test
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
 })
 
 // Mock Next.js router
@@ -15,6 +16,8 @@ vi.mock('next/navigation', () => ({
     replace: vi.fn(),
     prefetch: vi.fn(),
     back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
     pathname: '/',
     query: {},
     asPath: '/',
@@ -57,4 +60,6 @@ process.env.NEXT_PUBLIC_APP_DOMAIN = 'localhost'
 process.env.NEXT_PUBLIC_APP_EMAIL = '@test.com'
 
 // Suppress console errors in tests
-vi.spyOn(console, 'error').mockImplementation(() => {})
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+})

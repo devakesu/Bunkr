@@ -21,9 +21,6 @@ describe('ErrorBoundary', () => {
   })
 
   it('should render error UI when error occurs', () => {
-    // Suppress error output in test
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    
     render(
       <ErrorBoundary>
         <ThrowError />
@@ -32,14 +29,10 @@ describe('ErrorBoundary', () => {
     
     expect(screen.getByText('Something went wrong')).toBeInTheDocument()
     expect(screen.getByText('Try Again')).toBeInTheDocument()
-    
-    spy.mockRestore()
   })
 
   it('should show error message in development', () => {
     vi.stubEnv('NODE_ENV', 'development')
-    
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     
     render(
       <ErrorBoundary>
@@ -48,7 +41,5 @@ describe('ErrorBoundary', () => {
     )
     
     expect(screen.getByText(/Test error/)).toBeInTheDocument()
-    
-    spy.mockRestore()
   })
 })
