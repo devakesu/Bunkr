@@ -1,8 +1,8 @@
 // Auth token management utilities
-// src/utils/auth.ts
+// src/lib/auth.ts
 
 import { deleteCookie, getCookie, setCookie } from "cookies-next"; 
-import { createClient } from "./supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import * as Sentry from "@sentry/nextjs";
 
 export const setToken = (token: string, expiresInDays: number = 31) => {
