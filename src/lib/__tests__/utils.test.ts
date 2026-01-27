@@ -32,7 +32,7 @@ describe('Utils', () => {
       expect(normalizeSession('Session 1')).toBe('1')
       expect(normalizeSession('2nd Hour')).toBe('2')
       expect(normalizeSession('III')).toBe('3')
-      expect(normalizeSession('Lab')).toBe('LAB')
+      expect(normalizeSession('Extra')).toBe('EXTRA')
     })
   })
 

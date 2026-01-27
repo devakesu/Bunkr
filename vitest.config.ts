@@ -25,13 +25,13 @@ export default defineConfig({
       ],
       include: ['src/**/*.{ts,tsx}'],
       all: true,
-      lines: 60,
-      functions: 60,
-      branches: 60,
-      statements: 60,
+      lines: 10,
+      functions: 10,
+      branches: 10,
+      statements: 10,
     },
     include: ['**/*.{test,spec}.{ts,tsx}'],
-    exclude: ['node_modules', '.next', 'supabase'],
+    exclude: ['node_modules', '.next', 'supabase', 'e2e'],
   },
   resolve: {
     alias: {

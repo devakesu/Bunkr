@@ -25,9 +25,7 @@ vi.mock('next/navigation', () => ({
 
 // Mock Next.js Image
 vi.mock('next/image', () => ({
-  default: (props: any) => {
-    return <img {...props} />
-  },
+  default: (props: any) => props,
 }))
 
 // Mock Supabase client
