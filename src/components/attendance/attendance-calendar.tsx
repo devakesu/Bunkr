@@ -365,6 +365,10 @@ export function AttendanceCalendar({
     return merged.sort((a, b) => getNormalizedSession(a.sessionName) - getNormalizedSession(b.sessionName));
   }, [selectedDate, rawEvents, filter, trackingData, attendanceData, coursesData, semesterData, academicYearData, isSameDay]);
   
+  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const monthNames = [ "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" ];
+  const yearOptions = useMemo(() => Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => 2018 + i), []);
+  
   const calendarCells = useMemo(() => {
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDayOfMonth = getFirstDayOfMonth(currentYear, currentMonth);
@@ -384,14 +388,33 @@ export function AttendanceCalendar({
         else if (hasEvents) className += "ring-1 ring-gray-500/30 hover:ring-gray-500/50";
         else className += "hover:bg-accent/50";
         if (isToday(date)) className += " ring-2 ring-offset-1 ring-offset-background ring-primary";
-        return ( <div key={`day-${index}`} className="flex items-center justify-center" onClick={() => { const dateString = date.toISOString(); sessionStorage.setItem("selected_date", dateString); setSelectedDate(date); setCurrentMonth(date.getMonth()); setCurrentYear(date.getFullYear()); }}><div className={className}>{index + 1}</div></div> );
+        
+        const handleDateSelect = () => {
+          const dateString = date.toISOString();
+          sessionStorage.setItem("selected_date", dateString);
+          setSelectedDate(date);
+          setCurrentMonth(date.getMonth());
+          setCurrentYear(date.getFullYear());
+        };
+        
+        const dateLabel = `${monthNames[date.getMonth()]} ${index + 1}, ${date.getFullYear()}${isSelected ? ', selected' : ''}${status ? `, ${status}` : ''}`;
+        
+        return (
+          <div key={`day-${index}`} className="flex items-center justify-center">
+            <button 
+              type="button"
+              onClick={handleDateSelect}
+              className={className}
+              aria-label={dateLabel}
+              aria-pressed={isSelected}
+            >
+              {index + 1}
+            </button>
+          </div>
+        );
     });
     return [...leadingEmptyCells, ...dayCells];
-  }, [currentYear, currentMonth, selectedDate, getDaysInMonth, getFirstDayOfMonth, getEventStatus, isSameDay, isToday]);
-
-  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const monthNames = [ "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" ];
-  const yearOptions = useMemo(() => Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => 2018 + i), []);
+  }, [currentYear, currentMonth, selectedDate, getDaysInMonth, getFirstDayOfMonth, getEventStatus, isSameDay, isToday, monthNames]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -399,11 +422,44 @@ export function AttendanceCalendar({
         {/* Header */}
         <CardHeader className="pb-2 flex flex-row flex-wrap items-center justify-center sm:justify-between gap-2 border-b border-border/40">
           <div className="flex items-center gap-2 max-sm:contents">
-            <Select value={filter} onValueChange={setFilter}><SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown"><SelectValue>{filter === "all" ? "All" : filter.charAt(0).toUpperCase() + filter.slice(1)}</SelectValue></SelectTrigger><SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70"><SelectItem value="all">All</SelectItem><SelectItem value="present">Present</SelectItem><SelectItem value="absent">Absent</SelectItem><SelectItem value="dutyLeave">Duty Leave</SelectItem><SelectItem value="otherLeave">Other Leave</SelectItem></SelectContent></Select>
-            <Select value={currentMonth.toString()} onValueChange={(value) => setCurrentMonth(parseInt(value, 10))}><SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown"><SelectValue>{monthNames[currentMonth]}</SelectValue></SelectTrigger><SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">{monthNames.map((month, index) => (<SelectItem key={month} value={index.toString()} className={currentMonth === index ? "bg-white/5 mt-0.5" : "capitalize"}>{month}</SelectItem>))}</SelectContent></Select>
-            <Select value={currentYear.toString()} onValueChange={(value) => { const newYear = parseInt(value, 10); if (newYear >= 2018) setCurrentYear(newYear); }}><SelectTrigger className="w-[90px] h-9 bg-background/60 border-border/60 text-sm custom-dropdown"><SelectValue>{currentYear}</SelectValue></SelectTrigger><SelectContent className="bg-background/90 border-border/60 max-h-70 backdrop-blur-md custom-dropdown">{yearOptions.map((year) => (<SelectItem key={year} value={year.toString()} className={currentYear === year ? "bg-white/5 mt-0.5" : "mt-0.5"}>{year}</SelectItem>))}</SelectContent></Select>
+            <Select value={filter} onValueChange={setFilter}>
+              <SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Filter attendance by status">
+                <SelectValue>{filter === "all" ? "All" : filter.charAt(0).toUpperCase() + filter.slice(1)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="present">Present</SelectItem>
+                <SelectItem value="absent">Absent</SelectItem>
+                <SelectItem value="dutyLeave">Duty Leave</SelectItem>
+                <SelectItem value="otherLeave">Other Leave</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={currentMonth.toString()} onValueChange={(value) => setCurrentMonth(parseInt(value, 10))}>
+              <SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Select month">
+                <SelectValue>{monthNames[currentMonth]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">
+                {monthNames.map((month, index) => (
+                  <SelectItem key={month} value={index.toString()} className={currentMonth === index ? "bg-white/5 mt-0.5" : "capitalize"}>
+                    {month}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={currentYear.toString()} onValueChange={(value) => { const newYear = parseInt(value, 10); if (newYear >= 2018) setCurrentYear(newYear); }}>
+              <SelectTrigger className="w-[90px] h-9 bg-background/60 border-border/60 text-sm custom-dropdown" aria-label="Select year">
+                <SelectValue>{currentYear}</SelectValue>
+              </SelectTrigger>
+              <SelectContent className="bg-background/90 border-border/60 max-h-70 backdrop-blur-md custom-dropdown">
+                {yearOptions.map((year) => (
+                  <SelectItem key={year} value={year.toString()} className={currentYear === year ? "bg-white/5 mt-0.5" : "mt-0.5"}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="flex items-center gap-2"><Button variant="ghost" size="icon" onClick={handlePreviousMonth} className="h-9 w-9 rounded-lg bg-accent/50 flex justify-center items-center"><ChevronLeft className="h-4 w-4" aria-label="Previous month" /></Button><Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-9 w-9 rounded-lg bg-accent/50 flex justify-center items-center"><ChevronRight className="h-4 w-4" aria-label="Next month" /></Button></div>
+          <div className="flex items-center gap-2"><Button variant="ghost" size="icon" onClick={handlePreviousMonth} className="h-9 w-9 rounded-lg bg-accent/50 flex justify-center items-center" aria-label="Previous month" ><ChevronLeft className="h-4 w-4" aria-hidden="true" /></Button><Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-9 w-9 rounded-lg bg-accent/50 flex justify-center items-center" aria-label="Next month"><ChevronRight className="h-4 w-4" aria-hidden="true" /></Button></div>
         </CardHeader>
         <CardContent className="p-4 flex-1 flex flex-col h-full">
           <div className="grid grid-cols-7 mb-2 shrink-0">{daysOfWeek.map((day, index) => <div key={index} className="text-xs font-medium text-muted-foreground text-center py-2">{day}</div>)}</div>
@@ -421,11 +477,18 @@ export function AttendanceCalendar({
       <Card className="overflow-hidden border-border/40 shadow-sm bg-card/50 flex flex-col h-full">
         <CardHeader className="border-b border-border/40 py-4 px-6 bg-muted/20">
           <CardTitle className="text-sm flex items-center justify-between font-semibold">
-            <div className="flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-primary" />{selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
-            <Badge variant="secondary" className="font-normal text-xs bg-background/80">{selectedDateEvents.length} Sessions</Badge>
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4 text-primary" aria-hidden="true" />
+              <span id="selected-date-label">
+                {selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+              </span>
+            </div>
+            <Badge variant="secondary" className="font-normal text-xs bg-background/80" aria-label={`${selectedDateEvents.length} attendance sessions`}>
+              {selectedDateEvents.length} Sessions
+            </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0 flex-1 flex flex-col">
+        <CardContent className="p-0 flex-1 flex flex-col" role="region" aria-labelledby="selected-date-label" aria-live="polite">
           <AnimatePresence mode="wait">
             <motion.div key={selectedDate.toString()} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col">
               {selectedDateEvents.length > 0 ? (
@@ -467,14 +530,14 @@ export function AttendanceCalendar({
                         if (event.isExtra) {
                             return (
                                 <div className="flex-shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
-                                    <Badge variant="outline" className="text-[10px] h-6 px-2 bg-indigo-500/10 text-indigo-400 border-indigo-500/20 gap-1.5"><Sparkles className="w-3 h-3" />Self-Marked</Badge>
+                                    <Badge variant="outline" className="text-[10px] h-6 px-2 bg-indigo-500/10 text-indigo-400 border-indigo-500/20 gap-1.5"><Sparkles className="w-3 h-3" aria-hidden="true" />Self-Marked</Badge>
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
                                         className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-500/10" 
                                         disabled={isDeleting} 
                                         onClick={() => handleDeleteTrackData(sessionForDB, event.courseId, dbDate)} 
-                                        aria-label={isDeleting ? "Deleting record" : "Delete record"}
+                                        aria-label={`Delete self-marked ${event.status} record for ${event.title} ${event.sessionName}`}
                                     >
                                         {isDeleting ? (
                                             <Loader2 className="h-3 w-3 text-primary animate-spin" aria-hidden="true" />
@@ -493,7 +556,7 @@ export function AttendanceCalendar({
                                 <div className="flex-shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
                                     {event.isCorrection && (
                                         <Badge variant="outline" className="text-[10px] h-6 px-2 bg-orange-500/10 text-orange-400 border-orange-500/20 gap-1.5">
-                                            <AlertTriangle className="w-3 h-3" />Official: {event.originalStatus}
+                                            <AlertTriangle className="w-3 h-3" aria-hidden="true" />Official: {event.originalStatus}
                                         </Badge>
                                     )}
                                     <Link href="/tracking">
@@ -508,8 +571,8 @@ export function AttendanceCalendar({
                             return (
                                 <div className="flex-shrink-0 w-full sm:w-auto">
                                     <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full">
-                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 225, "Duty Leave"); }} className={`w-full sm:w-auto h-auto min-h-[32px] py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-yellow-500/40 text-yellow-600 hover:bg-yellow-500/10 hover:border-yellow-500 hover:text-yellow-700 dark:text-yellow-500"}`}>{isLoading ? "..." : <><Briefcase className="w-3 h-3 shrink-0" /><span className="truncate">Mark DL</span></>}</Button>
-                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 110, "Incorrectly marked absent"); }} className={`w-full sm:w-auto h-auto min-h-[32px] py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500 hover:text-green-700 dark:text-green-500"}`}>{isLoading ? "..." : <><CheckCircle2 className="w-3 h-3 shrink-0" /><span className="truncate">Mark Present</span></>}</Button>
+                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 225, "Duty Leave"); }} aria-label={`Mark ${event.title} as Duty Leave for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-[32px] py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-yellow-500/40 text-yellow-600 hover:bg-yellow-500/10 hover:border-yellow-500 hover:text-yellow-700 dark:text-yellow-500"}`}>{isLoading ? "..." : <><Briefcase className="w-3 h-3 shrink-0" aria-hidden="true"/><span className="truncate">Mark DL</span></>}</Button>
+                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 110, "Incorrectly marked absent"); }} aria-label={`Mark ${event.title} as Present for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-[32px] py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500 hover:text-green-700 dark:text-green-500"}`}>{isLoading ? "..." : <><CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" /><span className="truncate">Mark Present</span></>}</Button>
                                     </div>
                                 </div>
                             );
@@ -523,7 +586,7 @@ export function AttendanceCalendar({
                           <h4 className="font-semibold text-sm text-foreground leading-tight capitalize flex items-center gap-2">{event.title.toLowerCase()}</h4>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="bg-background/50 px-1.5 py-0.5 rounded border border-border/30">{event.sessionName ? formatSessionName(event.sessionName) : `Session ${event.sessionKey}`}</span>
-                            <Badge variant="outline" className={`h-5 px-1.5 gap-1 font-medium ${badgeClass}`}><Icon className="w-3 h-3" />{event.status}</Badge>
+                            <Badge variant="outline" className={`h-5 px-1.5 gap-1 font-medium ${badgeClass}`}><Icon className="w-3 h-3" aria-hidden="true" />{event.status}</Badge>
                           </div>
                         </div>
                         {renderActions()}
@@ -533,7 +596,7 @@ export function AttendanceCalendar({
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center flex-1 text-center px-6 py-12">
-                  <div className="rounded-full bg-accent/30 p-4 mb-3 ring-1 ring-border/50"><CalendarIcon className="h-6 w-6 text-muted-foreground/60" /></div>
+                  <div className="rounded-full bg-accent/30 p-4 mb-3 ring-1 ring-border/50"><CalendarIcon className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" /></div>
                   <h3 className="text-sm font-semibold text-foreground">No Classes Found</h3>
                   <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-[200px]">Enjoy your free time! No classes recorded for this date.</p>
                   <Button variant="outline" size="sm" className="h-8 text-xs" onClick={goToToday}>Jump to Today</Button>

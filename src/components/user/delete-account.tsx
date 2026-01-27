@@ -63,7 +63,7 @@ export function DeleteAccount() {
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <h3 className="font-medium text-red-900 dark:text-red-200 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
+            <AlertTriangle className="h-4 w-4" aria-hidden="true" />
             Delete Account
           </h3>
           <p className="text-sm text-red-700 dark:text-red-300/80">

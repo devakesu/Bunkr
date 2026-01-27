@@ -43,7 +43,7 @@ export const Footer = ({ className }: { className?: string }) => {
     <footer className={cn(
       "w-full py-6 mt-12 border-t border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60",
       className
-    )}>
+    )} role="contentinfo" aria-label="Site footer">
       <div className="container px-4 md:px-8 flex flex-col-reverse md:flex-row justify-between items-center gap-y-6 gap-x-4 text-sm">
         
         {/* Left Side: Credits, Author & Legal */}
@@ -55,6 +55,7 @@ export const Footer = ({ className }: { className?: string }) => {
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-foreground hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-red-500 hover:to-orange-500 transition-all duration-300"
+              aria-label={`Visit ${authorName}'s profile`}
             >
               {authorName}
             </a>
@@ -86,6 +87,7 @@ export const Footer = ({ className }: { className?: string }) => {
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-foreground transition-colors"
+              aria-label="View project credits and contributors on GitHub"
             >
               Credits
             </a>
@@ -112,6 +114,7 @@ export const Footer = ({ className }: { className?: string }) => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-primary transition-colors font-semibold"
+                aria-label={`View commit ${shortSha} on GitHub`}
               >
                 {shortSha}
               </a>
@@ -120,8 +123,9 @@ export const Footer = ({ className }: { className?: string }) => {
                 href="/api/provenance"
                 target="_blank"
                 className="flex items-center gap-1 hover:text-emerald-500 transition-colors"
+                aria-label="View build provenance and security information"
               >
-                <ShieldCheck className="w-3 h-3" />
+                <ShieldCheck className="w-3 h-3" aria-hidden="true" />
                 <span>secure</span>
               </Link>
             </div>
@@ -138,8 +142,8 @@ export const Footer = ({ className }: { className?: string }) => {
                 className="h-8 rounded-full bg-background hover:bg-pink-500/10 hover:text-pink-500 hover:border-pink-500/20 transition-all group"
                 asChild
               >
-                <a href={donateUrl} target="_blank" rel="noopener noreferrer">
-                  <Coffee className="w-3.5 h-3.5 mr-2 text-muted-foreground group-hover:text-pink-500 transition-colors" />
+                <a href={donateUrl} target="_blank" rel="noopener noreferrer" aria-label="Support the developer by buying them a coffee">
+                  <Coffee className="w-3.5 h-3.5 mr-2 text-muted-foreground group-hover:text-pink-500 transition-colors" aria-hidden="true" />
                   <span className="text-xs font-medium">Buy Me a Coffee</span>
                 </a>
               </Button>
@@ -151,8 +155,8 @@ export const Footer = ({ className }: { className?: string }) => {
               className="h-8 rounded-full bg-background hover:bg-yellow-500/10 hover:text-yellow-500 hover:border-yellow-500/20 transition-all group"
               asChild
             >
-              <a href={githubUrl || "#"} target="_blank" rel="noopener noreferrer">
-                <Star className="w-3.5 h-3.5 mr-2 text-muted-foreground group-hover:text-yellow-500 transition-colors" />
+              <a href={githubUrl || "#"} target="_blank" rel="noopener noreferrer" aria-label="Star this project on GitHub">
+                <Star className="w-3.5 h-3.5 mr-2 text-muted-foreground group-hover:text-yellow-500 transition-colors" aria-hidden="true" />
                 <span className="text-xs font-medium">Star</span>
               </a>
             </Button>

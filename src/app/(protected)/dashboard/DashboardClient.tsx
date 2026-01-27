@@ -578,13 +578,13 @@ export default function DashboardClient() {
             <div className="flex gap-4 items-center font-normal">
               <p className="flex flex-wrap items-center gap-2.5 max-sm:text-md text-muted-foreground">
                 <span>You&apos;re checking out the</span>
-                <Select value={selectedSemester || undefined} onValueChange={(value) => handleSemesterChange(value as "even" | "odd")} disabled={isLoadingSemester || setSemesterMutation.isPending}>
-                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 uppercase custom-dropdown">{isLoadingSemester ? "..." : selectedSemester || "semester"}</SelectTrigger>
+                <Select value={selectedSemester || undefined} onValueChange={(value) => handleSemesterChange(value as "even" | "odd")} disabled={setSemesterMutation.isPending}>
+                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 uppercase custom-dropdown" aria-label="Select semester">{selectedSemester || "semester"}</SelectTrigger>
                   <SelectContent className="custom-dropdown"><SelectItem value="odd">ODD</SelectItem><SelectItem value="even">EVEN</SelectItem></SelectContent>
                 </Select>
                 <span>semester reports for academic year</span>
-                <Select value={selectedYear || undefined} onValueChange={handleAcademicYearChange} disabled={isLoadingAcademicYear || setAcademicYearMutation.isPending}>
-                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 custom-dropdown">{isLoadingAcademicYear ? "..." : selectedYear || "year"}</SelectTrigger>
+                <Select value={selectedYear || undefined} onValueChange={handleAcademicYearChange} disabled={setAcademicYearMutation.isPending}>
+                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 custom-dropdown" aria-label="Select academic year">{selectedYear || "year"}</SelectTrigger>
                   <SelectContent className="custom-dropdown max-h-70">{academicYears.map((year) => <SelectItem key={year} value={year}>{year}</SelectItem>)}</SelectContent>
                 </Select>
               </p>
@@ -595,13 +595,14 @@ export default function DashboardClient() {
             <Card className="custom-container shadow-sm border-accent/20">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-medium">Total Attendance</CardTitle>
-                <div className="flex items-center gap-2 text-sm font-bold">
+                <div className="flex items-center gap-2 text-sm font-bold" role="status" aria-live="polite">
                   {(diffPresent !== 0 || diffTotal > 0) && stats.officialPercentage !== stats.percentage && (
                     <span className="text-muted-foreground opacity-70">{stats.officialPercentage}% <span className="mx-0.5">→</span></span>
                   )}
                   <span className={stats.rawPercentage >= targetPercentage ? "text-primary" : "text-red-400"}>
                     {stats.percentage}%
                   </span>
+                  <span className="sr-only">Your attendance is {stats.percentage} percent</span>
                 </div>
               </CardHeader>
               <CardContent>
@@ -744,8 +745,8 @@ export default function DashboardClient() {
                 <table className="w-full caption-bottom text-sm">
                   <thead className="relative">
                     <tr className="border-b-2 border-[#2B2B2B]/[0.6]">
-                      <th className="h-10 px-4 text-left font-medium text-muted-foreground bg-[rgb(31,31,32)]">Course</th>
-                      <th className="h-10 px-4 text-left font-medium text-muted-foreground bg-[rgb(31,31,32)]">Instructor</th>
+                      <th scope="col" className="h-10 px-4 text-left font-medium text-muted-foreground bg-[rgb(31,31,32)]">Course</th>
+                      <th scope="col" className="h-10 px-4 text-left font-medium text-muted-foreground bg-[rgb(31,31,32)]">Instructor</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">

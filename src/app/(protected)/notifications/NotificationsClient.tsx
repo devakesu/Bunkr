@@ -335,7 +335,7 @@ export default function NotificationsPage() {
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="h-20 w-20 rounded-full bg-muted/30 flex items-center justify-center mb-4">
-              <BellOff className="h-9 w-9 text-muted-foreground/50" />
+              <BellOff className="h-9 w-9 text-muted-foreground/50" aria-hidden="true"/>
             </div>
             <h3 className="text-lg font-medium">All caught up!</h3>
             <p className="text-sm text-muted-foreground max-w-[250px] mt-1">You have no new notifications.</p>

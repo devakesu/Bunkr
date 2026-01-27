@@ -31,9 +31,11 @@ export function ContactForm({ userDetails }: ContactFormProps) {
     
     if (!token) {
         toast.error("Please complete the security check.");
+        setCaptchaError(true);
         return;
     }
 
+    setCaptchaError(false);
     setLoading(true);
 
     try {
@@ -124,15 +126,46 @@ export function ContactForm({ userDetails }: ContactFormProps) {
 
       <div className="grid gap-2">
         <Label htmlFor="name">Name</Label>
-        <Input id="name" name="name" defaultValue={userDetails?.name || ""} required />
+        <Input 
+          id="name" 
+          name="name" 
+          defaultValue={userDetails?.name || ""} 
+          required 
+          aria-required="true"
+          aria-describedby="name-description"
+        />
+        <span id="name-description" className="sr-only">
+          Enter your full name for us to address you properly
+        </span>
       </div>
       <div className="grid gap-2">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" defaultValue={userDetails?.email || ""} required />
+        <Input 
+          id="email" 
+          name="email" 
+          type="email" 
+          defaultValue={userDetails?.email || ""} 
+          required 
+          aria-required="true"
+          aria-describedby="email-description"
+        />
+        <span id="email-description" className="sr-only">
+          Enter your email address so we can respond to your message
+        </span>
       </div>
       <div className="grid gap-2">
         <Label htmlFor="subject">Subject</Label>
-        <Input id="subject" name="subject" placeholder="How can we help?" required />
+        <Input 
+          id="subject" 
+          name="subject" 
+          placeholder="How can we help?" 
+          required 
+          aria-required="true"
+          aria-describedby="subject-description"
+        />
+        <span id="subject-description" className="sr-only">
+          Briefly describe the topic of your message
+        </span>
       </div>
       <div className="grid gap-2">
         <Label htmlFor="message">Message</Label>

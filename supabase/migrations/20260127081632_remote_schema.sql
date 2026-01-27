@@ -282,7 +282,27 @@ ALTER TABLE ONLY "public"."users"
 
 
 
+CREATE INDEX "idx_contact_created" ON "public"."contact_messages" USING "btree" ("created_at" DESC);
+
+
+
 CREATE INDEX "idx_contact_messages_user" ON "public"."contact_messages" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "idx_contact_status_created" ON "public"."contact_messages" USING "btree" ("status", "created_at" DESC);
+
+
+
+COMMENT ON INDEX "public"."idx_contact_status_created" IS 'Speeds up admin queries for filtering contact messages by status';
+
+
+
+CREATE INDEX "idx_notification_topic_unread" ON "public"."notification" USING "btree" ("auth_user_id", "topic", "is_read", "created_at" DESC) WHERE ("is_read" = false);
+
+
+
+COMMENT ON INDEX "public"."idx_notification_topic_unread" IS 'Optimizes queries for unread notification counts grouped by topic';
 
 
 
@@ -302,7 +322,59 @@ COMMENT ON INDEX "public"."idx_notification_user_read_created" IS 'Optimizes que
 
 
 
+CREATE INDEX "idx_tracker_course_date" ON "public"."tracker" USING "btree" ("course", "date" DESC) WHERE ("auth_user_id" IS NOT NULL);
+
+
+
+COMMENT ON INDEX "public"."idx_tracker_course_date" IS 'Improves performance for course-specific attendance history queries';
+
+
+
+CREATE INDEX "idx_tracker_date" ON "public"."tracker" USING "btree" ("date" DESC) WHERE ("status" IS NOT NULL);
+
+
+
+CREATE INDEX "idx_tracker_semester_year" ON "public"."tracker" USING "btree" ("auth_user_id", "semester", "year", "date" DESC);
+
+
+
+COMMENT ON INDEX "public"."idx_tracker_semester_year" IS 'Enables fast filtering of tracker records by academic semester and year';
+
+
+
+CREATE INDEX "idx_tracker_user_status" ON "public"."tracker" USING "btree" ("auth_user_id", "status");
+
+
+
+COMMENT ON INDEX "public"."idx_tracker_user_status" IS 'Optimizes queries filtering tracker records by user and status (correction/extra)';
+
+
+
+CREATE INDEX "idx_user_settings_target" ON "public"."user_settings" USING "btree" ("target_percentage", "bunk_calculator_enabled");
+
+
+
+COMMENT ON INDEX "public"."idx_user_settings_target" IS 'Enables analytics queries on user preference distributions';
+
+
+
+CREATE INDEX "idx_users_auth_email" ON "public"."users" USING "btree" ("auth_id", "email") WHERE ("auth_id" IS NOT NULL);
+
+
+
+COMMENT ON INDEX "public"."idx_users_auth_email" IS 'Speeds up user lookups by auth_id with email joins';
+
+
+
 CREATE INDEX "idx_users_auth_id" ON "public"."users" USING "btree" ("auth_id");
+
+
+
+CREATE INDEX "idx_users_sync_priority" ON "public"."users" USING "btree" ("last_synced_at" NULLS FIRST) WHERE ("ezygo_token" IS NOT NULL);
+
+
+
+COMMENT ON INDEX "public"."idx_users_sync_priority" IS 'Optimizes cron sync queries that order by last_synced_at for users with tokens';
 
 
 

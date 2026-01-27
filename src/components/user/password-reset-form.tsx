@@ -316,9 +316,9 @@ export function PasswordResetForm({
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
                 ) : (
-                  <Eye className="h-4 w-4" />
+                  <Eye className="h-4 w-4" aria-hidden="true" />
                 )}
               </Button>
             </div>
@@ -343,9 +343,9 @@ export function PasswordResetForm({
                 onClick={() => setShowNewPassword(!showNewPassword)}
               >
                 {showNewPassword ? (
-                  <EyeOff className="h-4 w-4" />
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
                 ) : (
-                  <Eye className="h-4 w-4" />
+                  <Eye className="h-4 w-4" aria-hidden="true" />
                 )}
               </Button>
             </div>
@@ -375,6 +375,7 @@ export function PasswordResetForm({
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center text-sm text-destructive border rounded-lg bg-red-400/15 border-red-400/75 p-2"
+          role="alert"
         >
           {error}
         </motion.div>

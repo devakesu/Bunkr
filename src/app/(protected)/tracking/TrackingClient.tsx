@@ -322,8 +322,8 @@ export default function TrackingClient() {
                   <Badge className="text-sm py-1 px-3 bg-yellow-500/12 text-yellow-400/75 border-yellow-500/15">
                     You have added <strong>{count}</strong> {count === 1 ? "class" : "classes"}.
                   </Badge>
-                  <button onClick={deleteAllTrackingData} className="text-sm cursor-pointer justify-between items-center gap-2 bg-red-500/12 text-red-400/75 hover:bg-red-500/18 duration-300 border-1 border-red-500/15 py-1 px-3 rounded-md flex">
-                    Clear all <Trash2 size={14} />
+                  <button onClick={deleteAllTrackingData} aria-label={`Clear all ${count} tracked ${count === 1 ? 'class' : 'classes'}`} className="text-sm cursor-pointer justify-between items-center gap-2 bg-red-500/12 text-red-400/75 hover:bg-red-500/18 duration-300 border-1 border-red-500/15 py-1 px-3 rounded-md flex">
+                    Clear all <Trash2 size={14} aria-hidden="true" />
                   </button>
                 </div>
               )}
@@ -410,9 +410,10 @@ export default function TrackingClient() {
                                     whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} 
                                     disabled={deleteId === trackingId}
                                     onClick={() => handleDeleteTrackData(trackingId, trackingItem.session, trackingItem.course, trackingItem.date)} 
+                                    aria-label={`Remove tracking entry for ${formatSessionName(trackingItem.session)} session on ${formatDisplayDate(trackingItem.date)}`}
                                     className="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 bg-yellow-400/6 rounded-lg font-medium text-yellow-600 disabled:opacity-50"
                                   >
-                                    {deleteId === trackingId ? "Deleting..." : <><span className="max-md:hidden">Remove</span><Trash2 size={15} /></>}
+                                    {deleteId === trackingId ? "Deleting..." : <><span className="max-md:hidden">Remove</span><Trash2 size={15} aria-hidden="true" /></>}
                                   </m.button>
                                 </div>
                               </m.div>
@@ -427,9 +428,9 @@ export default function TrackingClient() {
 
               {totalPages > 1 && (
                 <div className="flex justify-center items-center mt-6 gap-8 pb-8">
-                  <m.button onClick={goToPrevPage} disabled={currentPage === 0} className={`h-8 w-8 flex justify-center items-center rounded-lg ${currentPage === 0 ? "text-muted-foreground bg-accent/30" : "text-primary bg-accent hover:bg-accent/40"}`}><ChevronLeft size={20} /></m.button>
+                  <m.button onClick={goToPrevPage} disabled={currentPage === 0} className={`h-8 w-8 flex justify-center items-center rounded-lg ${currentPage === 0 ? "text-muted-foreground bg-accent/30" : "text-primary bg-accent hover:bg-accent/40"}`} aria-label="Previous page"><ChevronLeft size={20} aria-hidden="true" /></m.button>
                   <div className="text-sm text-muted-foreground font-medium">Page {currentPage + 1} of {totalPages}</div>
-                  <m.button onClick={goToNextPage} disabled={currentPage === totalPages - 1} className={`h-8 w-8 flex justify-center items-center rounded-lg ${currentPage === totalPages - 1 ? "text-muted-foreground bg-accent/30" : "text-primary bg-accent hover:bg-accent/40"}`}><ChevronRight size={20} /></m.button>
+                  <m.button onClick={goToNextPage} disabled={currentPage === totalPages - 1} className={`h-8 w-8 flex justify-center items-center rounded-lg ${currentPage === totalPages - 1 ? "text-muted-foreground bg-accent/30" : "text-primary bg-accent hover:bg-accent/40"}`} aria-label="Next page"><ChevronRight size={20} aria-hidden="true" /></m.button>
                 </div>
               )}
             </m.div>

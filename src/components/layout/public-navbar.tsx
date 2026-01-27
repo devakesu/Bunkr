@@ -23,9 +23,12 @@ export function PublicNavbar() {
   }, []);
 
   return (
-    <nav className="flex h-20 items-center justify-between gap-4 px-4 md:px-6 border-b border-white/10 bg-background">
+    <nav 
+      className="flex h-20 items-center justify-between gap-4 px-4 md:px-6 border-b border-white/10 bg-background"
+      aria-label="Main navigation"
+    >
       <div className="flex items-center gap-2 h-full">
-        <Link href="/" className="group h-full flex items-center">
+        <Link href="/" className="group h-full flex items-center" aria-label="GhostClass home">
           <div className="relative w-40 sm:w-64 md:w-80 h-20 overflow-hidden"> 
             <Image 
               src="/logo.png" 
@@ -41,7 +44,10 @@ export function PublicNavbar() {
       
       <div className="flex gap-2 sm:gap-4 items-center">
          {loading ? (
-           <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" aria-label="Loading" />
+           <div role="status" aria-live="polite">
+             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" aria-hidden="true" />
+             <span className="sr-only">Loading user status...</span>
+           </div>
          ) : user ? (
            <Link href="/dashboard">
               <Button className="gap-2">
