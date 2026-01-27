@@ -114,6 +114,7 @@ function setSecret(repo, name, value) {
 // Main function
 function main() {
   log.info('🚀 GitHub Secrets Sync (FORCE MODE)\n');
+  log.info('ℹ️  To skip this check, set SKIP_SECRET_SYNC=1 or run in CI environment\n');
 
   // Check prerequisites - FAIL if not met
   if (!isGhInstalled()) {

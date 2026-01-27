@@ -43,7 +43,7 @@ describe('Utils', () => {
       const date = '20260127'
       const session = '1'
       const key = generateSlotKey(courseId, date, session)
-      // Format should be: COURSEID_YYYYMMDD_SESSION_ROMAN
+      // Format: COURSEID_YYYYMMDD_ROMAN
       expect(key).toBe('101_20260127_I')
     })
 
