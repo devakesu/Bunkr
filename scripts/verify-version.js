@@ -102,9 +102,13 @@ try {
     errors.push(`Mismatch: .example.env version (${exampleEnvVersion}) !== package.json (${pkgVersion})`);
   }
 
-  // Check 4: Branch (only for protected branches)
+  // Check 4: Branch validation (for non-protected, non-automation branches)
   const protectedBranches = ['main', 'master', 'dev', 'development', 'staging', 'HEAD'];
-  if (!protectedBranches.includes(branchName) && normalizedBranch !== pkgVersion) {
+  const skipBranchPatterns = [/^copilot\//];
+  const shouldValidateBranch = !protectedBranches.includes(branchName) && 
+    !skipBranchPatterns.some(pattern => pattern.test(branchName));
+  
+  if (shouldValidateBranch && normalizedBranch !== pkgVersion) {
     errors.push(`Branch mismatch: Branch '${branchName}' implies version '${normalizedBranch}', but package is '${pkgVersion}'`);
   }
 
