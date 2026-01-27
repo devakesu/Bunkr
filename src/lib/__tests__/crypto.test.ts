@@ -116,7 +116,9 @@ describe('crypto', () => {
 
     it('should throw error for tampered content', () => {
       const { iv, content } = encrypt('test')
-      const tampered = content.replace(/.$/, 'f')
+      const lastChar = content.slice(-1)
+      const tampered =
+        content.slice(0, -1) + (lastChar === '0' ? '1' : '0')
       
       expect(() => decrypt(iv, tampered)).toThrow('Decryption failed')
     })
