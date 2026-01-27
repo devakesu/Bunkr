@@ -8,19 +8,12 @@ vi.mock('cookies-next', () => ({
   deleteCookie: vi.fn(),
 }))
 
-// Mock Supabase client
-vi.mock('../supabase/client', () => ({
-  createClient: vi.fn(() => ({
-    auth: {
-      signOut: vi.fn().mockResolvedValue({ error: null }),
-    },
-  })),
-}))
-
 // Mock Sentry
 vi.mock('@sentry/nextjs', () => ({
   captureException: vi.fn(),
 }))
+
+// Note: Supabase client mock is provided globally in vitest.setup.ts
 
 import { setCookie, getCookie, deleteCookie } from 'cookies-next'
 
