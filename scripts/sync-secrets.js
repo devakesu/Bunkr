@@ -247,14 +247,16 @@ function main() {
 // Handle uncaught errors
 process.on('unhandledRejection', (error) => {
   log.error('\n❌ Unexpected error:');
-  log.error(error.message);
+  const message = error instanceof Error ? error.message : String(error);
+  log.error(message);
   log.error('\n🚨 Sync FAILED\n');
   process.exit(1);
 });
 
 process.on('uncaughtException', (error) => {
   log.error('\n❌ Unexpected error:');
-  log.error(error.message);
+  const message = error instanceof Error ? error.message : String(error);
+  log.error(message);
   log.error('\n🚨 Sync FAILED\n');
   process.exit(1);
 });
