@@ -31,6 +31,24 @@ jobs:
 
   e2e-tests:
     runs-on: ubuntu-latest
+    env:
+      # Mock environment variables for E2E tests
+      ENCRYPTION_KEY: "test-encryption-key-32-characters-long-for-aes-256"
+      CRON_SECRET: "test-cron-secret"
+      NEXT_PUBLIC_SUPABASE_URL: "https://test.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key"
+      SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key"
+      UPSTASH_REDIS_REST_URL: "https://test.upstash.io"
+      UPSTASH_REDIS_REST_TOKEN: "test-token"
+      BREVO_API_KEY: "test-brevo-key"
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x000000000000000000000AA"
+      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      NEXT_PUBLIC_APP_DOMAIN: "localhost"
+      NEXT_PUBLIC_APP_EMAIL: "test@localhost"
+      SENTRY_AUTH_TOKEN: "test-sentry-token"
+      NEXT_PUBLIC_SENTRY_DSN: "https://test@sentry.io/123456"
+      NODE_ENV: "test"
     steps:
       - uses: actions/checkout@v4
       
