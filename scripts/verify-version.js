@@ -105,10 +105,10 @@ try {
   // Check 4: Branch (only for protected branches)
   const protectedBranches = ['main', 'master', 'dev', 'development', 'staging', 'HEAD'];
   const skipBranchPatterns = [/^copilot\//];
-  const shouldSkipBranchCheck = protectedBranches.includes(branchName) || 
-    skipBranchPatterns.some(pattern => pattern.test(branchName));
+  const shouldValidateBranch = !protectedBranches.includes(branchName) && 
+    !skipBranchPatterns.some(pattern => pattern.test(branchName));
   
-  if (!shouldSkipBranchCheck && normalizedBranch !== pkgVersion) {
+  if (shouldValidateBranch && normalizedBranch !== pkgVersion) {
     errors.push(`Branch mismatch: Branch '${branchName}' implies version '${normalizedBranch}', but package is '${pkgVersion}'`);
   }
 
