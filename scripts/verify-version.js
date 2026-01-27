@@ -102,7 +102,7 @@ try {
     errors.push(`Mismatch: .example.env version (${exampleEnvVersion}) !== package.json (${pkgVersion})`);
   }
 
-  // Check 4: Branch (only for protected branches)
+  // Check 4: Branch validation (for non-protected, non-automation branches)
   const protectedBranches = ['main', 'master', 'dev', 'development', 'staging', 'HEAD'];
   const isCopilotBranch = branchName.startsWith('copilot/');
   if (!protectedBranches.includes(branchName) && !isCopilotBranch && normalizedBranch !== pkgVersion) {
