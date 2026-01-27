@@ -67,7 +67,6 @@ const ReadOnlyField = forwardRef<HTMLInputElement, ReadOnlyFieldProps>(
     <input
       ref={ref}
       readOnly
-      aria-readonly="true"
       value={value ?? ""}
       placeholder={placeholder}
       className={cn(
