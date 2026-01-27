@@ -14,7 +14,7 @@ jobs:
       
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.19.0'
           cache: 'npm'
       
       - name: Install dependencies
@@ -36,11 +36,31 @@ jobs:
       
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.19.0'
           cache: 'npm'
       
       - name: Install dependencies
         run: npm ci
+      
+      - name: Setup test environment variables
+        run: |
+          cat > .env << EOF
+          # Test environment variables
+          NEXT_PUBLIC_APP_VERSION=1.2.0
+          NEXT_PUBLIC_SUPABASE_URL=https://test.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key
+          NEXT_PUBLIC_BACKEND_URL=http://localhost:3000/api
+          NEXT_PUBLIC_APP_URL=http://localhost:3000
+          NEXT_PUBLIC_APP_DOMAIN=localhost
+          NEXT_PUBLIC_APP_EMAIL=@test.com
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+          NEXT_PUBLIC_SENTRY_DSN=
+          NEXT_PUBLIC_GA_ID=
+          ENCRYPTION_KEY=test-encryption-key-32-characters-long
+          CRON_SECRET=test-cron-secret
+          UPSTASH_REDIS_REST_URL=https://test.upstash.io
+          UPSTASH_REDIS_REST_TOKEN=test-token
+          EOF
       
       - name: Get Playwright version
         id: playwright-version

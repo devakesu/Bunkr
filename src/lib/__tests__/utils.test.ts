@@ -38,9 +38,18 @@ describe('Utils', () => {
   })
 
   describe('generateSlotKey', () => {
+    it('should generate correctly formatted slot keys', () => {
+      const courseId = '101'
+      const date = '20260127'
+      const session = '1'
+      const key = generateSlotKey(courseId, date, session)
+      // Format should be: COURSEID_YYYYMMDD_SESSION_ROMAN
+      expect(key).toBe('101_20260127_I')
+    })
+
     it('should generate consistent slot keys', () => {
-      const key1 = generateSlotKey('20260127', '101', '1')
-      const key2 = generateSlotKey('20260127', '101', '1')
+      const key1 = generateSlotKey('101', '20260127', '1')
+      const key2 = generateSlotKey('101', '20260127', '1')
       expect(key1).toBe(key2)
     })
   })
@@ -100,9 +109,9 @@ describe('Utils', () => {
 
   describe('normalizeDate', () => {
     it('should format Date objects to YYYYMMDD', () => {
-      const date = new Date('2026-01-27')
+      const date = new Date(2026, 0, 27) // January 27, 2026
       const result = normalizeDate(date)
-      expect(result).toMatch(/^20260127$/)
+      expect(result).toBe('20260127')
     })
 
     it('should handle ISO string dates', () => {

@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom'
 import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
+import React from 'react'
 
 // Cleanup after each test
 afterEach(() => {
@@ -25,7 +26,9 @@ vi.mock('next/navigation', () => ({
 
 // Mock Next.js Image
 vi.mock('next/image', () => ({
-  default: (props: any) => props,
+  default: ({ alt, ...props }: any) => {
+    return React.createElement('img', { alt, ...props })
+  },
 }))
 
 // Mock Supabase client
