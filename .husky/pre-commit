@@ -1,8 +1,9 @@
 npm run verify-version
 npx lint-staged
 
-# Skip secret sync if SKIP_SECRET_SYNC is set (useful for local development)
-# or if running in CI environment
+# Secret sync runs by default to keep GitHub secrets in sync with .env
+# Skip by setting: export SKIP_SECRET_SYNC=1
+# Auto-skipped in CI environments
 if [ -z "$SKIP_SECRET_SYNC" ] && [ -z "$CI" ]; then
   echo "📦 .env Syncing secrets to GitHub..."
   echo ""

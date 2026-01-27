@@ -114,7 +114,13 @@ function setSecret(repo, name, value) {
 // Main function
 function main() {
   log.info('🚀 GitHub Secrets Sync (FORCE MODE)\n');
+  log.info('ℹ️  To skip this check, set SKIP_SECRET_SYNC=1 or run in CI environment\n');
 
+  // Honor SKIP_SECRET_SYNC or CI to allow callers (e.g., hooks/CI) to bypass this script
+  if (process.env.SKIP_SECRET_SYNC === '1' || process.env.CI) {
+    log.info('⏭️  Secret sync skipped because SKIP_SECRET_SYNC=1 or CI is set.\n');
+    return;
+  }
   // Check prerequisites - FAIL if not met
   if (!isGhInstalled()) {
     log.error('❌ ERROR: GitHub CLI (gh) is not installed.');
