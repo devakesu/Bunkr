@@ -62,7 +62,7 @@ const ReadOnlyField = ({ value, placeholder = "Not set" }: { value?: string | nu
     "flex h-11 w-full items-center rounded-lg border border-border/40 px-3 py-2 text-sm transition-all",
     "bg-secondary/20 text-foreground/90",
     !value && "text-muted-foreground italic"
-  )} role="textbox" aria-readonly="true">
+  )}>
     {value || placeholder}
   </div>
 );

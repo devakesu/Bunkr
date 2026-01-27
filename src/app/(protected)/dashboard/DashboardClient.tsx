@@ -578,13 +578,13 @@ export default function DashboardClient() {
             <div className="flex gap-4 items-center font-normal">
               <p className="flex flex-wrap items-center gap-2.5 max-sm:text-md text-muted-foreground">
                 <span>You&apos;re checking out the</span>
-                <Select value={selectedSemester || undefined} onValueChange={(value) => handleSemesterChange(value as "even" | "odd")} disabled={isLoadingSemester || setSemesterMutation.isPending}>
-                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 uppercase custom-dropdown" aria-label="Select semester">{isLoadingSemester ? "..." : selectedSemester || "semester"}</SelectTrigger>
+                <Select value={selectedSemester || undefined} onValueChange={(value) => handleSemesterChange(value as "even" | "odd")} disabled={setSemesterMutation.isPending}>
+                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 uppercase custom-dropdown" aria-label="Select semester">{selectedSemester || "semester"}</SelectTrigger>
                   <SelectContent className="custom-dropdown"><SelectItem value="odd">ODD</SelectItem><SelectItem value="even">EVEN</SelectItem></SelectContent>
                 </Select>
                 <span>semester reports for academic year</span>
-                <Select value={selectedYear || undefined} onValueChange={handleAcademicYearChange} disabled={isLoadingAcademicYear || setAcademicYearMutation.isPending}>
-                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 custom-dropdown" aria-label="Select academic year">{isLoadingAcademicYear ? "..." : selectedYear || "year"}</SelectTrigger>
+                <Select value={selectedYear || undefined} onValueChange={handleAcademicYearChange} disabled={setAcademicYearMutation.isPending}>
+                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 custom-dropdown" aria-label="Select academic year">{selectedYear || "year"}</SelectTrigger>
                   <SelectContent className="custom-dropdown max-h-70">{academicYears.map((year) => <SelectItem key={year} value={year}>{year}</SelectItem>)}</SelectContent>
                 </Select>
               </p>
