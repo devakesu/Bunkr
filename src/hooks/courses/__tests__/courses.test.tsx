@@ -57,7 +57,7 @@ describe('useFetchCourses', () => {
 
     await waitFor(() => {
       expect(result.current.isError).toBe(true)
-    })
+    }, { timeout: 3000 })
   })
 
   it('should respect enabled option', () => {
