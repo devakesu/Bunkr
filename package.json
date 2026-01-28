@@ -1,7 +1,10 @@
 {
   "name": "ghostclass",
-  "version": "1.1.9",
+  "version": "1.2.0",
   "private": false,
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -11,7 +14,15 @@
     "docs:validate": "npx @redocly/cli lint public/api-docs/openapi.yaml",
     "verify-version": "node scripts/verify-version.js",
     "bump-version": "node scripts/bump-version.js",
-    "sync-secrets": "node scripts/sync-secrets.js"
+    "sync-secrets": "node scripts/sync-secrets.js",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:all": "npm run test:coverage && npm run test:e2e"
   },
   "overrides": {
     "tar": "^7.5.6"
@@ -84,6 +95,8 @@
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
     "@types/sanitize-html": "^2.16.0",
+    "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.1.4",

@@ -1,8 +1,10 @@
 npm run verify-version
 npx lint-staged
 
-# Skip secret sync if SKIP_SECRET_SYNC is set (useful for local development)
-if [ -z "$SKIP_SECRET_SYNC" ]; then
+# Secret sync is opt-in to avoid blocking commits when prerequisites aren't met
+# Enable by setting: export SYNC_SECRETS=1
+# Auto-skipped in CI environments
+if [ "$SYNC_SECRETS" = "1" ] && [ -z "$CI" ]; then
   echo "📦 .env Syncing secrets to GitHub..."
   echo ""
   node scripts/sync-secrets.js

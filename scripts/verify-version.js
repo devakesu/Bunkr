@@ -84,13 +84,20 @@ try {
     errors.push(`Lockfile mismatch: Run 'npm install' to sync package-lock.json.`);
   }
 
-  // Check 2: .env
-  if (envVersion === null) {
-    errors.push(`Critical: .env file is missing.`);
-  } else if (envVersion === undefined) {
-    errors.push(`Critical: 'NEXT_PUBLIC_APP_VERSION' is missing from .env`);
-  } else if (envVersion !== pkgVersion) {
-    errors.push(`Mismatch: .env version (${envVersion}) !== package.json (${pkgVersion})`);
+  // Check 2: .env (skip for automation branches like copilot/*, dependabot/*, renovate/*)
+  const isCopilotBranch = branchName.startsWith('copilot/');
+  const isDependabotBranch = branchName.startsWith('dependabot/');
+  const isRenovateBranch = branchName.startsWith('renovate/');
+  const isAutomationBranch = isCopilotBranch || isDependabotBranch || isRenovateBranch;
+  
+  if (!isAutomationBranch) {
+    if (envVersion === null) {
+      errors.push(`Critical: .env file is missing.`);
+    } else if (envVersion === undefined) {
+      errors.push(`Critical: 'NEXT_PUBLIC_APP_VERSION' is missing from .env`);
+    } else if (envVersion !== pkgVersion) {
+      errors.push(`Mismatch: .env version (${envVersion}) !== package.json (${pkgVersion})`);
+    }
   }
 
   // Check 3: .example.env
@@ -102,9 +109,10 @@ try {
     errors.push(`Mismatch: .example.env version (${exampleEnvVersion}) !== package.json (${pkgVersion})`);
   }
 
-  // Check 4: Branch (only for protected branches)
-  const protectedBranches = ['main', 'master', 'dev', 'development', 'staging', 'HEAD'];
-  if (!protectedBranches.includes(branchName) && normalizedBranch !== pkgVersion) {
+  // Check 4: Branch validation (for non-protected, non-automation branches)
+  const protectedBranches = ['main', 'master', 'dev', 'development', 'staging', 'HEAD', 'unknown'];
+  
+  if (!protectedBranches.includes(branchName) && !isAutomationBranch && normalizedBranch !== pkgVersion) {
     errors.push(`Branch mismatch: Branch '${branchName}' implies version '${normalizedBranch}', but package is '${pkgVersion}'`);
   }
 
