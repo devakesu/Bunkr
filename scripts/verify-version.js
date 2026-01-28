@@ -110,7 +110,7 @@ try {
   }
 
   // Check 4: Branch validation (for non-protected, non-automation branches)
-  const protectedBranches = ['main', 'master', 'dev', 'development', 'staging', 'HEAD'];
+  const protectedBranches = ['main', 'master', 'dev', 'development', 'staging', 'HEAD', 'unknown'];
   
   if (!protectedBranches.includes(branchName) && !isAutomationBranch && normalizedBranch !== pkgVersion) {
     errors.push(`Branch mismatch: Branch '${branchName}' implies version '${normalizedBranch}', but package is '${pkgVersion}'`);
