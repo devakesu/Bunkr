@@ -193,7 +193,7 @@ function main() {
   for (const secretName of secretsToSync) {
     const secretValue = envConfig[secretName];
 
-    if (secretValue == null || secretValue === '') {
+    if (secretValue === undefined || secretValue === null || secretValue === '') {
       log.warning(`⊘ Skipping ${secretName} (not set in .env)`);
       missing.push(secretName);
       skipCount++;
