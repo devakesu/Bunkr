@@ -103,7 +103,7 @@
     "eslint-plugin-next": "^0.0.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
-    "globals": "^17.1.0",
+    "globals": "^17.2.0",
     "happy-dom": "^20.3.9",
     "husky": "^9.1.7",
     "jsdom": "^27.4.0",
