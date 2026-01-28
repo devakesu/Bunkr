@@ -161,20 +161,24 @@ ENV PORT=3000
 
 WORKDIR /app
 
-# OPTIMIZATION 4: Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs && \
     apk add --no-cache wget
 
-# OPTIMIZATION 5: Copy only necessary files
+# Core Next.js output
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# OPTIMIZATION 6: Use production-only node_modules
+# CRITICAL: Copy the source code for all aliases (e.g. "@/components")
+COPY --from=builder --chown=nextjs:nodejs /app/src ./src
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./next.config.js
+
+# Production node_modules
 COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
-# OPTIMIZATION 7: Remove unnecessary files
+# Clean up (as before)
 RUN rm -rf \
     /usr/share/man/* \
     /usr/share/doc/* \

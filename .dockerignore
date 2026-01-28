@@ -1,6 +1,3 @@
-# .dockerignore
-
-# Development files
 node_modules
 .next
 .git
@@ -8,7 +5,6 @@ node_modules
 .vscode
 .husky
 
-# Test files
 e2e
 coverage
 *.test.ts
@@ -16,40 +12,30 @@ coverage
 *.spec.ts
 **/__tests__
 
-# Config files
 .eslintrc*
 .prettierrc*
 vitest.config.ts
 playwright.config.ts
 tsconfig.json
 
-# Documentation
 README.md
 CONTRIBUTING.md
 *.md
 
-# Environment files
 .env
 .env.*
 !.env.example
 
-# Logs
 logs
 *.log
 npm-debug.log*
-
-# OS files
 .DS_Store
 Thumbs.db
-
-# Build artifacts
 dist
 build
 out
 
-# Miscellaneous
 *.swp
 *.swo
 *~
-.vscode/
 .idea/
