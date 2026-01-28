@@ -1,5 +1,7 @@
 import { Metadata } from "next";
-import DashboardClient from "./DashboardClient";
+import { lazy } from "react";
+
+const DashboardClient = lazy(() => import('./DashboardClient'));
 
 export const metadata: Metadata = {
   title: "Dashboard",

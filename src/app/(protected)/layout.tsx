@@ -101,7 +101,7 @@ export default function ProtectedLayout({
         </main>
         
         <Footer />
-        <Toaster richColors position="bottom-right" />
+                <Toaster richColors position="bottom-right"/>
       </div>
     </ErrorBoundary>
   );

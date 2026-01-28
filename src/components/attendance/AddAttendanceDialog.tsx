@@ -379,9 +379,9 @@ export function AddAttendanceDialog({
 
                     {/* Days Header */}
                     <div className="grid grid-cols-7 text-center mb-1">
-                      {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                        <div key={d} className="text-[0.8rem] text-muted-foreground font-medium py-1">
-                          {d}
+                      {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((dayLabel) => (
+                        <div key={dayLabel} className="text-[0.8rem] text-muted-foreground font-medium py-1">
+                          {dayLabel}
                         </div>
                       ))}
                     </div>

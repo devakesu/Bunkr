@@ -27,5 +27,12 @@ export const useFetchCourses = (options?: { enabled?: boolean }) => {
       return formattedData;
     },
     enabled: options?.enabled,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: 60 * 1000,
+    retry: 1,
+    retryDelay: 1000,
   });
 };

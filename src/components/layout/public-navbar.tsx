@@ -36,6 +36,8 @@ export function PublicNavbar() {
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               priority
+              placeholder="blur"
+              blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAICAYAAAD5nd/tAAAACXBIWXMAAAsTAAALEwEAmpwYAAACJklEQVR4nI2SzW/ScBjHi/NtTJg7bzHGyyKZBzXZ0YMaYzLjYbEHx/CiMjWLo5TaFhg/YbyVStlvvIQCg4VmYVZeu9LxIrAtJmYJB6/+NTXFYDx48JN88jx5Ds+TJ/kiyF88sQL90lp0Fl2LzuIsO6Wqqk4T0UR+q6qI7l9zZCSi+QedDeze2Nr58jyalVez1c7NxCBxRRMq8BIA6jlRRCdEEVwsttkppp4zgEHhMiqKE6Nl4yNjMBSbTPKlR6XGt91qd1jcOzp7tZGrP13Pyst4Wr5Hxru3iLh0x56uPcD36s/shQZq4+WHdqjcxlnFRMZq1wEUjMjohSF/QQiDuVKp8bJ18qPRO/tZy5a/xzaYprAebHfsvm6R8va5D76vSTxwJBIRueeIHPYdW63PhKcfpzwDxvOx9ZoNFBcQECtcDYVSd5P+yAshU+AqjcGB1BuGYaZPEq5mwUErJ7Sz3fS4emWXs1ujnc22yy2dut3yqZvutD3Ucc1LHx/4nR1XFOwvIoCGJv8mtIU2uTxkEvl0Sghm843lqL+6GMQqjwNYdTVIHJoZomWOkK2VsENa+WSvmFlb2cLisoUjehaO6Js5sn0/A4Q5hKUDJj/FvQFk1Aec2+/83p0lxpeaZ5icQeIlvQKhUQHQWGdyhjrDGLQqAGhUoGAUw/x0N8xPa70EeD0A4DySoqiZGMHMg/fsgtW6fe0ttT+DYeIkiqIT43j8r1psfgEIVTv/3/hdewAAAABJRU5ErkJggg==" 
               className="object-contain object-left transition-transform group-hover:scale-105"
             />
           </div>

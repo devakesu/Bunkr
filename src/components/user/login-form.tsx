@@ -46,6 +46,30 @@ const loginMethodProps = {
   },
 };
 
+const PASSWORD_VALIDATION = {
+  MIN_LENGTH: 6,  // Conservative (most systems use 6-8)
+  MAX_LENGTH: 128, // Prevent DOS attacks
+} as const;
+
+const validatePassword = (password: string): string | null => {
+  // 1. Check empty
+  if (!password || password.trim().length === 0) {
+    return "Password is required";
+  }
+  
+  // 2. Check minimum length
+  if (password.length < PASSWORD_VALIDATION.MIN_LENGTH) {
+    return `Password must be at least ${PASSWORD_VALIDATION.MIN_LENGTH} characters`;
+  }
+  
+  // 3. Check maximum length (prevent DOS)
+  if (password.length > PASSWORD_VALIDATION.MAX_LENGTH) {
+    return `Password must be less than ${PASSWORD_VALIDATION.MAX_LENGTH} characters`;
+  }
+  
+  return null; // Valid
+};
+
 export function LoginForm({ className, ...props }: LoginFormProps) {
   const router = useRouter();
 
@@ -62,6 +86,23 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     stay_logged_in: true,
   });
   const [error, setError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const password = e.target.value;
+    
+    // Update form data
+    setFormData({ ...formData, password });
+    
+    // Real-time validation
+    if (password.length > 0 && password.length < PASSWORD_VALIDATION.MIN_LENGTH) {
+      setPasswordError(`At least ${PASSWORD_VALIDATION.MIN_LENGTH} characters required`);
+    } else if (password.length > PASSWORD_VALIDATION.MAX_LENGTH) {
+      setPasswordError(`No more than ${PASSWORD_VALIDATION.MAX_LENGTH} characters allowed`);
+    } else {
+      setPasswordError(null);
+    }
+  };
 
   useEffect(() => {
     const token = getToken();
@@ -79,6 +120,14 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     NProgress.start();
 
     try {
+      const passwordError = validatePassword(formData.password);
+      if (passwordError) {
+        setError(passwordError);
+        setIsLoading(false);
+        NProgress.done();
+        return;
+      }
+
       // 1. Login to Ezygo
       const response = await ezygoClient.post("/login", formData);
       const token = response.data.access_token;
@@ -161,7 +210,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     );
   }
 
-return (
+  return (
     <motion.div
       className={cn("flex flex-col gap-3", className)}
       {...props}
@@ -185,6 +234,8 @@ return (
                   fill
                   className="object-contain object-bottom transition-transform group-hover:scale-105" 
                   priority
+                  placeholder="blur"
+                  blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAICAYAAAD5nd/tAAAACXBIWXMAAAsTAAALEwEAmpwYAAACJklEQVR4nI2SzW/ScBjHi/NtTJg7bzHGyyKZBzXZ0YMaYzLjYbEHx/CiMjWLo5TaFhg/YbyVStlvvIQCg4VmYVZeu9LxIrAtJmYJB6/+NTXFYDx48JN88jx5Ds+TJ/kiyF88sQL90lp0Fl2LzuIsO6Wqqk4T0UR+q6qI7l9zZCSi+QedDeze2Nr58jyalVez1c7NxCBxRRMq8BIA6jlRRCdEEVwsttkppp4zgEHhMiqKE6Nl4yNjMBSbTPKlR6XGt91qd1jcOzp7tZGrP13Pyst4Wr5Hxru3iLh0x56uPcD36s/shQZq4+WHdqjcxlnFRMZq1wEUjMjohSF/QQiDuVKp8bJ18qPRO/tZy5a/xzaYprAebHfsvm6R8va5D76vSTxwJBIRueeIHPYdW63PhKcfpzwDxvOx9ZoNFBcQECtcDYVSd5P+yAshU+AqjcGB1BuGYaZPEq5mwUErJ7Sz3fS4emWXs1ujnc22yy2dut3yqZvutD3Ucc1LHx/4nR1XFOwvIoCGJv8mtIU2uTxkEvl0Sghm843lqL+6GMQqjwNYdTVIHJoZomWOkK2VsENa+WSvmFlb2cLisoUjehaO6Js5sn0/A4Q5hKUDJj/FvQFk1Aec2+/83p0lxpeaZ5icQeIlvQKhUQHQWGdyhjrDGLQqAGhUoGAUw/x0N8xPa70EeD0A4DySoqiZGMHMg/fsgtW6fe0ttT+DYeIkiqIT43j8r1psfgEIVTv/3/hdewAAAABJRU5ErkJggg=="
                   sizes="(max-width: 640px) 340px, 520px"
                 />
               </div>
@@ -255,11 +306,15 @@ return (
                   name="password"
                   required
                   value={formData.password}
-                  className="custom-input bg-secondary/10 border-white/10 focus:border-purple-500/50 transition-colors"
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
+                  className={cn(
+                    "custom-input bg-secondary/10 border-white/10 focus:border-purple-500/50 transition-colors",
+                    passwordError && "border-red-500/50 focus:border-red-500"
+                  )}
+                  onChange={handlePasswordChange}
+                  aria-invalid={!!passwordError}
+                  aria-describedby={passwordError ? "password-error" : undefined}
                 />
+
                 <Button
                   type="button"
                   variant="ghost"
@@ -277,11 +332,17 @@ return (
               </div>
             </motion.div>
 
+            {passwordError && (
+                  <p id="password-error" className="text-xs text-red-400 mt-1">
+                    {passwordError}
+                  </p>
+            )}
+
             <motion.div variants={itemVariants}>
               <Button
                 type="submit"
                 className="w-full font-semibold min-h-[46px] rounded-[12px] mt-2 font-sm shadow-lg shadow-purple-500/10 hover:shadow-purple-500/20 transition-all"
-                disabled={isLoading}
+                disabled={isLoading || !!passwordError}
               >
                 {isLoading ? "Logging in..." : "Login"}
               </Button>

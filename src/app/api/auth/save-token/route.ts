@@ -156,6 +156,7 @@ export async function POST(req: Request) {
   }
 
   let verifieduserId = "";
+  let lockUserId = "";
   let lockValue: string | null = null;
 
   try {
@@ -217,6 +218,7 @@ export async function POST(req: Request) {
 
       verifiedUsername = userValidation.data.username;
       verifieduserId = userValidation.data.id;
+      lockUserId = verifieduserId;
 
     } catch (err: any) {
       if (err.code === 'ECONNABORTED') {
@@ -271,7 +273,7 @@ export async function POST(req: Request) {
 
     // Acquire lock to prevent concurrent password updates
     try {
-      lockValue = await acquireAuthLock(verifieduserId);
+      lockValue = await acquireAuthLock(lockUserId);
     } catch (error) {
       // Redis error - fail fast
       console.error('Redis lock service unavailable:', error);
@@ -464,14 +466,14 @@ export async function POST(req: Request) {
   } finally {
     // Always release the lock after all operations complete
     // Guard against null lockValue and undefined verifieduserId
-    if (lockValue && verifieduserId) {
+    if (lockValue && lockUserId) {
       try {
-        await releaseAuthLock(verifieduserId, lockValue);
+        await releaseAuthLock(lockUserId, lockValue);
       } catch (releaseError) {
         console.error("Failed to release auth lock in finally block:", releaseError);
         Sentry.captureException(releaseError, {
           tags: { type: "auth_lock_release_failure", location: "save_token_finally" },
-          extra: { verifieduserId }
+          extra: { lockUserId }
         });
         // Don't rethrow - we don't want lock release failures to mask the actual response
       }
