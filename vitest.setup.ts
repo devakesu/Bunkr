@@ -53,9 +53,9 @@ vi.mock('@/lib/supabase/client', () => ({
   })),
 }))
 
-// Mock environment variables
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-key'
-process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
-process.env.NEXT_PUBLIC_APP_DOMAIN = 'localhost'
-process.env.NEXT_PUBLIC_APP_EMAIL = '@test.com'
+// Mock environment variables using vi.stubEnv for proper cleanup
+vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://test.supabase.co')
+vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-key')
+vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
+vi.stubEnv('NEXT_PUBLIC_APP_DOMAIN', 'localhost')
+vi.stubEnv('NEXT_PUBLIC_APP_EMAIL', '@test.com')
