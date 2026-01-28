@@ -8,9 +8,11 @@ const ALGORITHM = 'aes-256-gcm';
 // Cache for validated encryption key
 let cachedKey: Buffer | null = null;
 
-// Test-only function to reset the cached key
-// This allows tests to simulate different environment configurations
-export function resetCachedKey(): void {
+/**
+ * Reset the cached encryption key (useful for testing)
+ * @internal
+ */
+export function __resetCachedKey(): void {
   cachedKey = null;
 }
 
