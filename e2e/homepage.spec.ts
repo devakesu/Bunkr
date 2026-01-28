@@ -5,7 +5,8 @@ test.describe('Homepage', () => {
     const response = await page.goto('/')
     
     // Check that the page loads with a successful status code
-    expect(response?.status()).toBeLessThan(400)
+    expect(response).not.toBeNull()
+    expect(response!.status()).toBeLessThan(400)
     
     // Verify page has content
     const bodyContent = await page.locator('body').textContent()
