@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { encrypt, decrypt } from '../crypto'
 
 describe('crypto', () => {
@@ -7,13 +7,10 @@ describe('crypto', () => {
   beforeEach(() => {
     // Set a valid test encryption key (64 hex chars = 32 bytes)
     process.env.ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
-    // Reset module cache to clear the cached encryption key
-    vi.resetModules()
   })
 
   afterEach(() => {
     process.env.ENCRYPTION_KEY = originalEnv
-    vi.resetModules()
   })
 
   describe('encrypt', () => {
