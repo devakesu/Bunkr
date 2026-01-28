@@ -65,14 +65,13 @@ interface ReadOnlyFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputEle
 const ReadOnlyField = forwardRef<HTMLInputElement, ReadOnlyFieldProps>(
   ({ value, placeholder = "Not set", className, ...props }, ref) => {
     const hasValue = value !== null && value !== undefined && value !== "";
-    const displayValue = hasValue ? value! : placeholder;
 
     return (
       <input
         ref={ref}
         readOnly
         aria-readonly="true"
-        value={displayValue}
+        value={hasValue ? value! : ""}
         placeholder={placeholder}
         className={cn(
           "flex h-11 w-full rounded-lg border border-border/40 px-3 py-2 text-sm transition-all",
