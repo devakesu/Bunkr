@@ -69,6 +69,7 @@ const ReadOnlyField = forwardRef<HTMLInputElement, ReadOnlyFieldProps>(
     return (
       <input
         ref={ref}
+        {...props}
         readOnly
         aria-readonly="true"
         value={hasValue ? value! : ""}
@@ -80,7 +81,6 @@ const ReadOnlyField = forwardRef<HTMLInputElement, ReadOnlyFieldProps>(
           className
         )}
         tabIndex={0}
-        {...props}
       />
     );
   }
