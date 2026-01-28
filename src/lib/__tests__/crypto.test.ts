@@ -14,7 +14,11 @@ describe('crypto', () => {
   afterEach(() => {
     // Reset cached key to prevent state leakage to other test files
     __resetCachedKey()
-    process.env.ENCRYPTION_KEY = originalEnv
+    if (originalEnv === undefined) {
+      delete process.env.ENCRYPTION_KEY
+    } else {
+      process.env.ENCRYPTION_KEY = originalEnv
+    }
   })
 
   describe('encrypt', () => {
