@@ -5,7 +5,8 @@ test.describe('Smoke Tests', () => {
     const response = await page.goto('/')
     
     // Check that the server responds successfully
-    expect(response?.status()).toBeLessThan(400)
+    expect(response).not.toBeNull()
+    expect(response!.status()).toBeLessThan(400)
   })
 
   test('should render HTML content', async ({ page }) => {
