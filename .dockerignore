@@ -19,7 +19,6 @@ coverage
 .prettierrc*
 vitest.config.ts
 playwright.config.ts
-tsconfig.json
 
 README.md
 CONTRIBUTING.md

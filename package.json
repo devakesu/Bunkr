@@ -1,6 +1,6 @@
 {
   "name": "ghostclass",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "private": false,
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
