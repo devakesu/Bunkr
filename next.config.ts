@@ -1,4 +1,4 @@
-import { getCspHeader } from "@/lib/csp";
+import { getCspHeader } from "./src/lib/csp";
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
