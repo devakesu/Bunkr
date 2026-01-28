@@ -63,7 +63,7 @@
     "framer-motion": "^12.6.5",
     "ldrs": "^1.1.6",
     "lucide-react": "^0.563.0",
-    "next": "^16.0.7",
+    "next": "^16.1.6",
     "nextjs-toploader": "^3.9.17",
     "nprogress": "^0.2.0",
     "react": "^19.2.3",
