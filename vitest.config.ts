@@ -22,6 +22,8 @@ export default defineConfig({
         'supabase/**',
         'public/**',
         'scripts/**',
+        '**/__tests__/**',
+        '**/*.{test,spec}.*',
       ],
       include: ['src/**/*.{ts,tsx}'],
       // @ts-expect-error - 'all' is a valid runtime option but not in Vitest 4.x types
