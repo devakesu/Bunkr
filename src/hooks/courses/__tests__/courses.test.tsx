@@ -5,7 +5,11 @@ import { type ReactNode } from 'react'
 import { useFetchCourses } from '@/hooks/courses/courses'
 import axiosInstance from '@/lib/axios'
 
-vi.mock('@/lib/axios')
+vi.mock('@/lib/axios', () => ({
+  default: {
+    get: vi.fn(),
+  },
+}))
 
 describe('useFetchCourses', () => {
   const createWrapper = () => {

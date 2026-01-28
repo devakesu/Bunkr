@@ -5,7 +5,11 @@ import { type ReactNode } from 'react'
 import { useUser } from '@/hooks/users/user'
 import axiosInstance from '@/lib/axios'
 
-vi.mock('@/lib/axios')
+vi.mock('@/lib/axios', () => ({
+  default: {
+    get: vi.fn(),
+  },
+}))
 vi.mock('@/lib/auth', () => ({
   handleLogout: vi.fn(),
 }))
