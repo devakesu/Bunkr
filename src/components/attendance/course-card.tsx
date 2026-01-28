@@ -7,7 +7,7 @@ import { useCourseDetails } from "@/hooks/courses/attendance";
 import { AlertCircle } from "lucide-react";
 import { calculateAttendance } from "@/lib/logic/bunk";
 import { useAttendanceSettings } from "@/providers/attendance-settings";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useUser } from "@/hooks/users/user";
 
@@ -30,6 +30,17 @@ export function CourseCard({ course }: CourseCardProps) {
 
   const { targetPercentage } = useAttendanceSettings();
   const [showBunkCalc, setShowBunkCalc] = useState(true);
+
+  const normalize = useCallback((s: string | undefined) => 
+    s?.toLowerCase().replace(/[^a-z0-9]/g, "") || "", 
+    []
+  );
+
+  const courseIdentifiers = useMemo(() => ({
+    targetId: String(course.id),
+    targetName: normalize(course.name),
+    targetCode: normalize(course.code),
+  }), [course.id, course.name, course.code, normalize]);
 
   useEffect(() => {
     const stored = localStorage.getItem("showBunkCalc");
@@ -62,10 +73,7 @@ export function CourseCard({ course }: CourseCardProps) {
     const officialPercentage = realTotal > 0 ? (realPresent / realTotal) * 100 : 0;
     
     // 2. Filter Tracking Data (Local Calculation Backup)
-    const normalize = (s: string | undefined) => s?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
-    const targetId = String(course.id);
-    const targetName = normalize(course.name);
-    const targetCode = normalize(course.code);
+     const { targetId, targetName, targetCode } = courseIdentifiers;
 
     const courseTracks = trackingData?.filter(t => {
         if (String(t.course) === targetId) return true;
@@ -95,8 +103,8 @@ export function CourseCard({ course }: CourseCardProps) {
     const extras = extraPresent + extraAbsent;
 
     // 4. Final Calculation
-    const finalPresent = (course.present !== undefined) ? course.present : (realPresent + extraPresent + correctionPresent);
-    const finalTotal = (course.total !== undefined) ? course.total : (realTotal + extras);
+    const finalPresent = course.present !== undefined ? course.present : realPresent;
+    const finalTotal = course.total !== undefined ? course.total : realTotal;
     
     const displayPercentage = finalTotal > 0 ? (finalPresent / finalTotal) * 100 : 0;
 
@@ -118,60 +126,37 @@ export function CourseCard({ course }: CourseCardProps) {
       safeMetrics,
       extraMetrics
     };
-  }, [courseDetails, trackingData, course.id, course.name, course.code, course.present, course.total, targetPercentage]);
+  }, [courseDetails?.present, courseDetails?.totel, courseDetails?.absent, trackingData?.length, courseIdentifiers, course.present, course.total, targetPercentage, normalize]);
 
-  const hasAttendanceData = !isLoading && stats.displayTotal > 0;
+  const hasAttendanceData = useMemo(() => 
+    !isLoading && stats.displayTotal > 0,
+    [isLoading, stats.displayTotal]
+  );
 
-  function capitalize(str: string) {
+  const isGain = useMemo(() => 
+    stats.displayPercentage >= stats.officialPercentage,
+    [stats.displayPercentage, stats.officialPercentage]
+  );
+
+  const capitalize = useCallback((str: string) => {
     if (!str) return "";
     return str
       .split(" ")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(" ");
-  }
+  }, []);
 
-  const renderBunkMessage = () => {
-    const { safeMetrics, extraMetrics, correctionPresent, extras } = stats;
-
-    const isModified = correctionPresent > 0 || extras > 0;
-    const activeMetrics = (isModified && extraMetrics) ? extraMetrics : safeMetrics;
-    const { canBunk, requiredToAttend } = activeMetrics;
-
-    if (canBunk > 0) {
-      return (
-        <>
-          <span aria-label={`You can safely bunk ${canBunk} ${canBunk === 1 ? 'class' : 'classes'}`}>
-            You can safely bunk <span className="font-bold text-green-500">{canBunk}</span> {canBunk === 1 ? "class 🥳" : "classes 🥳🥳"}
-          </span>
-          {isModified && (
-             <span className="text-muted-foreground font-normal opacity-80 block text-xs mt-0.5"> (Based on Tracking Data)</span>
-          )}
-        </>
-      );
-    }
-
-    if (requiredToAttend > 0) {
-      return (
-        <>
-          You need to attend <span className="font-bold text-amber-500">{!isFinite(requiredToAttend) ? "all" : requiredToAttend}</span> more {requiredToAttend === 1 ? "class 💀" : "classes 💀💀"}
-          {isModified && (
-             <span className="text-muted-foreground font-normal opacity-80 block text-xs mt-0.5"> (Based on Tracking Data)</span>
-          )}
-        </>
-      );
-    }
-
-    return <>You are on the edge. Skipping now&apos;s risky 💀💀</>;
-  };
-
-  const isGain = stats.displayPercentage >= stats.officialPercentage;
+  const courseName = useMemo(() => 
+    capitalize(course.name.toLowerCase()),
+    [course.name, capitalize]
+  );
 
   return (
     <Card className="pt-0 pb-0 custom-container overflow-clip h-full min-h-[280px]">
       <CardHeader className="flex justify-between items-start flex-row gap-2 pt-6 bg-[#2B2B2B]/[0.4] pb-5 border-b-2 border-[#2B2B2B]/[0.6]">
         <div className="flex flex-col gap-1">
           <CardTitle className="text-lg font-semibold break-words leading-tight">
-            {capitalize(course.name.toLowerCase())}
+            {courseName}
           </CardTitle>
         </div>
         <Badge
@@ -260,13 +245,13 @@ export function CourseCard({ course }: CourseCardProps) {
                     {/* SCENARIO 1: GAIN (Merged > Official) */}
                     <div
                       className="absolute top-0 left-0 h-full bg-primary/40 transition-all duration-500 ease-in-out"
-                      style={{ width: `${stats.displayPercentage}%` }}
+                      style={{ width: `${Math.min(stats.displayPercentage, 100)}%` }}
                     >
                       <div className="h-full w-full opacity-30 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:8px_8px]" />
                     </div>
                     <div
                       className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-in-out"
-                      style={{ width: `${stats.officialPercentage}%` }}
+                      style={{ width: `${Math.min(stats.officialPercentage, 100)}%` }}
                     />
                   </>
                 ) : (
@@ -274,13 +259,13 @@ export function CourseCard({ course }: CourseCardProps) {
                     {/* SCENARIO 2: LOSS (Merged < Official) */}
                     <div
                       className="absolute top-0 left-0 h-full bg-red-500/80 transition-all duration-500 ease-in-out"
-                      style={{ width: `${stats.officialPercentage}%` }}
+                      style={{ width: `${Math.min(stats.officialPercentage, 100)}%` }}
                     >
                         <div className="h-full w-full opacity-30 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:8px_8px]" />
                     </div>
                     <div
                       className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-in-out"
-                      style={{ width: `${stats.displayPercentage}%` }}
+                      style={{ width:`${Math.min(stats.displayPercentage, 100)}%` }}
                     />
                   </>
                 )}
@@ -303,10 +288,111 @@ export function CourseCard({ course }: CourseCardProps) {
 
             {/* BUNK CALCULATOR SECTION */}
             {showBunkCalc && (
-              <div className="bg-accent/40 rounded-md py-2 px-3 flex justify-center items-center mt-4">
-                <p className="text-sm text-muted-foreground text-center font-medium leading-tight">
-                  {renderBunkMessage()}
-                </p>
+              <div className="mt-4">
+                {(() => {
+                  const hasModifications = stats.correctionPresent > 0 || stats.extras > 0;
+                  
+                  if (!hasModifications) {
+                    return (
+                      <div className="bg-accent/40 rounded-md py-2 px-3 flex justify-center items-center">
+                        <p className="text-sm text-muted-foreground text-center font-medium leading-tight">
+                          {stats.safeMetrics.canBunk > 0 ? (
+                            <>
+                              You can safely bunk <span className="font-bold text-green-500">{stats.safeMetrics.canBunk}</span> {stats.safeMetrics.canBunk === 1 ? "class 🥳" : "classes 🥳🥳"}
+                            </>
+                          ) : stats.safeMetrics.requiredToAttend > 0 ? (
+                            <>
+                              You need to attend <span className="font-bold text-amber-500">{!isFinite(stats.safeMetrics.requiredToAttend) ? "all" : stats.safeMetrics.requiredToAttend}</span> more {stats.safeMetrics.requiredToAttend === 1 ? "class 💀" : "classes 💀💀"}
+                            </>
+                          ) : (
+                            <>You are on the edge. Skipping now&apos;s risky 💀💀</>
+                          )}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  // CHECK: Official bunkable > Tracking bunkable
+                  const officialIsBetter = 
+                    // Official has MORE bunkable classes
+                    stats.safeMetrics.canBunk > stats.extraMetrics.canBunk ||
+                    // OR official needs FEWER classes to attend (when both are below target)
+                    (stats.safeMetrics.canBunk === 0 && 
+                    stats.extraMetrics.canBunk === 0 && 
+                    stats.safeMetrics.requiredToAttend < stats.extraMetrics.requiredToAttend);
+
+                  if (officialIsBetter) {
+                    // SHOW ONLY TRACKING (single display)
+                    return (
+                      <div className="bg-accent/40 rounded-md py-2 px-3 flex justify-center items-center">
+                        <p className="text-sm text-muted-foreground text-center font-medium leading-tight">
+                          {stats.extraMetrics.canBunk > 0 ? (
+                            <>
+                              You can safely bunk <span className="font-bold text-green-500">{stats.extraMetrics.canBunk}</span> {stats.extraMetrics.canBunk === 1 ? "class 🥳" : "classes 🥳🥳"}
+                            </>
+                          ) : stats.extraMetrics.requiredToAttend > 0 ? (
+                            <>
+                              You need to attend <span className="font-bold text-amber-500">{!isFinite(stats.extraMetrics.requiredToAttend) ? "all" : stats.extraMetrics.requiredToAttend}</span> more {stats.extraMetrics.requiredToAttend === 1 ? "class 💀" : "classes 💀💀"}
+                            </>
+                          ) : (
+                            <>You are on the edge. Skipping now&apos;s risky 💀💀</>
+                          )}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  // TRACKING IS BETTER OR EQUAL
+                  return (
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* SAFE COUNT */}
+                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-2">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <svg className="w-3.5 h-3.5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                          </svg>
+                          <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Safe (Official Data)</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-medium leading-tight">
+                          {stats.safeMetrics.canBunk > 0 ? (
+                            <>
+                              Bunkable: <span className="font-bold text-green-500">{stats.safeMetrics.canBunk}</span>
+                            </>
+                          ) : stats.safeMetrics.requiredToAttend > 0 ? (
+                            <>
+                              Must Attend: <span className="font-bold text-amber-500">{!isFinite(stats.safeMetrics.requiredToAttend) ? "all" : stats.safeMetrics.requiredToAttend} 💀💀</span>
+                            </>
+                          ) : (
+                            <>Edge 💀</>
+                          )}
+                        </p>
+                      </div>
+
+                      {/* OPTIMISTIC COUNT */}
+                      <div className="bg-purple-500/10 border border-purple-500/20 rounded-md p-2">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <svg className="w-3.5 h-3.5 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">+ Tracking Data</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-medium leading-tight">
+                          {stats.extraMetrics.canBunk > 0 ? (
+                            <>
+                              Bunkable: <span className="font-bold text-green-500">{stats.extraMetrics.canBunk}</span> 🥳
+                            </>
+                          ) : stats.extraMetrics.requiredToAttend > 0 ? (
+                            <>
+                              Must Attend: <span className="font-bold text-amber-500">{!isFinite(stats.extraMetrics.requiredToAttend) ? "all" : stats.extraMetrics.requiredToAttend} 💀💀</span>
+                            </>
+                          ) : (
+                            <>Edge 💀</>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </>

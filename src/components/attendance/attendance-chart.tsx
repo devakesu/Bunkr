@@ -4,17 +4,28 @@ import { useMemo } from "react";
 import {
   BarChart,
   Bar,
-  XAxis,
-  YAxis,
   CartesianGrid,
-  Tooltip,
   ReferenceLine,
-  ResponsiveContainer,
 } from "recharts";
 import { AttendanceReport, TrackAttendance, Course } from "@/types";
 import { useAttendanceSettings } from "@/providers/attendance-settings";
 import { generateSlotKey } from "@/lib/utils";
 import { BarChart3 } from "lucide-react";
+
+import { lazy } from "react";
+
+const XAxis = lazy(() => 
+  import('recharts').then(module => ({ default: module.XAxis }))
+);
+const YAxis = lazy(() => 
+  import('recharts').then(module => ({ default: module.YAxis }))
+);
+const Tooltip = lazy(() => 
+  import('recharts').then(module => ({ default: module.Tooltip }))
+);
+const ResponsiveContainer = lazy(() => 
+  import('recharts').then(module => ({ default: module.ResponsiveContainer }))
+);
 
 // --- HELPERS ---
 const formatCourseCode = (code: string) => {

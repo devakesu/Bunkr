@@ -45,35 +45,28 @@
 }
 
 :root {
-  --radius: 0.75rem; /* Slightly rounder = friendlier */
+  --radius: 0.75rem;
   
-  /* Deep Violet-Black Background */
   --background: oklch(0.12 0.02 285); 
   --foreground: oklch(0.98 0.01 285);
 
-  /* Glassy/Ghostly Cards */
   --card: oklch(0.16 0.03 285);
   --card-foreground: oklch(0.98 0.01 285);
   --popover: oklch(0.14 0.03 285);
   --popover-foreground: oklch(0.98 0.01 285);
 
-  /* Electric Purple Primary (The Ghost) */
   --primary: oklch(0.65 0.22 280);
   --primary-foreground: oklch(0.98 0 0);
 
-  /* Ectoplasm Teal Secondary */
   --secondary: oklch(0.25 0.08 200);
   --secondary-foreground: oklch(0.90 0.05 200);
 
-  /* Muted purples for text */
   --muted: oklch(0.25 0.04 285);
   --muted-foreground: oklch(0.70 0.04 280);
 
-  /* Neon accents */
   --accent: oklch(0.25 0.10 280);
   --accent-foreground: oklch(0.985 0 0);
 
-  /* Hot Pink for Errors */
   --destructive: oklch(0.60 0.25 15);
   --destructive-foreground: oklch(0.98 0 0);
 
@@ -81,14 +74,12 @@
   --input: oklch(0.25 0.05 285);
   --ring: oklch(0.65 0.22 280);
 
-  /* Chart colors updated to Neons */
-  --chart-1: oklch(0.65 0.22 280); /* Purple */
-  --chart-2: oklch(0.75 0.18 150); /* Green */
-  --chart-3: oklch(0.60 0.20 200); /* Cyan */
-  --chart-4: oklch(0.65 0.20 340); /* Pink */
-  --chart-5: oklch(0.85 0.15 90);  /* Yellow */
+  --chart-1: oklch(0.65 0.22 280);
+  --chart-2: oklch(0.75 0.18 150);
+  --chart-3: oklch(0.60 0.20 200);
+  --chart-4: oklch(0.65 0.20 340);
+  --chart-5: oklch(0.85 0.15 90);
   
-  /* Keep sidebar sync with background */
   --sidebar: oklch(0.12 0.02 285);
   --sidebar-foreground: oklch(0.98 0.01 285);
   --sidebar-primary: oklch(0.65 0.22 280);
@@ -103,7 +94,7 @@
    ACCESSIBILITY UTILITIES
    ============================================================================ */
 
-/* Screen reader only - visually hidden but accessible to screen readers */
+/* Screen reader only */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -145,6 +136,21 @@
 /* Remove focus outline for mouse users */
 *:focus:not(:focus-visible) {
   outline: none;
+}
+
+/* Prominent focus for buttons and links */
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+
+/* Focus for form inputs */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
 }
 
 /* Reduced motion preference */

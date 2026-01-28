@@ -46,6 +46,7 @@ import { useAttendanceSettings } from "@/providers/attendance-settings";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
+import { calculateAttendance } from "@/lib/logic/bunk";
 
 const ChartSkeleton = () => (
   <div className="flex items-center justify-center h-full">
@@ -534,25 +535,19 @@ export default function DashboardClient() {
         const { present, total } = statsObj;
         const isNew = total === 0;
         const pct = total > 0 ? Math.round((present / total) * 100) : 0;
-        let bunkable = 0, required = 0;
+        let canBunk = 0, requiredToAttend = 0;
         if (!isNew) {
-            if (pct >= targetPercentage) {
-                const maxClassesToAttend = Math.floor((100 * present) / targetPercentage);
-                bunkable = Math.max(0, maxClassesToAttend - total);
-            } else {
-                if (targetPercentage < 100) {
-                    const numerator = (targetPercentage * total) - (100 * present);
-                    required = Math.max(0, Math.ceil(numerator / (100 - targetPercentage)));
-                } else required = total > present ? Infinity : 0;
-            }
+            const result = calculateAttendance(present, total, targetPercentage);
+            canBunk = result.canBunk;
+            requiredToAttend = result.requiredToAttend;
         }
-        return { ...course, currentPercentage: pct, bunkable, required, isNew, present, total }; 
+        return { ...course, currentPercentage: pct, bunkable: canBunk, required: requiredToAttend, isNew, present, total }; 
       }).sort((a: any, b: any) => {
         if (a.isNew && !b.isNew) return 1; if (!a.isNew && b.isNew) return -1;
         if (b.bunkable !== a.bunkable) return b.bunkable - a.bunkable;
         return a.required - b.required;
       });
-  }, [coursesData, stats, targetPercentage]);
+  }, [coursesData?.courses, stats?.courseStats, targetPercentage]);
 
   if (isLoadingSemester || isLoadingAcademicYear || isLoadingAttendance || isLoadingCourses || isLoadingTracking || isUpdating || isSyncing) {
     return <CompLoading />;

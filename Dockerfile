@@ -1,7 +1,7 @@
 # ===============================
 # 0. Global deterministic settings
 # ===============================
-ARG NODE_IMAGE=node:20-alpine
+ARG NODE_IMAGE=node:20.19.0-alpine3.20
 ARG SOURCE_DATE_EPOCH=1767225600
 
 # ===============================
@@ -13,7 +13,10 @@ ARG SOURCE_DATE_EPOCH
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 ENV TZ=UTC
 
-RUN apk add --no-cache libc6-compat
+# nstall only required native dependencies
+RUN apk add --no-cache \
+    libc6-compat \
+    && rm -rf /var/cache/apk/*
 
 WORKDIR /app
 
@@ -22,11 +25,14 @@ ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
 
 COPY package.json package-lock.json ./
 
+# OPTIMIZATION 1: Use npm ci with production flag
 RUN npm install -g npm@latest && \
     npm ci \
     --ignore-scripts \
     --no-audit \
-    --no-fund
+    --no-fund \
+    --prefer-offline \
+    && npm cache clean --force
 
 # ===============================
 # 2. Build layer
@@ -76,9 +82,6 @@ ARG NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ARG NEXT_PUBLIC_GA_ID
 
-# ---------------------------------------
-# Set environment variables
-# ---------------------------------------
 ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
@@ -95,22 +98,14 @@ ENV NEXT_PUBLIC_LEGAL_EMAIL=${NEXT_PUBLIC_LEGAL_EMAIL}
 ENV NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE=${NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE}
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
 ENV NEXT_PUBLIC_GA_ID=${NEXT_PUBLIC_GA_ID}
-
-# Derived env (constructed from SUPABASE_URL)
 ENV NEXT_PUBLIC_SUPABASE_API_URL=${NEXT_PUBLIC_SUPABASE_URL}/functions/v1
 
-# ===============================
-# 🔐 Validate required build args
-# ===============================
+# Validate required build args
 RUN set -e; \
   : "${APP_COMMIT_SHA:?APP_COMMIT_SHA is required}"; \
-  : "${NEXT_PUBLIC_SENTRY_DSN:?NEXT_PUBLIC_SENTRY_DSN is required}"; \
-  : "${SENTRY_ORG:?SENTRY_ORG is required}"; \
-  : "${SENTRY_PROJECT:?SENTRY_PROJECT is required}"; \
   : "${NEXT_PUBLIC_BACKEND_URL:?NEXT_PUBLIC_BACKEND_URL is required}"; \
   : "${NEXT_PUBLIC_SUPABASE_URL:?NEXT_PUBLIC_SUPABASE_URL is required}"; \
   : "${NEXT_PUBLIC_SUPABASE_ANON_KEY:?NEXT_PUBLIC_SUPABASE_ANON_KEY is required}"; \
-  : "${NEXT_PUBLIC_GITHUB_URL:?NEXT_PUBLIC_GITHUB_URL is required}"; \
   : "${NEXT_PUBLIC_APP_NAME:?NEXT_PUBLIC_APP_NAME is required}"; \
   : "${NEXT_PUBLIC_APP_VERSION:?NEXT_PUBLIC_APP_VERSION is required}"; \
   : "${NEXT_PUBLIC_APP_DOMAIN:?NEXT_PUBLIC_APP_DOMAIN is required}"; \
@@ -124,45 +119,75 @@ RUN set -e; \
   : "${NEXT_PUBLIC_TURNSTILE_SITE_KEY:?NEXT_PUBLIC_TURNSTILE_SITE_KEY is required}"; \
   : "${NEXT_PUBLIC_GA_ID:?NEXT_PUBLIC_GA_ID is required}";
 
-
-# 1️⃣ Build
+# OPTIMIZATION 2: Build with minimal resources
 RUN --mount=type=secret,id=sentry_token \
     export SENTRY_AUTH_TOKEN=$(cat /run/secrets/sentry_token) && \
-    npm run build
-
-# 2️⃣ Normalize timestamps (MANDATORY)
-RUN find .next -exec touch -d "@${SOURCE_DATE_EPOCH}" {} +
-
-# 3️⃣ Normalize absolute paths in standalone server
-RUN sed -i 's|/app/|/|g' .next/standalone/server.js
+    npm run build && \
+    # Remove build-time dev dependencies
+    rm -rf .next/cache
 
 # ===============================
-# 3. Runtime layer
+# 3. Production dependencies ONLY
+# ===============================
+FROM ${NODE_IMAGE} AS prod-deps
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+
+# OPTIMIZATION 3: Install ONLY production dependencies
+RUN npm install -g npm@latest && \
+    npm ci \
+    --omit=dev \
+    --ignore-scripts \
+    --no-audit \
+    --no-fund \
+    --prefer-offline \
+    && npm cache clean --force \
+    && rm -rf /tmp/*
+
+# ===============================
+# 4. Runtime layer
 # ===============================
 FROM ${NODE_IMAGE} AS runner
 
 ARG SOURCE_DATE_EPOCH
-ARG APP_COMMIT_SHA 
-
-ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
+ARG APP_COMMIT_SHA
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
-ENV TZ=UTC
+ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
 
 WORKDIR /app
 
-RUN addgroup --system --gid 1001 nodejs \
- && adduser --system --uid 1001 nextjs
+# OPTIMIZATION 4: Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs && \
+    apk add --no-cache wget
 
-# ensure clean state
-RUN rm -rf .next
+# OPTIMIZATION 5: Copy only necessary files
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# OPTIMIZATION 6: Use production-only node_modules
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# OPTIMIZATION 7: Remove unnecessary files
+RUN rm -rf \
+    /usr/share/man/* \
+    /usr/share/doc/* \
+    /var/cache/apk/* \
+    /tmp/* \
+    /root/.npm \
+    /root/.cache
 
 USER nextjs
+
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
+
 CMD ["node", "server.js"]

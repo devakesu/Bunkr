@@ -53,6 +53,9 @@ export function useTrackingData(user: User | null | undefined, options?: { enabl
       return (data as TrackAttendance[]) || [];
     },
     enabled: !!user && (options?.enabled !== false),
-    staleTime: 1000 * 60,
+    staleTime: 30 * 1000,
+    gcTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60 * 1000, 
   });
 }
