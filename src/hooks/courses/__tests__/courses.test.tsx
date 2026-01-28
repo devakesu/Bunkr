@@ -50,14 +50,16 @@ describe('useFetchCourses', () => {
 
   it('should handle error state', async () => {
     vi.mocked(axiosInstance.get).mockRejectedValueOnce(new Error('Network error'))
+      .mockRejectedValueOnce(new Error('Network error')) // Second rejection for retry
 
     const { result } = renderHook(() => useFetchCourses(), {
       wrapper: createWrapper(),
     })
 
+    // Wait longer than retry delay (1000ms) + processing time
     await waitFor(() => {
       expect(result.current.isError).toBe(true)
-    })
+    }, { timeout: 3000 })
   })
 
   it('should respect enabled option', () => {
