@@ -13,7 +13,7 @@ ARG SOURCE_DATE_EPOCH
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 ENV TZ=UTC
 
-# nstall only required native dependencies
+# Install only required native dependencies
 RUN apk add --no-cache \
     libc6-compat \
     && rm -rf /var/cache/apk/*
