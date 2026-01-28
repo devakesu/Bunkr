@@ -173,7 +173,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # CRITICAL: Copy the source code for all aliases (e.g. "@/components")
 COPY --from=builder --chown=nextjs:nodejs /app/src ./src
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
-COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./next.config.js
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
 
 # Production node_modules
 COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
