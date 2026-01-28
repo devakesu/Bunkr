@@ -1,15 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { encrypt, decrypt } from '../crypto'
+import { encrypt, decrypt, resetCachedKey } from '../crypto'
 
 describe('crypto', () => {
   const originalEnv = process.env.ENCRYPTION_KEY
 
   beforeEach(() => {
+    // Reset cached key to allow environment changes to take effect
+    resetCachedKey()
     // Set a valid test encryption key (64 hex chars = 32 bytes)
     process.env.ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
   })
 
   afterEach(() => {
+    // Reset cached key to prevent state leakage to other test files
+    resetCachedKey()
     process.env.ENCRYPTION_KEY = originalEnv
   })
 

@@ -8,6 +8,12 @@ const ALGORITHM = 'aes-256-gcm';
 // Cache for validated encryption key
 let cachedKey: Buffer | null = null;
 
+// Test-only function to reset the cached key
+// This allows tests to simulate different environment configurations
+export function resetCachedKey(): void {
+  cachedKey = null;
+}
+
 // Lazy validation: validate and get key only when needed
 // Note: This validation duplicates the checks in validateEnvironment() (validate-env.ts).
 // This is intentional defense-in-depth to handle edge cases where validateEnvironment()
