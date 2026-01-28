@@ -7,6 +7,7 @@ import React from 'react'
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 
 // Mock Next.js router
