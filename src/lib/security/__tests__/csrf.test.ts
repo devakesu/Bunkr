@@ -162,8 +162,6 @@ describe('CSRF Protection', () => {
           secure: true,
         })
       );
-
-      vi.unstubAllEnvs();
     });
   });
 
