@@ -1,4 +1,5 @@
 // Content Security Policy
+import { logger } from './logger';
 
 export const getCspHeader = (nonce?: string) => {
   const isDev = process.env.NODE_ENV !== "production";
@@ -22,6 +23,11 @@ export const getCspHeader = (nonce?: string) => {
         "https://challenges.cloudflare.com",
         "https://static.cloudflareinsights.com",
       ];
+
+  // Log warning if nonce is missing in production
+  if (!isDev && !nonce) {
+    logger.warn('[CSP] Nonce not provided in production - scripts may be restricted by CSP');
+  }
 
   const styleSrcParts = isDev
     ? ["'self'", "'unsafe-inline'"]

@@ -164,15 +164,16 @@ export async function POST(req: Request) {
 
   const origin = headerList.get("origin");
   const host = headerList.get("host");
-  if (origin && host) {
-    try {
-      const originHost = new URL(origin).host;
-      if (originHost !== host) {
-        return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-      }
-    } catch {
+  if (!origin || !host) {
+    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  }
+  try {
+    const originHost = new URL(origin).host;
+    if (originHost !== host) {
       return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
     }
+  } catch {
+    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   }
   const ip = getClientIp(headerList);
   if (!ip) {
@@ -482,7 +483,7 @@ export async function POST(req: Request) {
       }, { onConflict: "id" });
 
     if (dbError) throw dbError;
-    setAuthCookie(token);
+    await setAuthCookie(token);
 
     return NextResponse.json({ success: true });
 
