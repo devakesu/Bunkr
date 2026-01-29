@@ -150,12 +150,7 @@ describe('CSRF Protection', () => {
     });
 
     it('should set secure flag in production', async () => {
-      const originalEnv = process.env.NODE_ENV;
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: 'production',
-        writable: true,
-        configurable: true,
-      });
+      vi.stubEnv('NODE_ENV', 'production');
 
       const token = 'test-token';
       await setCsrfCookie(token);
@@ -168,11 +163,7 @@ describe('CSRF Protection', () => {
         })
       );
 
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: originalEnv,
-        writable: true,
-        configurable: true,
-      });
+      vi.unstubAllEnvs();
     });
   });
 
