@@ -147,39 +147,37 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
-# Build argument for customizable hostname binding (default: localhost-only for secure-by-default)
-# Override at build time with: --build-arg NEXT_HOSTNAME=0.0.0.0 for all-interface binding
-ARG NEXT_HOSTNAME="127.0.0.1"
+# Build argument for customizable hostname binding
+# Override at build time with: --build-arg NEXT_HOSTNAME=127.0.0.1 for localhost-only binding
+ARG NEXT_HOSTNAME="0.0.0.0"
 
 # Bind the Next.js server to network interface(s) inside the container.
-# Default: "127.0.0.1" - binds only to localhost interface (secure-by-default).
-# This requires the reverse proxy to run on the same host/container network.
+# Default: "0.0.0.0" - binds to all interfaces within the container, allowing connections from
+# other containers in the same network (e.g., reverse proxy in separate container/pod).
 # 
-# For environments where the reverse proxy is on a different host (e.g., separate pod/container),
-# explicitly set --build-arg NEXT_HOSTNAME=0.0.0.0 to bind to all interfaces.
+# DEPLOYMENT PATTERNS:
+# 1. Separate container reverse proxy (MOST COMMON): Use default "0.0.0.0"
+#    - Reverse proxy (nginx, traefik) in separate container/pod needs to reach app over network
+#    - Network isolation is provided by container network policies/firewall rules
 # 
-# IMPORTANT SECURITY REQUIREMENTS WHEN USING 0.0.0.0:
-# - The container MUST run strictly behind a reverse proxy, firewall, or service mesh
-# - Ensure the reverse proxy/firewall is correctly configured to expose only
-#   the intended external endpoints
-# - Ensure direct access to the container/pod (e.g. node port, host port,
-#   or direct Docker port mapping) is blocked in production
-# - Ensure only the reverse proxy (or equivalent) can reach this container
-#   on PORT/HOSTNAME
+# 2. Same-host reverse proxy: Use --build-arg NEXT_HOSTNAME=127.0.0.1
+#    - Reverse proxy runs on the same host (not containerized) accessing via localhost
+#    - More restrictive binding, but less common in containerized deployments
 # 
-# DEPLOYMENT VALIDATION CHECKLIST (when using 0.0.0.0):
-# 1. Verify reverse proxy/load balancer configuration
-# 2. Confirm direct container access is blocked (no NodePort, HostPort, or direct Docker port mapping)
-# 3. Test that only the reverse proxy can reach the container
-# 4. If your environment lacks network isolation, keep the default localhost-only binding
-#    or explicitly set --build-arg NEXT_HOSTNAME=0.0.0.0 only when safe and required.
+# ⚠️ CRITICAL SECURITY REQUIREMENTS (when using 0.0.0.0):
+# - This container MUST run strictly behind a reverse proxy, firewall, or service mesh
+# - Direct access to the container must be blocked (no NodePort, HostPort, or direct Docker port mapping)
+# - Only the reverse proxy should be able to reach this container
+# - Configure network policies to restrict access to the container
+# 
+# DEPLOYMENT VALIDATION CHECKLIST:
+# ✓ Verify reverse proxy/load balancer is correctly configured
+# ✓ Confirm direct container access is blocked at the network level
+# ✓ Test that only reverse proxy can reach the container
+# ✓ Review container network policies and firewall rules
+# ✓ Ensure these checks are enforced in CI/CD pipelines
 #
-# These checks should be enforced in CI/CD pipelines or infrastructure-as-code validation.
-#
-# NOTE: HOSTNAME controls the network interface binding (listen address) for the Next.js
-# standalone server, not the public URL hostname. By default, it binds to "127.0.0.1" for
-# localhost-only access. Set NEXT_HOSTNAME to "0.0.0.0" to bind to all interfaces when
-# deploying behind a properly secured reverse proxy or service mesh.
+# NOTE: HOSTNAME controls the network interface binding (listen address), not the public URL hostname.
 ENV HOSTNAME="${NEXT_HOSTNAME}"
 
 WORKDIR /app

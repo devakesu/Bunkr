@@ -101,8 +101,8 @@ export default function TrackingClient() {
 
   // --- AUTO SYNC ---
   useEffect(() => {
-    // Guard: ensure user ID exists before attempting sync
-    // Using user?.id alone is sufficient as the primary user identifier
+    // Guard: ensure both user ID and username exist before attempting sync
+    // Username is required for the sync API call
     if (!user?.id || !user?.username) return;
 
     // Check if sync already ran for THIS mount
@@ -188,7 +188,7 @@ export default function TrackingClient() {
       isCleanedUp = true;
       abortController.abort();
     };
-  }, [user?.id, refetchTrackingData, refetchCount]); // Optimized: user?.id alone is sufficient, username is checked in guard
+  }, [user?.id, user?.username, refetchTrackingData, refetchCount]); // Both id and username needed as username is used in API call
 
   // Reset mountId on real navigation (when component truly remounts with new state)
   useEffect(() => {
