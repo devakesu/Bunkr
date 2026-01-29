@@ -18,6 +18,8 @@ interface AddRecordTriggerProps {
 export function AddRecordTrigger({ user, onSuccess }: AddRecordTriggerProps) {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Transform user object to match AddAttendanceDialog's expected interface
+  // TODO: Consider defining a consistent User interface across components to avoid this transformation
   const dialogUser = {
     id: String(user.id),
     auth_id: (user as any)?.auth_id,

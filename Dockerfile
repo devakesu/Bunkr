@@ -32,6 +32,8 @@ RUN npm install -g npm@latest && \
     --no-audit \
     --no-fund \
     --prefer-offline
+    # Note: npm cache clean --force is omitted here to speed up the build.
+    # The multi-stage build ensures the npm cache is not included in the final image.
 
 # ===============================
 # 2. Build layer
@@ -142,6 +144,10 @@ ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+# Bind the Next.js server to all network interfaces inside the container.
+# This allows the container to accept connections from any source.
+# In production, this container should run behind a reverse proxy, firewall,
+# or similar network controls to prevent unauthorized access.
 ENV HOSTNAME="0.0.0.0"
 
 WORKDIR /app

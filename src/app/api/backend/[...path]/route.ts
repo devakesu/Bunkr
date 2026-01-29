@@ -17,6 +17,11 @@ const ALLOWED_HOSTS = new Set(
     .map((host) => host?.toLowerCase()) as string[]
 );
 
+// Additional safety check: ensure ALLOWED_HOSTS is not empty
+if (ALLOWED_HOSTS.size === 0) {
+  throw new Error("ALLOWED_HOSTS is empty - check NEXT_PUBLIC_APP_DOMAIN configuration");
+}
+
 const MAX_RESPONSE_BYTES = 1_000_000; // 1 MB safety cap
 const UPSTREAM_TIMEOUT_MS = 15_000;
 
@@ -111,7 +116,8 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
         accept: req.headers.get("accept") || "application/json",
       },
       body: hasBody ? body : undefined,
-      ...(hasBody ? { duplex: "half" as any } : {}),
+      // TypeScript doesn't recognize duplex as a valid option, but it's required for streaming requests
+      ...(hasBody ? { duplex: "half" as const } : {}),
       signal: controller.signal,
     });
 

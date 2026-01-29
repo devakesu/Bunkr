@@ -8,7 +8,7 @@ import { z } from "zod";
 import sanitizeHtml from "sanitize-html";
 import { headers } from "next/headers";
 import { syncRateLimiter } from "@/lib/ratelimit";
-import { redact } from "@/lib/utils";
+import { redact, getClientIp } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 
 // VALIDATION SCHEMA
@@ -99,21 +99,6 @@ const getContactEmail = () => {
   return 'contact' + appEmail;
 };
 
-function getClientIp(headerList: Headers): string | null {
-  const cf = headerList.get("cf-connecting-ip")?.trim();
-  if (cf) return cf;
-
-  const realIp = headerList.get("x-real-ip")?.trim();
-  if (realIp) return realIp;
-
-  const forwarded = headerList.get("x-forwarded-for");
-  const forwardedIp = forwarded?.split(",")[0]?.trim();
-  if (forwardedIp) return forwardedIp;
-
-  return process.env.NODE_ENV === "development" ? "127.0.0.1" : null;
-}
-
-
 export async function submitContactForm(formData: FormData) {
 
   // HONEYPOT CHECK (anti-bot)
@@ -126,17 +111,24 @@ export async function submitContactForm(formData: FormData) {
   // RATE LIMIT BY IP 
   const headerList = await headers();
 
+  // Enforce origin validation for all requests
   const origin = headerList.get("origin");
   const host = headerList.get("host");
-  if (origin && host) {
-    try {
-      const originHost = new URL(origin).host;
-      if (originHost !== host) {
-        return { error: "Invalid origin" };
-      }
-    } catch {
+  if (!origin || !host) {
+    return { error: "Invalid origin" };
+  }
+
+  try {
+    const originHost = new URL(origin).host.toLowerCase();
+    const normalizedHost = host.toLowerCase();
+    // Remove port from comparison if both are present
+    const originHostNoPort = originHost.split(':')[0];
+    const hostNoPort = normalizedHost.split(':')[0];
+    if (originHostNoPort !== hostNoPort) {
       return { error: "Invalid origin" };
     }
+  } catch {
+    return { error: "Invalid origin" };
   }
 
   const ip = getClientIp(headerList);

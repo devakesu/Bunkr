@@ -158,6 +158,31 @@ export const formatCourseCode = (code: string): string => {
   return code.replace(/[\s\u00A0]/g, "");
 };
 
+/**
+ * Extracts the client IP address from request headers.
+ * Prioritizes Cloudflare, then X-Real-IP, then X-Forwarded-For.
+ * Falls back to localhost in development mode.
+ * @param headerList - The Headers object from the request
+ * @returns The client IP address or null if it cannot be determined
+ */
+export function getClientIp(headerList: Headers): string | null {
+  const cf = headerList.get("cf-connecting-ip")?.trim();
+  if (cf) return cf;
+
+  const realIp = headerList.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+
+  const forwarded = headerList.get("x-forwarded-for");
+  const forwardedIp = forwarded?.split(",")[0]?.trim();
+  if (forwardedIp) return forwardedIp;
+
+  if (process.env.NODE_ENV === "development") {
+    return "127.0.0.1";
+  }
+
+  return null;
+}
+
 // Helper function to compress image
 export const compressImage = (file: File, quality = 0.7): Promise<File> => {
   return new Promise((resolve, reject) => {
