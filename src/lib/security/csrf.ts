@@ -43,7 +43,7 @@ export async function getCsrfTokenFromCookie(): Promise<string | undefined> {
 
 /**
  * Validates CSRF token from request header against cookie value
- * If no cookie exists, sets the header token as the cookie (first-time use)
+ * Requires both header and cookie to be present and match
  * @param request Request object or headers
  * @returns true if token is valid, false otherwise
  */
@@ -60,16 +60,22 @@ export async function validateCsrfToken(request: Request): Promise<boolean> {
     const cookieToken = cookieStore.get(CSRF_TOKEN_NAME)?.value;
     
     if (!cookieToken) {
-      // First-time use: Set the header token as the cookie
-      await setCsrfCookie(headerToken);
-      return true;
+      // Token must be pre-initialized through a trusted flow (e.g., GET request)
+      // Never accept a token without a matching cookie to prevent CSRF bypass
+      return false;
     }
 
     // Constant-time comparison to prevent timing attacks
-    return crypto.timingSafeEqual(
-      Buffer.from(headerToken),
-      Buffer.from(cookieToken)
-    );
+    // Normalize both tokens to prevent length-based timing leaks
+    const headerBuffer = Buffer.from(headerToken);
+    const cookieBuffer = Buffer.from(cookieToken);
+    
+    // If lengths differ, still compare to avoid timing leak
+    if (headerBuffer.length !== cookieBuffer.length) {
+      return false;
+    }
+    
+    return crypto.timingSafeEqual(headerBuffer, cookieBuffer);
   } catch {
     return false;
   }
@@ -98,7 +104,7 @@ export async function initializeCsrfToken(): Promise<string> {
 export async function clearCsrfToken(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(CSRF_TOKEN_NAME, "", {
-    httpOnly: true,
+    httpOnly: false, // Must match the setting used when creating the cookie
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",

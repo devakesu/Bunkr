@@ -5,6 +5,12 @@ import { validateCsrfToken } from "@/lib/security/csrf";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 const PUBLIC_PATHS = new Set(["login"]);
+
+// Validate NEXT_PUBLIC_APP_DOMAIN is set to prevent origin validation bypass
+if (!process.env.NEXT_PUBLIC_APP_DOMAIN) {
+  throw new Error("NEXT_PUBLIC_APP_DOMAIN must be configured for security");
+}
+
 const ALLOWED_HOSTS = new Set(
   [process.env.NEXT_PUBLIC_APP_DOMAIN]
     .filter(Boolean)
@@ -63,7 +69,8 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     }
     try {
       const originHost = new URL(origin).host.toLowerCase();
-      if (!ALLOWED_HOSTS.has(originHost) && originHost !== host.toLowerCase()) {
+      // Strict allowlist - don't fall back to Host header which can be spoofed
+      if (!ALLOWED_HOSTS.has(originHost)) {
         return NextResponse.json({ error: "Origin not allowed" }, { status: 403 });
       }
     } catch {
