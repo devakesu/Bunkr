@@ -418,6 +418,16 @@ describe('CSRF Protection', () => {
       expect(result).toBe(false);
     });
 
+    it('should reject whitespace-only tokens in both header and cookie', async () => {
+      mockCookies.get.mockReturnValue({ value: '  \t  ' }); // Whitespace with tab
+
+      const headerList = new Headers();
+      headerList.set(CSRF_HEADER, '   \n  '); // Whitespace with newline
+
+      const result = await validateCsrfTokenFromHeaders(headerList);
+      expect(result).toBe(false);
+    });
+
     it('should use constant-time comparison', async () => {
       const validToken = crypto.randomBytes(32).toString('hex');
       mockCookies.get.mockReturnValue({ value: validToken });
