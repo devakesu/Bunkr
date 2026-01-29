@@ -16,8 +16,8 @@ interface AddRecordTriggerProps {
 }
 
 /**
- * Shared interface for user data passed to AddAttendanceDialog
- * This ensures type consistency across components using the dialog
+ * Local interface for the user data shape passed to AddAttendanceDialog.
+ * Keeps the mapping from the broader User type to the dialog's expected fields explicit.
  */
 interface DialogUser {
   id: string;

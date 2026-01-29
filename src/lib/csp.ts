@@ -16,7 +16,7 @@ export const getCspHeader = (nonce?: string) => {
       '4. Confirm middleware matcher includes the current route (see matcher config in src/proxy.ts)'
     );
     // Throw a generic error message that doesn't expose internal implementation details
-    throw new Error('Security configuration error: CSP nonce validation failed');
+    throw new Error('Security configuration error: required security parameter is missing');
   }
 
   const scriptSrcParts = isDev

@@ -10,9 +10,9 @@ const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 // Uses full path matching (not prefix) to prevent accidentally exposing sensitive sub-paths.
 // 
 // SECURITY: Each path must be explicitly listed - sub-paths are NOT automatically included.
-// Example: "/login" is public, but "/login/admin" is NOT unless explicitly added.
+// Example: "login" is public, but "login/admin" is NOT unless explicitly added.
 // 
-// Add paths as full routes (e.g., "login", "login/refresh") to maintain granular control.
+// Add paths as full routes WITHOUT leading slashes (e.g., "login", "login/refresh", "health").
 // Review carefully before adding new paths to ensure no sensitive endpoints are exposed.
 const PUBLIC_PATHS = new Set([
   "login",
