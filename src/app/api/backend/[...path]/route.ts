@@ -60,9 +60,10 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
   }
 
   const isWrite = method !== "GET" && method !== "HEAD";
+  const isPublic = PUBLIC_PATHS.has(pathSegments[0]);
 
-  // CSRF + Origin protection for state-changing calls
-  if (isWrite) {
+  // CSRF + Origin protection for state-changing calls (excluding public paths)
+  if (isWrite && !isPublic) {
     const origin = req.headers.get("origin");
     if (!origin) {
       return NextResponse.json({ error: "Origin required" }, { status: 400 });
@@ -84,7 +85,6 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     }
   }
 
-  const isPublic = PUBLIC_PATHS.has(pathSegments[0]);
   const token = isPublic ? undefined : await getAuthTokenServer();
 
   const target = `${BASE_API_URL}/${pathSegments.join("/")}${req.nextUrl.search}`;
@@ -125,20 +125,20 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     try {
       text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
     } catch (sizeErr) {
-      console.error("Proxy response too large", { target, error: (sizeErr as Error)?.message });
+      logger.error("Proxy response too large", { target, error: (sizeErr as Error)?.message });
       return NextResponse.json({ error: "Upstream response too large" }, { status: 502 });
     }
 
     const contentType = res.headers.get("content-type") || "application/json";
 
     if (!res.ok) {
-      console.error("Proxy upstream error", { status: res.status, target, body: text });
+      logger.error("Proxy upstream error", { status: res.status, target, body: text });
       return NextResponse.json({ error: "Upstream error", status: res.status }, { status: res.status });
     }
 
     return new NextResponse(text, { status: res.status, headers: { "content-type": contentType } });
   } catch (err: any) {
-    console.error("Proxy fetch failed", { target, error: err?.message });
+    logger.error("Proxy fetch failed", { target, error: err?.message });
     const isAbort = err?.name === "AbortError";
     return NextResponse.json({ error: isAbort ? "Upstream timed out" : "Upstream fetch failed" }, { status: 502 });
   }

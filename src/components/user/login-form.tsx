@@ -18,7 +18,7 @@ import NProgress from "nprogress";
 import { motion, HTMLMotionProps, Variants } from "framer-motion";
 import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/client";
-import { CSRF_HEADER } from "@/lib/security/csrf-constants";
+import { CSRF_HEADER, CSRF_TOKEN_NAME } from "@/lib/security/csrf-constants";
 import { logger } from "@/lib/logger";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
@@ -138,15 +138,19 @@ export function LoginForm({ className, csrfToken: _csrfToken, ...props }: LoginF
         return;
       }
 
-      // 1. Login to Ezygo (public endpoint - no CSRF needed, handled by backend proxy)
+      // 1. Login to Ezygo (public endpoint - exempt from CSRF, listed in PUBLIC_PATHS)
       const response = await axios.post("/api/backend/login", formData);
       const token = response.data.access_token;
 
       if (!token) throw new Error("Invalid response from server");
 
-      // 2. Securely Save Token (Bridge to GhostClass)
-      // Use ezygoClient for automatic CSRF token attachment via interceptor
-      const csrfToken = document.cookie.match(/ezygo_csrf_token=([^;]+)/)?.[1];
+      // 2. Securely Save Token (Bridge to GhostClass) - requires CSRF token
+      // Read CSRF token from cookie using robust parsing to avoid partial matches
+      const csrfToken = document.cookie
+        .split('; ')
+        .find(row => row.startsWith(`${CSRF_TOKEN_NAME}=`))
+        ?.split('=')[1];
+      
       await axios.post("/api/auth/save-token", 
         { token }, 
         { 
