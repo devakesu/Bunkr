@@ -48,7 +48,7 @@ export async function getCsrfTokenFromCookie(): Promise<string | undefined> {
  * @param cookieToken Token from cookie store
  * @returns true if tokens are valid and match, false otherwise
  */
-async function compareTokens(headerToken: string | null, cookieToken: string | null | undefined): Promise<boolean> {
+function compareTokens(headerToken: string | null, cookieToken: string | null | undefined): boolean {
   try {
     // Validate header token
     if (!headerToken || headerToken.trim() === '') {
@@ -89,7 +89,7 @@ export async function validateCsrfToken(request: Request): Promise<boolean> {
     const cookieStore = await cookies();
     const cookieToken = cookieStore.get(CSRF_TOKEN_NAME)?.value;
     
-    return await compareTokens(headerToken, cookieToken);
+    return compareTokens(headerToken, cookieToken);
   } catch {
     return false;
   }
@@ -107,7 +107,7 @@ export async function validateCsrfTokenFromHeaders(headerList: Headers): Promise
     const cookieStore = await cookies();
     const cookieToken = cookieStore.get(CSRF_TOKEN_NAME)?.value;
     
-    return await compareTokens(headerToken, cookieToken);
+    return compareTokens(headerToken, cookieToken);
   } catch {
     return false;
   }
