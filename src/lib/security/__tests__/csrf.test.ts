@@ -256,7 +256,7 @@ describe('CSRF Protection', () => {
   });
 
   describe('Security Edge Cases', () => {
-    it('should handle empty string tokens', async () => {
+    it('should reject empty string tokens', async () => {
       mockCookies.get.mockReturnValue({ value: '' });
 
       const request = new Request('http://localhost', {

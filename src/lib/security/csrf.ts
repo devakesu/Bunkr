@@ -43,7 +43,7 @@ export async function getCsrfTokenFromCookie(): Promise<string | undefined> {
 
 /**
  * Validates CSRF token from request header against cookie value
- * Requires both header and cookie to be present and match
+ * Requires both header and cookie to be present, non-empty, and match
  * @param request Request object or headers
  * @returns true if token is valid, false otherwise
  */
@@ -51,7 +51,7 @@ export async function validateCsrfToken(request: Request): Promise<boolean> {
   try {
     // Get token from header
     const headerToken = request.headers.get(CSRF_HEADER);
-    if (!headerToken) {
+    if (!headerToken || headerToken.trim() === '') {
       return false;
     }
 
@@ -59,18 +59,17 @@ export async function validateCsrfToken(request: Request): Promise<boolean> {
     const cookieStore = await cookies();
     const cookieToken = cookieStore.get(CSRF_TOKEN_NAME)?.value;
     
-    if (!cookieToken) {
+    if (!cookieToken || cookieToken.trim() === '') {
       // Token must be pre-initialized through a trusted flow (e.g., GET request)
       // Never accept a token without a matching cookie to prevent CSRF bypass
       return false;
     }
 
     // Constant-time comparison to prevent timing attacks
-    // Normalize both tokens to prevent length-based timing leaks
+    // Check lengths first since timingSafeEqual requires equal-length buffers
     const headerBuffer = Buffer.from(headerToken);
     const cookieBuffer = Buffer.from(cookieToken);
     
-    // If lengths differ, still compare to avoid timing leak
     if (headerBuffer.length !== cookieBuffer.length) {
       return false;
     }

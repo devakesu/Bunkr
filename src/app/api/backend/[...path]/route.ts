@@ -63,8 +63,7 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
   // CSRF + Origin protection for state-changing calls
   if (isWrite) {
     const origin = req.headers.get("origin");
-    const host = req.headers.get("host");
-    if (!origin || !host) {
+    if (!origin) {
       return NextResponse.json({ error: "Origin required" }, { status: 400 });
     }
     try {
