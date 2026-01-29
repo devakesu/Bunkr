@@ -88,18 +88,8 @@ export async function GET(req: Request) {
   // 1. Rate Limit
   const headerList = await headers();
 
-  const origin = headerList.get("origin");
-    const host = headerList.get("host");
-    if (origin && host) {
-    try {
-        const originHost = new URL(origin).host;
-        if (originHost !== host) {
-        return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-        }
-    } catch {
-        return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-    }
-    }
+  // Note: This cron endpoint is typically called by non-browser automation (e.g. Vercel Cron, GitHub Actions),
+  // so we do not depend on Origin-based validation here. Authentication is handled via CRON_SECRET below.
 
   const trustedIpHeader = headerList.get("cf-connecting-ip") ?? headerList.get("x-real-ip");
   const ip = trustedIpHeader?.trim() || (process.env.NODE_ENV === "development" ? "127.0.0.1" : "0.0.0.0");
