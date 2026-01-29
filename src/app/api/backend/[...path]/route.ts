@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Buffer } from "buffer";
 import { getAuthTokenServer } from "@/lib/security/auth-cookie";
 import { validateCsrfToken } from "@/lib/security/csrf";
+import { logger } from "@/lib/logger";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 const PUBLIC_PATHS = new Set(["login"]);
@@ -44,12 +45,12 @@ async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: num
 
 export async function forward(req: NextRequest, method: string, path: string[]) {
   if (!BASE_API_URL) {
-    console.error("NEXT_PUBLIC_BACKEND_URL is not configured");
+    logger.error("NEXT_PUBLIC_BACKEND_URL is not configured");
     return NextResponse.json({ error: "Backend URL not configured" }, { status: 500 });
   }
 
   if (BASE_API_URL?.includes("localhost:3000")) {
-    console.error("Misconfigured NEXT_PUBLIC_BACKEND_URL: points to Next app (3000), causing proxy loop");
+    logger.error("Misconfigured NEXT_PUBLIC_BACKEND_URL: points to Next app (3000), causing proxy loop");
     return NextResponse.json({ error: "Backend URL misconfigured" }, { status: 500 });
   }
 
@@ -59,9 +60,10 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
   }
 
   const isWrite = method !== "GET" && method !== "HEAD";
+  const isPublic = PUBLIC_PATHS.has(pathSegments[0]);
 
-  // CSRF + Origin protection for state-changing calls
-  if (isWrite) {
+  // CSRF + Origin protection for state-changing calls (excluding public paths)
+  if (isWrite && !isPublic) {
     const origin = req.headers.get("origin");
     if (!origin) {
       return NextResponse.json({ error: "Origin required" }, { status: 400 });
@@ -83,7 +85,6 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     }
   }
 
-  const isPublic = PUBLIC_PATHS.has(pathSegments[0]);
   const token = isPublic ? undefined : await getAuthTokenServer();
 
   const target = `${BASE_API_URL}/${pathSegments.join("/")}${req.nextUrl.search}`;
@@ -124,20 +125,20 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     try {
       text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
     } catch (sizeErr) {
-      console.error("Proxy response too large", { target, error: (sizeErr as Error)?.message });
+      logger.error("Proxy response too large", { target, error: (sizeErr as Error)?.message });
       return NextResponse.json({ error: "Upstream response too large" }, { status: 502 });
     }
 
     const contentType = res.headers.get("content-type") || "application/json";
 
     if (!res.ok) {
-      console.error("Proxy upstream error", { status: res.status, target, body: text });
+      logger.error("Proxy upstream error", { status: res.status, target, body: text });
       return NextResponse.json({ error: "Upstream error", status: res.status }, { status: res.status });
     }
 
     return new NextResponse(text, { status: res.status, headers: { "content-type": contentType } });
   } catch (err: any) {
-    console.error("Proxy fetch failed", { target, error: err?.message });
+    logger.error("Proxy fetch failed", { target, error: err?.message });
     const isAbort = err?.name === "AbortError";
     return NextResponse.json({ error: isAbort ? "Upstream timed out" : "Upstream fetch failed" }, { status: 502 });
   }

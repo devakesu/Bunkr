@@ -1,13 +1,12 @@
 // Content Security Policy
-import { logger } from './logger';
 
 export const getCspHeader = (nonce?: string) => {
   const isDev = process.env.NODE_ENV !== "production";
   const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : "";
 
-  // In production, nonce should always be provided for strict CSP enforcement
+  // In production, nonce is mandatory for strict CSP enforcement
   if (!isDev && !nonce) {
-    logger.error('[CSP] Nonce missing in production - CSP will use unsafe-inline fallback');
+    throw new Error('[CSP] Nonce is required in production for secure CSP enforcement. Check middleware nonce generation.');
   }
 
   const scriptSrcParts = isDev
@@ -23,7 +22,8 @@ export const getCspHeader = (nonce?: string) => {
     : [
         "'self'",
         "blob:",
-        ...(nonce ? [`'nonce-${nonce}'`, "'strict-dynamic'"] : ["'unsafe-inline'"]),
+        `'nonce-${nonce}'`,
+        "'strict-dynamic'",
         // Note: With 'strict-dynamic', explicitly listed host sources below are ignored
         // by modern browsers (CSP Level 3) and only apply to older browsers as fallback.
         // For modern browsers, external scripts must be loaded dynamically by nonce'd scripts.
@@ -34,7 +34,7 @@ export const getCspHeader = (nonce?: string) => {
 
   const styleSrcParts = isDev
     ? ["'self'", "'unsafe-inline'"]
-    : ["'self'", ...(nonce ? [`'nonce-${nonce}'`] : ["'unsafe-inline'"])];
+    : ["'self'", `'nonce-${nonce}'`];
 
   return `
     default-src 'self';

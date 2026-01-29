@@ -150,6 +150,14 @@ export function validateEnvironment() {
   }
   // SENTRY_AUTH_TOKEN is build-time only, often not available at runtime, so skipping warning
 
+  if (!process.env.SENTRY_HASH_SALT) {
+    if (process.env.NODE_ENV === 'production') {
+      errors.push('❌ SENTRY_HASH_SALT is required in production (used for redacting sensitive data)');
+    } else {
+      warnings.push('⚠️  SENTRY_HASH_SALT not set - using development-only fallback');
+    }
+  }
+
   // Google Analytics
   if (!process.env.NEXT_PUBLIC_GA_ID) {
     warnings.push('ℹ️  NEXT_PUBLIC_GA_ID not set - analytics disabled (optional)');
