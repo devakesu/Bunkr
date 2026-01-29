@@ -6,7 +6,8 @@ export const getCspHeader = (nonce?: string) => {
 
   // In production, nonce is mandatory for strict CSP enforcement
   if (!isDev && !nonce) {
-    throw new Error(
+    // Log detailed troubleshooting information internally for developers
+    console.error(
       '[CSP] Nonce is required in production for secure CSP enforcement.\n' +
       'Troubleshooting:\n' +
       '1. Verify middleware is generating nonce (check src/proxy.ts nonce generation)\n' +
@@ -14,6 +15,8 @@ export const getCspHeader = (nonce?: string) => {
       '3. Check that getCspHeader is called with the nonce parameter from headers\n' +
       '4. Confirm middleware matcher includes the current route (see matcher config in src/proxy.ts)'
     );
+    // Throw a generic error message that doesn't expose internal implementation details
+    throw new Error('Security configuration error: required security parameter is missing');
   }
 
   const scriptSrcParts = isDev

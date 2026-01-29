@@ -6,14 +6,19 @@ import { logger } from "@/lib/logger";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
-// PUBLIC_PATHS: Endpoints that are exempt from both CSRF and origin validation (e.g., login, public data).
-// Path matching uses the first segment of the URL path (e.g., "login" matches "/api/backend/login" and "/api/backend/login/refresh").
-// These endpoints skip all authentication checks; use sparingly and only for truly public operations.
+// PUBLIC_PATHS: Exact endpoints that are exempt from both CSRF and origin validation.
+// Uses full path matching (not prefix) to prevent accidentally exposing sensitive sub-paths.
 // 
-// WARNING: This uses first-segment matching, so ALL sub-paths are also public.
-// Example: "login" exempts both "/api/backend/login" AND "/api/backend/login/admin".
-// Review carefully before adding new paths to avoid accidentally exposing sensitive endpoints.
-const PUBLIC_PATHS = new Set(["login"]);
+// SECURITY: Each path must be explicitly listed - sub-paths are NOT automatically included.
+// Example: "login" is public, but "login/admin" is NOT unless explicitly added.
+// 
+// Add paths as full routes WITHOUT leading slashes (e.g., "login", "login/refresh", "health").
+// Review carefully before adding new paths to ensure no sensitive endpoints are exposed.
+const PUBLIC_PATHS = new Set([
+  "login",
+  // Add additional public paths here with explicit full paths
+  // e.g., "health", "status", "public-data"
+]);
 
 // Validate NEXT_PUBLIC_APP_DOMAIN is set to prevent origin validation bypass
 if (!process.env.NEXT_PUBLIC_APP_DOMAIN?.trim()) {
@@ -79,7 +84,9 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
   }
 
   const isWrite = method !== "GET" && method !== "HEAD";
-  const isPublic = PUBLIC_PATHS.has(pathSegments[0]);
+  // Check for exact path match (join all segments to compare against full paths in PUBLIC_PATHS)
+  const fullPath = pathSegments.join("/");
+  const isPublic = PUBLIC_PATHS.has(fullPath);
 
   // CSRF + Origin protection for state-changing calls (excluding public paths)
   if (isWrite && !isPublic) {

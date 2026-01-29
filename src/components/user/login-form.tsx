@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Lock as LockIcon, Mail, Phone, User } from "lucide-react"; 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -90,7 +90,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   });
   const [error, setError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const supabase = createClient();
+  // Create stable supabase client to prevent effect re-runs on every render
+  const supabase = useMemo(() => createClient(), []);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const password = e.target.value;
@@ -109,20 +110,28 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   };
 
   useEffect(() => {
+    let isMounted = true;
+    
     const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error) throw error;
-        if (user) {
+        if (user && isMounted) {
           router.push("/dashboard");
           return;
         }
       } finally {
-        setIsLoadingPage(false);
+        if (isMounted) {
+          setIsLoadingPage(false);
+        }
       }
     };
     checkUser();
-  }, [router, supabase]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [router]); // supabase is now stable via useMemo, only router needed
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

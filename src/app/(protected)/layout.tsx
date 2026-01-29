@@ -86,7 +86,10 @@ export default function ProtectedLayout({
     };
 
     checkUser();
-    return () => { active = false; };
+    
+    return () => { 
+      active = false;
+    };
   }, [router]); // Removed supabase from dependencies to prevent re-runs
 
   if (!isAuthorized || institutionLoading || institutionError) {

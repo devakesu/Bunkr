@@ -99,9 +99,11 @@ export default function TrackingClient() {
 
   useEffect(() => { if (user) setEnabled(true); }, [user]);
 
- // --- AUTO SYNC ---
+  // --- AUTO SYNC ---
   useEffect(() => {
-    if (!user?.username) return;
+    // Guard: ensure both user ID and username exist before attempting sync
+    // Username is required for the sync API call
+    if (!user?.id || !user?.username) return;
 
     // Check if sync already ran for THIS mount
     // In Strict Mode, the remount will have the SAME mountId, so we skip
@@ -186,7 +188,7 @@ export default function TrackingClient() {
       isCleanedUp = true;
       abortController.abort();
     };
-  }, [user?.id, user?.username, refetchTrackingData, refetchCount]);
+  }, [user?.id, user?.username, refetchTrackingData, refetchCount]); // Both id and username needed as username is used in API call
 
   // Reset mountId on real navigation (when component truly remounts with new state)
   useEffect(() => {
