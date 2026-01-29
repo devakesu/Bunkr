@@ -6,9 +6,9 @@ import { logger } from "@/lib/logger";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
-// PUBLIC_PATHS: Endpoints that are exempt from CSRF validation (e.g., login, public data).
+// PUBLIC_PATHS: Endpoints that are exempt from both CSRF and origin validation (e.g., login, public data).
 // Path matching uses the first segment of the URL path (e.g., "login" matches "/api/backend/login" and "/api/backend/login/refresh").
-// Public paths still undergo origin validation for POST requests but skip CSRF token checks.
+// These endpoints skip all authentication checks; use sparingly and only for truly public operations.
 const PUBLIC_PATHS = new Set(["login"]);
 
 // Validate NEXT_PUBLIC_APP_DOMAIN is set to prevent origin validation bypass

@@ -14,6 +14,7 @@ vi.mock('next/headers', () => ({
 // Import after mocks are set up
 import {
   validateCsrfToken,
+  validateCsrfTokenFromHeaders,
   setCsrfCookie,
   getCsrfTokenFromCookie,
   initializeCsrfToken,
@@ -333,6 +334,101 @@ describe('CSRF Protection', () => {
 
       const result = await validateCsrfToken(request);
       expect(result).toBe(true);
+    });
+  });
+
+  describe('validateCsrfTokenFromHeaders', () => {
+    it('should return false when header token is missing', async () => {
+      const headerList = new Headers();
+
+      const result = await validateCsrfTokenFromHeaders(headerList);
+      expect(result).toBe(false);
+    });
+
+    it('should return false when cookie token is missing', async () => {
+      mockCookies.get.mockReturnValue(undefined);
+
+      const headerList = new Headers();
+      headerList.set(CSRF_HEADER, 'test-token');
+
+      const result = await validateCsrfTokenFromHeaders(headerList);
+      expect(result).toBe(false);
+    });
+
+    it('should return true when tokens match', async () => {
+      const token = 'matching-token';
+      mockCookies.get.mockReturnValue({ value: token });
+
+      const headerList = new Headers();
+      headerList.set(CSRF_HEADER, token);
+
+      const result = await validateCsrfTokenFromHeaders(headerList);
+      expect(result).toBe(true);
+    });
+
+    it('should return false when tokens do not match', async () => {
+      mockCookies.get.mockReturnValue({ value: 'cookie-token' });
+
+      const headerList = new Headers();
+      headerList.set(CSRF_HEADER, 'different-token');
+
+      const result = await validateCsrfTokenFromHeaders(headerList);
+      expect(result).toBe(false);
+    });
+
+    it('should return false when tokens have different lengths', async () => {
+      mockCookies.get.mockReturnValue({ value: 'short' });
+
+      const headerList = new Headers();
+      headerList.set(CSRF_HEADER, 'this-is-a-much-longer-token');
+
+      const result = await validateCsrfTokenFromHeaders(headerList);
+      expect(result).toBe(false);
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockCookies.get.mockImplementation(() => {
+        throw new Error('Cookie error');
+      });
+
+      const headerList = new Headers();
+      headerList.set(CSRF_HEADER, 'test-token');
+
+      const result = await validateCsrfTokenFromHeaders(headerList);
+      expect(result).toBe(false);
+    });
+
+    it('should reject whitespace-only tokens in header', async () => {
+      mockCookies.get.mockReturnValue({ value: 'valid-token' });
+
+      const headerList = new Headers();
+      headerList.set(CSRF_HEADER, '   ');
+
+      const result = await validateCsrfTokenFromHeaders(headerList);
+      expect(result).toBe(false);
+    });
+
+    it('should reject whitespace-only tokens in cookie', async () => {
+      mockCookies.get.mockReturnValue({ value: '   ' });
+
+      const headerList = new Headers();
+      headerList.set(CSRF_HEADER, 'valid-token');
+
+      const result = await validateCsrfTokenFromHeaders(headerList);
+      expect(result).toBe(false);
+    });
+
+    it('should use constant-time comparison', async () => {
+      const validToken = crypto.randomBytes(32).toString('hex');
+      mockCookies.get.mockReturnValue({ value: validToken });
+
+      const almostValidToken = validToken.slice(0, -1) + 'x';
+
+      const headerList = new Headers();
+      headerList.set(CSRF_HEADER, almostValidToken);
+
+      const result = await validateCsrfTokenFromHeaders(headerList);
+      expect(result).toBe(false);
     });
   });
 });
