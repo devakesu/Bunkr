@@ -270,6 +270,48 @@ describe('CSRF Protection', () => {
       expect(result).toBe(false); // Empty strings are rejected for security
     });
 
+    it('should reject whitespace-only tokens in header', async () => {
+      mockCookies.get.mockReturnValue({ value: 'valid-token' });
+
+      const request = new Request('http://localhost', {
+        method: 'POST',
+        headers: {
+          [CSRF_HEADER]: '   ', // Whitespace-only header
+        },
+      });
+
+      const result = await validateCsrfToken(request);
+      expect(result).toBe(false);
+    });
+
+    it('should reject whitespace-only tokens in cookie', async () => {
+      mockCookies.get.mockReturnValue({ value: '   ' }); // Whitespace-only cookie
+
+      const request = new Request('http://localhost', {
+        method: 'POST',
+        headers: {
+          [CSRF_HEADER]: 'valid-token',
+        },
+      });
+
+      const result = await validateCsrfToken(request);
+      expect(result).toBe(false);
+    });
+
+    it('should reject whitespace-only tokens in both header and cookie', async () => {
+      mockCookies.get.mockReturnValue({ value: '  \t  ' }); // Whitespace with tab
+
+      const request = new Request('http://localhost', {
+        method: 'POST',
+        headers: {
+          [CSRF_HEADER]: '   \n  ', // Whitespace with newline
+        },
+      });
+
+      const result = await validateCsrfToken(request);
+      expect(result).toBe(false);
+    });
+
     it('should handle unicode characters in tokens', async () => {
       // Note: HTTP headers can't contain Unicode, but we test the scenario
       // where a cookie might somehow have Unicode characters
