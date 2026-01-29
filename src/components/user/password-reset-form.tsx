@@ -12,6 +12,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Eye, EyeOff, Mail, Phone, User } from "lucide-react";
 
 import axios from "@/lib/axios";
+import plainAxios from "axios";
+import { ensureCsrfToken } from "@/lib/axios";
+import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 
 import { motion } from "framer-motion";
 
@@ -129,7 +132,17 @@ export function PasswordResetForm({
         password_confirmation: passwordConfirmation,
       });
       const token = response.data.access_token;
-      await axios.post("/api/auth/save-token", { token });
+      
+      // Use plain axios for internal auth endpoint (not proxied through /api/backend/)
+      // Add CSRF token for the save-token call
+      const csrfToken = ensureCsrfToken();
+      await plainAxios.post("/api/auth/save-token", 
+        { token },
+        {
+          headers: csrfToken ? { [CSRF_HEADER]: csrfToken } : {}
+        }
+      );
+      
       router.push("/dashboard");
     } catch (error: any) {
       setError(`Ezygo: ${error.response?.data?.message || "Failed to fetch reset options."}`);

@@ -13,13 +13,13 @@ const axiosInstance = axios.create({
   timeout: 10000,
 });
 
-function getCookie(name: string) {
+export function getCookie(name: string) {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp(`${name}=([^;]+)`));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-function ensureCsrfToken(): string | null {
+export function ensureCsrfToken(): string | null {
   if (typeof document === "undefined") return null;
   // Only read existing token - never generate client-side
   // Token must be initialized server-side through a trusted flow

@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 import axios, { AxiosError } from "axios"; 
+import { ensureCsrfToken } from "@/lib/axios"; 
 
 import { Loading } from "@/components/loading";
 import { PasswordResetForm } from "./password-reset-form";
@@ -18,7 +19,7 @@ import NProgress from "nprogress";
 import { motion, HTMLMotionProps, Variants } from "framer-motion";
 import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/client";
-import { CSRF_HEADER, CSRF_TOKEN_NAME } from "@/lib/security/csrf-constants";
+import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 import { logger } from "@/lib/logger";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
@@ -145,11 +146,8 @@ export function LoginForm({ className, csrfToken: _csrfToken, ...props }: LoginF
       if (!token) throw new Error("Invalid response from server");
 
       // 2. Securely Save Token (Bridge to GhostClass) - requires CSRF token
-      // Read CSRF token from cookie using robust parsing to avoid partial matches
-      const csrfToken = document.cookie
-        .split('; ')
-        .find(row => row.startsWith(`${CSRF_TOKEN_NAME}=`))
-        ?.split('=')[1];
+      // Use centralized CSRF token helper to avoid duplicate logic
+      const csrfToken = ensureCsrfToken();
       
       await axios.post("/api/auth/save-token", 
         { token }, 
