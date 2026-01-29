@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable react/prop-types */
 
 import { useMemo, useEffect, useState } from "react";
 import {
@@ -305,7 +304,9 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
 const renderBottomBar = (props: any) => <BottomBarShape {...props as BarShapeProps} />;
 const renderHatchedBar = (props: any) => <HatchedBarShape {...props as BarShapeProps} />;
 const renderTargetLabel = (props: any) => {
+  // eslint-disable-next-line react/prop-types
   if (!props?.viewBox) return null;
+  // eslint-disable-next-line react/prop-types
   return <CustomTargetLabel viewBox={props.viewBox} value={safeTarget} />;
 };
 

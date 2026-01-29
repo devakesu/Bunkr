@@ -21,14 +21,9 @@ function getCookie(name: string) {
 
 function ensureCsrfToken(): string | null {
   if (typeof document === "undefined") return null;
-  let token = getCookie(CSRF_TOKEN_NAME);
-  if (!token) {
-    // Generate a 32-byte hex token client-side for double-submit in dev when no server token is set yet
-    const bytes = crypto.getRandomValues(new Uint8Array(32));
-    token = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-    document.cookie = `${CSRF_TOKEN_NAME}=${encodeURIComponent(token)}; path=/; SameSite=Lax; expires=${expires.toUTCString()}`;
-  }
+  // Only read existing token - never generate client-side
+  // Token must be initialized server-side through a trusted flow
+  const token = getCookie(CSRF_TOKEN_NAME);
   return token;
 }
 

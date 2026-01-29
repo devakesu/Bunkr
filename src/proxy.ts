@@ -5,7 +5,9 @@ import { getCspHeader } from "./lib/csp";
 function createNonce() {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
-  return btoa(String.fromCharCode(...bytes));
+  // Use Buffer for proper base64 encoding instead of btoa with String.fromCharCode
+  // which can produce invalid characters
+  return Buffer.from(bytes).toString('base64');
 }
 
 export async function proxy(request: NextRequest) {

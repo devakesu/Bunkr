@@ -96,8 +96,9 @@ export async function validateSignedRequest(request: Request): Promise<boolean> 
       return false;
     }
 
-    // Get request body
-    const body = await request.text();
+    // Clone request before reading body to avoid consuming it
+    const clonedRequest = request.clone();
+    const body = await clonedRequest.text();
 
     return verifyRequestSignature(body, timestamp, signature);
   } catch {
