@@ -57,6 +57,7 @@ export default function ProtectedLayout({
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
 
     const checkUser = async () => {
       try {
@@ -86,7 +87,11 @@ export default function ProtectedLayout({
     };
 
     checkUser();
-    return () => { active = false; };
+    
+    return () => { 
+      active = false;
+      controller.abort(); // Cancel any pending requests
+    };
   }, [router]); // Removed supabase from dependencies to prevent re-runs
 
   if (!isAuthorized || institutionLoading || institutionError) {

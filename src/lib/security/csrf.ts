@@ -26,6 +26,14 @@ async function generateCsrfToken(): Promise<string> {
  * Protection comes from the requirement that BOTH the cookie AND header must match,
  * combined with SameSite=lax which prevents cross-site cookie access. An attacker
  * cannot read the cookie value from a different origin, preventing CSRF attacks.
+ * 
+ * CRITICAL XSS DEPENDENCY: This pattern is vulnerable if the application has XSS vulnerabilities.
+ * An XSS attack could read the cookie value and include it in malicious requests. Therefore:
+ * - Content Security Policy (CSP) with nonce-based script execution is REQUIRED (see src/lib/csp.ts)
+ * - All user input must be properly sanitized and validated
+ * - Implement secure coding practices to prevent XSS (e.g., use React's built-in escaping)
+ * - Regular security audits and dependency updates are essential
+ * Without XSS prevention measures, this CSRF protection can be bypassed.
  */
 export async function setCsrfCookie(token: string): Promise<void> {
   const cookieStore = await cookies();

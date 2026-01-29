@@ -109,19 +109,27 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   };
 
   useEffect(() => {
+    let isMounted = true;
+    
     const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error) throw error;
-        if (user) {
+        if (user && isMounted) {
           router.push("/dashboard");
           return;
         }
       } finally {
-        setIsLoadingPage(false);
+        if (isMounted) {
+          setIsLoadingPage(false);
+        }
       }
     };
     checkUser();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [router, supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
