@@ -119,12 +119,12 @@ export async function submitContactForm(formData: FormData) {
   }
 
   try {
-    const originHost = new URL(origin).host.toLowerCase();
-    const normalizedHost = host.toLowerCase();
-    // Remove port from comparison if both are present
-    const originHostNoPort = originHost.split(':')[0];
-    const hostNoPort = normalizedHost.split(':')[0];
-    if (originHostNoPort !== hostNoPort) {
+    // Use .hostname (not .host) to exclude port and properly handle IPv6 addresses
+    const originHostname = new URL(origin).hostname.toLowerCase();
+    const headerUrl = new URL(`http://${host}`);
+    const requestHostname = headerUrl.hostname.toLowerCase();
+    
+    if (originHostname !== requestHostname) {
       return { error: "Invalid origin" };
     }
   } catch {
