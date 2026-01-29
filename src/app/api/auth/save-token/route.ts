@@ -10,7 +10,7 @@ import { createServerClient } from "@supabase/ssr";
 import crypto from "crypto";
 import { z } from "zod";
 import { redis } from "@/lib/redis";
-import { redact } from "@/lib/utils";
+import { redact, getClientIp } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { validateCsrfToken } from "@/lib/security/csrf";
 import { setAuthCookie } from "@/lib/security/auth-cookie";
@@ -31,20 +31,6 @@ const EzygoUserSchema = z.object({
   email: z.email(),
   mobile: z.string().optional(),
 });
-
-function getClientIp(headerList: Headers): string | null {
-  const cf = headerList.get("cf-connecting-ip")?.trim();
-  if (cf) return cf;
-
-  const realIp = headerList.get("x-real-ip")?.trim();
-  if (realIp) return realIp;
-
-  const forwarded = headerList.get("x-forwarded-for");
-  const forwardedIp = forwarded?.split(",")[0]?.trim();
-  if (forwardedIp) return forwardedIp;
-
-  return process.env.NODE_ENV === "development" ? "127.0.0.1" : null;
-}
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -168,8 +154,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   }
   try {
-    const originHost = new URL(origin).host;
-    if (originHost !== host) {
+    // Use .hostname (not .host) to exclude port and properly handle IPv6 addresses
+    const originHostname = new URL(origin).hostname.toLowerCase();
+    const headerHostname = new URL(`http://${host}`).hostname.toLowerCase();
+    
+    if (originHostname !== headerHostname) {
       return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
     }
   } catch {
@@ -177,6 +166,19 @@ export async function POST(req: Request) {
   }
   const ip = getClientIp(headerList);
   if (!ip) {
+    const relevantHeaders: Record<string, string | null> = {
+      "cf-connecting-ip": headerList.get("cf-connecting-ip"),
+      "x-real-ip": headerList.get("x-real-ip"),
+      "x-forwarded-for": headerList.get("x-forwarded-for"),
+    };
+    const safeHeaders = Object.fromEntries(
+      Object.entries(relevantHeaders).map(([k, v]) => [k, v ? redact("id", v) : null])
+    );
+    logger.error("Unable to determine client IP from headers", { headers: safeHeaders });
+    Sentry.captureMessage("Unable to determine client IP from headers", {
+      level: "warning",
+      extra: { headers: safeHeaders },
+    });
     return NextResponse.json({ error: "Unable to determine client IP" }, { status: 400 });
   }
   const { success, limit, reset, remaining } = await authRateLimiter.limit(ip);

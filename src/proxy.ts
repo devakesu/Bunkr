@@ -2,6 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getCspHeader } from "./lib/csp";
 
+/**
+ * Creates a cryptographically secure nonce for CSP.
+ * Uses Buffer.from() which is a Node.js API and works in Next.js middleware (server-side).
+ * Note: This middleware runs in the Node.js runtime, not the Edge runtime.
+ */
 function createNonce() {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
@@ -90,7 +95,13 @@ export const config = {
   // Match all routes except:
   // - Static assets (_next/static, _next/image, favicon.ico)
   // - API routes (handled separately with their own auth)
-  // This middleware applies CSP headers and handles Supabase session refresh for page routes
+  // 
+  // This simplified matcher pattern uses a negative lookahead regex to exclude specific paths.
+  // Any new routes will automatically have CSP headers and Supabase session refresh applied.
+  // 
+  // Pattern explanation: /((?!api|_next/static|_next/image|favicon.ico).*)
+  // - Matches all paths that DON'T START with: api, _next/static, _next/image, or favicon.ico
+  // - This ensures middleware runs on all page routes for proper security headers and auth handling
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],

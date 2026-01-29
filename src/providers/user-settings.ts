@@ -8,14 +8,15 @@ import { UserSettings } from "@/types/user-settings";
 import * as Sentry from "@sentry/nextjs";
 import { logger } from "@/lib/logger";
 
+// Move normalizeTarget outside the hook to avoid recreation on every render
+const normalizeTarget = (value?: number | null) => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 75;
+  return Math.min(100, Math.max(1, Math.round(value)));
+};
+
 export function useUserSettings() {
   const supabase = createClient();
   const queryClient = useQueryClient();
-
-  const normalizeTarget = (value?: number | null) => {
-    if (typeof value !== "number" || !Number.isFinite(value)) return 75;
-    return Math.min(100, Math.max(1, Math.round(value)));
-  };
 
   // 1. Fetch from DB
   const { data: settings, isLoading } = useQuery({
