@@ -16,6 +16,31 @@ const getSecret = () => {
   throw new Error("SENTRY_HASH_SALT is required in production");
 };
 
+/**
+ * Redacts sensitive data (email, ID) for safe logging using deterministic hashing.
+ * 
+ * INTENTIONAL DESIGN: DETERMINISTIC HASHING
+ * This function uses HMAC-SHA256 to create a deterministic hash, which means:
+ * - The same input always produces the same hash
+ * - Useful for correlating issues for the same user across logs
+ * - Enables debugging patterns like "user X had this issue 5 times"
+ * 
+ * SECURITY CONSIDERATIONS:
+ * - An attacker with log access and one known value could correlate other occurrences
+ * - The 12-character truncation reduces collision resistance
+ * - This is acceptable for logging/debugging but NOT for security-critical operations
+ * 
+ * ALTERNATIVE APPROACHES (if needed):
+ * - For maximum privacy: Use a random salt per session (cannot correlate across sessions)
+ * - For non-deterministic: Add timestamp to hash (each call produces different output)
+ * 
+ * The current implementation prioritizes debugging utility over perfect privacy,
+ * which is an acceptable trade-off for logged data that should already be access-controlled.
+ * 
+ * @param type - Type of data being redacted ('email' or 'id')
+ * @param value - The sensitive value to redact
+ * @returns A 12-character deterministic hash for safe logging
+ */
 export const redact = (type: "email" | "id", value: string) =>
   crypto
     .createHmac("sha256", getSecret())
@@ -160,8 +185,26 @@ export const formatCourseCode = (code: string): string => {
 
 /**
  * Extracts the client IP address from request headers.
- * Prioritizes Cloudflare, then X-Real-IP, then X-Forwarded-For.
- * Falls back to localhost in development mode.
+ * 
+ * DEPLOYMENT ARCHITECTURE ASSUMPTIONS:
+ * This function prioritizes headers in the following order, which assumes a specific deployment setup:
+ * 1. cf-connecting-ip (Cloudflare CDN) - Most trusted when behind Cloudflare
+ * 2. x-real-ip (nginx/Apache reverse proxy) - Common for traditional reverse proxies
+ * 3. x-forwarded-for (various proxies/load balancers) - Takes first IP in chain
+ * 
+ * CONFIGURATION NOTES:
+ * - If NOT behind Cloudflare: Consider prioritizing x-real-ip or x-forwarded-for
+ * - Behind AWS ALB/ELB: x-forwarded-for is the standard header
+ * - Behind Google Cloud Load Balancer: x-forwarded-for is used
+ * - Behind Azure Front Door: x-azure-clientip or x-forwarded-for
+ * 
+ * The current order assumes Cloudflare as the primary CDN. If your deployment differs,
+ * adjust the priority order or make it configurable via environment variables.
+ * 
+ * SECURITY WARNING:
+ * These headers can be spoofed if not properly configured at the reverse proxy level.
+ * Ensure your reverse proxy strips/overwrites these headers from client requests.
+ * 
  * @param headerList - The Headers object from the request
  * @returns The client IP address or null if it cannot be determined
  */

@@ -81,6 +81,45 @@ export async function validateCsrfToken(request: Request): Promise<boolean> {
 }
 
 /**
+ * Validates CSRF token from Headers object (for Server Actions)
+ * Requires both header and cookie to be present, non-empty, and match
+ * @param headerList Next.js Headers object from headers()
+ * @returns true if token is valid, false otherwise
+ */
+export async function validateCsrfTokenFromHeaders(headerList: Headers): Promise<boolean> {
+  try {
+    // Get token from header
+    const headerToken = headerList.get(CSRF_HEADER);
+    if (!headerToken || headerToken.trim() === '') {
+      return false;
+    }
+
+    // Get token from cookie
+    const cookieStore = await cookies();
+    const cookieToken = cookieStore.get(CSRF_TOKEN_NAME)?.value;
+    
+    if (!cookieToken || cookieToken.trim() === '') {
+      // Token must be pre-initialized through a trusted flow (e.g., GET request)
+      // Never accept a token without a matching cookie to prevent CSRF bypass
+      return false;
+    }
+
+    // Constant-time comparison to prevent timing attacks
+    // Check lengths first since timingSafeEqual requires equal-length buffers
+    const headerBuffer = Buffer.from(headerToken);
+    const cookieBuffer = Buffer.from(cookieToken);
+    
+    if (headerBuffer.length !== cookieBuffer.length) {
+      return false;
+    }
+    
+    return crypto.timingSafeEqual(headerBuffer, cookieBuffer);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Generates and optionally retrieves CSRF token for forms
  * Just generates a token - the cookie will be set by the API route during validation
  */

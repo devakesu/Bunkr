@@ -97,6 +97,13 @@ export async function GET(req: Request) {
   
   if (!ip) {
     if (process.env.NODE_ENV === "development") {
+      // Fallback to localhost in development. Log warning to catch IP extraction issues during testing.
+      logger.warn("Unable to determine client IP in development, using fallback", {
+        headers: {
+          "cf-connecting-ip": headerList.get("cf-connecting-ip"),
+          "x-real-ip": headerList.get("x-real-ip"),
+        },
+      });
       ip = "127.0.0.1";
     } else {
       // In production, reject requests without a determinable IP to prevent rate limiting bypass
