@@ -121,10 +121,9 @@ export async function submitContactForm(formData: FormData) {
   try {
     // Use .hostname (not .host) to exclude port and properly handle IPv6 addresses
     const originHostname = new URL(origin).hostname.toLowerCase();
-    const headerUrl = new URL(`http://${host}`);
-    const requestHostname = headerUrl.hostname.toLowerCase();
+    const headerHostname = new URL(`http://${host}`).hostname.toLowerCase();
     
-    if (originHostname !== requestHostname) {
+    if (originHostname !== headerHostname) {
       return { error: "Invalid origin" };
     }
   } catch {
