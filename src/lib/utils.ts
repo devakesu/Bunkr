@@ -32,6 +32,11 @@ const getSecret = () => {
  *   * Collision probability is negligible for user bases under 1 million users
  *   * Birthday paradox: ~50% collision chance at ~16 million unique values
  * - This is acceptable for logging/debugging but NOT for security-critical operations
+ * - SALT ROTATION: If SENTRY_HASH_SALT is compromised and an attacker gains log access,
+ *   they could build rainbow tables to reverse-engineer user identifiers. Consider:
+ *   * Rotating the salt periodically (e.g., quarterly) as a security best practice
+ *   * Implementing salt versioning (e.g., SENTRY_HASH_SALT_V2) so old logs remain valid
+ *   * Treating the salt with the same security as database credentials
  * 
  * ALTERNATIVE APPROACHES (if needed):
  * - For maximum privacy: Use a random salt per session (cannot correlate across sessions)

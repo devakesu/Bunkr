@@ -8,6 +8,12 @@
  * - logger.dev(): Development-only logs (suppressed in production)
  * - logger.warn(): Warnings (always logged)
  * - logger.error(): Errors (always logged)
+ * 
+ * NOTE: The isDevelopment check is evaluated once at module load time.
+ * If NODE_ENV changes at runtime (uncommon but possible in certain deployment scenarios),
+ * the logger behavior will not update until the process restarts. This is intentional
+ * for performance and is the expected behavior in standard Node.js applications where
+ * NODE_ENV is set before the application starts and remains constant.
  */
 
 const isDevelopment = process.env.NODE_ENV === 'development';

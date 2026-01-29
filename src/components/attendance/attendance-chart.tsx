@@ -63,7 +63,9 @@ interface LabelProps {
     y?: number;
   };
   value?: number;
-  [key: string]: any; // Recharts passes additional props
+  // Recharts passes additional undocumented props like offset, position, etc.
+  // Using unknown for type safety while allowing Recharts' internal props
+  [key: string]: unknown;
 }
 
 // --- SHAPES ---

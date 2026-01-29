@@ -15,14 +15,24 @@ interface AddRecordTriggerProps {
   onSuccess: () => Promise<void>;
 }
 
+/**
+ * Shared interface for user data passed to AddAttendanceDialog
+ * This ensures type consistency across components using the dialog
+ */
+interface DialogUser {
+  id: string;
+  auth_id?: string | null;
+}
+
 export function AddRecordTrigger({ user, onSuccess }: AddRecordTriggerProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   // Transform user object to match AddAttendanceDialog's expected interface
-  // TODO: Consider defining a consistent User interface across components to avoid this transformation
-  const dialogUser = {
+  const dialogUser: DialogUser = {
     id: String(user.id),
-    auth_id: (user as any)?.auth_id,
+    auth_id: "auth_id" in user 
+      ? (user as User & { auth_id?: string | null }).auth_id ?? null
+      : null,
   };
   
   const { data: attendanceData, refetch: refetchAttendance } = useAttendanceReport({ 
