@@ -97,13 +97,24 @@ export async function GET(req: Request) {
   
   if (!ip) {
     if (process.env.NODE_ENV === "development") {
+      // Fallback to localhost in development. Log warning to catch IP extraction issues during testing.
+      // Redact IP values to avoid leaking IPs if dev logs are aggregated or NODE_ENV is misconfigured
+      const cfIp = headerList.get("cf-connecting-ip");
+      const realIp = headerList.get("x-real-ip");
+      logger.warn("Unable to determine client IP in development, using fallback", {
+        headers: {
+          "cf-connecting-ip": cfIp ? redact("id", cfIp) : null,
+          "x-real-ip": realIp ? redact("id", realIp) : null,
+        },
+      });
       ip = "127.0.0.1";
     } else {
       // In production, reject requests without a determinable IP to prevent rate limiting bypass
+      // Log header presence (boolean) rather than values to avoid IP leakage
       logger.error("Unable to determine client IP for cron request", {
         headers: {
-          "cf-connecting-ip": headerList.get("cf-connecting-ip"),
-          "x-real-ip": headerList.get("x-real-ip"),
+          "cf-connecting-ip": headerList.has("cf-connecting-ip"),
+          "x-real-ip": headerList.has("x-real-ip"),
         },
       });
       return NextResponse.json({ error: "Unable to determine client IP address" }, { status: 400 });

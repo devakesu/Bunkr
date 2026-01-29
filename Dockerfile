@@ -144,8 +144,13 @@ ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
-# Bind the Next.js server to all network interfaces inside the container.
-# This allows the container to accept connections from any source inside the
+
+# Build argument for customizable hostname binding (default: bind to all interfaces for container environments)
+# Override at build time with: --build-arg NEXT_HOSTNAME=127.0.0.1 for more restrictive binding
+ARG NEXT_HOSTNAME="0.0.0.0"
+
+# Bind the Next.js server to network interface(s) inside the container.
+# Default: "0.0.0.0" - binds to all interfaces, allowing connections from any source inside the
 # deployment environment (cluster/node). This image is intended to run
 # strictly behind a reverse proxy, firewall, or service mesh.
 # 
@@ -157,11 +162,15 @@ ENV PORT=3000
 # - Ensure only the reverse proxy (or equivalent) can reach this container
 #   on PORT/HOSTNAME.
 # 
-# These checks should be part of the deployment checklist and, where
-# possible, enforced or validated in CI/CD or infrastructure-as-code tests.
-# If your environment does not provide such network isolation, override
-# HOSTNAME at deploy time with a more restrictive binding.
-ENV HOSTNAME="0.0.0.0"
+# DEPLOYMENT VALIDATION CHECKLIST:
+# 1. Verify reverse proxy/load balancer configuration
+# 2. Confirm direct container access is blocked (no NodePort, HostPort, or direct Docker port mapping)
+# 3. Test that only the reverse proxy can reach the container
+# 4. If your environment lacks network isolation, use --build-arg NEXT_HOSTNAME=127.0.0.1
+#    or override ENV HOSTNAME at deploy time with a more restrictive binding.
+#
+# These checks should be enforced in CI/CD pipelines or infrastructure-as-code validation.
+ENV HOSTNAME="${NEXT_HOSTNAME}"
 
 WORKDIR /app
 

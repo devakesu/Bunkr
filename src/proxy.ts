@@ -4,15 +4,14 @@ import { getCspHeader } from "./lib/csp";
 
 /**
  * Creates a cryptographically secure nonce for CSP.
- * Uses Buffer.from() which is a Node.js API and works in Next.js middleware (server-side).
- * Note: This middleware runs in the Node.js runtime, not the Edge runtime.
+ * Uses Web Crypto API for compatibility with both Node.js and Edge runtimes.
  */
 function createNonce() {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
-  // Use Buffer for proper base64 encoding instead of btoa with String.fromCharCode
-  // which can produce invalid characters
-  return Buffer.from(bytes).toString('base64');
+  // Convert to base64 using btoa and proper string conversion
+  // This works in both Node.js (v20+) and Edge runtime
+  return btoa(String.fromCharCode(...bytes));
 }
 
 export async function proxy(request: NextRequest) {
@@ -101,8 +100,10 @@ export const config = {
   // 
   // Pattern explanation: /((?!api|_next/static|_next/image|favicon.ico|robots.txt).*)
   // - Matches all paths that DON'T START with: api, _next/static, _next/image, favicon.ico, or robots.txt
-  // - This ensures middleware runs on all page routes for proper security headers and auth handling
+  // - The negative lookahead (?!...) is evaluated BEFORE matching, so excluded paths don't invoke middleware
+  // - This is more efficient than matching all routes then filtering, as Next.js optimizes the regex
   // 
+  // This ensures middleware runs on all page routes for proper security headers and auth handling.
   // Public routes like /health are under /api and are excluded by the 'api' pattern.
   // Static files in /public are served directly and don't go through middleware.
   // If you need to add more exclusions (e.g., /sitemap.xml), add them to the pattern below.

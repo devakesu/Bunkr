@@ -24,7 +24,7 @@ import { logger } from "@/lib/logger";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
-  csrfToken?: string; // Kept for backward compatibility but not used (token read from cookie)
+  // csrfToken prop removed - token is read directly from cookie via ensureCsrfToken()
 }
 
 interface ErrorResponse {
@@ -73,7 +73,7 @@ const validatePassword = (password: string): string | null => {
   return null; // Valid
 };
 
-export function LoginForm({ className, csrfToken: _csrfToken, ...props }: LoginFormProps) {
+export function LoginForm({ className, ...props }: LoginFormProps) {
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(false);

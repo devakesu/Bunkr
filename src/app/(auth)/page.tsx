@@ -3,8 +3,9 @@ import { LoginForm } from "@/components/user/login-form";
 import { initializeCsrfToken } from "@/lib/security/csrf";
 
 export default async function LoginPage() {
-  // Initialize CSRF token for the login form
-  const csrfToken = await initializeCsrfToken();
+  // Initialize CSRF token cookie for the login form
+  // The token will be read from the cookie by the client-side form
+  await initializeCsrfToken();
   
   return (
     // 1. Single min-h-screen container
@@ -13,7 +14,7 @@ export default async function LoginPage() {
       {/* 2. Main Content: Takes all available space, centers the form */}
       <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8">
         <div className="w-full max-w-sm">
-          <LoginForm csrfToken={csrfToken} />
+          <LoginForm />
         </div>
       </div>
 

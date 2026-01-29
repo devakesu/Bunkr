@@ -111,6 +111,10 @@ export async function submitContactForm(formData: FormData) {
   // RATE LIMIT BY IP 
   const headerList = await headers();
 
+  // Server Actions have built-in CSRF protection through Next.js origin validation.
+  // The framework automatically validates that requests come from the same origin.
+  // We enforce additional origin validation below for defense-in-depth.
+  
   // Enforce origin validation for all requests
   const origin = headerList.get("origin");
   const host = headerList.get("host");

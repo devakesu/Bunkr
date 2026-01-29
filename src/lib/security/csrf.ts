@@ -42,23 +42,20 @@ export async function getCsrfTokenFromCookie(): Promise<string | undefined> {
 }
 
 /**
- * Validates CSRF token from request header against cookie value
- * Requires both header and cookie to be present, non-empty, and match
- * @param request Request object or headers
- * @returns true if token is valid, false otherwise
+ * Private helper: Validates CSRF token comparison
+ * Requires both header token and cookie token to be present, non-empty, and match
+ * @param headerToken Token from request header
+ * @param cookieToken Token from cookie store
+ * @returns true if tokens are valid and match, false otherwise
  */
-export async function validateCsrfToken(request: Request): Promise<boolean> {
+function compareTokens(headerToken: string | null, cookieToken: string | null | undefined): boolean {
   try {
-    // Get token from header
-    const headerToken = request.headers.get(CSRF_HEADER);
+    // Validate header token
     if (!headerToken || headerToken.trim() === '') {
       return false;
     }
 
-    // Get token from cookie
-    const cookieStore = await cookies();
-    const cookieToken = cookieStore.get(CSRF_TOKEN_NAME)?.value;
-    
+    // Validate cookie token
     if (!cookieToken || cookieToken.trim() === '') {
       // Token must be pre-initialized through a trusted flow (e.g., GET request)
       // Never accept a token without a matching cookie to prevent CSRF bypass
@@ -75,6 +72,42 @@ export async function validateCsrfToken(request: Request): Promise<boolean> {
     }
     
     return crypto.timingSafeEqual(headerBuffer, cookieBuffer);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validates CSRF token from request header against cookie value
+ * Requires both header and cookie to be present, non-empty, and match
+ * @param request Request object or headers
+ * @returns true if token is valid, false otherwise
+ */
+export async function validateCsrfToken(request: Request): Promise<boolean> {
+  try {
+    const headerToken = request.headers.get(CSRF_HEADER);
+    const cookieStore = await cookies();
+    const cookieToken = cookieStore.get(CSRF_TOKEN_NAME)?.value;
+    
+    return compareTokens(headerToken, cookieToken);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validates CSRF token from Headers object (for Server Actions)
+ * Requires both header and cookie to be present, non-empty, and match
+ * @param headerList Next.js Headers object from headers()
+ * @returns true if token is valid, false otherwise
+ */
+export async function validateCsrfTokenFromHeaders(headerList: Headers): Promise<boolean> {
+  try {
+    const headerToken = headerList.get(CSRF_HEADER);
+    const cookieStore = await cookies();
+    const cookieToken = cookieStore.get(CSRF_TOKEN_NAME)?.value;
+    
+    return compareTokens(headerToken, cookieToken);
   } catch {
     return false;
   }

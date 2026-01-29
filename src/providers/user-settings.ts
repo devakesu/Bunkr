@@ -8,7 +8,12 @@ import { UserSettings } from "@/types/user-settings";
 import * as Sentry from "@sentry/nextjs";
 import { logger } from "@/lib/logger";
 
-// Move normalizeTarget outside the hook to avoid recreation on every render
+// normalizeTarget is defined at module-level (outside the hook) to avoid recreation on every render.
+// This is preferred over useCallback because:
+// 1. The function has no dependencies (pure function with no closure over component state/props)
+// 2. Module-level avoids the overhead of useCallback's dependency checking
+// 3. Provides a stable reference without requiring React hooks infrastructure
+// If this function needed access to component state/props, useCallback would be more appropriate.
 const normalizeTarget = (value?: number | null) => {
   if (typeof value !== "number" || !Number.isFinite(value)) return 75;
   return Math.min(100, Math.max(1, Math.round(value)));
