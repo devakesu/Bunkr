@@ -70,8 +70,18 @@ export default function ProtectedLayout({
         }
 
         if (active) setIsAuthorized(true);
-      } catch (_err) {
-        handleLogout();
+      } catch (err) {
+        if (active) {
+          // Log the error for debugging, then attempt logout
+          console.error("Auth check failed:", err instanceof Error ? err.message : String(err));
+          try {
+            await handleLogout();
+          } catch (logoutErr) {
+            // If logout also fails, force navigation to login page
+            console.error("Logout failed after auth check error:", logoutErr instanceof Error ? logoutErr.message : String(logoutErr));
+            router.replace("/");
+          }
+        }
       }
     };
 

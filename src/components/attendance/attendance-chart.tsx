@@ -48,26 +48,27 @@ interface BarShapeProps {
   y: number;
   width: number;
   height: number;
-  fill: string;
-  stroke: string;
+  fill?: string;
+  stroke?: string;
   payload?: {
     displayedExtra: number;
   };
 }
 
 interface LabelProps {
-  viewBox: {
-    width: number;
-    height: number;
-    x: number;
-    y: number;
+  viewBox?: {
+    width?: number;
+    height?: number;
+    x?: number;
+    y?: number;
   };
-  value: number;
+  value?: number;
+  [key: string]: any; // Recharts passes additional props
 }
 
 // --- SHAPES ---
 const HatchedBarShape = (props: BarShapeProps) => {
-  const { x, y, width, height, fill, stroke } = props;
+  const { x, y, width, height, fill = '#000', stroke = '#000' } = props;
   const radius = 4;
   if (!height || height <= 0 || isNaN(height)) return null;
   const r = Math.min(radius, height);
@@ -81,7 +82,7 @@ const HatchedBarShape = (props: BarShapeProps) => {
 };
 
 const BottomBarShape = (props: BarShapeProps) => {
-  const { fill, x, y, width, height, payload } = props;
+  const { fill = '#000', x, y, width, height, payload } = props;
   if (!height || height <= 0 || isNaN(height)) return null;
   const hasTopStack = payload && payload.displayedExtra > 0;
   const radius = hasTopStack ? 0 : 4;
@@ -91,7 +92,8 @@ const BottomBarShape = (props: BarShapeProps) => {
 };
 
 const CustomTargetLabel = (props: LabelProps) => {
-  const { viewBox, value } = props;
+  const { viewBox, value = 0 } = props;
+  if (!viewBox?.width || !viewBox?.x || !viewBox?.y) return null;
   const x = viewBox.width - 15;
   const y = viewBox.y; // align label center on the target line
   return (
@@ -301,14 +303,17 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
   const calculatedMin = Math.floor(minRef / 5) * 5 - 5;
   const yAxisMin = Math.max(0, calculatedMin);
 
-const renderBottomBar = (props: any) => <BottomBarShape {...props as BarShapeProps} />;
-const renderHatchedBar = (props: any) => <HatchedBarShape {...props as BarShapeProps} />;
-const renderTargetLabel = (props: any) => {
-  // eslint-disable-next-line react/prop-types
+// Render functions for Recharts components
+// Note: Using TypeScript interfaces for type safety. ESLint prop-types is disabled
+// because TypeScript provides superior type checking for these component props.
+/* eslint-disable react/prop-types */
+const renderBottomBar = (props: BarShapeProps) => <BottomBarShape {...props} />;
+const renderHatchedBar = (props: BarShapeProps) => <HatchedBarShape {...props} />;
+const renderTargetLabel = (props: LabelProps) => {
   if (!props?.viewBox) return null;
-  // eslint-disable-next-line react/prop-types
   return <CustomTargetLabel viewBox={props.viewBox} value={safeTarget} />;
 };
+/* eslint-enable react/prop-types */
 
 return (
   <div

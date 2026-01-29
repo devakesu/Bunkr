@@ -100,8 +100,7 @@ export const config = {
   // 
   // Pattern explanation: /((?!api|_next/static|_next/image|favicon.ico|robots.txt).*)
   // - Matches all paths that DON'T START with: api, _next/static, _next/image, favicon.ico, or robots.txt
-  // - The negative lookahead (?!...) is evaluated BEFORE matching, so excluded paths don't invoke middleware
-  // - This is more efficient than matching all routes then filtering, as Next.js optimizes the regex
+  // - The negative lookahead (?!...) is evaluated at match time to exclude specific paths
   // 
   // This ensures middleware runs on all page routes for proper security headers and auth handling.
   // Public routes like /health are under /api and are excluded by the 'api' pattern.

@@ -28,6 +28,8 @@ COPY package.json package-lock.json ./
 # Use npm ci (installs all deps for building)
 # Note: npm cache clean --force is omitted here to speed up the build.
 # The multi-stage build ensures the npm cache is not included in the final image.
+# Next.js standalone output (used in builder stage) automatically tree-shakes dependencies,
+# excluding devDependencies from the final production bundle in .next/standalone/node_modules.
 RUN npm install -g npm@latest && \
     npm ci \
     --ignore-scripts \
@@ -170,6 +172,10 @@ ARG NEXT_HOSTNAME="0.0.0.0"
 #    or override ENV HOSTNAME at deploy time with a more restrictive binding.
 #
 # These checks should be enforced in CI/CD pipelines or infrastructure-as-code validation.
+#
+# NOTE: HOSTNAME controls the network interface binding (listen address) for the Next.js
+# standalone server, not the public URL hostname. Set to "0.0.0.0" to bind to all interfaces
+# (default), or "127.0.0.1" for localhost-only binding when behind a reverse proxy on same host.
 ENV HOSTNAME="${NEXT_HOSTNAME}"
 
 WORKDIR /app
