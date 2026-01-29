@@ -7,7 +7,7 @@ const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 const PUBLIC_PATHS = new Set(["login"]);
 
 // Validate NEXT_PUBLIC_APP_DOMAIN is set to prevent origin validation bypass
-if (!process.env.NEXT_PUBLIC_APP_DOMAIN) {
+if (!process.env.NEXT_PUBLIC_APP_DOMAIN?.trim()) {
   throw new Error("NEXT_PUBLIC_APP_DOMAIN must be configured for security");
 }
 
@@ -16,12 +16,6 @@ const ALLOWED_HOSTS = new Set(
     .filter(Boolean)
     .map((host) => host?.toLowerCase()) as string[]
 );
-
-// Additional safety check: ensure ALLOWED_HOSTS is not empty
-// This is a defense-in-depth measure since NEXT_PUBLIC_APP_DOMAIN is already validated above
-if (ALLOWED_HOSTS.size === 0) {
-  throw new Error("ALLOWED_HOSTS is empty - check NEXT_PUBLIC_APP_DOMAIN configuration");
-}
 
 const MAX_RESPONSE_BYTES = 1_000_000; // 1 MB safety cap
 const UPSTREAM_TIMEOUT_MS = 15_000;
@@ -118,7 +112,8 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
         accept: req.headers.get("accept") || "application/json",
       },
       body: hasBody ? body : undefined,
-      // TypeScript doesn't recognize duplex as a valid option, but it's required for streaming requests
+      // duplex is required for streaming request bodies
+      // See: https://github.com/nodejs/undici/issues/1583
       ...(hasBody ? { duplex: "half" as const } : {}),
       signal: controller.signal,
     });

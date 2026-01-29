@@ -145,9 +145,22 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 # Bind the Next.js server to all network interfaces inside the container.
-# This allows the container to accept connections from any source.
-# In production, this container should run behind a reverse proxy, firewall,
-# or similar network controls to prevent unauthorized access.
+# This allows the container to accept connections from any source inside the
+# deployment environment (cluster/node). This image is intended to run
+# strictly behind a reverse proxy, firewall, or service mesh.
+# 
+# IMPORTANT SECURITY REQUIREMENTS:
+# - Ensure the reverse proxy/firewall is correctly configured to expose only
+#   the intended external endpoints.
+# - Ensure direct access to the container/pod (e.g. node port, host port,
+#   or direct Docker port mapping) is blocked in production.
+# - Ensure only the reverse proxy (or equivalent) can reach this container
+#   on PORT/HOSTNAME.
+# 
+# These checks should be part of the deployment checklist and, where
+# possible, enforced or validated in CI/CD or infrastructure-as-code tests.
+# If your environment does not provide such network isolation, override
+# HOSTNAME at deploy time with a more restrictive binding.
 ENV HOSTNAME="0.0.0.0"
 
 WORKDIR /app

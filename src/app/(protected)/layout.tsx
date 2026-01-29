@@ -25,6 +25,7 @@ export default function ProtectedLayout({
   const { scrollY } = useScroll();
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
+  const supabaseRef = useRef(createClient());
 
   useEffect(() => {
     const unsubscribe = scrollY.on("change", (latest) => {
@@ -53,14 +54,13 @@ export default function ProtectedLayout({
   }, [scrollY, isHidden]);
 
   const { error: institutionError, isLoading: institutionLoading } = useInstitutions();
-  const supabase = createClient();
 
   useEffect(() => {
     let active = true;
 
     const checkUser = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const { data: { user }, error } = await supabaseRef.current.auth.getUser();
         if (error) throw error;
 
         if (!user) {
@@ -77,7 +77,7 @@ export default function ProtectedLayout({
 
     checkUser();
     return () => { active = false; };
-  }, [router, supabase]);
+  }, [router]); // Removed supabase from dependencies to prevent re-runs
 
   if (!isAuthorized || institutionLoading || institutionError) {
     return (

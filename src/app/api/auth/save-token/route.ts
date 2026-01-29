@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 const SaveTokenRequestSchema = z.object({
   token: z.string()
     .min(18, "Token too short")
-    .max(1024, "Token too long") 
+    .max(2048, "Token too long") // Increased from 1024 to provide safety margin for JWT tokens
     .trim(),
 });
 
