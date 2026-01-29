@@ -91,7 +91,7 @@ export async function initializeCsrfToken(): Promise<string> {
     return existingToken;
   }
   
-  // Generate new token (cookie will be set by API route when validating)
+  // Generate new token and set cookie immediately
   const token = await generateCsrfToken();
   await setCsrfCookie(token);
   return token;
