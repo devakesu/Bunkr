@@ -21,7 +21,7 @@ interface AddRecordTriggerProps {
  */
 interface DialogUser {
   id: string;
-  auth_id?: string | null;
+  auth_id?: string;
 }
 
 export function AddRecordTrigger({ user, onSuccess }: AddRecordTriggerProps) {
@@ -31,8 +31,8 @@ export function AddRecordTrigger({ user, onSuccess }: AddRecordTriggerProps) {
   const dialogUser: DialogUser = {
     id: String(user.id),
     auth_id: "auth_id" in user 
-      ? (user as User & { auth_id?: string | null }).auth_id ?? null
-      : null,
+      ? (user as User & { auth_id?: string | null }).auth_id ?? undefined
+      : undefined,
   };
   
   const { data: attendanceData, refetch: refetchAttendance } = useAttendanceReport({ 
