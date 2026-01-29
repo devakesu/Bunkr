@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
+import { redact } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import * as Sentry from "@sentry/nextjs";
 
 export async function uploadUserAvatar(file: File) {
@@ -46,7 +48,7 @@ export async function uploadUserAvatar(file: File) {
         try {
           await supabase.storage.from('avatars').remove([filePath]);
         } catch (cleanupErr) {
-          console.warn("Avatar cleanup after profile update failure failed (non-critical):", cleanupErr);
+          logger.warn("Avatar cleanup after profile update failure failed (non-critical):", cleanupErr);
           Sentry.captureException(cleanupErr, {
             level: "warning",
             tags: { type: "avatar_cleanup_fail", location: "uploadUserAvatar_cleanupOnUpdateFail" },
@@ -72,7 +74,7 @@ export async function uploadUserAvatar(file: File) {
               }
             }
           } catch (cleanupErr) {
-            console.warn("Background cleanup failed (non-critical):", cleanupErr);
+            logger.warn("Background cleanup failed (non-critical):", cleanupErr);
             Sentry.captureException(cleanupErr, { 
                 level: "warning",
                 tags: { type: "avatar_cleanup_fail", location: "uploadUserAvatar" } 
@@ -82,12 +84,12 @@ export async function uploadUserAvatar(file: File) {
 
       return publicUrl;
 
-  } catch (error: any) {
-      console.error("Avatar Upload Flow Failed:", error);
+  } catch (error: unknown) {
+      logger.error("Avatar Upload Flow Failed:", error);
       Sentry.captureException(error, {
           tags: { type: "avatar_upload_critical", location: "uploadUserAvatar" },
           extra: { 
-              userId: user.id,
+              userId: redact("id", String(user.id)),
               fileSize: file.size,
               fileType: file.type
           }

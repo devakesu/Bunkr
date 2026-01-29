@@ -5,7 +5,7 @@ import "ldrs/react/Ring2.css";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
-import { handleLogout } from "@/lib/auth";
+import { handleLogout } from "@/lib/security/auth";
 
 export function Loading() {
   const [showWarning, setShowWarning] = useState(false);

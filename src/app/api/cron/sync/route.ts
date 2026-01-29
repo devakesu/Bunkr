@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { decrypt } from "@/lib/crypto";
 import { headers } from "next/headers";
 import { syncRateLimiter } from "@/lib/ratelimit";
-import { toRoman, normalizeSession } from "@/lib/utils"; 
+import { toRoman, normalizeSession, redact } from "@/lib/utils"; 
 import { Course } from "@/types";
 import { sendEmail } from "@/lib/email";
 import { renderAttendanceConflictEmail, renderCourseMismatchEmail } from "@/lib/email-templates";
@@ -87,8 +87,22 @@ export async function GET(req: Request) {
 
   // 1. Rate Limit
   const headerList = await headers();
-  const forwardedFor = headerList.get("x-forwarded-for");
-  const ip = (forwardedFor?.split(",")[0] || "127.0.0.1").trim();
+
+  const origin = headerList.get("origin");
+    const host = headerList.get("host");
+    if (origin && host) {
+    try {
+        const originHost = new URL(origin).host;
+        if (originHost !== host) {
+        return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+        }
+    } catch {
+        return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+    }
+    }
+
+  const trustedIpHeader = headerList.get("cf-connecting-ip") ?? headerList.get("x-real-ip");
+  const ip = trustedIpHeader?.trim() || (process.env.NODE_ENV === "development" ? "127.0.0.1" : "0.0.0.0");
   const { success, reset } = await syncRateLimiter.limit(ip);
 
   if (!success) {
@@ -232,7 +246,7 @@ export async function GET(req: Request) {
                                     notifications.push({
                                         auth_user_id: user.auth_id,
                                         title: "Course Mismatch 💀",
-                                        description: `Removed ${coursesMap[String(item.course)]?.name}. Official: ${official.course_name}`,
+                                        description: `${item.date} (${item.session}): Removed ${coursesMap[String(item.course)]?.name}. Official: ${official.course_name}`,
                                         topic: `conflict-course-${key}`
                                     });
 
@@ -266,7 +280,7 @@ export async function GET(req: Request) {
                                     notifications.push({
                                         auth_user_id: user.auth_id,
                                         title: "Attendance Updated 🥳",
-                                        description: `Official record is Present. Manual entry removed.`,
+                                        description: `${official.course_name} - ${item.date} (${item.session}): Official record is Present. Manual entry removed.`,
                                         topic: `sync-surprise-${key}`
                                     });
                                 }
@@ -276,7 +290,7 @@ export async function GET(req: Request) {
                                 notifications.push({
                                     auth_user_id: user.auth_id,
                                     title: "Attendance Conflict 💀",
-                                    description: `Mismatch! You marked Present, Official says Absent.`,
+                                    description: `${official.course_name} - ${item.date} (${item.session}): You marked Present, Official says Absent.`,
                                     topic: `conflict-${key}`
                                 });
                                 
@@ -325,9 +339,8 @@ export async function GET(req: Request) {
                 // CAPTURE INDIVIDUAL USER FAILURES
                 Sentry.captureException(err, {
                     tags: { type: "sync_user_failure", location: "cron/sync" },
-                    extra: { 
-                        username: user.username,
-                        user_id: user.auth_id
+                    extra: {
+                        user_id: redact("id", user.auth_id)
                     }
                 });
                 

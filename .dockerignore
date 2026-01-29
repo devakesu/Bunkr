@@ -21,7 +21,7 @@ vitest.config.ts
 playwright.config.ts
 
 README.md
-CONTRIBUTING.md
+docs/
 *.md
 
 .env

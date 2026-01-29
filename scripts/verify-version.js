@@ -1,6 +1,3 @@
- 
- 
-
 const fs = require('fs');
 const { execSync } = require('child_process');
 const path = require('path');
@@ -57,7 +54,7 @@ try {
   let branchName = 'unknown';
   try {
     branchName = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
-  } catch (e) { /* ignore if no git */ }
+  } catch (_err) { /* ignore if no git */ }
   const normalizedBranch = branchName.replace(/^(v|release\/)/, '');
 
 
@@ -126,7 +123,7 @@ try {
   console.log(`${GREEN}✅ All versions synchronized.${RESET}\n`);
   process.exit(0);
 
-} catch (e) {
-  console.error(`${RED}❌ Script Error: ${e.message}${RESET}`);
+} catch (_err) {
+  console.error(`${RED}❌ Script Error: ${_err.message}${RESET}`);
   process.exit(1);
 }

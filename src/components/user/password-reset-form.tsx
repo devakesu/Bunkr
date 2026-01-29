@@ -12,7 +12,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Eye, EyeOff, Mail, Phone, User } from "lucide-react";
 
 import axios from "@/lib/axios";
-import { setToken } from "@/lib/auth";
 
 import { motion } from "framer-motion";
 
@@ -131,7 +130,6 @@ export function PasswordResetForm({
       });
       const token = response.data.access_token;
       await axios.post("/api/auth/save-token", { token });
-      setToken(token);
       router.push("/dashboard");
     } catch (error: any) {
       setError(`Ezygo: ${error.response?.data?.message || "Failed to fetch reset options."}`);

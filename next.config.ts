@@ -1,9 +1,5 @@
-import { getCspHeader } from "./src/lib/csp";
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
-
-// 🛡️ Content Security Policy (CSP)
-const cspHeader = getCspHeader();
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -11,10 +7,6 @@ const nextConfig: NextConfig = {
   async headers() {
     // 1. Define headers common to all environments
     const headersList = [
-      {
-        key: "Content-Security-Policy",
-        value: cspHeader,
-      },
       {
         key: "X-Frame-Options",
         value: "DENY",

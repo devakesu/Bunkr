@@ -1,5 +1,11 @@
 # GhostClass
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Next.js](https://img.shields.io/badge/Next.js-16.1.6-black)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
+[![Tests](https://img.shields.io/badge/Tests-Vitest%20%2B%20Playwright-green)](https://vitest.dev/)
+
 ## Overview
 
 GhostClass is the ultimate academic survival tool for students who want to manage their attendance without the main character energy of a professor. Featuring a sleek dashboard with real-time analytics and visual performance charts, it helps you track your classes so you never accidentally ghost your degree. With a built-in "bunk calculator" to tell you exactly how many lectures you can skip before it becomes a canon event, and a dedicated tracker for suspicious absences, GhostClass ensures your attendance stays valid while you live your best life. Built as a better alternative to Ezygo, it presents your attendance data with a clean, intuitive interface. No more confusing numbers - just clear, actionable insights!
@@ -19,13 +25,42 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 
 ## 🛠️ Tech Stack
 
-- **Frontend** - Next.js with React
-- **Styling** - Tailwind CSS for a modern, responsive design
-- **UI Components** - Radix UI & Shadcn for accessible, consistent components
-- **Data Visualization** - Recharts for beautiful attendance graphs
-- **Animations** - Framer Motion for smooth transitions
-- **Database & Auth** - Supabase (PostgreSQL)
-- **Monitoring** - Sentry & Google Analytics
+**Core Framework**
+- **Next.js 16.1.6** - React 19 with App Router and Turbopack
+- **TypeScript 5** - Strict mode for type safety
+- **Node.js** - v20.19.0+ or v22.12.0+
+
+**Styling & UI**
+- **Tailwind CSS 4** - Utility-first styling with custom design system
+- **Radix UI** - Accessible, unstyled component primitives
+- **Shadcn UI** - Beautiful pre-styled components
+- **Framer Motion** - Smooth animations and transitions
+- **Lucide Icons** - Modern, customizable icon library
+
+**Data & State Management**
+- **TanStack Query (React Query)** - Server state management
+- **React Hook Form + Zod** - Form validation
+- **Recharts** - Interactive data visualizations
+
+**Backend & Database**
+- **Supabase** - PostgreSQL database with Row Level Security
+- **Supabase Auth** - Secure authentication system
+- **Axios** - HTTP client for API requests
+
+**Security & Monitoring**
+- **AES-256-GCM Encryption** - Secure token storage
+- **CSRF Protection** - Custom token-based protection
+- **Upstash Redis** - Rate limiting with `@upstash/ratelimit`
+- **Sentry** - Error tracking and performance monitoring
+- **Vercel Analytics** - Privacy-friendly analytics
+- **Cloudflare Turnstile** - Bot protection
+
+**DevOps & Deployment**
+- **Docker** - Containerized deployment with multi-stage builds
+- **GitHub Actions** - CI/CD pipeline with reproducible builds
+- **Coolify** - Self-hosted deployment platform
+- **Playwright** - E2E testing
+- **Vitest** - Unit and component testing
 
 <br />
 
@@ -34,45 +69,155 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 ```
 src/
 ├── app/                # Next.js app router pages and layouts
-│   ├── (auth)/         # Authentication-related routes
-│   ├── (protected)/    # Login restricted routes
-|   ├── (public)/       # Public routes
-|   ├── actions/        # User actions
-|   ├── api/            # APIs
-|   ├── config/         # App configs
-│   ├── globals.css     # Global styles
-│   └── layout.tsx      # Root layout
+│   ├── (auth)/         # Authentication-related routes (login, signup)
+│   ├── (protected)/    # Login-restricted routes (dashboard, profile, tracking)
+│   │   ├── dashboard/  # Main dashboard with attendance overview
+│   │   ├── profile/    # User profile and settings
+│   │   ├── tracking/   # Manual attendance tracking interface
+│   │   └── notifications/ # Notification center
+│   ├── (public)/       # Public routes (home, contact, legal pages)
+│   ├── actions/        # Server actions (contact, user operations)
+│   ├── api/            # API routes
+│   │   ├── auth/       # NextAuth configuration
+│   │   ├── backend/    # Backend proxy endpoints
+│   │   ├── cron/       # Scheduled jobs (sync, cleanup)
+│   │   └── health/     # Health check endpoint
+│   ├── config/         # App configuration files
+│   ├── globals.css     # Global styles and Tailwind directives
+│   └── layout.tsx      # Root layout with providers
 ├── components/         # Reusable React components
+│   ├── attendance/     # Attendance-specific components
+│   │   ├── course-card.tsx      # Individual course display
+│   │   ├── attendance-calendar.tsx # Calendar view
+│   │   └── attendance-chart.tsx # Performance charts
+│   ├── layout/         # Layout components (navbar, footer)
+│   ├── ui/             # Shadcn UI components
+│   └── user/           # User-related components
 ├── providers/          # React context providers
-├── utils/              # Utility functions
-├── assets/             # Static assets
-├── types/              # TypeScript type definitions
+│   ├── attendance-settings.tsx  # Attendance target settings
+│   └── react-query.tsx # TanStack Query provider
+├── hooks/              # Custom React hooks
+│   ├── courses/        # Course data fetching hooks
+│   ├── tracker/        # Tracking data hooks
+│   └── users/          # User data hooks
 ├── lib/                # Core library code
-|   ├── logic/          # Attendance & Bunk Logic
-|   ├── supabase/       # Supabase Backend Control
-└── hooks/              # Custom React hooks
-└── supabase/           # DB Backend Schema
+│   ├── logic/          # Business logic
+│   │   └── bunk.ts     # Attendance calculation algorithm
+│   ├── supabase/       # Supabase client configuration
+│   ├── email.ts        # Email service (Resend)
+│   ├── crypto.ts       # AES-256-GCM encryption
+│   ├── ratelimit.ts    # Upstash Redis rate limiting
+│   └── utils.ts        # Utility functions
+├── types/              # TypeScript type definitions
+│   ├── attendance.d.ts # Attendance data types
+│   ├── course.d.ts     # Course types
+│   └── user.d.ts       # User types
+└── assets/             # Static assets (images, icons)
+supabase/
+└── migrations/         # Database schema migrations
 ```
 
 <br />
 
-## 🧮 Bunk Algorithm
+## 🧮 Attendance Calculation Algorithm
+
+The core attendance calculation algorithm is implemented in [bunk.ts](src/lib/logic/bunk.ts) and is used throughout the application, particularly in the [course-card.tsx](src/components/attendance/course-card.tsx) component.
+
+### Algorithm Flow
 
 ```ts
-1. If total <= 0 or present <= 0 → return zero
-
-2. current% = (present / total) * 100
-
-3. If current% == target → isExact = true
-
-4. If current% < target:
-   required = ceil((target * total - 100 * present) / (100 - target))
-
-5. If current% > target:
-   bunkable = floor((100 * present - target * total) / target)
+function calculateAttendance(present, total, targetPercentage):
+  
+  1. Input Validation & Normalization
+     - Ensure total > 0, present >= 0, present <= total
+     - Clamp targetPercentage between 1-100 (default: 75)
+     - Return zero result if invalid
+  
+  2. Calculate Current Percentage
+     currentPercentage = (present / total) * 100
+  
+  3. Check if Exactly at Target
+     if currentPercentage == targetPercentage:
+       return { isExact: true, canBunk: 0, requiredToAttend: 0 }
+  
+  4. Below Target - Calculate Required Classes
+     if currentPercentage < targetPercentage:
+       if targetPercentage >= 100:
+         required = total - present
+       else:
+         required = ceil((target * total - 100 * present) / (100 - target))
+       return { requiredToAttend: required, canBunk: 0 }
+  
+  5. Above Target - Calculate Bunkable Classes
+     if currentPercentage > targetPercentage:
+       bunkableExact = (100 * present - target * total) / target
+       bunkable = floor(bunkableExact)
+       
+       // Edge case: Almost at target (0 < exact < 0.9 and floor = 0)
+       if bunkableExact in (0, 0.9) and bunkable == 0:
+         isExact = true
+       
+       return { canBunk: bunkable, requiredToAttend: 0 }
 ```
 
-*Original implementation available here: [bunk.ts](https://github.com/ABHAY-100/bunkr-web/blob/main/src/utils/bunk.ts)*
+### Course Card Integration
+
+The course card combines official attendance data with manual tracking:
+
+1. **Official Data**: Fetched from EzyGo API
+   - `realPresent`: Official present count
+   - `realTotal`: Official total classes
+   - `realAbsent`: Official absent count
+
+2. **Manual Tracking Modifiers**:
+   - `extraPresent/extraAbsent`: Additional classes marked by user (adds to total)
+   - `correctionPresent`: Wrongly marked absences corrected to present (status swap only)
+
+3. **Final Calculation**:
+   ```ts
+   finalPresent = realPresent + correctionPresent + extraPresent
+   finalTotal = realTotal + extras (extraPresent + extraAbsent)
+   displayPercentage = (finalPresent / finalTotal) * 100
+   ```
+
+4. **Dual Metrics Display**:
+   - `safeMetrics`: Based on official data only (fail-safe)
+   - `extraMetrics`: Includes manual tracking (what user sees)
+
+### Example Scenarios
+
+**Scenario 1: Need More Classes**
+```
+Present: 45, Total: 60, Target: 75%
+Current: 75.0% → At target
+Result: isExact = true
+```
+
+**Scenario 2: Can Bunk Classes**
+```
+Present: 50, Total: 60, Target: 75%
+Current: 83.33% → Above target
+bunkableExact = (100*50 - 75*60) / 75 = 6.67
+Result: canBunk = 6 classes
+```
+
+**Scenario 3: Need to Attend**
+```
+Present: 40, Total: 60, Target: 75%
+Current: 66.67% → Below target
+required = ceil((75*60 - 100*40) / (100-75)) = 6
+Result: requiredToAttend = 6 classes
+```
+
+*Formula derivation: To reach target% with x more classes attended:*
+```
+(present + x) / (total + x) = target / 100
+100(present + x) = target(total + x)
+100*present + 100x = target*total + target*x
+100x - target*x = target*total - 100*present
+x(100 - target) = target*total - 100*present
+x = (target*total - 100*present) / (100 - target)
+```
 
 <br />
 
@@ -80,10 +225,11 @@ src/
 
 ### Prerequisites
 
-- Node.js (Latest LTS version recommended)
-- npm or yarn
-- Docker Desktop (Only for local development - supabase)
-- Supabase CLI (`npm install supabase --save-dev`)
+- **Node.js** - v20.19.0+ or v22.12.0+ (specified in `package.json` engines)
+- **npm** or **yarn** - Package manager
+- **Docker Desktop** - Only for local Supabase development (optional)
+- **Supabase CLI** - Install via `npm install supabase --save-dev`
+- **Git** - Version control
 
 ### Quick Start
 
@@ -136,65 +282,171 @@ The application will be available at `http://localhost:3000` 🎉
 
 ## 🧪 Testing
 
-GhostClass uses Vitest for unit/component tests and Playwright for E2E tests.
+GhostClass uses **Vitest** for unit/component tests and **Playwright** for E2E tests.
+
+### Test Structure
+
+```
+src/
+├── components/__tests__/
+│   └── error-boundary.test.tsx      # Error boundary component tests
+├── hooks/
+│   ├── __tests__/useUser.test.tsx   # User hook tests
+│   └── courses/__tests__/courses.test.tsx  # Course hook tests
+└── lib/
+    ├── __tests__/
+    │   ├── utils.test.ts            # Utility function tests
+    │   └── crypto.test.ts           # Encryption/decryption tests
+    └── logic/__tests__/
+        └── bunk.test.ts             # Attendance calculation tests
+e2e/
+├── homepage.spec.ts                 # Homepage E2E tests
+└── smoke.spec.ts                    # Smoke tests for critical paths
+```
 
 ### Running Tests
 
 ```bash
-# Run unit tests
-npm test
+# Unit & Component Tests (Vitest)
+npm test                    # Run all tests once
+npm run test:watch          # Watch mode - reruns on file changes
+npm run test:ui             # Interactive UI for test debugging
+npm run test:coverage       # Generate coverage report
 
-# Run tests in watch mode
-npm run test:watch
+# E2E Tests (Playwright)
+npm run test:e2e           # Headless E2E tests
+npm run test:e2e:ui        # Interactive E2E with Playwright UI
 
-# Run tests with UI
-npm run test:ui
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run E2E tests
-npm run test:e2e
-
-# Run E2E tests with UI
-npm run test:e2e:ui
-
-# Run all tests
-npm run test:all
+# Run All Tests
+npm run test:all           # Unit + E2E tests
 ```
 
 ### Test Coverage
 
-We're building test coverage incrementally, starting with critical paths:
-- Current thresholds: ~5% (enforced in CI via `vitest.config.ts`)
-- Short-term goal: Ensure new and modified critical-path code is covered by tests
-- Long-term goal: Gradually raise the coverage thresholds in `vitest.config.ts` as we add tests for high-priority features (no fixed % target yet)
+Current test suite includes:
+- ✅ **Attendance Algorithm** (`bunk.test.ts`) - 100% coverage of calculation logic
+- ✅ **Encryption/Decryption** (`crypto.test.ts`) - AES-256-GCM encryption tests
+- ✅ **Utility Functions** (`utils.test.ts`) - Helper function validation
+- ✅ **Error Boundaries** (`error-boundary.test.tsx`) - Error handling UI
+- ✅ **Custom Hooks** - User and course data fetching
+- ✅ **E2E Smoke Tests** - Critical user flows
 
-View coverage report:
+**Coverage Goals:**
+- Current enforced threshold: **10%** (configured in `vitest.config.ts`)
+- All new features require accompanying tests
+- Critical paths (auth, attendance calculation, data sync) have priority coverage
+
+View detailed coverage report:
 ```bash
 npm run test:coverage
-open coverage/index.html
+# Open coverage/index.html in browser
 ```
 
 ### Writing Tests
 
-Tests follow the Arrange-Act-Assert pattern and use React Testing Library for component tests.
+Tests follow the **Arrange-Act-Assert** pattern:
 
-Example:
 ```typescript
-describe('Component', () => {
-  it('should do something when condition', () => {
+import { describe, it, expect } from 'vitest';
+import { calculateAttendance } from '@/lib/logic/bunk';
+
+describe('calculateAttendance', () => {
+  it('should calculate required classes when below target', () => {
     // Arrange
-    render(<Component prop="value" />)
+    const present = 40;
+    const total = 60;
+    const target = 75;
     
     // Act
-    fireEvent.click(screen.getByText('Button'))
+    const result = calculateAttendance(present, total, target);
     
     // Assert
-    expect(screen.getByText('Result')).toBeInTheDocument()
-  })
-})
+    expect(result.requiredToAttend).toBe(6);
+    expect(result.canBunk).toBe(0);
+  });
+});
 ```
+
+For component tests using React Testing Library:
+```typescript
+import { render, screen, fireEvent } from '@testing-library/react';
+
+it('should display attendance percentage', () => {
+  render(<CourseCard course={mockCourse} />);
+  expect(screen.getByText('75.0%')).toBeInTheDocument();
+});
+```
+
+<br />
+
+## 🔒 Security
+
+GhostClass implements multiple layers of security:
+
+- **AES-256-GCM Encryption** - All sensitive tokens are encrypted at rest
+- **CSRF Protection** - Custom token-based CSRF protection on critical endpoints
+- **Rate Limiting** - Upstash Redis-based rate limiting to prevent abuse
+- **Row Level Security** - Supabase RLS policies ensure users only access their data
+- **Secure Headers** - CSP, HSTS, and other security headers configured
+- **Input Validation** - Zod schemas validate all user input
+- **HttpOnly Cookies** - Sensitive data stored in secure, httpOnly cookies
+
+For detailed security implementation, see [SECURITY.md](docs/SECURITY.md).
+
+To report security vulnerabilities, please email: [fusion@devakesu.com](mailto:fusion@devakesu.com)
+
+<br />
+
+## 🌍 Environment Variables
+
+GhostClass uses a two-tier secret management strategy:
+
+**Tier 1: Build-time (Public)**
+- `NEXT_PUBLIC_*` variables - Safe for client-side exposure
+- `SENTRY_AUTH_TOKEN` - Secure BuildKit mount, not in image layers
+
+**Tier 2: Runtime (Private)**
+- `ENCRYPTION_KEY` - AES-256-GCM encryption key
+- `CRON_SECRET` - Cron job authentication
+- `SUPABASE_SERVICE_ROLE_KEY` - Admin database access
+- `UPSTASH_REDIS_REST_*` - Rate limiting credentials
+- `TURNSTILE_SECRET_KEY` - Cloudflare Turnstile validation
+- Email provider credentials
+
+See [.example.env](.example.env) for complete list with descriptions.
+
+**Important:** Never commit `.env` file to version control!
+
+<br />
+
+## 🚀 Deployment
+
+GhostClass is deployed using Docker with reproducible builds:
+
+### Docker Build
+```bash
+# Build with BuildKit
+DOCKER_BUILDKIT=1 docker build -t ghostclass .
+
+# Run container
+docker run -p 3000:3000 --env-file .env ghostclass
+```
+
+### CI/CD Pipeline
+- **GitHub Actions** - Automated builds on push
+- **Reproducible Builds** - `SOURCE_DATE_EPOCH` for deterministic builds
+- **Multi-stage Build** - Optimized image size (~500MB)
+- **Coolify Deployment** - Self-hosted platform for production
+
+### Production Checklist
+1. ✅ Set all required environment variables
+2. ✅ Configure Supabase RLS policies
+3. ✅ Set up Sentry project for error tracking
+4. ✅ Configure Cloudflare Turnstile
+5. ✅ Set up Redis instance for rate limiting
+6. ✅ Configure email service (Resend)
+7. ✅ Enable HTTPS with valid SSL certificate
+8. ✅ Set up cron jobs for attendance sync
 
 <br />
 
@@ -209,14 +461,10 @@ We welcome contributions! Here's how you can help:
 
 <br />
 
-## 👥 This build maintained by
+## 👥 Maintained by
 - [Devanarayanan](https://github.com/devakesu/)
   
-Earlier version developed by:
-- [Abhay Balakrishnan](https://github.com/ABHAY-100)
-- [Asil Mehaboob](https://github.com/AsilMehaboob)
-- [Sreyas B Anand](https://github.com/sreyas-b-anand)
-
+Credits: [Bunkr](https://github.com/ABHAY-100/Bunkr/)
 <br />
 
 ## 📧 Contact

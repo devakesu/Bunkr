@@ -6,6 +6,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
@@ -61,6 +71,7 @@ export function AttendanceCalendar({
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [filter, setFilter] = useState<string>("all");
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<string | null>(null);
   const clickedButtons = useRef<Set<string>>(new Set());
 
   const { data: semester } = useFetchSemester();
@@ -366,7 +377,23 @@ export function AttendanceCalendar({
   }, [selectedDate, rawEvents, filter, trackingData, attendanceData, coursesData, semesterData, academicYearData, isSameDay]);
   
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const monthNames = [ "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" ];
+  const monthNames = useMemo(
+    () => [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ],
+    []
+  );
   const yearOptions = useMemo(() => Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => 2018 + i), []);
   
   const calendarCells = useMemo(() => {
@@ -418,7 +445,7 @@ export function AttendanceCalendar({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <Card className="overflow-hidden border border-border/40 shadow-md backdrop-blur-sm custom-container h-full flex flex-col">
+      <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col">
         {/* Header */}
         <CardHeader className="pb-2 flex flex-row flex-wrap items-center justify-center sm:justify-between gap-2 border-b border-border/40">
           <div className="flex items-center gap-2 max-sm:contents">
@@ -536,7 +563,7 @@ export function AttendanceCalendar({
                                         size="icon" 
                                         className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-500/10" 
                                         disabled={isDeleting} 
-                                        onClick={() => handleDeleteTrackData(sessionForDB, event.courseId, dbDate)} 
+                                        onClick={() => setDeleteConfirmOpen(`${event.courseId}|${dbDate}|${sessionForDB}`)} 
                                         aria-label={`Delete self-marked ${event.status} record for ${event.title} ${event.sessionName}`}
                                     >
                                         {isDeleting ? (
@@ -562,7 +589,7 @@ export function AttendanceCalendar({
                                     <Link href="/tracking">
                                       <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><ArrowUpRight className="w-3 h-3" aria-label="View tracking details" /></Button>
                                     </Link>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-500/10" disabled={isDeleting} onClick={() => handleDeleteTrackData(sessionForDB, event.courseId, dbDate)}>{isDeleting ? <Loader2 className="h-3 w-3 animate-spin" aria-label="Deleting" /> : <Trash2 className="h-3 w-3" aria-label="Delete record" />}</Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-500/10" disabled={isDeleting} onClick={() => setDeleteConfirmOpen(`${event.courseId}|${dbDate}|${sessionForDB}`)}>{isDeleting ? <Loader2 className="h-3 w-3 animate-spin" aria-label="Deleting" /> : <Trash2 className="h-3 w-3" aria-label="Delete record" />}</Button>
                                 </div>
                             );
                         }
@@ -606,6 +633,33 @@ export function AttendanceCalendar({
           </AnimatePresence>
         </CardContent>
       </Card>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmOpen} onOpenChange={(open) => !open && setDeleteConfirmOpen(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tracking Record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this attendance tracking record. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (deleteConfirmOpen) {
+                  const [course, date, session] = deleteConfirmOpen.split('|');
+                  await handleDeleteTrackData(session, course, date);
+                  setDeleteConfirmOpen(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

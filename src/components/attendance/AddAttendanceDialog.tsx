@@ -43,14 +43,21 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { normalizeSession, toRoman, formatSessionName, normalizeDate } from "@/lib/utils";
+import { AttendanceReport, TrackAttendance, Course } from "@/types";
+// logger unused
+
+interface User {
+  id: string | number;
+  auth_id?: string;
+}
 
 interface AddAttendanceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  attendanceData: any;
-  trackingData: any[];
-  coursesData: any;
-  user: any;
+  attendanceData?: AttendanceReport;
+  trackingData: TrackAttendance[];
+  coursesData?: { courses: Record<string, Course> };
+  user: User;
   onSuccess: () => void;
   selectedSemester?: "odd" | "even";
   selectedYear?: string;
@@ -134,13 +141,13 @@ export function AddAttendanceDialog({
       // A. Official Data
       const officialDay = attendanceData.studentAttendanceData?.[dateKey];
       if (officialDay) {
-        Object.keys(officialDay).forEach((key) => {
-           const s = officialDay[key];
+          Object.keys(officialDay).forEach((key) => {
+            const s = officialDay[key] as { course: string | number | null; session?: string | null };
            
-           if (!s.course || s.course === "null" || s.course === 0 || s.course === "0") return;
+            if (s.course == null || s.course === "null" || s.course === 0 || s.course === "0") return;
 
-           let effectiveName = attendanceData.sessions?.[key]?.name;
-           if (!effectiveName && s.session && s.session !== "null") effectiveName = s.session;
+            let effectiveName = attendanceData.sessions?.[key]?.name;
+            if (!effectiveName && s.session && s.session !== "null") effectiveName = s.session;
 
            if (!effectiveName) {
                const keyInt = parseInt(key);
@@ -182,8 +189,8 @@ export function AddAttendanceDialog({
 
          if (currentDay === dayOfWeek) {
             Object.keys(sessions).forEach((key) => {
-               const s = sessions[key];
-               if (!s.course || s.course === "null" || s.course === 0 || s.course === "0") return;
+              const s = sessions[key] as { course: string | number | null; session?: string | null };
+              if (s.course == null || s.course === "null" || s.course === 0 || s.course === "0") return;
 
                let effectiveName = attendanceData.sessions?.[key]?.name;
                if (!effectiveName && s.session && s.session !== "null") effectiveName = s.session;
@@ -225,9 +232,9 @@ export function AddAttendanceDialog({
       
       if (officialDay) {
          isBlocked = Object.keys(officialDay).some((key) => {
-            const s = officialDay[key];
-            
-            if (!s.course || s.course === "null" || s.course === 0 || s.course === "0") {
+            const s = officialDay[key] as { course: string | number | null; session?: string | null };
+
+            if (s.course == null || s.course === "null" || s.course === 0 || s.course === "0") {
                 return false;
             }
 
@@ -332,7 +339,7 @@ export function AddAttendanceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] custom-container border-border/50">
+      <DialogContent className="sm:max-w-[425px] custom-container border-border/50 bg-card/90 backdrop-blur-xl shadow-2xl">
         <DialogHeader>
           <DialogTitle>Add Extra Class</DialogTitle>
           <DialogDescription>

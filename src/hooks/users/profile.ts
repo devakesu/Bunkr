@@ -5,12 +5,33 @@ import { UserProfile } from "@/types";
 import axiosInstance from "@/lib/axios";
 import { createClient } from "@/lib/supabase/client";
 import * as Sentry from "@sentry/nextjs";
+import { redact } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 interface UpdateProfileData {
   first_name?: string;
   last_name?: string;
   gender?: string;
   birth_date?: string;
+}
+
+interface EzygoProfileData {
+  user_id: string | number;
+  username?: string;
+  email?: string;
+  mobile?: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  gender?: string;
+  sex?: string;
+  birth_date?: string;
+  dob?: string;
+  user?: {
+    username?: string;
+    email?: string;
+    mobile?: string;
+  };
 }
 
 export const useProfile = () => {
@@ -35,12 +56,12 @@ export const useProfile = () => {
       }
 
       // 3. Fetch Ezygo Data (Remote Source)
-      let ezygoData: any = null;
+      let ezygoData: EzygoProfileData | null = null;
       try {
-        const ezygoRes = await axiosInstance.get("/myprofile");
-        ezygoData = ezygoRes.data?.data || ezygoRes.data;
+        const ezygoRes = await axiosInstance.get<{ data?: EzygoProfileData } | EzygoProfileData>("/myprofile");
+        ezygoData = (ezygoRes.data as { data?: EzygoProfileData })?.data || (ezygoRes.data as EzygoProfileData);
       } catch (err) {
-        console.warn("Ezygo profile fetch failed, using local fallback.");
+        logger.warn("Ezygo profile fetch failed, using local fallback.");
         // Non-fatal error: Log to Sentry as warning but continue
         Sentry.captureException(err, { tags: { type: "ezygo_profile_sync_fail", location: "useProfile/queryFn" } });
       }
@@ -55,9 +76,9 @@ export const useProfile = () => {
       }
 
       // 5. "Soft Sync" Logic
-      const resolve = (local: any, remote: any) => {
+      const resolve = (local: string | null | undefined, remote: string | number | null | undefined): string | null => {
         if (local && local !== "" && local !== null) return local;
-        return remote || null;
+        return remote ? String(remote) : null;
       };
 
       // Parse Names
@@ -97,10 +118,10 @@ export const useProfile = () => {
         .upsert(mergedData, { onConflict: "id" });
 
       if (upsertError) {
-        console.error("Profile Sync Error:", upsertError);
+        logger.error("Profile Sync Error:", upsertError);
         Sentry.captureException(upsertError, { 
             tags: { type: "profile_upsert_fail", location: "useProfile/queryFn" },
-            extra: { userId: user.id }
+            extra: { userId: redact("id", String(mergedData.id)) }
         });
       }
 

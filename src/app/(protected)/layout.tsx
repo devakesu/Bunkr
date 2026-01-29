@@ -5,13 +5,14 @@ import { Footer } from "@/components/layout/footer";
 import { Loading } from "@/components/loading";
 import { useInstitutions } from "@/hooks/users/institutions";
 import { useEffect, useState, useRef } from "react";
-import { getToken } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { Toaster } from "sonner";
 import TermsModal from "@/components/legal/TermsModal";
 import { motion, useScroll } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { createClient } from "@/lib/supabase/client";
+import { handleLogout } from "@/lib/security/auth";
 
 export default function ProtectedLayout({
   children,
@@ -52,18 +53,31 @@ export default function ProtectedLayout({
   }, [scrollY, isHidden]);
 
   const { error: institutionError, isLoading: institutionLoading } = useInstitutions();
+  const supabase = createClient();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = await getToken();
-      if (!token) {
-        router.replace("/");
-      } else {
-        setIsAuthorized(true);
+    let active = true;
+
+    const checkUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+
+        if (!user) {
+          active = false;
+          router.replace("/");
+          return;
+        }
+
+        if (active) setIsAuthorized(true);
+      } catch (_err) {
+        handleLogout();
       }
     };
-    checkAuth();
-  }, [router]);
+
+    checkUser();
+    return () => { active = false; };
+  }, [router, supabase]);
 
   if (!isAuthorized || institutionLoading || institutionError) {
     return (

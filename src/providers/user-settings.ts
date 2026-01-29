@@ -6,10 +6,16 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { UserSettings } from "@/types/user-settings";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 
 export function useUserSettings() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+
+  const normalizeTarget = (value?: number | null) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) return 75;
+    return Math.min(100, Math.max(1, Math.round(value)));
+  };
 
   // 1. Fetch from DB
   const { data: settings, isLoading } = useQuery({
@@ -61,8 +67,8 @@ export function useUserSettings() {
           localStorage.setItem("showBunkCalc", newData.bunk_calculator_enabled.toString());
           window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newData.bunk_calculator_enabled }));
       }
-      if (newData.target_percentage) {
-          localStorage.setItem("targetPercentage", newData.target_percentage.toString());
+        if (newData.target_percentage !== undefined) {
+          localStorage.setItem("targetPercentage", normalizeTarget(newData.target_percentage).toString());
       }
     },
     onError: (err) => {
@@ -90,7 +96,7 @@ export function useUserSettings() {
       }
       
       const localTarget = localStorage.getItem("targetPercentage");
-      const dbTarget = (settings.target_percentage ?? 75).toString();
+      const dbTarget = normalizeTarget(settings.target_percentage).toString();
       
       if (localTarget !== dbTarget) {
         localStorage.setItem("targetPercentage", dbTarget);
@@ -103,10 +109,10 @@ export function useUserSettings() {
 
       // Only migrate if we actually have legacy local data
       if (localBunk !== null || localTarget !== null) {
-        console.log("Migrating local settings to cloud...");
+        logger.dev("Migrating local settings to cloud...");
         mutateSettings({
           bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
-          target_percentage: localTarget !== null ? Number(localTarget) : 75
+          target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
         });
       }
     }
@@ -118,6 +124,6 @@ export function useUserSettings() {
     settings,
     isLoading,
     updateBunkCalc: (enabled: boolean) => mutateSettings({ bunk_calculator_enabled: enabled }),
-    updateTarget: (target: number) => mutateSettings({ target_percentage: target })
+    updateTarget: (target: number) => mutateSettings({ target_percentage: normalizeTarget(target) })
   };
 }

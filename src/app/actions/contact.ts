@@ -8,6 +8,8 @@ import { z } from "zod";
 import sanitizeHtml from "sanitize-html";
 import { headers } from "next/headers";
 import { syncRateLimiter } from "@/lib/ratelimit";
+import { redact } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 // VALIDATION SCHEMA
 const contactSchema = z.object({
@@ -97,6 +99,20 @@ const getContactEmail = () => {
   return 'contact' + appEmail;
 };
 
+function getClientIp(headerList: Headers): string | null {
+  const cf = headerList.get("cf-connecting-ip")?.trim();
+  if (cf) return cf;
+
+  const realIp = headerList.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+
+  const forwarded = headerList.get("x-forwarded-for");
+  const forwardedIp = forwarded?.split(",")[0]?.trim();
+  if (forwardedIp) return forwardedIp;
+
+  return process.env.NODE_ENV === "development" ? "127.0.0.1" : null;
+}
+
 
 export async function submitContactForm(formData: FormData) {
 
@@ -108,8 +124,26 @@ export async function submitContactForm(formData: FormData) {
   }
 
   // RATE LIMIT BY IP 
-  const headersList = await headers();
-  const ip = headersList.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
+  const headerList = await headers();
+
+  const origin = headerList.get("origin");
+  const host = headerList.get("host");
+  if (origin && host) {
+    try {
+      const originHost = new URL(origin).host;
+      if (originHost !== host) {
+        return { error: "Invalid origin" };
+      }
+    } catch {
+      return { error: "Invalid origin" };
+    }
+  }
+
+  const ip = getClientIp(headerList);
+  if (!ip) {
+    return { error: "Unable to determine client IP" };
+  }
+
   const { success } = await syncRateLimiter.limit(`contact:${ip}`);
   
   if (!success) {
@@ -277,7 +311,7 @@ export async function submitContactForm(formData: FormData) {
       Sentry.captureException(confirmationError, {
         level: "warning",
         tags: { type: "email_confirmation_failed", location: "contact_form" },
-        extra: { email }
+        extra: { email: redact("email", email), insertedId: insertedId }
       });
     }
 
@@ -290,7 +324,7 @@ export async function submitContactForm(formData: FormData) {
     Sentry.captureException(error, {
         tags: { type: "contact_form_failure", location: "contact_form" },
         extra: { 
-            email, 
+            email: redact("email", email),
             has_inserted_db: !!insertedId,
             user_ip_truncated: ip.split('.').slice(0,3).join('.') + '.0',
         }
@@ -313,7 +347,7 @@ export async function submitContactForm(formData: FormData) {
              extra: { insertedId }
         });
       } else {
-        console.log("Rollback successful.");
+        logger.dev("Rollback successful.");
       }
     }
 

@@ -1,4 +1,6 @@
 export const TERMS_VERSION = "2.1";
+const LEGAL_EFFECTIVE_DATE = process.env.NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE || "2026-01-29";
+const LEGAL_EMAIL = process.env.NEXT_PUBLIC_LEGAL_EMAIL || "legal@example.com";
 
 // ------------------------------------------------------------------
 // 1.  DISCLAIMER
@@ -18,7 +20,7 @@ export const BUNK_DISCLAIMER = `
 // 2. PRIVACY POLICY
 // ------------------------------------------------------------------
 export const PRIVACY_POLICY = `
-**Effective Date:** ${process.env.NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE || new Date().toLocaleDateString()}
+**Effective Date:** ${LEGAL_EFFECTIVE_DATE}
 
 **1. Information We Collect**
 To provide the GhostClass service, we collect and process specific categories of data:
@@ -68,7 +70,7 @@ By using GhostClass, you acknowledge that your data may be transferred to and pr
 You retain full ownership and control over your data.
 * **Right to Deletion:** You may delete your account at any time via the "Delete Account" action in your Profile. Upon deletion, your encrypted tokens and cached attendance data are **permanently and irreversibly removed** from our database.
 * **Right to Access:** As an open-source project, our code is available for audit on GitHub to verify our data handling practices.
-* **Grievance Redressal:** If you have concerns regarding the processing of your data, please contact us at **[${process.env.NEXT_PUBLIC_LEGAL_EMAIL}](mailto:${process.env.NEXT_PUBLIC_LEGAL_EMAIL})**.
+* **Grievance Redressal:** If you have concerns regarding the processing of your data, please contact us at **[${LEGAL_EMAIL}](mailto:${LEGAL_EMAIL})**.
 `;
 
 // ------------------------------------------------------------------
@@ -104,7 +106,7 @@ We reserve the right to terminate or suspend access to our hosted service immedi
 These Terms shall be governed and construed in accordance with the laws of the **Republic of India**, without regard to its conflict of law provisions. Any disputes arising out of or in connection with these Terms shall be subject to the exclusive jurisdiction of the courts located in the **Republic of India**.
 
 **8. Contact Information**
-For any legal inquiries, data deletion requests, or notices of violation, please contact us at **[${process.env.NEXT_PUBLIC_LEGAL_EMAIL}](mailto:${process.env.NEXT_PUBLIC_LEGAL_EMAIL})**.
+For any legal inquiries, data deletion requests, or notices of violation, please contact us at **[${LEGAL_EMAIL}](mailto:${LEGAL_EMAIL})**.
 `;
 
 // ------------------------------------------------------------------
@@ -117,7 +119,7 @@ Cookies are small text files that are placed on your computer or mobile device b
 **2. Strictly Necessary Cookies (Essential)**
 These cookies are fundamental to the operation and security of GhostClass. They cannot be disabled.
 * **sb-[project-id]-auth-token:** A secure, HTTP-only cookie set by Supabase to maintain your authenticated session.
-* **ezygo_access_token:** A locally stored token that facilitates communication with the EzyGo API.
+* **ezygo_access_token:** A secure, HTTP-only cookie that facilitates communication with the EzyGo API.
 * **__cf_bm / __cf_clearance:** Set by **Cloudflare**. These cookies are used to distinguish between humans and bots (including Turnstile CAPTCHA) and are essential for the security of our site.
 
 **3. Performance & Analytics Cookies**

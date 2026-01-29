@@ -3,10 +3,25 @@
 
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import crypto from "crypto";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const HASH_SECRET = process.env.SENTRY_HASH_SALT;
+const getSecret = () => {
+  if (HASH_SECRET) return HASH_SECRET;
+  if (process.env.NODE_ENV === "development") return "dev-salt-only";
+  throw new Error("SENTRY_HASH_SALT is required in production");
+};
+
+export const redact = (type: "email" | "id", value: string) =>
+  crypto
+    .createHmac("sha256", getSecret())
+    .update(`${type}:${value}`)
+    .digest("hex")
+    .slice(0, 12);
 
 export const toRoman = (num: number | string): string => {
   const n = typeof num === 'string' ? parseInt(num, 10) : num;

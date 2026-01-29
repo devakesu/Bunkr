@@ -2,17 +2,28 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getCspHeader } from "./lib/csp";
 
+function createNonce() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes));
+}
+
 export async function proxy(request: NextRequest) {
+  const nonce = createNonce();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+
   // 1. Get CSP Header
-  const cspHeader = getCspHeader();
+  const cspHeader = getCspHeader(nonce);
 
   // 2. Initialize Response
   let response = NextResponse.next({
-    request: { headers: request.headers },
+    request: { headers: requestHeaders },
   });
 
   // 3. Apply CSP to the initial response
   response.headers.set('Content-Security-Policy', cspHeader);
+  response.headers.set("x-nonce", nonce);
 
   // 4. Initialize Supabase
   const supabase = createServerClient(
@@ -25,7 +36,7 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
+          response = NextResponse.next({ request: { headers: requestHeaders } });
           
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
@@ -33,6 +44,7 @@ export async function proxy(request: NextRequest) {
 
           // ⚠️ CRITICAL: Re-apply CSP to the new response
           response.headers.set('Content-Security-Policy', cspHeader);
+          response.headers.set("x-nonce", nonce);
         },
       },
     }
@@ -55,6 +67,7 @@ export async function proxy(request: NextRequest) {
     url.pathname = "/";
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
+    redirectRes.headers.set("x-nonce", nonce);
     return redirectRes;
   }
 
@@ -64,6 +77,7 @@ export async function proxy(request: NextRequest) {
     url.pathname = "/dashboard";
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
+    redirectRes.headers.set("x-nonce", nonce);
     return redirectRes;
   }
 
@@ -72,13 +86,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/",
-    "/dashboard/:path*",
-    "/profile/:path*",
-    "/notifications/:path*",
-    "/tracking/:path*",
-    "/contact",
-    "/legal",
-    "/api/((?!auth).*)",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

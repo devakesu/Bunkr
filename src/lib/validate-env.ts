@@ -82,6 +82,14 @@ export function validateEnvironment() {
   }
 
   // App Configuration
+  if (!process.env.NEXT_PUBLIC_APP_NAME) {
+    errors.push('❌ NEXT_PUBLIC_APP_NAME is required');
+  }
+
+  if (!process.env.NEXT_PUBLIC_APP_VERSION) {
+    errors.push('❌ NEXT_PUBLIC_APP_VERSION is required');
+  }
+
   if (!process.env.NEXT_PUBLIC_APP_URL) {
     errors.push('❌ NEXT_PUBLIC_APP_URL is required');
   } else {
@@ -106,6 +114,30 @@ export function validateEnvironment() {
     errors.push('❌ NEXT_PUBLIC_APP_EMAIL is required (used for sender addresses)');
   } else if (!/^@[^@]+$/.test(process.env.NEXT_PUBLIC_APP_EMAIL)) {
     errors.push('❌ NEXT_PUBLIC_APP_EMAIL must start with "@" and be a valid email suffix (e.g. @example.com)');
+  }
+
+  if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
+    errors.push('❌ NEXT_PUBLIC_BACKEND_URL is required (EzyGo API URL)');
+  }
+
+  if (!process.env.NEXT_PUBLIC_AUTHOR_NAME) {
+    warnings.push('⚠️  NEXT_PUBLIC_AUTHOR_NAME not set');
+  }
+
+  if (!process.env.NEXT_PUBLIC_AUTHOR_URL) {
+    warnings.push('⚠️  NEXT_PUBLIC_AUTHOR_URL not set');
+  }
+
+  if (!process.env.NEXT_PUBLIC_GITHUB_URL) {
+    warnings.push('⚠️  NEXT_PUBLIC_GITHUB_URL not set');
+  }
+
+  if (!process.env.NEXT_PUBLIC_LEGAL_EMAIL) {
+    warnings.push('⚠️  NEXT_PUBLIC_LEGAL_EMAIL not set');
+  }
+
+  if (!process.env.NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE) {
+    warnings.push('⚠️  NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE not set');
   }
 
   // ============================================================================

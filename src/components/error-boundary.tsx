@@ -2,6 +2,7 @@
 
 import { Component, ErrorInfo, ReactNode } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 import { AlertTriangle, RefreshCcw, RotateCcw } from "lucide-react";
 
 interface ErrorBoundaryProps {
@@ -40,10 +41,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     // 1. Log to console with environment-aware detail level
     if (process.env.NODE_ENV !== "production") {
       // In non-production, log full error details for easier debugging
-      console.error("ErrorBoundary caught an error:", error, errorInfo);
+      logger.error("ErrorBoundary caught an error:", error, errorInfo);
     } else {
       // In production, avoid logging potentially sensitive details to the console
-      console.error("ErrorBoundary caught an error. Full details have been reported to monitoring.");
+      logger.error("ErrorBoundary caught an error. Full details have been reported to monitoring.");
     }
 
     // 2. Report error to Sentry

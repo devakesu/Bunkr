@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Pencil, X, Check } from "lucide-react";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { useUpdateProfile } from "@/hooks/users/profile";
 import { UserProfile } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn, redact } from "@/lib/utils";
 import { Separator } from "../ui/separator";
 import { DeleteAccount } from "./delete-account";
 
@@ -148,12 +149,12 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
         },
         onError: (error) => {
           toast.error("Failed to update profile");
-          console.error(error);
+          logger.error(error);
           
           // Capture failure in Sentry
           Sentry.captureException(error, {
               tags: { type: "profile_update_error", location: "ProfileForm/onSubmit" },
-              extra: { userId: profile.id }
+              extra: { userId: redact("id", String(profile.id)) }
           });
         },
       }
