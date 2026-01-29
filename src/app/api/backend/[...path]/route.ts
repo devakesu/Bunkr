@@ -73,8 +73,11 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     }
     try {
       const originHost = new URL(origin).host.toLowerCase();
+      // Remove port from comparison to avoid false rejections
+      const originHostNoPort = originHost.split(':')[0];
       // Strict allowlist - don't fall back to Host header which can be spoofed
-      if (!ALLOWED_HOSTS.has(originHost)) {
+      // Check both with and without port for flexibility
+      if (!ALLOWED_HOSTS.has(originHostNoPort) && !ALLOWED_HOSTS.has(originHost)) {
         return NextResponse.json({ error: "Origin not allowed" }, { status: 403 });
       }
     } catch {

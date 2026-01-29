@@ -133,6 +133,19 @@ export async function submitContactForm(formData: FormData) {
 
   const ip = getClientIp(headerList);
   if (!ip) {
+    const relevantHeaders: Record<string, string | null> = {
+      "cf-connecting-ip": headerList.get("cf-connecting-ip"),
+      "x-real-ip": headerList.get("x-real-ip"),
+      "x-forwarded-for": headerList.get("x-forwarded-for"),
+    };
+    const safeHeaders = Object.fromEntries(
+      Object.entries(relevantHeaders).map(([k, v]) => [k, v ? redact("id", v) : null])
+    );
+    logger.error("Unable to determine client IP from headers in contact form", { headers: safeHeaders });
+    Sentry.captureMessage("Unable to determine client IP from headers in contact form", {
+      level: "warning",
+      extra: { headers: safeHeaders },
+    });
     return { error: "Unable to determine client IP" };
   }
 
