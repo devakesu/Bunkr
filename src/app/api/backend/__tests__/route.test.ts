@@ -21,7 +21,8 @@ const mockFetch = vi.fn();
 global.fetch = mockFetch as any;
 
 describe('Backend Proxy Route', () => {
-  let forward: any;
+  type ForwardHandler = typeof import('../[...path]/route')['forward'];
+  let forward: ForwardHandler;
 
   beforeAll(async () => {
     // Import after mocks are set up
@@ -97,6 +98,57 @@ describe('Backend Proxy Route', () => {
       
       // validateCsrfToken should not be called for GET
       expect(validateCsrfToken).not.toHaveBeenCalled();
+    });
+
+    it('should enforce CSRF validation for PUT requests', async () => {
+      const { validateCsrfToken } = await import('@/lib/security/csrf');
+      vi.mocked(validateCsrfToken).mockResolvedValue(false);
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users/1', {
+        method: 'PUT',
+        headers: {
+          origin: 'http://app.example.com',
+        },
+      });
+
+      const response = await forward(request, 'PUT', ['users', '1']);
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error).toBe('Invalid CSRF token');
+    });
+
+    it('should enforce CSRF validation for PATCH requests', async () => {
+      const { validateCsrfToken } = await import('@/lib/security/csrf');
+      vi.mocked(validateCsrfToken).mockResolvedValue(false);
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users/1', {
+        method: 'PATCH',
+        headers: {
+          origin: 'http://app.example.com',
+        },
+      });
+
+      const response = await forward(request, 'PATCH', ['users', '1']);
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error).toBe('Invalid CSRF token');
+    });
+
+    it('should enforce CSRF validation for DELETE requests', async () => {
+      const { validateCsrfToken } = await import('@/lib/security/csrf');
+      vi.mocked(validateCsrfToken).mockResolvedValue(false);
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users/1', {
+        method: 'DELETE',
+        headers: {
+          origin: 'http://app.example.com',
+        },
+      });
+
+      const response = await forward(request, 'DELETE', ['users', '1']);
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error).toBe('Invalid CSRF token');
     });
   });
 
@@ -179,6 +231,45 @@ describe('Backend Proxy Route', () => {
       expect(response.status).toBe(400);
       const body = await response.json();
       expect(body.error).toBe('Invalid origin');
+    });
+
+    it('should reject PUT requests without origin header', async () => {
+      const request = new NextRequest('http://localhost:3000/api/backend/users/1', {
+        method: 'PUT',
+      });
+
+      const response = await forward(request, 'PUT', ['users', '1']);
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body.error).toBe('Origin required');
+    });
+
+    it('should reject PATCH requests from unauthorized origins', async () => {
+      const request = new NextRequest('http://localhost:3000/api/backend/users/1', {
+        method: 'PATCH',
+        headers: {
+          origin: 'http://evil.com',
+        },
+      });
+
+      const response = await forward(request, 'PATCH', ['users', '1']);
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error).toBe('Origin not allowed');
+    });
+
+    it('should reject DELETE requests from unauthorized origins', async () => {
+      const request = new NextRequest('http://localhost:3000/api/backend/users/1', {
+        method: 'DELETE',
+        headers: {
+          origin: 'http://evil.com',
+        },
+      });
+
+      const response = await forward(request, 'DELETE', ['users', '1']);
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error).toBe('Origin not allowed');
     });
   });
 
