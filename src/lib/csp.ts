@@ -5,6 +5,11 @@ export const getCspHeader = (nonce?: string) => {
   const isDev = process.env.NODE_ENV !== "production";
   const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : "";
 
+  // In production, nonce should always be provided for strict CSP enforcement
+  if (!isDev && !nonce) {
+    logger.error('[CSP] Nonce missing in production - CSP will use unsafe-inline fallback');
+  }
+
   const scriptSrcParts = isDev
     ? [
         "'self'",
@@ -18,20 +23,17 @@ export const getCspHeader = (nonce?: string) => {
     : [
         "'self'",
         "blob:",
-        ...(nonce ? [`'nonce-${nonce}'`] : []),
+        ...(nonce ? [`'nonce-${nonce}'`, "'strict-dynamic'"] : ["'unsafe-inline'"]),
+        // External scripts for analytics and monitoring
+        // With strict-dynamic, these are only used as fallback for older browsers
         "https://www.googletagmanager.com",
         "https://challenges.cloudflare.com",
         "https://static.cloudflareinsights.com",
       ];
 
-  // Log warning if nonce is missing in production
-  if (!isDev && !nonce) {
-    logger.warn('[CSP] Nonce not provided in production - scripts may be restricted by CSP');
-  }
-
   const styleSrcParts = isDev
     ? ["'self'", "'unsafe-inline'"]
-    : ["'self'", ...(nonce ? [`'nonce-${nonce}'`] : [])];
+    : ["'self'", ...(nonce ? [`'nonce-${nonce}'`] : ["'unsafe-inline'"])];
 
   return `
     default-src 'self';

@@ -60,10 +60,11 @@ describe('Request Signing', () => {
 
     it('should throw error if ENCRYPTION_KEY is not set', () => {
       delete process.env.ENCRYPTION_KEY;
+      delete process.env.REQUEST_SIGNING_SECRET;
 
       expect(() => {
         signRequest('payload', 1000);
-      }).toThrow('ENCRYPTION_KEY not configured for request signing');
+      }).toThrow('REQUEST_SIGNING_SECRET or ENCRYPTION_KEY must be configured for request signing');
     });
   });
 

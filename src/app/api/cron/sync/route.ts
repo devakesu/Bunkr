@@ -11,6 +11,7 @@ import { Course } from "@/types";
 import { sendEmail } from "@/lib/email";
 import { renderAttendanceConflictEmail, renderCourseMismatchEmail } from "@/lib/email-templates";
 import { z } from "zod";
+import { logger } from "@/lib/logger";
 
 export const dynamic = 'force-dynamic';
 
@@ -92,7 +93,23 @@ export async function GET(req: Request) {
   // so we do not depend on Origin-based validation here. Authentication is handled via CRON_SECRET below.
 
   const trustedIpHeader = headerList.get("cf-connecting-ip") ?? headerList.get("x-real-ip");
-  const ip = trustedIpHeader?.trim() || (process.env.NODE_ENV === "development" ? "127.0.0.1" : "0.0.0.0");
+  let ip = trustedIpHeader?.trim() || null;
+  
+  if (!ip) {
+    if (process.env.NODE_ENV === "development") {
+      ip = "127.0.0.1";
+    } else {
+      // In production, reject requests without a determinable IP to prevent rate limiting bypass
+      logger.error("Unable to determine client IP for cron request", {
+        headers: {
+          "cf-connecting-ip": headerList.get("cf-connecting-ip"),
+          "x-real-ip": headerList.get("x-real-ip"),
+        },
+      });
+      return NextResponse.json({ error: "Unable to determine client IP address" }, { status: 400 });
+    }
+  }
+  
   const { success, reset } = await syncRateLimiter.limit(ip);
 
   if (!success) {

@@ -52,13 +52,14 @@ export function verifyRequestSignature(
 
 /**
  * Gets the signing secret from environment
- * Uses ENCRYPTION_KEY as the signing secret for simplicity
- * @throws Error if secret is not configured
+ * Uses dedicated REQUEST_SIGNING_SECRET if available, falls back to ENCRYPTION_KEY
+ * Note: In production, use separate secrets for encryption and signing for better security
+ * @throws Error if no secret is configured
  */
 function getSigningSecret(): string {
-  const secret = process.env.ENCRYPTION_KEY;
+  const secret = process.env.REQUEST_SIGNING_SECRET || process.env.ENCRYPTION_KEY;
   if (!secret) {
-    throw new Error("ENCRYPTION_KEY not configured for request signing");
+    throw new Error("REQUEST_SIGNING_SECRET or ENCRYPTION_KEY must be configured for request signing");
   }
   return secret;
 }
