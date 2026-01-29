@@ -7,7 +7,7 @@ const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 const PUBLIC_PATHS = new Set(["login"]);
 
 // Validate NEXT_PUBLIC_APP_DOMAIN is set to prevent origin validation bypass
-if (!process.env.NEXT_PUBLIC_APP_DOMAIN) {
+if (!process.env.NEXT_PUBLIC_APP_DOMAIN?.trim()) {
   throw new Error("NEXT_PUBLIC_APP_DOMAIN must be configured for security");
 }
 

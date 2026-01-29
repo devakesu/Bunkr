@@ -24,8 +24,9 @@ export const getCspHeader = (nonce?: string) => {
         "'self'",
         "blob:",
         ...(nonce ? [`'nonce-${nonce}'`, "'strict-dynamic'"] : ["'unsafe-inline'"]),
-        // External scripts for analytics and monitoring
-        // With strict-dynamic, these are only used as fallback for older browsers
+        // Note: With 'strict-dynamic', explicitly listed host sources below are ignored
+        // by modern browsers (CSP Level 3) and only apply to older browsers as fallback.
+        // For modern browsers, external scripts must be loaded dynamically by nonce'd scripts.
         "https://www.googletagmanager.com",
         "https://challenges.cloudflare.com",
         "https://static.cloudflareinsights.com",
