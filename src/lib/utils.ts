@@ -27,7 +27,10 @@ const getSecret = () => {
  * 
  * SECURITY CONSIDERATIONS:
  * - An attacker with log access and one known value could correlate other occurrences
- * - The 12-character truncation reduces collision resistance
+ * - The 12-character truncation reduces collision resistance but is acceptable for logging:
+ *   * 16^12 = ~281 trillion possible hashes
+ *   * Collision probability is negligible for user bases under 1 million users
+ *   * Birthday paradox: ~50% collision chance at ~16 million unique values
  * - This is acceptable for logging/debugging but NOT for security-critical operations
  * 
  * ALTERNATIVE APPROACHES (if needed):
@@ -219,8 +222,11 @@ export function getClientIp(headerList: Headers): string | null {
   const forwardedIp = forwarded?.split(",")[0]?.trim();
   if (forwardedIp) return forwardedIp;
 
+  // In development, log a warning and return null instead of fallback
+  // This helps identify issues with IP extraction during development
   if (process.env.NODE_ENV === "development") {
-    return "127.0.0.1";
+    console.warn("[getClientIp] No IP headers found in development mode. Rate limiting and logging may be affected.");
+    return null;
   }
 
   return null;

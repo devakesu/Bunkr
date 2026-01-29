@@ -145,7 +145,7 @@ export function PasswordResetForm({
       
       router.push("/dashboard");
     } catch (error: any) {
-      setError(`Ezygo: ${error.response?.data?.message || "Failed to reset password."}`);
+      setError(`Ezygo: ${error.response?.data?.message || "Failed to complete login after password reset."}`);
     } finally {
       setIsLoading(false);
     }

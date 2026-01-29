@@ -20,6 +20,12 @@ async function generateCsrfToken(): Promise<string> {
 /**
  * Sets CSRF token in readable cookie (not HTTP-only for double-submit pattern)
  * Server Actions: Use this to set token for client-side forms
+ * 
+ * SECURITY NOTE: httpOnly: false is intentional and safe for the double-submit pattern.
+ * The cookie must be readable by client JavaScript to include it in request headers.
+ * Protection comes from the requirement that BOTH the cookie AND header must match,
+ * combined with SameSite=lax which prevents cross-site cookie access. An attacker
+ * cannot read the cookie value from a different origin, preventing CSRF attacks.
  */
 export async function setCsrfCookie(token: string): Promise<void> {
   const cookieStore = await cookies();

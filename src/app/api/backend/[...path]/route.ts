@@ -9,6 +9,10 @@ const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 // PUBLIC_PATHS: Endpoints that are exempt from both CSRF and origin validation (e.g., login, public data).
 // Path matching uses the first segment of the URL path (e.g., "login" matches "/api/backend/login" and "/api/backend/login/refresh").
 // These endpoints skip all authentication checks; use sparingly and only for truly public operations.
+// 
+// WARNING: This uses first-segment matching, so ALL sub-paths are also public.
+// Example: "login" exempts both "/api/backend/login" AND "/api/backend/login/admin".
+// Review carefully before adding new paths to avoid accidentally exposing sensitive endpoints.
 const PUBLIC_PATHS = new Set(["login"]);
 
 // Validate NEXT_PUBLIC_APP_DOMAIN is set to prevent origin validation bypass
@@ -16,10 +20,21 @@ if (!process.env.NEXT_PUBLIC_APP_DOMAIN?.trim()) {
   throw new Error("NEXT_PUBLIC_APP_DOMAIN must be configured for security");
 }
 
+// Extract hostname without port for consistent comparison
+// NEXT_PUBLIC_APP_DOMAIN should contain only the hostname (e.g., "example.com" not "example.com:3000")
+// If your domain includes a port, it will be automatically stripped for origin validation
 const ALLOWED_HOSTS = new Set(
   [process.env.NEXT_PUBLIC_APP_DOMAIN]
     .filter(Boolean)
-    .map((host) => host?.toLowerCase()) as string[]
+    .map((host) => {
+      try {
+        // Parse as URL to extract hostname (strips port if present)
+        return new URL(`https://${host}`).hostname.toLowerCase();
+      } catch {
+        // Fallback: assume it's already a hostname
+        return host?.toLowerCase();
+      }
+    }) as string[]
 );
 
 const MAX_RESPONSE_BYTES = 1_000_000; // 1 MB safety cap
@@ -141,9 +156,10 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     }
 
     return new NextResponse(text, { status: res.status, headers: { "content-type": contentType } });
-  } catch (err: any) {
-    logger.error("Proxy fetch failed", { target, error: err?.message });
-    const isAbort = err?.name === "AbortError";
+  } catch (err) {
+    const error = err as Error;
+    logger.error("Proxy fetch failed", { target, error: error?.message });
+    const isAbort = error?.name === "AbortError";
     return NextResponse.json({ error: isAbort ? "Upstream timed out" : "Upstream fetch failed" }, { status: 502 });
   }
 }

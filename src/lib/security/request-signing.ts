@@ -21,6 +21,10 @@ export function signRequest(payload: string, timestamp: number): string {
  * @param signature Provided signature
  * @param maxAge Maximum age of request in seconds (default: 300 = 5 minutes)
  * @returns true if signature is valid and not expired
+ * 
+ * NOTE: This maxAge parameter is for request signing replay attack prevention.
+ * CSRF token expiration is handled separately by cookie maxAge (TOKEN_TTL = 3600s in csrf.ts).
+ * The browser automatically removes expired CSRF cookies, making them invalid for validation.
  */
 export function verifyRequestSignature(
   payload: string,
