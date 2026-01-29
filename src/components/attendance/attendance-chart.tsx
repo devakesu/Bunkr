@@ -93,7 +93,7 @@ const BottomBarShape = (props: BarShapeProps) => {
 
 const CustomTargetLabel = (props: LabelProps) => {
   const { viewBox, value = 0 } = props;
-  if (!viewBox?.width || !viewBox?.x || !viewBox?.y) return null;
+  if (!viewBox || viewBox.width == null || viewBox.x == null || viewBox.y == null) return null;
   const x = viewBox.width - 15;
   const y = viewBox.y; // align label center on the target line
   return (
