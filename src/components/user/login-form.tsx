@@ -10,7 +10,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-import ezygoClient from "@/lib/axios"; 
 import axios, { AxiosError } from "axios"; 
 
 import { Loading } from "@/components/loading";
@@ -24,7 +23,7 @@ import { logger } from "@/lib/logger";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
-  csrfToken?: string;
+  csrfToken?: string; // Kept for backward compatibility but not used (token read from cookie)
 }
 
 interface ErrorResponse {
@@ -73,7 +72,7 @@ const validatePassword = (password: string): string | null => {
   return null; // Valid
 };
 
-export function LoginForm({ className, csrfToken, ...props }: LoginFormProps) {
+export function LoginForm({ className, csrfToken: _csrfToken, ...props }: LoginFormProps) {
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -139,22 +138,21 @@ export function LoginForm({ className, csrfToken, ...props }: LoginFormProps) {
         return;
       }
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-
-      if (csrfToken) {
-        headers[CSRF_HEADER] = csrfToken;
-      }
-
-      // 1. Login to Ezygo
-      const response = await ezygoClient.post("/login", formData, { headers });
+      // 1. Login to Ezygo (public endpoint - no CSRF needed, handled by backend proxy)
+      const response = await axios.post("/api/backend/login", formData);
       const token = response.data.access_token;
 
       if (!token) throw new Error("Invalid response from server");
 
-      // 2. Securely Save Token (Bridge to GhostClass) with CSRF protection
-      await axios.post("/api/auth/save-token", { token }, { headers });
+      // 2. Securely Save Token (Bridge to GhostClass)
+      // Use ezygoClient for automatic CSRF token attachment via interceptor
+      const csrfToken = document.cookie.match(/ezygo_csrf_token=([^;]+)/)?.[1];
+      await axios.post("/api/auth/save-token", 
+        { token }, 
+        { 
+          headers: csrfToken ? { [CSRF_HEADER]: csrfToken } : {}
+        }
+      );
 
       // 3. Success
       router.push("/dashboard");

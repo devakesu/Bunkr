@@ -18,7 +18,7 @@ async function generateCsrfToken(): Promise<string> {
 }
 
 /**
- * Sets CSRF token in HTTP-only cookie
+ * Sets CSRF token in readable cookie (not HTTP-only for double-submit pattern)
  * Server Actions: Use this to set token for client-side forms
  */
 export async function setCsrfCookie(token: string): Promise<void> {

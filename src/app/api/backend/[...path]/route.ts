@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Buffer } from "buffer";
 import { getAuthTokenServer } from "@/lib/security/auth-cookie";
 import { validateCsrfToken } from "@/lib/security/csrf";
+import { logger } from "@/lib/logger";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 const PUBLIC_PATHS = new Set(["login"]);
@@ -44,12 +45,12 @@ async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: num
 
 export async function forward(req: NextRequest, method: string, path: string[]) {
   if (!BASE_API_URL) {
-    console.error("NEXT_PUBLIC_BACKEND_URL is not configured");
+    logger.error("NEXT_PUBLIC_BACKEND_URL is not configured");
     return NextResponse.json({ error: "Backend URL not configured" }, { status: 500 });
   }
 
   if (BASE_API_URL?.includes("localhost:3000")) {
-    console.error("Misconfigured NEXT_PUBLIC_BACKEND_URL: points to Next app (3000), causing proxy loop");
+    logger.error("Misconfigured NEXT_PUBLIC_BACKEND_URL: points to Next app (3000), causing proxy loop");
     return NextResponse.json({ error: "Backend URL misconfigured" }, { status: 500 });
   }
 
