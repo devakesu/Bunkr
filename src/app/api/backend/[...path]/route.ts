@@ -18,6 +18,7 @@ const ALLOWED_HOSTS = new Set(
 );
 
 // Additional safety check: ensure ALLOWED_HOSTS is not empty
+// This is a defense-in-depth measure since NEXT_PUBLIC_APP_DOMAIN is already validated above
 if (ALLOWED_HOSTS.size === 0) {
   throw new Error("ALLOWED_HOSTS is empty - check NEXT_PUBLIC_APP_DOMAIN configuration");
 }

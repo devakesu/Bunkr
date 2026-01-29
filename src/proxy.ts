@@ -100,7 +100,7 @@ export const config = {
   // Any new routes will automatically have CSP headers and Supabase session refresh applied.
   // 
   // Pattern explanation: /((?!api|_next/static|_next/image|favicon.ico).*)
-  // - Matches all paths that DON'T contain: api, _next/static, _next/image, or favicon.ico
+  // - Matches all paths that DON'T START with: api, _next/static, _next/image, or favicon.ico
   // - This ensures middleware runs on all page routes for proper security headers and auth handling
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico).*)",

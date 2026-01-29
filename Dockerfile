@@ -26,14 +26,14 @@ ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
 COPY package.json package-lock.json ./
 
 # Use npm ci (installs all deps for building)
+# Note: npm cache clean --force is omitted here to speed up the build.
+# The multi-stage build ensures the npm cache is not included in the final image.
 RUN npm install -g npm@latest && \
     npm ci \
     --ignore-scripts \
     --no-audit \
     --no-fund \
     --prefer-offline
-    # Note: npm cache clean --force is omitted here to speed up the build.
-    # The multi-stage build ensures the npm cache is not included in the final image.
 
 # ===============================
 # 2. Build layer
