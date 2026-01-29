@@ -301,13 +301,12 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
   const calculatedMin = Math.floor(minRef / 5) * 5 - 5;
   const yAxisMin = Math.max(0, calculatedMin);
 
-// eslint-disable-next-line react/prop-types
 const renderBottomBar = (props: any) => <BottomBarShape {...props as BarShapeProps} />;
-// eslint-disable-next-line react/prop-types
 const renderHatchedBar = (props: any) => <HatchedBarShape {...props as BarShapeProps} />;
-// eslint-disable-next-line react/prop-types
 const renderTargetLabel = (props: any) => {
+  // eslint-disable-next-line react/prop-types
   if (!props?.viewBox) return null;
+  // eslint-disable-next-line react/prop-types
   return <CustomTargetLabel viewBox={props.viewBox} value={safeTarget} />;
 };
 
