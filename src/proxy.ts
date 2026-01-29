@@ -87,7 +87,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // Match all routes except:
+  // - Static assets (_next/static, _next/image, favicon.ico)
+  // - API routes (handled separately with their own auth)
+  // This middleware applies CSP headers and handles Supabase session refresh for page routes
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };
