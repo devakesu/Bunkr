@@ -14,9 +14,12 @@ import { logger } from "@/lib/logger";
 // 2. Module-level avoids the overhead of useCallback's dependency checking
 // 3. Provides a stable reference without requiring React hooks infrastructure
 // If this function needed access to component state/props, useCallback would be more appropriate.
+//
+// Minimum target is set to 50% to align with typical institutional attendance requirements.
+// Values below 50% are unrealistic and could cause issues in attendance calculations.
 const normalizeTarget = (value?: number | null) => {
   if (typeof value !== "number" || !Number.isFinite(value)) return 75;
-  return Math.min(100, Math.max(1, Math.round(value)));
+  return Math.min(100, Math.max(50, Math.round(value)));
 };
 
 export function useUserSettings() {

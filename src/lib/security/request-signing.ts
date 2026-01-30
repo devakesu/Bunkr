@@ -2,6 +2,10 @@
 // src/lib/security/request-signing.ts
 import crypto from "crypto";
 
+// Compute default maxAge once at module initialization for performance
+// Can be overridden via REQUEST_SIGNATURE_MAX_AGE environment variable
+const DEFAULT_MAX_AGE = Number(process.env.REQUEST_SIGNATURE_MAX_AGE) || 600;
+
 /**
  * Signs a request payload with HMAC-SHA256
  * @param payload Request payload (should be JSON stringified)
@@ -19,10 +23,13 @@ export function signRequest(payload: string, timestamp: number): string {
  * @param payload Original request payload (JSON stringified)
  * @param timestamp Request timestamp
  * @param signature Provided signature
- * @param maxAge Maximum age of request in seconds (default: 300 = 5 minutes)
+ * @param maxAge Maximum age of request in seconds (default: 600 = 10 minutes)
  * @returns true if signature is valid and not expired
  * 
- * NOTE: This maxAge parameter is for request signing replay attack prevention.
+ * NOTE: The default 10-minute window provides tolerance for clock skew and slow connections
+ * while still preventing most replay attacks. This can be overridden via REQUEST_SIGNATURE_MAX_AGE
+ * environment variable if needed.
+ * 
  * CSRF token expiration is handled separately by cookie maxAge (TOKEN_TTL = 3600s in csrf.ts).
  * The browser automatically removes expired CSRF cookies, making them invalid for validation.
  */
@@ -30,7 +37,7 @@ export function verifyRequestSignature(
   payload: string,
   timestamp: number,
   signature: string,
-  maxAge: number = 300
+  maxAge: number = DEFAULT_MAX_AGE
 ): boolean {
   try {
     // Check timestamp validity (prevent replay attacks)

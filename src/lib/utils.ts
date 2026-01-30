@@ -227,11 +227,11 @@ export function getClientIp(headerList: Headers): string | null {
   const forwardedIp = forwarded?.split(",")[0]?.trim();
   if (forwardedIp) return forwardedIp;
 
-  // In development, log a warning and return null instead of fallback
-  // This helps identify issues with IP extraction during development
+  // In development, return localhost IP for testing rate limiting and IP-dependent features
+  // Production deployments should ensure proper IP forwarding headers are configured
   if (process.env.NODE_ENV === "development") {
-    console.warn("[getClientIp] No IP headers found in development mode. Rate limiting and logging may be affected.");
-    return null;
+    console.warn("[getClientIp] No IP headers found in development mode. Using 127.0.0.1 for testing.");
+    return "127.0.0.1";
   }
 
   return null;
