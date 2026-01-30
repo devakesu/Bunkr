@@ -9,4 +9,4 @@ export const CSRF_HEADER = "x-csrf-token";
 /**
  * CSRF token cookie name
  */
-export const CSRF_TOKEN_NAME = "gc_csrf_token";
+export const CSRF_TOKEN_NAME = "csrf_token";

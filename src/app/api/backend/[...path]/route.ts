@@ -36,12 +36,27 @@ const PUBLIC_PATHS = new Set([
 // but developers should be aware of this limitation in development.
 let cachedAllowedHosts: Set<string> | null = null;
 let allowedHostsComputed = false;
+let cachedAppDomain: string | undefined = undefined;
 
 function getAllowedHosts(): Set<string> | null {
+  const currentAppDomain = process.env.NEXT_PUBLIC_APP_DOMAIN?.trim();
+  
+  // In development, invalidate cache if NEXT_PUBLIC_APP_DOMAIN changes
+  // This allows hot reload to pick up environment variable changes without restart
+  if (process.env.NODE_ENV === "development" && allowedHostsComputed && cachedAppDomain !== currentAppDomain) {
+    logger.dev(
+      "[backend-proxy] NEXT_PUBLIC_APP_DOMAIN changed in development. Invalidating cache.",
+      { previous: cachedAppDomain, current: currentAppDomain }
+    );
+    allowedHostsComputed = false;
+    cachedAllowedHosts = null;
+  }
+  
   if (!allowedHostsComputed) {
     allowedHostsComputed = true;
+    cachedAppDomain = currentAppDomain;
     
-    if (!process.env.NEXT_PUBLIC_APP_DOMAIN?.trim()) {
+    if (!currentAppDomain) {
       cachedAllowedHosts = null;
     } else {
       // SECURITY: NEXT_PUBLIC_APP_DOMAIN format requirements
@@ -60,7 +75,7 @@ function getAllowedHosts(): Set<string> | null {
       //
       // Extract hostname without port for consistent comparison
       cachedAllowedHosts = new Set(
-        [process.env.NEXT_PUBLIC_APP_DOMAIN].map((host) => {
+        [currentAppDomain].map((host) => {
           // Validate that host doesn't include protocol (common misconfiguration)
           if (host.includes("://")) {
             logger.error(
@@ -82,12 +97,11 @@ function getAllowedHosts(): Set<string> | null {
         })
       );
       
-      // In development, warn about cache behavior to help developers understand
-      // that environment variable changes require a restart
+      // In development, log cache information to help developers understand behavior
       if (process.env.NODE_ENV === "development") {
         logger.dev(
           "[backend-proxy] Allowed hosts computed and cached. " +
-          "Environment variable changes (NEXT_PUBLIC_APP_DOMAIN) require application restart.",
+          "Cache will be invalidated automatically if NEXT_PUBLIC_APP_DOMAIN changes.",
           { allowedHosts: Array.from(cachedAllowedHosts) }
         );
       }
