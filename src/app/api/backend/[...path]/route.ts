@@ -21,7 +21,7 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 // Memoized allowed hosts computation for performance
-// Computed once at module initialization, with runtime null-check for graceful degradation
+// Computed lazily on first call, then cached for subsequent requests
 let cachedAllowedHosts: Set<string> | null = null;
 let allowedHostsComputed = false;
 
@@ -36,17 +36,15 @@ function getAllowedHosts(): Set<string> | null {
       // NEXT_PUBLIC_APP_DOMAIN should contain only the hostname (e.g., "example.com" not "example.com:3000")
       // If your domain includes a port, it will be automatically stripped for origin validation
       cachedAllowedHosts = new Set(
-        [process.env.NEXT_PUBLIC_APP_DOMAIN]
-          .filter(Boolean)
-          .map((host) => {
-            try {
-              // Parse as URL to extract hostname (strips port if present)
-              return new URL(`https://${host}`).hostname.toLowerCase();
-            } catch {
-              // Fallback: assume it's already a hostname
-              return host?.toLowerCase();
-            }
-          }) as string[]
+        [process.env.NEXT_PUBLIC_APP_DOMAIN].map((host) => {
+          try {
+            // Parse as URL to extract hostname (strips port if present)
+            return new URL(`https://${host}`).hostname.toLowerCase();
+          } catch {
+            // Fallback: assume it's already a hostname
+            return host.toLowerCase();
+          }
+        })
       );
     }
   }
