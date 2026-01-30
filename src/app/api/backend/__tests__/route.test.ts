@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
 
-// Set up environment before any imports
-// Note: NEXT_PUBLIC_APP_DOMAIN is already set to 'localhost' in vitest.setup.ts
-// and the route module caches allowed hosts on first import, so we use 'localhost' here
+// Configure additional environment for this test suite
+// Note: NEXT_PUBLIC_APP_DOMAIN is stubbed to 'localhost' in vitest.setup.ts via a global beforeEach
+// and the route module computes/caches allowed hosts lazily on the first getAllowedHosts() call, so that cache will use 'localhost' here
 beforeAll(() => {
   vi.stubEnv('NEXT_PUBLIC_BACKEND_URL', 'https://api.example.com');
 });
