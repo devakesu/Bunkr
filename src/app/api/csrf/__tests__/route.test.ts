@@ -134,6 +134,7 @@ describe("CSRF API Route", () => {
     });
 
     it("should enforce rate limiting", async () => {
+      const { regenerateCsrfToken } = await import("@/lib/security/csrf");
       const { authRateLimiter } = await import("@/lib/ratelimit");
       
       vi.mocked(authRateLimiter.limit).mockResolvedValue({ success: false } as any);
@@ -143,6 +144,8 @@ describe("CSRF API Route", () => {
 
       expect(response.status).toBe(429);
       expect(data.error).toContain("Too many token regeneration requests");
+      // Verify token regeneration is not called when rate limited
+      expect(regenerateCsrfToken).not.toHaveBeenCalled();
     });
 
     it("should handle refresh errors", async () => {
@@ -162,6 +165,11 @@ describe("CSRF API Route", () => {
       expect(data).toEqual({
         error: "Failed to refresh CSRF token",
       });
+      // Verify error logging is secure (only logs message, not full error)
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "CSRF token refresh error:",
+        expect.objectContaining({ message: "Token refresh failed" })
+      );
 
       consoleErrorSpy.mockRestore();
     });

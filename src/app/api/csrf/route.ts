@@ -50,10 +50,15 @@ export async function GET() {
  * POST /api/csrf
  * Explicitly refresh/regenerate CSRF token (always creates new token)
  * Rate limited to prevent abuse and token exhaustion attacks
+ * 
+ * Note: IP-based rate limiting using x-forwarded-for header. While this header
+ * can be spoofed, it provides basic protection. Consider using additional factors
+ * like session tracking for production deployments with sophisticated attackers.
  */
 export async function POST() {
   try {
     // Get client IP for rate limiting
+    // Note: x-forwarded-for can be spoofed, but provides basic protection
     const headersList = await headers();
     const forwardedFor = headersList.get("x-forwarded-for");
     const ip = forwardedFor ? forwardedFor.split(",")[0] : "127.0.0.1";
