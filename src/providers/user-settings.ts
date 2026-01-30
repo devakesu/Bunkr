@@ -15,11 +15,22 @@ import { logger } from "@/lib/logger";
 // 3. Provides a stable reference without requiring React hooks infrastructure
 // If this function needed access to component state/props, useCallback would be more appropriate.
 //
-// Minimum target is set to 50% to align with typical institutional attendance requirements.
-// Values below 50% are unrealistic and could cause issues in attendance calculations.
+// Minimum target defaults to 50% but can be configured via NEXT_PUBLIC_ATTENDANCE_TARGET_MIN environment variable
+// to support institutions with different minimum attendance requirements.
+// Values below the configured minimum are unrealistic and could cause issues in attendance calculations.
+//
+// Parse the environment variable once at module load time for performance
+const MIN_TARGET = (() => {
+  const envValue = process.env.NEXT_PUBLIC_ATTENDANCE_TARGET_MIN;
+  if (!envValue) return 50;
+  const parsed = parseInt(envValue, 10);
+  // Clamp to valid range, falling back to 50 if invalid
+  return !isNaN(parsed) ? Math.min(100, Math.max(1, parsed)) : 50;
+})();
+
 const normalizeTarget = (value?: number | null) => {
   if (typeof value !== "number" || !Number.isFinite(value)) return 75;
-  return Math.min(100, Math.max(50, Math.round(value)));
+  return Math.min(100, Math.max(MIN_TARGET, Math.round(value)));
 };
 
 export function useUserSettings() {

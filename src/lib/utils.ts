@@ -4,17 +4,38 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import crypto from "crypto";
+import { logger } from "./logger";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const HASH_SECRET = process.env.SENTRY_HASH_SALT;
-const getSecret = () => {
-  if (HASH_SECRET) return HASH_SECRET;
-  if (process.env.NODE_ENV === "development") return "dev-salt-only";
+/**
+ * Initialize SENTRY_HASH_SALT at module load time to fail fast in production.
+ * This prevents errors during error reporting and ensures the secret is validated
+ * before the application starts processing requests.
+ * 
+ * IMPORTANT: This module is also used in client bundles. In the browser,
+ * non-NEXT_PUBLIC env vars like SENTRY_HASH_SALT are not available and
+ * process.env.NODE_ENV is inlined as "production". To avoid breaking the
+ * client runtime, we must not throw during module evaluation in the browser.
+ */
+const SECRET = (() => {
+  const isBrowser = typeof window !== "undefined";
+
+  if (process.env.SENTRY_HASH_SALT) {
+    return process.env.SENTRY_HASH_SALT;
+  }
+
+  // In development (server) or any browser bundle, fall back to a fixed
+  // non-secret salt so we do not crash the client runtime.
+  if (process.env.NODE_ENV === "development" || isBrowser) {
+    return "dev-salt-only";
+  }
+
+  // In production on the server, we still fail fast if the secret is missing.
   throw new Error("SENTRY_HASH_SALT is required in production");
-};
+})();
 
 /**
  * Redacts sensitive data (email, ID) for safe logging using deterministic hashing.
@@ -51,7 +72,7 @@ const getSecret = () => {
  */
 export const redact = (type: "email" | "id", value: string) =>
   crypto
-    .createHmac("sha256", getSecret())
+    .createHmac("sha256", SECRET)
     .update(`${type}:${value}`)
     .digest("hex")
     .slice(0, 12);
@@ -230,7 +251,7 @@ export function getClientIp(headerList: Headers): string | null {
   // In development, return localhost IP for testing rate limiting and IP-dependent features
   // Production deployments should ensure proper IP forwarding headers are configured
   if (process.env.NODE_ENV === "development") {
-    console.warn("[getClientIp] No IP headers found in development mode. Using 127.0.0.1 for testing.");
+    logger.warn("[getClientIp] No IP headers found in development mode. Using 127.0.0.1 for testing.");
     return "127.0.0.1";
   }
 
