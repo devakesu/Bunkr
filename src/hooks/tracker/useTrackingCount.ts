@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { User } from "@/types";
 import { useFetchAcademicYear, useFetchSemester } from "../users/settings";
 import * as Sentry from "@sentry/nextjs";
+import { redact } from "@/lib/utils";
 
 export function useTrackingCount(user: User | null | undefined) {
   const supabase = createClient();
@@ -33,7 +34,7 @@ export function useTrackingCount(user: User | null | undefined) {
         Sentry.captureException(error, { 
             tags: { type: "tracking_count_fetch_error", location: "useTrackingCount/queryFn" },
             extra: { 
-                username: user?.username,
+                userId: redact("id", String(user?.id)),
                 semester: semesterData, 
                 year: academicYearData 
             }

@@ -1,10 +1,13 @@
 import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { TrackAttendance, User } from "@/types";
+import { TrackAttendance } from "@/types";
 import { useFetchAcademicYear, useFetchSemester } from "../users/settings";
 import * as Sentry from "@sentry/nextjs";
+import { redact } from "@/lib/utils";
 
-export function useTrackingData(user: User | null | undefined, options?: { enabled?: boolean }) {
+type TrackingUser = { id: string | number; username?: string | null } | null | undefined;
+
+export function useTrackingData(user: TrackingUser, options?: { enabled?: boolean }) {
   const supabase = createClient();
   
   const { data: semesterData } = useFetchSemester();
@@ -13,7 +16,7 @@ export function useTrackingData(user: User | null | undefined, options?: { enabl
   return useQuery<TrackAttendance[]>({
     queryKey: [
       "track_data",
-      user?.username,
+      user?.username ?? "",
       JSON.stringify(semesterData),
       JSON.stringify(academicYearData),
     ],
@@ -41,7 +44,7 @@ export function useTrackingData(user: User | null | undefined, options?: { enabl
         Sentry.captureException(error, {
             tags: { type: "tracking_fetch_error" },
             extra: { 
-                username: user?.username,
+                userId: redact("id", String(user?.id ?? "unknown")),
                 semester: semesterData,
                 year: academicYearData
             }

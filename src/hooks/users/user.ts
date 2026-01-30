@@ -4,7 +4,7 @@
 import { useQuery } from "@tanstack/react-query";
 import axiosInstance from "@/lib/axios";
 import { User } from "@/types";
-import { handleLogout } from "@/lib/auth";
+import { handleLogout } from "@/lib/security/auth";
 
 export const useUser = () => {
   return useQuery<User>({

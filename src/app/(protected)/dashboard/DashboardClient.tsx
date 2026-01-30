@@ -29,7 +29,7 @@ import {
   useSetSemester,
   useSetAcademicYear,
 } from "@/hooks/users/settings";
-import { generateSlotKey } from "@/lib/utils";
+import { generateSlotKey, redact } from "@/lib/utils";
 import { Loading as CompLoading } from "@/components/loading";
 import { useUser } from "@/hooks/users/user";
 import {
@@ -312,7 +312,7 @@ export default function DashboardClient() {
                 Sentry.captureMessage("Partial sync failure in dashboard", {
                     level: "warning",
                     tags: { type: "dashboard_partial_sync", location: "DashboardClient/useEffect/performSync" },
-                    extra: { username: user.username, response: data }
+                    extra: { userId: redact("id", String(user?.id)), response: data }
                 });
                 
                 await Promise.all([
@@ -340,7 +340,7 @@ export default function DashboardClient() {
             
             Sentry.captureException(error, {
                 tags: { type: "background_sync", location: "DashboardClient/useEffect/performSync" },
-                extra: { username: user.username }
+                extra: { userId: redact("id", String(user?.id)) }
             });
         } finally {
             if (!isCleanedUp) {
@@ -358,7 +358,7 @@ export default function DashboardClient() {
       abortController.abort();
     };
 
-  }, [user?.username, isLoadingAttendance, isLoadingTracking, refetchTracking, refetchAttendance, queryClient]);
+  }, [user?.id, user?.username, isLoadingAttendance, isLoadingTracking, refetchTracking, refetchAttendance, queryClient]);
 
   // Reset mountId on navigation
   useEffect(() => {
@@ -568,7 +568,7 @@ export default function DashboardClient() {
           <div className="flex flex-col gap-4 flex-1">
             <div className="flex flex-col gap-1">
               <h1 className="text-2xl font-bold mb-2 w-full">Welcome back, <span className="gradient-name w-full pr-2">{profile?.first_name} {profile?.last_name}</span></h1>
-              <p className="text-muted-foreground font-normal italic">{"Stay on top of your classes, track your attendance, and manage your day like a pro!"}</p>
+              <p className="text-muted-foreground font-normal italic">{"Track your classes, manage attendance, and stay ahead of the game!"}</p>
             </div>
             <div className="flex gap-4 items-center font-normal">
               <p className="flex flex-wrap items-center gap-2.5 max-sm:text-md text-muted-foreground">
@@ -643,8 +643,8 @@ export default function DashboardClient() {
                     See where you&apos;ve been keeping up
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1">
-                  <div className="h-[300px] w-full">
+                <CardContent className="flex-1 px-4 pt-2 pb-2">
+                  <div className="h-[260px] w-full">
                     {attendanceData ? (
                       <ErrorBoundary 
                         fallback={

@@ -2,9 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getCspHeader } from "../csp";
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, nonce?: string) {
   // 1. Get CSP Header
-  const cspHeader = getCspHeader();
+  const cspHeader = getCspHeader(nonce);
 
   // 2. Initialize the response
   let response = NextResponse.next({

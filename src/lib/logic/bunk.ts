@@ -12,10 +12,13 @@ export function calculateAttendance(
   total: number,
   targetPercentage: number = 75
 ): AttendanceResult {
+  const safeTarget = Number.isFinite(targetPercentage)
+    ? Math.min(100, Math.max(1, targetPercentage))
+    : 75;
   const result: AttendanceResult = {
     canBunk: 0,
     requiredToAttend: 0,
-    targetPercentage,
+    targetPercentage: safeTarget,
     isExact: false,
   };
 
@@ -25,22 +28,22 @@ export function calculateAttendance(
 
   const currentPercentage = (present / total) * 100;
 
-  if (currentPercentage === targetPercentage) {
+  if (currentPercentage === safeTarget) {
     result.isExact = true;
     return result;
   }
-  if (currentPercentage < targetPercentage) {
-    if (targetPercentage >= 100) {
+  if (currentPercentage < safeTarget) {
+    if (safeTarget >= 100) {
       result.requiredToAttend = total - present;
     } else {
       const required = Math.ceil(
-        (targetPercentage * total - 100 * present) / (100 - targetPercentage)
+        (safeTarget * total - 100 * present) / (100 - safeTarget)
       );
       result.requiredToAttend = Math.max(0, required);
     }
     return result;
-  }  if (currentPercentage > targetPercentage) {
-    const bunkableExact = (100 * present - targetPercentage * total) / targetPercentage;
+  }  if (currentPercentage > safeTarget) {
+    const bunkableExact = (100 * present - safeTarget * total) / safeTarget;
     const bunkable = Math.floor(bunkableExact);
     
     result.canBunk = Math.max(0, bunkable);

@@ -10,6 +10,10 @@ import { createServerClient } from "@supabase/ssr";
 import crypto from "crypto";
 import { z } from "zod";
 import { redis } from "@/lib/redis";
+import { redact, getClientIp } from "@/lib/utils";
+import { logger } from "@/lib/logger";
+import { validateCsrfToken } from "@/lib/security/csrf";
+import { setAuthCookie } from "@/lib/security/auth-cookie";
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +21,7 @@ export const dynamic = 'force-dynamic';
 const SaveTokenRequestSchema = z.object({
   token: z.string()
     .min(18, "Token too short")
-    .max(5000, "Token too long") 
+    .max(2048, "Token too long") // Increased from 1024 to provide safety margin for JWT tokens
     .trim(),
 });
 
@@ -58,7 +62,7 @@ const AUTH_LOCK_TTL = (() => {
   }
 
   if (process.env.NODE_ENV === "development") {
-    console.log(
+    logger.dev(
       `[auth] AUTH_LOCK_TTL set to ${ttl}s (${source}${raw ? `, raw="${raw}"` : ""})`
     );
   }
@@ -87,7 +91,7 @@ async function acquireAuthLock(userId: string): Promise<string | null> {
     console.error('Failed to acquire auth lock:', error);
     Sentry.captureException(error, {
       tags: { type: 'redis_lock_error', location: 'acquire_auth_lock' },
-      extra: { userId },
+      extra: { userId: redact("id", userId) },
     });
     // Throw error to distinguish Redis failures from lock contention
     throw error;
@@ -115,13 +119,13 @@ async function releaseAuthLock(userId: string, lockValue: string): Promise<void>
     
     // Log if lock was already released or taken by another process
     if (result === 0) {
-      console.warn(`Lock for user ${userId} was already released or expired`);
+      console.warn(`Lock for user ${redact("id", userId)} was already released or expired`);
     }
   } catch (error) {
     console.error('Failed to release auth lock:', error);
     Sentry.captureException(error, {
       tags: { type: 'redis_lock_error', location: 'release_auth_lock' },
-      extra: { userId },
+      extra: { userId: redact("id", userId) },
     });
     // Re-throw so callers can handle Redis lock release failures consistently
     if (error instanceof Error) {
@@ -135,10 +139,89 @@ async function releaseAuthLock(userId: string, lockValue: string): Promise<void>
 export async function POST(req: Request) {
   const supabaseAdmin = getAdminClient();
 
-  // 1. Rate Limit Check
+  // 1. CSRF Protection
+  // Extract CSRF token from request header
   const headerList = await headers();
-  const forwardedFor = headerList.get("x-forwarded-for");
-  const ip = (forwardedFor ?? "127.0.0.1").split(",")[0].trim();
+  const csrfToken = headerList.get("x-csrf-token");
+  const csrfValid = await validateCsrfToken(csrfToken);
+  if (!csrfValid) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
+  // 2. Rate Limit Check
+  const origin = headerList.get("origin");
+  const host = headerList.get("host");
+  if (!origin || !host) {
+    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  }
+
+  // Validate that NEXT_PUBLIC_APP_DOMAIN is configured for origin validation
+  const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+  if (!appDomain?.trim()) {
+    logger.error("NEXT_PUBLIC_APP_DOMAIN is not configured - origin validation cannot proceed");
+    return NextResponse.json(
+      { error: "Server configuration error: security validation unavailable" },
+      { status: 500 }
+    );
+  }
+
+  try {
+    // Use .hostname (not .host) to exclude port and properly handle IPv6 addresses
+    const originHostname = new URL(origin).hostname.toLowerCase();
+    const headerHostname = new URL(`http://${host}`).hostname.toLowerCase();
+    
+    // Ensure the request is same-origin with the Host header
+    if (originHostname !== headerHostname) {
+      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+    }
+
+    // Enforce that the origin matches the configured app domain
+    // SECURITY: NEXT_PUBLIC_APP_DOMAIN must be hostname only (no protocol)
+    // Format enforced in .example.env: "example.com" NOT "https://example.com"
+    // 
+    // However, developers might include ports in development (e.g., "localhost:3000").
+    // Extract hostname to handle this edge case consistently with backend proxy route.
+    const appDomainNormalized = appDomain.trim();
+
+    if (appDomainNormalized.includes("://")) {
+      logger.error("Invalid NEXT_PUBLIC_APP_DOMAIN configuration: value must not include protocol", {
+        appDomain: redact("id", appDomainNormalized),
+      });
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+
+    let appDomainHostname: string;
+    try {
+      // Parse as URL to extract hostname (strips port if present)
+      appDomainHostname = new URL(`https://${appDomainNormalized}`).hostname.toLowerCase();
+    } catch {
+      // Fallback: assume it's already a hostname; strip any port if present
+      appDomainHostname = appDomainNormalized.split(":")[0].toLowerCase();
+    }
+
+    if (originHostname !== appDomainHostname) {
+      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  }
+  const ip = getClientIp(headerList);
+  if (!ip) {
+    const relevantHeaders: Record<string, string | null> = {
+      "cf-connecting-ip": headerList.get("cf-connecting-ip"),
+      "x-real-ip": headerList.get("x-real-ip"),
+      "x-forwarded-for": headerList.get("x-forwarded-for"),
+    };
+    const safeHeaders = Object.fromEntries(
+      Object.entries(relevantHeaders).map(([k, v]) => [k, v ? redact("id", v) : null])
+    );
+    logger.error("Unable to determine client IP from headers", { headers: safeHeaders });
+    Sentry.captureMessage("Unable to determine client IP from headers", {
+      level: "warning",
+      extra: { headers: safeHeaders },
+    });
+    return NextResponse.json({ error: "Unable to determine client IP" }, { status: 400 });
+  }
   const { success, limit, reset, remaining } = await authRateLimiter.limit(ip);
 
   if (!success) {
@@ -208,7 +291,7 @@ export async function POST(req: Request) {
         console.error("Invalid Ezygo response:", userValidation.error);
         Sentry.captureException(userValidation.error, {
             tags: { type: "ezygo_schema_mismatch", location: "save_token" },
-            extra: { data: ezygoRes.data }
+            extra: { userId: redact("id", ezygoRes.data.userId) }
         });
         return NextResponse.json(
           { message: "Invalid user data from authentication service" },
@@ -229,7 +312,7 @@ export async function POST(req: Request) {
       }
       
       console.error("Ezygo verification error:", err);
-      Sentry.captureException(err, { tags: { type: "ezygo_network_error", location: "save_token" } });
+      Sentry.captureException(err, { tags: { type: "ezygo_network_error", location: "save_token" }, extra: { userId: redact("id", verifieduserId) } });
       
       return NextResponse.json({ message: "Authentication service error" }, { status: 502 });
     }
@@ -313,8 +396,7 @@ export async function POST(req: Request) {
 
         if (!targetAuthId) {
           // --- CASE 1: ORPHAN USER (Exists in Auth, missing in DB) ---
-          console.warn(`Orphan Auth User detected for ${verifieduserId}. Initiating exhaustive cleanup...`);
-
+          console.warn(`Orphan Auth User detected for ${redact("id", verifieduserId)}. Initiating exhaustive cleanup...`);
           let orphanUserId: string | null = null;
           let page = 1;
           const PER_PAGE = 1000;
@@ -353,7 +435,7 @@ export async function POST(req: Request) {
             const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(orphanUserId);
             if (deleteError) throw deleteError;
             
-            console.log(`Deleted orphan user ${orphanUserId}. Retrying creation...`);
+            logger.dev(`Deleted orphan user ${orphanUserId}. Retrying creation...`);
 
             // Retry Creation (Fresh Start)
             const { data: retryData, error: retryError } = await supabaseAdmin.auth.admin.createUser({
@@ -373,7 +455,7 @@ export async function POST(req: Request) {
              // CAPTURE CRITICAL SYNC ERROR
              Sentry.captureException(new Error(errorMsg), {
                  tags: { type: "critical_auth_sync", location: "save_token" },
-                 extra: { verifieduserId, email }
+                 extra: { verifieduserId: redact("id", verifieduserId), redactedEmail: redact("email", email) }
              });
 
              return NextResponse.json({ message: "Account synchronization error" }, { status: 500 });
@@ -427,7 +509,7 @@ export async function POST(req: Request) {
     // Validate Encryption
     if (!iv || !content || !/^[a-f0-9]{32}$/i.test(iv)) {
       Sentry.captureException(new Error("Encryption failed during token save"), {
-          extra: { userId }
+          extra: { userId: redact("id", String(userId)) }
       });
       return NextResponse.json({ message: "Encryption failed" }, { status: 500 });
     }
@@ -444,6 +526,7 @@ export async function POST(req: Request) {
       }, { onConflict: "id" });
 
     if (dbError) throw dbError;
+    await setAuthCookie(token);
 
     return NextResponse.json({ success: true });
 
@@ -473,7 +556,7 @@ export async function POST(req: Request) {
         console.error("Failed to release auth lock in finally block:", releaseError);
         Sentry.captureException(releaseError, {
           tags: { type: "auth_lock_release_failure", location: "save_token_finally" },
-          extra: { lockUserId }
+          extra: { lockUserId: redact("id", lockUserId) },
         });
         // Don't rethrow - we don't want lock release failures to mask the actual response
       }

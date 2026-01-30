@@ -3,6 +3,7 @@
 import { useUserSettings } from "@/providers/user-settings";
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 
 export function GlobalInit() {
   const { settings } = useUserSettings();
@@ -13,7 +14,7 @@ export function GlobalInit() {
         "user_preferences",
         settings ? { ...settings } : null
       );
-      console.log("Global Init: Syncing settings...", settings);
+      logger.dev("Global Init: Syncing settings...", settings);
     }
   }, [settings]);
 

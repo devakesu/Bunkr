@@ -8,6 +8,12 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
+    env: {
+      // Default to development for most tests
+      // Security-critical tests should explicitly override NODE_ENV to 'production'
+      // to test production code paths (e.g., SENTRY_HASH_SALT validation, CSP enforcement)
+      NODE_ENV: 'development',
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
@@ -29,10 +35,10 @@ export default defineConfig({
       // @ts-expect-error - 'all' is a valid runtime option but not in Vitest 4.x types
       all: true,
       thresholds: {
-        lines: 5,
-        functions: 6,
-        branches: 4,
-        statements: 5,
+        lines: 7,
+        functions: 8,
+        branches: 5,
+        statements: 7,
       },
     },
     include: ['**/*.{test,spec}.{ts,tsx}'],

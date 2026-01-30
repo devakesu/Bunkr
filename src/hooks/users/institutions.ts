@@ -4,10 +4,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/lib/axios";
 import { Institution } from "@/types";
-import { getToken, removeToken } from "@/lib/auth";
 
 export function useInstitutions() {
-  const token = getToken();
   return useQuery<Institution[]>({
     queryKey: ["institutions"],
     queryFn: async () => {
@@ -20,13 +18,11 @@ export function useInstitutions() {
       );
 
       if (studentInstitutions.length === 0) {
-        removeToken();
         throw new Error("No student institutions found");
       }
 
       return studentInstitutions;
     },
-    enabled: !!token, 
     staleTime: 1000 * 60 * 5,
     retry: false,
   });

@@ -10,18 +10,21 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-import ezygoClient from "@/lib/axios"; 
 import axios, { AxiosError } from "axios"; 
-import { setToken, getToken } from "@/lib/auth";
+import { ensureCsrfToken } from "@/lib/axios"; 
 
 import { Loading } from "@/components/loading";
 import { PasswordResetForm } from "./password-reset-form";
 import NProgress from "nprogress";
 import { motion, HTMLMotionProps, Variants } from "framer-motion";
 import * as Sentry from "@sentry/nextjs";
+import { createClient } from "@/lib/supabase/client";
+import { CSRF_HEADER } from "@/lib/security/csrf-constants";
+import { logger } from "@/lib/logger";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
+  // csrfToken prop removed - token is read directly from cookie via ensureCsrfToken()
 }
 
 interface ErrorResponse {
@@ -104,13 +107,45 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     }
   };
 
+  // Fetch CSRF token on component mount
   useEffect(() => {
-    const token = getToken();
-    if (token) {
-      router.push("/dashboard");
-    } else {
-      setIsLoadingPage(false);
-    }
+    const initCsrf = async () => {
+      try {
+        // Call the /api/csrf/init endpoint to initialize the CSRF token cookie
+        // This is necessary because Next.js 15 forbids cookie mutations in Server Components
+        await fetch("/api/csrf/init");
+        // Token is now set in cookie and can be read by ensureCsrfToken()
+      } catch (error) {
+        // Log error but don't block the form - the token will be checked on submission
+        logger.error("Failed to initialize CSRF token:", error);
+      }
+    };
+    initCsrf();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    
+    const checkUser = async () => {
+      const supabase = createClient();
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        if (user && isMounted) {
+          router.push("/dashboard");
+          return;
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingPage(false);
+        }
+      }
+    };
+    checkUser();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,17 +163,24 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         return;
       }
 
-      // 1. Login to Ezygo
-      const response = await ezygoClient.post("/login", formData);
+      // 1. Login to Ezygo (public endpoint - exempt from CSRF, listed in PUBLIC_PATHS)
+      const response = await axios.post("/api/backend/login", formData);
       const token = response.data.access_token;
 
       if (!token) throw new Error("Invalid response from server");
 
-      // 2. Securely Save Token (Bridge to GhostClass)
-      await axios.post("/api/auth/save-token", { token });
+      // 2. Securely Save Token (Bridge to GhostClass) - requires CSRF token
+      // Use centralized CSRF token helper to avoid duplicate logic
+      const csrfToken = ensureCsrfToken();
+      
+      await axios.post("/api/auth/save-token", 
+        { token }, 
+        { 
+          headers: csrfToken ? { [CSRF_HEADER]: csrfToken } : {}
+        }
+      );
 
       // 3. Success
-      setToken(token);
       router.push("/dashboard");
 
     } catch (error) {
@@ -172,7 +214,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         document.body.appendChild(announcement);
         setTimeout(() => document.body.removeChild(announcement), 5000);
       }
-      console.error("Login failed:", err);
+      logger.error("Login failed:", err);
     }
   };
 
@@ -235,7 +277,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
                   className="object-contain object-bottom transition-transform group-hover:scale-105" 
                   priority
                   placeholder="blur"
-                  blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAICAYAAAD5nd/tAAAACXBIWXMAAAsTAAALEwEAmpwYAAACJklEQVR4nI2SzW/ScBjHi/NtTJg7bzHGyyKZBzXZ0YMaYzLjYbEHx/CiMjWLo5TaFhg/YbyVStlvvIQCg4VmYVZeu9LxIrAtJmYJB6/+NTXFYDx48JN88jx5Ds+TJ/kiyF88sQL90lp0Fl2LzuIsO6Wqqk4T0UR+q6qI7l9zZCSi+QedDeze2Nr58jyalVez1c7NxCBxRRMq8BIA6jlRRCdEEVwsttkppp4zgEHhMiqKE6Nl4yNjMBSbTPKlR6XGt91qd1jcOzp7tZGrP13Pyst4Wr5Hxru3iLh0x56uPcD36s/shQZq4+WHdqjcxlnFRMZq1wEUjMjohSF/QQiDuVKp8bJ18qPRO/tZy5a/xzaYprAebHfsvm6R8va5D76vSTxwJBIRueeIHPYdW63PhKcfpzwDxvOx9ZoNFBcQECtcDYVSd5P+yAshU+AqjcGB1BuGYaZPEq5mwUErJ7Sz3fS4emWXs1ujnc22yy2dut3yqZvutD3Ucc1LHx/4nR1XFOwvIoCGJv8mtIU2uTxkEvl0Sghm843lqL+6GMQqjwNYdTVIHJoZomWOkK2VsENa+WSvmFlb2cLisoUjehaO6Js5sn0/A4Q5hKUDJj/FvQFk1Aec2+/83p0lxpeaZ5icQeIlvQKhUQHQWGdyhjrDGLQqAGhUoGAUw/x0N8xPa70EeD0A4DySoqiZGMHMg/fsgtW6fe0ttT+DYeIkiqIT43j8r1psfgEIVTv/3/hdewAAAABJRU5ErkJggg=="
+                  blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAAsTAAALEwEAmpwYAAAC4klEQVR4nO2T3U9SYRzHj5lNXV3IhVFic+vCaTdNL1ytorZmta66OK3sguUFqa14OxxejvCggBw4HOAIIgd8wUilo6IiCgoJCALlarrZvO8foR0Tx5xrXbW1+dk+F8/z3Z7fnu37g6Azzvj/4PPB+dbWvovNzd2X2tuFVVARqigWixUQKwSxlnOYFU/PTqXi0SvDFYFo9H6vyv9AbWAaAADnWCFWiH2o5MkBJz1loIDPr1Zphu+S3iWCDibJ6UjmoSUyyQULXh5gXFyaBrXsMIZhKhmGrCEZkqNm/A1gIcADPh+HpumqIlSs+G3ZAPbACvoQrs8zK1yM5bPx/MFWOLOrVM5EXr71r4hEvvAbhA53qp3RNqUr0oG6Q0/QiZBAMrUsFvuXJDJ66YXCFb6jtkXb1PbITWBfbAJ0uPbwmwwMV+ZIuMZvs91g5mNYonDwNffj5+e5xHdSQcXGRGRqR2xJ51FTmsGM26PKoeyYHE+GFGQio6TW9xS29T2FObmhNub9/frCKDBkHXo8LTDZo02QAExWS/UTjXYTcS9gt3YzHxnncvzL6lpun5oMbr3T6qJOlWZzR6VJ7Wq0qW2dNpPSaTJprD9Z0GjjuwO62L5Ou76vxZLfBrFCVo/lt4a0uTVCl1bZByMtEDDPXDUSgecW44hz2GCb9TrcwfHxT57x6fBrl32ug1AsPDXLl0Q4EkbM8hUZodiQmeUxGY6EpWbZvMwmXUBISUhuka6iFmkCtSKbqB2Nv3dh8ccuEOFClJ6+Tg15xfiAO2jQUAETcOA2wtNjxenbBHDX+wDJoQDFG8GsjV6A80ak1kYvSvG8KM6jUIpnlY40OhSOa6z0kWzuk5AcAMAF6IOMqKcxWyehdAoQifOZCPHc6senWlTGmcsATFazFSxV9VjoyJP3ZflxTWmhsMrdpawjekB9b5eyDobJGhgGF2CYqSwtUKnrx5aqePK+LP/T4v31Vp5xxr/hF2eVnXJoHTJgAAAAAElFTkSuQmCC"
                   sizes="(max-width: 640px) 340px, 520px"
                 />
               </div>
@@ -341,7 +383,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
             <motion.div variants={itemVariants}>
               <Button
                 type="submit"
-                className="w-full font-semibold min-h-[46px] rounded-[12px] mt-2 font-sm shadow-lg shadow-purple-500/10 hover:shadow-purple-500/20 transition-all"
+                className="w-full font-semibold min-h-[46px] rounded-[12px] mt-2 font-sm shadow-sm hover:shadow-md transition-all"
                 disabled={isLoading || !!passwordError}
               >
                 {isLoading ? "Logging in..." : "Login"}

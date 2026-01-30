@@ -5,15 +5,25 @@ import * as Sentry from "@sentry/nextjs";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useTrackingCount } from "@/hooks/tracker/useTrackingCount";
 import { useUser } from "@/hooks/users/user";
-import { getToken } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Trash2, CircleAlert, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import { useAttendanceReport } from "@/hooks/courses/attendance";
 import { useFetchSemester, useFetchAcademicYear } from "@/hooks/users/settings";
 import { Loading } from "@/components/loading";
-import { formatSessionName, generateSlotKey, getSessionNumber } from "@/lib/utils";
+import { formatSessionName, generateSlotKey, getSessionNumber, redact } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useFetchCourses } from "@/hooks/courses/courses";
 import { getOfficialSessionRaw } from "@/lib/logic/attendance-reconciliation";
@@ -64,10 +74,11 @@ const parseDateValue = (dateStr: string) => {
 
 export default function TrackingClient() {
   const { data: user } = useUser();
-  const accessToken = getToken();
   
   const [deleteId, setDeleteId] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(0);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<string | null>(null);
+  const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [isSyncing, setIsSyncing] = useState(true);
@@ -88,15 +99,17 @@ export default function TrackingClient() {
 
   useEffect(() => { if (user) setEnabled(true); }, [user]);
 
- // --- AUTO SYNC ---
+  // --- AUTO SYNC ---
   useEffect(() => {
-    if (!user?.username) return;
+    // Guard: ensure both user ID and username exist before attempting sync
+    // Username is required for the sync API call
+    if (!user?.id || !user?.username) return;
 
     // Check if sync already ran for THIS mount
     // In Strict Mode, the remount will have the SAME mountId, so we skip
     // On real navigation, mountId changes, so sync runs
     if (lastSyncMountId.current === mountId.current) {
-      console.log('[Tracking] Sync already completed for this mount, skipping');
+      logger.dev('[Tracking] Sync already completed for this mount, skipping');
       setIsSyncing(false);
       setSyncCompleted(true);
       return;
@@ -106,13 +119,12 @@ export default function TrackingClient() {
     let isCleanedUp = false;
 
     const runSync = async () => {
-      console.log('[Tracking] Starting sync for mount:', mountId.current);
+      logger.dev('[Tracking] Starting sync for mount:', mountId.current);
       setIsSyncing(true);
       setSyncCompleted(false);
 
       try {
         const res = await fetch(`/api/cron/sync?username=${user.username}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
           signal: abortController.signal
         });
 
@@ -131,7 +143,7 @@ export default function TrackingClient() {
           Sentry.captureMessage("Partial sync failure in tracking", {
             level: "warning",
             tags: { type: "tracking_partial_sync", location: "TrackingClient/useEffect/runSync" },
-            extra: { username: user.username, response: data }
+            extra: { userId: redact("id", String(user?.id)), response: data }
           });
           
           // Still refetch data as partial sync may have updated some records
@@ -148,7 +160,7 @@ export default function TrackingClient() {
         }
       } catch (err: any) {
         if (err.name === 'AbortError') {
-          console.log('[Tracking] Sync request aborted');
+          logger.dev('[Tracking] Sync request aborted');
           return;
         }
 
@@ -156,12 +168,12 @@ export default function TrackingClient() {
         
         Sentry.captureException(err, {
           tags: { type: "tracking_sync", location: "TrackingClient/useEffect/runSync" },
-          extra: { username: user.username }
+          extra: { userId: redact("id", String(user?.id)) }
         });
       } finally {
         // Only update state if not cleaned up
         if (!isCleanedUp) {
-          console.log('[Tracking] Sync completed for mount:', mountId.current);
+          logger.dev('[Tracking] Sync completed for mount:', mountId.current);
           lastSyncMountId.current = mountId.current;
           setIsSyncing(false);
           setSyncCompleted(true);
@@ -176,7 +188,7 @@ export default function TrackingClient() {
       isCleanedUp = true;
       abortController.abort();
     };
-  }, [user?.username, accessToken, refetchTrackingData, refetchCount]);
+  }, [user?.id, user?.username, refetchTrackingData, refetchCount]); // Re-sync when user identity or refetch functions change
 
   // Reset mountId on real navigation (when component truly remounts with new state)
   useEffect(() => {
@@ -249,7 +261,7 @@ export default function TrackingClient() {
 
       } catch (error) {
         toast.error("Error deleting the record.");
-        Sentry.captureException(error, { tags: { type: "tracking_delete_single", location: "TrackingClient/handleDeleteTrackData" }, extra: { userId: user.id, session, course, date } });
+        Sentry.captureException(error, { tags: { type: "tracking_delete_single", location: "TrackingClient/handleDeleteTrackData" }, extra: { userId: redact("id", String(user?.id)), session, course, date } });
       } finally {
         setDeleteId("");
       }
@@ -277,7 +289,7 @@ export default function TrackingClient() {
 
     } catch (error) {
       toast.error("Failed to delete all tracking data.");
-      Sentry.captureException(error, { tags: { type: "tracking_delete_all", location: "TrackingClient/deleteAllTrackingData" }, extra: { userId: user.id }   });
+      Sentry.captureException(error, { tags: { type: "tracking_delete_all", location: "TrackingClient/deleteAllTrackingData" }, extra: { userId: redact("id", String(user?.id)) }   });
     } finally {
       setIsProcessing(false);
     }
@@ -322,7 +334,7 @@ export default function TrackingClient() {
                   <Badge className="text-sm py-1 px-3 bg-yellow-500/12 text-yellow-400/75 border-yellow-500/15">
                     You have added <strong>{count}</strong> {count === 1 ? "class" : "classes"}.
                   </Badge>
-                  <button onClick={deleteAllTrackingData} aria-label={`Clear all ${count} tracked ${count === 1 ? 'class' : 'classes'}`} className="text-sm cursor-pointer justify-between items-center gap-2 bg-red-500/12 text-red-400/75 hover:bg-red-500/18 duration-300 border-1 border-red-500/15 py-1 px-3 rounded-md flex">
+                  <button onClick={() => setDeleteAllConfirmOpen(true)} aria-label={`Clear all ${count} tracked ${count === 1 ? 'class' : 'classes'}`} className="text-sm cursor-pointer justify-between items-center gap-2 bg-red-500/12 text-red-400/75 hover:bg-red-500/18 duration-300 border-1 border-red-500/15 py-1 px-3 rounded-md flex">
                     Clear all <Trash2 size={14} aria-hidden="true" />
                   </button>
                 </div>
@@ -409,7 +421,7 @@ export default function TrackingClient() {
                                   <m.button 
                                     whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} 
                                     disabled={deleteId === trackingId}
-                                    onClick={() => handleDeleteTrackData(trackingId, trackingItem.session, trackingItem.course, trackingItem.date)} 
+                                    onClick={() => setDeleteConfirmOpen(trackingId)} 
                                     aria-label={`Remove tracking entry for ${formatSessionName(trackingItem.session)} session on ${formatDisplayDate(trackingItem.date)}`}
                                     className="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 bg-yellow-400/6 rounded-lg font-medium text-yellow-600 disabled:opacity-50"
                                   >
@@ -456,6 +468,61 @@ export default function TrackingClient() {
           </m.div>
         )}
       </div>
+      
+      {/* Delete Single Item Confirmation */}
+      <AlertDialog open={!!deleteConfirmOpen} onOpenChange={(open) => !open && setDeleteConfirmOpen(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tracking Record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this attendance tracking record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (deleteConfirmOpen) {
+                  const trackingItem = trackingData?.find(item => 
+                    `${item.auth_user_id}-${item.session}-${item.course}-${item.date}` === deleteConfirmOpen
+                  );
+                  if (trackingItem) {
+                    await handleDeleteTrackData(deleteConfirmOpen, trackingItem.session, trackingItem.course, trackingItem.date);
+                  }
+                  setDeleteConfirmOpen(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Delete All Confirmation */}
+      <AlertDialog open={deleteAllConfirmOpen} onOpenChange={setDeleteAllConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear All Tracking Records?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all {count} tracking {count === 1 ? 'record' : 'records'}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                await deleteAllTrackingData();
+                setDeleteAllConfirmOpen(false);
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </LazyMotion>
   );
 };

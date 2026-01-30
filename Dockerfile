@@ -25,14 +25,17 @@ ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
 
 COPY package.json package-lock.json ./
 
-# OPTIMIZATION 1: Use npm ci with production flag
+# Use npm ci (installs all deps for building)
+# Note: npm cache clean --force is omitted here to speed up the build.
+# The multi-stage build ensures the npm cache is not included in the final image.
+# Next.js standalone output (used in builder stage) automatically tree-shakes dependencies,
+# excluding devDependencies from the final production bundle in .next/standalone/node_modules.
 RUN npm install -g npm@latest && \
     npm ci \
     --ignore-scripts \
     --no-audit \
     --no-fund \
-    --prefer-offline \
-    && npm cache clean --force
+    --prefer-offline
 
 # ===============================
 # 2. Build layer
@@ -119,35 +122,20 @@ RUN set -e; \
   : "${NEXT_PUBLIC_TURNSTILE_SITE_KEY:?NEXT_PUBLIC_TURNSTILE_SITE_KEY is required}"; \
   : "${NEXT_PUBLIC_GA_ID:?NEXT_PUBLIC_GA_ID is required}";
 
-# OPTIMIZATION 2: Build with minimal resources
+# Build with minimal resources and clean cache
 RUN --mount=type=secret,id=sentry_token \
     export SENTRY_AUTH_TOKEN=$(cat /run/secrets/sentry_token) && \
     npm run build && \
-    # Remove build-time dev dependencies
     rm -rf .next/cache
 
-# ===============================
-# 3. Production dependencies ONLY
-# ===============================
-FROM ${NODE_IMAGE} AS prod-deps
+# 2. Normalize timestamps
+RUN find .next -exec touch -d "@${SOURCE_DATE_EPOCH}" {} +
 
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-
-# OPTIMIZATION 3: Install ONLY production dependencies
-RUN npm install -g npm@latest && \
-    npm ci \
-    --omit=dev \
-    --ignore-scripts \
-    --no-audit \
-    --no-fund \
-    --prefer-offline \
-    && npm cache clean --force \
-    && rm -rf /tmp/*
+# 3. Normalize absolute paths in standalone server
+RUN sed -i 's|/app/|/|g' .next/standalone/server.js
 
 # ===============================
-# 4. Runtime layer
+# 3. Runtime layer
 # ===============================
 FROM ${NODE_IMAGE} AS runner
 
@@ -158,6 +146,16 @@ ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+
+# Build argument for customizable hostname binding
+# Override at build time with: --build-arg NEXT_HOSTNAME=127.0.0.1 for localhost-only binding
+ARG NEXT_HOSTNAME="0.0.0.0"
+
+# NOTE: HOSTNAME controls the network interface binding (listen address), not the public URL hostname.
+# When binding to 0.0.0.0, this container must be deployed behind a reverse proxy, firewall,
+# or equivalent network control; direct external access to the container must be prevented.
+# For the full security checklist and deployment patterns, see docs/SECURITY.md.
+ENV HOSTNAME="${NEXT_HOSTNAME}"
 
 WORKDIR /app
 
@@ -170,15 +168,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# CRITICAL: Copy the source code for all aliases (e.g. "@/components")
-COPY --from=builder --chown=nextjs:nodejs /app/src ./src
-COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
-COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
-
-# Production node_modules
-COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
-
-# Clean up (as before)
+# Clean up
 RUN rm -rf \
     /usr/share/man/* \
     /usr/share/doc/* \

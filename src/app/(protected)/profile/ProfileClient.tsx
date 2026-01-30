@@ -21,7 +21,7 @@ import { toast } from "sonner";
 
 import UserPlaceholder from "@/assets/user.png";
 import { uploadUserAvatar } from "@/hooks/users/upload-avatar";
-import { compressImage } from "@/lib/utils";
+import { compressImage, redact } from "@/lib/utils";
 import { Loading as CompLoading } from "@/components/loading";
 
 export default function ProfileClient() {
@@ -93,7 +93,7 @@ export default function ProfileClient() {
           // Report non-fatal error to Sentry
           Sentry.captureException(error, { 
               tags: { type: "image_compression", location: "ProfileClient/handleFileChange" },
-              extra: { original_size: originalFile.size, user_id: user.id, file_name: originalFile.name }
+              extra: { original_size: originalFile.size, user_id: redact("id", String(user?.id ?? "unknown")), file_name: originalFile.name }
           });
           toast.warning("Could not compress image. Uploading original.");
         }
@@ -120,7 +120,7 @@ export default function ProfileClient() {
       // Report fatal error to Sentry
       Sentry.captureException(error, {
           tags: { type: "avatar_upload", location: "ProfileClient/handleFileChange"  },
-          extra: { user_id: user.id, file_size: originalFile.size, file_name: originalFile.name}
+          extra: { user_id: redact("id", String(user?.id ?? "unknown")), file_size: originalFile.size, file_name: originalFile.name}
       });
 
     } finally {

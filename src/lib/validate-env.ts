@@ -82,6 +82,14 @@ export function validateEnvironment() {
   }
 
   // App Configuration
+  if (!process.env.NEXT_PUBLIC_APP_NAME) {
+    errors.push('❌ NEXT_PUBLIC_APP_NAME is required');
+  }
+
+  if (!process.env.NEXT_PUBLIC_APP_VERSION) {
+    errors.push('❌ NEXT_PUBLIC_APP_VERSION is required');
+  }
+
   if (!process.env.NEXT_PUBLIC_APP_URL) {
     errors.push('❌ NEXT_PUBLIC_APP_URL is required');
   } else {
@@ -108,6 +116,30 @@ export function validateEnvironment() {
     errors.push('❌ NEXT_PUBLIC_APP_EMAIL must start with "@" and be a valid email suffix (e.g. @example.com)');
   }
 
+  if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
+    errors.push('❌ NEXT_PUBLIC_BACKEND_URL is required (EzyGo API URL)');
+  }
+
+  if (!process.env.NEXT_PUBLIC_AUTHOR_NAME) {
+    warnings.push('⚠️  NEXT_PUBLIC_AUTHOR_NAME not set');
+  }
+
+  if (!process.env.NEXT_PUBLIC_AUTHOR_URL) {
+    warnings.push('⚠️  NEXT_PUBLIC_AUTHOR_URL not set');
+  }
+
+  if (!process.env.NEXT_PUBLIC_GITHUB_URL) {
+    warnings.push('⚠️  NEXT_PUBLIC_GITHUB_URL not set');
+  }
+
+  if (!process.env.NEXT_PUBLIC_LEGAL_EMAIL) {
+    warnings.push('⚠️  NEXT_PUBLIC_LEGAL_EMAIL not set');
+  }
+
+  if (!process.env.NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE) {
+    warnings.push('⚠️  NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE not set');
+  }
+
   // ============================================================================
   // OPTIONAL - App works but features may be limited
   // ============================================================================
@@ -118,9 +150,78 @@ export function validateEnvironment() {
   }
   // SENTRY_AUTH_TOKEN is build-time only, often not available at runtime, so skipping warning
 
+  if (!process.env.SENTRY_HASH_SALT) {
+    if (process.env.NODE_ENV === 'production') {
+      errors.push(
+        '❌ SENTRY_HASH_SALT is required in production\n' +
+        '   Used for: Redacting sensitive data (emails, IDs) in logs and error reports\n' +
+        '   Generate with: openssl rand -base64 32\n' +
+        '   Set in: Deployment environment variables (e.g., Coolify, Vercel, Docker)\n' +
+        '   Treat with the same security as database credentials'
+      );
+    } else {
+      warnings.push('⚠️  SENTRY_HASH_SALT not set - using development-only fallback');
+    }
+  }
+
   // Google Analytics
   if (!process.env.NEXT_PUBLIC_GA_ID) {
     warnings.push('ℹ️  NEXT_PUBLIC_GA_ID not set - analytics disabled (optional)');
+  }
+
+  // Attendance Target Minimum
+  const attendanceTargetMin = process.env.NEXT_PUBLIC_ATTENDANCE_TARGET_MIN;
+  if (attendanceTargetMin) {
+    const minValue = parseInt(attendanceTargetMin, 10);
+    if (isNaN(minValue) || minValue < 1 || minValue > 100) {
+      errors.push('❌ NEXT_PUBLIC_ATTENDANCE_TARGET_MIN must be a number between 1 and 100 (default: 50)');
+    }
+  }
+
+  // ============================================================================
+  // DEPLOYMENT SECURITY VALIDATION
+  // ============================================================================
+  
+  // Docker HOSTNAME binding security check
+  // When HOSTNAME="0.0.0.0", the container accepts connections from any network interface.
+  // This is ONLY safe when deployed behind a reverse proxy with proper access controls.
+  const hostname = process.env.HOSTNAME;
+  if (hostname === "0.0.0.0") {
+    // Check for common reverse proxy headers that indicate proper deployment
+    // Note: This check runs at startup, so we can't check actual request headers
+    // Instead, we check if the app appears to be in a properly configured environment
+    
+    const isProduction = process.env.NODE_ENV === "production";
+    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "";
+    
+    // Extract hostname from NEXT_PUBLIC_APP_DOMAIN to check if it's a local address
+    let isLocalDomain = false;
+    try {
+      const appDomainHostname = new URL(`https://${appDomain}`).hostname.toLowerCase();
+      // Exact match for localhost and loopback addresses
+      isLocalDomain = appDomainHostname === "localhost" || appDomainHostname === "127.0.0.1" || appDomainHostname === "::1";
+    } catch {
+      // If parsing fails, fall back to string checks with word boundaries
+      isLocalDomain = !appDomain || 
+        appDomain === "localhost" || 
+        appDomain === "127.0.0.1" ||
+        appDomain.startsWith("localhost:") ||
+        appDomain.startsWith("127.0.0.1:");
+    }
+    
+    const hasProxyIndicators = Boolean(appDomain) && !isLocalDomain;
+    
+    if (isProduction && !hasProxyIndicators) {
+      warnings.push(
+        '⚠️  SECURITY: HOSTNAME=0.0.0.0 in production without clear reverse proxy configuration.\n' +
+        '   This binding accepts connections from ANY network interface.\n' +
+        '   REQUIRED: Deploy behind a reverse proxy (nginx, Cloudflare, etc.) with:\n' +
+        '     • Firewall rules preventing direct container access\n' +
+        '     • Proper IP forwarding headers (X-Forwarded-For, X-Real-IP)\n' +
+        '     • TLS termination at the proxy layer\n' +
+        '   See SECURITY.md for deployment patterns and checklist.'
+      );
+    }
   }
 
   // ============================================================================

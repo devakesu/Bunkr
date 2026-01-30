@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useProfile } from "@/hooks/users/profile";
+import { logger } from "@/lib/logger";
 import * as Sentry from "@sentry/nextjs";
 
 export default function TermsModal() {
@@ -85,7 +86,7 @@ export default function TermsModal() {
       document.cookie = `terms_version=${TERMS_VERSION}; path=/; max-age=31536000; SameSite=Lax${isSecureContext ? "; Secure" : ""}`;
       setOpen(false);
     } catch (error) {
-      console.error("Failed to accept terms", error);
+      logger.error("Failed to accept terms", error);
       Sentry.captureException(error, {
           tags: { type: "terms_acceptance_failure", location: "TermsModal/handleAgree" },
           extra: { version: TERMS_VERSION }
@@ -98,7 +99,7 @@ export default function TermsModal() {
   return (
       <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent 
-        className="sm:max-w-[480px] border-zinc-800 bg-zinc-950/90 backdrop-blur-xl shadow-2xl shadow-purple-900/10 p-0 gap-0 overflow-hidden"
+        className="sm:max-w-[480px] border-zinc-800 bg-zinc-950/90 backdrop-blur-xl shadow-lg p-0 gap-0 overflow-hidden"
         onPointerDownOutside={(e) => e.preventDefault()} 
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
@@ -124,11 +125,11 @@ export default function TermsModal() {
             <div className="prose prose-sm prose-invert max-w-none text-zinc-300">
               <ReactMarkdown 
                 components={{
-                  h1: ({node, ...props}) => <h1 className="text-sm font-bold text-white uppercase tracking-wider mb-2 mt-4" {...props} />,
-                  p: ({node, ...props}) => <p className="text-xs leading-relaxed text-zinc-400 mb-1.5" {...props} />,
-                  ul: ({node, ...props}) => <ul className="list-disc pl-4 mb-3 space-y-1" {...props} />,
-                  li: ({node, ...props}) => <li className="text-xs text-zinc-400 pl-1" {...props} />,
-                  strong: ({node, ...props}) => <strong className="text-purple-300 font-semibold" {...props} />
+                  h1: ({node: _node, ...props}) => <h1 className="text-sm font-bold text-white uppercase tracking-wider mb-2 mt-4" {...props} />,
+                  p: ({node: _node, ...props}) => <p className="text-xs leading-relaxed text-zinc-400 mb-1.5" {...props} />,
+                  ul: ({node: _node, ...props}) => <ul className="list-disc pl-4 mb-3 space-y-1" {...props} />,
+                  li: ({node: _node, ...props}) => <li className="text-xs text-zinc-400 pl-1" {...props} />,
+                  strong: ({node: _node, ...props}) => <strong className="text-purple-300 font-semibold" {...props} />
                 }}
               >
                 {BUNK_DISCLAIMER}

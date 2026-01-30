@@ -109,8 +109,8 @@ export function CourseCard({ course }: CourseCardProps) {
     const displayPercentage = finalTotal > 0 ? (finalPresent / finalTotal) * 100 : 0;
 
     // 5. Metrics
-    const safeMetrics = calculateAttendance(realPresent, realTotal, targetPercentage || 75);
-    const extraMetrics = calculateAttendance(finalPresent, finalTotal, targetPercentage || 75);
+    const safeMetrics = calculateAttendance(realPresent, realTotal, targetPercentage ?? 75);
+    const extraMetrics = calculateAttendance(finalPresent, finalTotal, targetPercentage ?? 75);
 
     return {
       realPresent,
@@ -126,7 +126,7 @@ export function CourseCard({ course }: CourseCardProps) {
       safeMetrics,
       extraMetrics
     };
-  }, [courseDetails?.present, courseDetails?.totel, courseDetails?.absent, trackingData?.length, courseIdentifiers, course.present, course.total, targetPercentage, normalize]);
+  }, [courseDetails?.present, courseDetails?.totel, courseDetails?.absent, trackingData, courseIdentifiers, course.present, course.total, targetPercentage, normalize]);
 
   const hasAttendanceData = useMemo(() => 
     !isLoading && stats.displayTotal > 0,
@@ -351,7 +351,7 @@ export function CourseCard({ course }: CourseCardProps) {
                           <svg className="w-3.5 h-3.5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                           </svg>
-                          <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Safe (Official Data)</span>
+                          <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Safe (Official)</span>
                         </div>
                         <p className="text-xs text-muted-foreground font-medium leading-tight">
                           {stats.safeMetrics.canBunk > 0 ? (

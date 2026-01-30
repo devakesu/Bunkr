@@ -5,13 +5,14 @@ import { Footer } from "@/components/layout/footer";
 import { Loading } from "@/components/loading";
 import { useInstitutions } from "@/hooks/users/institutions";
 import { useEffect, useState, useRef } from "react";
-import { getToken } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { Toaster } from "sonner";
 import TermsModal from "@/components/legal/TermsModal";
 import { motion, useScroll } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { createClient } from "@/lib/supabase/client";
+import { handleLogout } from "@/lib/security/auth";
 
 export default function ProtectedLayout({
   children,
@@ -24,6 +25,7 @@ export default function ProtectedLayout({
   const { scrollY } = useScroll();
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
+  const supabaseRef = useRef(createClient());
 
   useEffect(() => {
     const unsubscribe = scrollY.on("change", (latest) => {
@@ -54,16 +56,48 @@ export default function ProtectedLayout({
   const { error: institutionError, isLoading: institutionLoading } = useInstitutions();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = await getToken();
-      if (!token) {
-        router.replace("/");
-      } else {
-        setIsAuthorized(true);
+    let active = true;
+
+    const checkUser = async () => {
+      try {
+        const { data: { user }, error } = await supabaseRef.current.auth.getUser();
+        if (error) throw error;
+
+        // If no Supabase user, redirect to public landing
+        if (!user) {
+          active = false;
+          router.replace("/");
+          return;
+        }
+
+        // At this point, Supabase has confirmed a valid user session.
+        // The EzyGo access token cookie (ezygo_access_token) is HttpOnly and cannot be validated
+        // from client-side JavaScript; it's automatically sent with API requests and validated
+        // server-side. Any additional validation should occur on the server (e.g., via a server
+        // action or API endpoint).
+
+        if (active) setIsAuthorized(true);
+      } catch (err) {
+        if (active) {
+          // Log the error for debugging, then attempt logout
+          console.error("Auth check failed:", err instanceof Error ? err.message : String(err));
+          try {
+            await handleLogout();
+          } catch (logoutErr) {
+            // If logout also fails, force navigation to login page
+            console.error("Logout failed after auth check error:", logoutErr instanceof Error ? logoutErr.message : String(logoutErr));
+            router.replace("/");
+          }
+        }
       }
     };
-    checkAuth();
-  }, [router]);
+
+    checkUser();
+    
+    return () => { 
+      active = false;
+    };
+  }, [router]); // Removed supabase from dependencies to prevent re-runs
 
   if (!isAuthorized || institutionLoading || institutionError) {
     return (

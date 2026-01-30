@@ -6,6 +6,40 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { UserSettings } from "@/types/user-settings";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
+
+// normalizeTarget is defined at module-level (outside the hook) to avoid recreation on every render.
+// This is preferred over useCallback because:
+// 1. The function has no dependencies (pure function with no closure over component state/props)
+// 2. Module-level avoids the overhead of useCallback's dependency checking
+// 3. Provides a stable reference without requiring React hooks infrastructure
+// If this function needed access to component state/props, useCallback would be more appropriate.
+//
+// Minimum target defaults to 50% but can be configured via NEXT_PUBLIC_ATTENDANCE_TARGET_MIN environment variable
+// to support institutions with different minimum attendance requirements.
+// Values below the configured minimum are unrealistic and could cause issues in attendance calculations.
+//
+// DATABASE MIGRATION CONSIDERATION: If NEXT_PUBLIC_ATTENDANCE_TARGET_MIN is changed to a higher value
+// (e.g., from 50 to 75), users with stored target_percentage values below the new minimum will have
+// their targets silently adjusted upward on the next read. This is intentional behavior to enforce
+// the institutional minimum, but consider:
+// 1. Announcing the change to users before deployment
+// 2. Optionally creating a database migration to update existing values proactively
+// 3. Adding a database constraint: CHECK (target_percentage >= [configured_minimum])
+//
+// Parse the environment variable once at module load time for performance
+const MIN_TARGET = (() => {
+  const envValue = process.env.NEXT_PUBLIC_ATTENDANCE_TARGET_MIN;
+  if (!envValue) return 50;
+  const parsed = parseInt(envValue, 10);
+  // Clamp to valid range, falling back to 50 if invalid
+  return !isNaN(parsed) ? Math.min(100, Math.max(1, parsed)) : 50;
+})();
+
+const normalizeTarget = (value?: number | null) => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 75;
+  return Math.min(100, Math.max(MIN_TARGET, Math.round(value)));
+};
 
 export function useUserSettings() {
   const supabase = createClient();
@@ -61,8 +95,8 @@ export function useUserSettings() {
           localStorage.setItem("showBunkCalc", newData.bunk_calculator_enabled.toString());
           window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newData.bunk_calculator_enabled }));
       }
-      if (newData.target_percentage) {
-          localStorage.setItem("targetPercentage", newData.target_percentage.toString());
+        if (newData.target_percentage !== undefined) {
+          localStorage.setItem("targetPercentage", normalizeTarget(newData.target_percentage).toString());
       }
     },
     onError: (err) => {
@@ -90,7 +124,7 @@ export function useUserSettings() {
       }
       
       const localTarget = localStorage.getItem("targetPercentage");
-      const dbTarget = (settings.target_percentage ?? 75).toString();
+      const dbTarget = normalizeTarget(settings.target_percentage).toString();
       
       if (localTarget !== dbTarget) {
         localStorage.setItem("targetPercentage", dbTarget);
@@ -103,10 +137,10 @@ export function useUserSettings() {
 
       // Only migrate if we actually have legacy local data
       if (localBunk !== null || localTarget !== null) {
-        console.log("Migrating local settings to cloud...");
+        logger.dev("Migrating local settings to cloud...");
         mutateSettings({
           bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
-          target_percentage: localTarget !== null ? Number(localTarget) : 75
+          target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
         });
       }
     }
@@ -118,6 +152,6 @@ export function useUserSettings() {
     settings,
     isLoading,
     updateBunkCalc: (enabled: boolean) => mutateSettings({ bunk_calculator_enabled: enabled }),
-    updateTarget: (target: number) => mutateSettings({ target_percentage: target })
+    updateTarget: (target: number) => mutateSettings({ target_percentage: normalizeTarget(target) })
   };
 }

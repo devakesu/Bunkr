@@ -3,10 +3,94 @@
 
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import crypto from "crypto";
+import { logger } from "./logger";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+/**
+ * Initialize SENTRY_HASH_SALT at module load time to fail fast in production.
+ * This prevents errors during error reporting and ensures the secret is validated
+ * before the application starts processing requests.
+ * 
+ * IMPORTANT: This module is also used in client bundles. In the browser,
+ * non-NEXT_PUBLIC env vars like SENTRY_HASH_SALT are not available and
+ * process.env.NODE_ENV is inlined as "production". To avoid breaking the
+ * client runtime, we must not throw during module evaluation in the browser.
+ */
+const SECRET = (() => {
+  const isBrowser = typeof window !== "undefined";
+
+  if (process.env.SENTRY_HASH_SALT) {
+    return process.env.SENTRY_HASH_SALT;
+  }
+
+  // Additional safety check: explicitly verify we're not in production before using fallback
+  // This prevents silent fallback usage if NODE_ENV is misconfigured
+  if (process.env.NODE_ENV === "production" && !isBrowser) {
+    throw new Error("SENTRY_HASH_SALT is required in production");
+  }
+
+  // In development (server) or any browser bundle, fall back to a fixed
+  // non-secret salt so we do not crash the client runtime.
+  if (process.env.NODE_ENV === "development" || isBrowser) {
+    // Log warning in development server context (not browser) about using fallback salt
+    // This helps developers understand that production logs will be different
+    if (!isBrowser && process.env.NODE_ENV === "development") {
+      console.warn(
+        "[SECURITY WARNING] Using fallback salt for redaction. " +
+        "Set SENTRY_HASH_SALT environment variable for production-like hashing. " +
+        "Development logs with this salt will produce different hashes than production logs."
+      );
+    }
+    return "dev-salt-only";
+  }
+
+  // Final safety net: if we reach here, we're in an unexpected environment
+  throw new Error("SENTRY_HASH_SALT is required in production");
+})();
+
+/**
+ * Redacts sensitive data (email, ID) for safe logging using deterministic hashing.
+ * 
+ * INTENTIONAL DESIGN: DETERMINISTIC HASHING
+ * This function uses HMAC-SHA256 to create a deterministic hash, which means:
+ * - The same input always produces the same hash
+ * - Useful for correlating issues for the same user across logs
+ * - Enables debugging patterns like "user X had this issue 5 times"
+ * 
+ * SECURITY CONSIDERATIONS:
+ * - An attacker with log access and one known value could correlate other occurrences
+ * - The 12-character truncation reduces collision resistance but is acceptable for logging:
+ *   * 16^12 = ~281 trillion possible hashes
+ *   * Collision probability is negligible for user bases under 1 million users
+ *   * Birthday paradox: ~50% collision chance at ~16 million unique values
+ * - This is acceptable for logging/debugging but NOT for security-critical operations
+ * - SALT ROTATION: If SENTRY_HASH_SALT is compromised and an attacker gains log access,
+ *   they could build rainbow tables to reverse-engineer user identifiers. Consider:
+ *   * Rotating the salt periodically (e.g., quarterly) as a security best practice
+ *   * Implementing salt versioning (e.g., SENTRY_HASH_SALT_V2) so old logs remain valid
+ *   * Treating the salt with the same security as database credentials
+ * 
+ * ALTERNATIVE APPROACHES (if needed):
+ * - For maximum privacy: Use a random salt per session (cannot correlate across sessions)
+ * - For non-deterministic: Add timestamp to hash (each call produces different output)
+ * 
+ * The current implementation prioritizes debugging utility over perfect privacy,
+ * which is an acceptable trade-off for logged data that should already be access-controlled.
+ * 
+ * @param type - Type of data being redacted ('email' or 'id')
+ * @param value - The sensitive value to redact
+ * @returns A 12-character deterministic hash for safe logging
+ */
+export const redact = (type: "email" | "id", value: string) =>
+  crypto
+    .createHmac("sha256", SECRET)
+    .update(`${type}:${value}`)
+    .digest("hex")
+    .slice(0, 12);
 
 export const toRoman = (num: number | string): string => {
   const n = typeof num === 'string' ? parseInt(num, 10) : num;
@@ -142,6 +226,61 @@ export const formatCourseCode = (code: string): string => {
 
   return code.replace(/[\s\u00A0]/g, "");
 };
+
+/**
+ * Extracts the client IP address from request headers.
+ * 
+ * DEPLOYMENT ARCHITECTURE ASSUMPTIONS:
+ * This function prioritizes headers in the following order, which assumes a specific deployment setup:
+ * 1. cf-connecting-ip (Cloudflare CDN) - Most trusted when behind Cloudflare
+ * 2. x-real-ip (nginx/Apache reverse proxy) - Common for traditional reverse proxies
+ * 3. x-forwarded-for (various proxies/load balancers) - Takes first IP in chain
+ * 
+ * CONFIGURATION NOTES:
+ * - If NOT behind Cloudflare: Consider prioritizing x-real-ip or x-forwarded-for
+ * - Behind AWS ALB/ELB: x-forwarded-for is the standard header
+ * - Behind Google Cloud Load Balancer: x-forwarded-for is used
+ * - Behind Azure Front Door: x-azure-clientip or x-forwarded-for
+ * 
+ * The current order assumes Cloudflare as the primary CDN. If your deployment differs,
+ * adjust the priority order or make it configurable via environment variables.
+ * 
+ * SECURITY WARNING:
+ * These headers can be spoofed if not properly configured at the reverse proxy level.
+ * Ensure your reverse proxy strips/overwrites these headers from client requests.
+ * 
+ * @param headerList - The Headers object from the request
+ * @returns The client IP address or null if it cannot be determined
+ */
+export function getClientIp(headerList: Headers): string | null {
+  const cf = headerList.get("cf-connecting-ip")?.trim();
+  if (cf) return cf;
+
+  const realIp = headerList.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+
+  const forwarded = headerList.get("x-forwarded-for");
+  const forwardedIp = forwarded?.split(",")[0]?.trim();
+  if (forwardedIp) return forwardedIp;
+
+  // In development, return localhost IP for testing rate limiting and IP-dependent features
+  if (process.env.NODE_ENV === "development") {
+    logger.warn(
+      "[getClientIp] No IP headers found in development mode. Using 127.0.0.1 for testing. " +
+      "In production, this would return null and may cause request failures."
+    );
+    return "127.0.0.1";
+  }
+
+  // In production, return null to signal that IP extraction failed
+  // Callers must handle this null case appropriately (e.g., by rejecting the request)
+  logger.warn(
+    "[getClientIp] No IP forwarding headers found in production. " +
+    "Ensure reverse proxy is configured to set x-forwarded-for, x-real-ip, or cf-connecting-ip headers. " +
+    "Request will be rejected if IP is required for security checks."
+  );
+  return null;
+}
 
 // Helper function to compress image
 export const compressImage = (file: File, quality = 0.7): Promise<File> => {

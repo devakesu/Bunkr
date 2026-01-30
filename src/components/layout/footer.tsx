@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import { Star, Coffee, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
@@ -33,9 +34,9 @@ export const Footer = ({ className }: { className?: string }) => {
   // Log validation warnings (development only)
   useEffect(() => {
     if (process.env.NODE_ENV === "development") {
-      if (donateUrlRaw && !donateUrl) console.warn(`[Footer] Invalid Donate URL: ${donateUrlRaw}`);
-      if (githubUrlRaw && !githubUrl) console.warn(`[Footer] Invalid GitHub URL: ${githubUrlRaw}`);
-      if (authorUrlRaw && !authorUrl) console.warn(`[Footer] Invalid Author URL: ${authorUrlRaw}`);
+      if (donateUrlRaw && !donateUrl) logger.warn(`[Footer] Invalid Donate URL: ${donateUrlRaw}`);
+      if (githubUrlRaw && !githubUrl) logger.warn(`[Footer] Invalid GitHub URL: ${githubUrlRaw}`);
+      if (authorUrlRaw && !authorUrl) logger.warn(`[Footer] Invalid Author URL: ${authorUrlRaw}`);
     }
   }, [donateUrlRaw, donateUrl, githubUrlRaw, githubUrl, authorUrlRaw, authorUrl]);
 
