@@ -15,13 +15,13 @@ import { logger } from "@/lib/logger";
 // 3. Provides a stable reference without requiring React hooks infrastructure
 // If this function needed access to component state/props, useCallback would be more appropriate.
 //
-// Minimum target defaults to 50% but can be configured via ATTENDANCE_TARGET_MIN environment variable
+// Minimum target defaults to 50% but can be configured via NEXT_PUBLIC_ATTENDANCE_TARGET_MIN environment variable
 // to support institutions with different minimum attendance requirements.
 // Values below the configured minimum are unrealistic and could cause issues in attendance calculations.
 //
 // Parse the environment variable once at module load time for performance
 const MIN_TARGET = (() => {
-  const envValue = process.env.ATTENDANCE_TARGET_MIN;
+  const envValue = process.env.NEXT_PUBLIC_ATTENDANCE_TARGET_MIN;
   if (!envValue) return 50;
   const parsed = parseInt(envValue, 10);
   // Clamp to valid range, falling back to 50 if invalid

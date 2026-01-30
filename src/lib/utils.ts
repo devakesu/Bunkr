@@ -14,10 +14,26 @@ export function cn(...inputs: ClassValue[]) {
  * Initialize SENTRY_HASH_SALT at module load time to fail fast in production.
  * This prevents errors during error reporting and ensures the secret is validated
  * before the application starts processing requests.
+ * 
+ * IMPORTANT: This module is also used in client bundles. In the browser,
+ * non-NEXT_PUBLIC env vars like SENTRY_HASH_SALT are not available and
+ * process.env.NODE_ENV is inlined as "production". To avoid breaking the
+ * client runtime, we must not throw during module evaluation in the browser.
  */
 const SECRET = (() => {
-  if (process.env.SENTRY_HASH_SALT) return process.env.SENTRY_HASH_SALT;
-  if (process.env.NODE_ENV === "development") return "dev-salt-only";
+  const isBrowser = typeof window !== "undefined";
+
+  if (process.env.SENTRY_HASH_SALT) {
+    return process.env.SENTRY_HASH_SALT;
+  }
+
+  // In development (server) or any browser bundle, fall back to a fixed
+  // non-secret salt so we do not crash the client runtime.
+  if (process.env.NODE_ENV === "development" || isBrowser) {
+    return "dev-salt-only";
+  }
+
+  // In production on the server, we still fail fast if the secret is missing.
   throw new Error("SENTRY_HASH_SALT is required in production");
 })();
 
