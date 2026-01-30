@@ -9,6 +9,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
     env: {
+      // Default to development for most tests
+      // Security-critical tests should explicitly override NODE_ENV to 'production'
+      // to test production code paths (e.g., SENTRY_HASH_SALT validation, CSP enforcement)
       NODE_ENV: 'development',
     },
     coverage: {

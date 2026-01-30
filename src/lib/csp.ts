@@ -16,8 +16,44 @@ export const getCspHeader = (nonce?: string) => {
       '3. Check that getCspHeader is called with the nonce parameter from headers ' +
       '4. Confirm middleware matcher includes the current route (see matcher config in src/proxy.ts)'
     );
-    // Throw a generic error message that doesn't expose internal implementation details
-    throw new Error('Security configuration error: required security parameter is missing');
+    
+    // Instead of throwing an error that could cause 500 errors during response generation,
+    // return a fallback CSP without nonce (less secure but functional) and ensure the error
+    // is logged for monitoring. This prevents poor user experience while still alerting developers.
+    logger.error(
+      '[CSP] Falling back to less secure CSP without nonce due to missing nonce. ' +
+      'This should not happen in production. Investigate and fix immediately.'
+    );
+    
+    // Fallback CSP for production when nonce is missing (not recommended, but better than crashing)
+    // This uses 'unsafe-inline' which is less secure than nonce-based CSP
+    return `
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' blob: https://www.googletagmanager.com https://challenges.cloudflare.com https://static.cloudflareinsights.com;
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' blob: data: ${supabaseOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.google.co.in https://*.doubleclick.net;
+      font-src 'self' data:;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      frame-src 'self' https://challenges.cloudflare.com;
+      frame-ancestors 'none';
+      worker-src 'self' blob:;
+      connect-src 'self' 
+        ${supabaseOrigin}
+        https://production.api.ezygo.app
+        https://*.ingest.sentry.io 
+        https://*.google-analytics.com 
+        https://*.analytics.google.com 
+        https://analytics.google.com
+        https://*.googletagmanager.com
+        https://stats.g.doubleclick.net
+        https://www.google-analytics.com
+        https://challenges.cloudflare.com
+        https://cloudflareinsights.com
+        https://static.cloudflareinsights.com;
+      upgrade-insecure-requests;
+    `.replace(/\s{2,}/g, ' ').trim();
   }
 
   const scriptSrcParts = isDev

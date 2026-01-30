@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { clearAuthCookie } from "@/lib/security/auth-cookie";
-import { clearCsrfToken } from "@/lib/security/csrf";
+import { removeCsrfToken } from "@/lib/security/csrf";
 
 export async function POST() {
   await clearAuthCookie();
-  await clearCsrfToken();
+  await removeCsrfToken();
   return NextResponse.json({ ok: true });
 }

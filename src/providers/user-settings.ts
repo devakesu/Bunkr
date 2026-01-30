@@ -19,6 +19,14 @@ import { logger } from "@/lib/logger";
 // to support institutions with different minimum attendance requirements.
 // Values below the configured minimum are unrealistic and could cause issues in attendance calculations.
 //
+// DATABASE MIGRATION CONSIDERATION: If NEXT_PUBLIC_ATTENDANCE_TARGET_MIN is changed to a higher value
+// (e.g., from 50 to 75), users with stored target_percentage values below the new minimum will have
+// their targets silently adjusted upward on the next read. This is intentional behavior to enforce
+// the institutional minimum, but consider:
+// 1. Announcing the change to users before deployment
+// 2. Optionally creating a database migration to update existing values proactively
+// 3. Adding a database constraint: CHECK (target_percentage >= [configured_minimum])
+//
 // Parse the environment variable once at module load time for performance
 const MIN_TARGET = (() => {
   const envValue = process.env.NEXT_PUBLIC_ATTENDANCE_TARGET_MIN;
