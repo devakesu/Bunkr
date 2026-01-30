@@ -6,7 +6,8 @@
  * against Cross-Site Request Forgery attacks.
  * 
  * IMPORTANT: Cookie writes must only happen in Route Handlers or Server Actions,
- * not in Server Components. Use getCsrfToken() from client/route handlers.
+ * not in Server Components. Use getCsrfToken() from Server Components (read-only),
+ * Route Handlers, and Server Actions.
  */
 
 import { cookies } from "next/headers";
@@ -50,7 +51,7 @@ export async function setCsrfCookie(token: string): Promise<void> {
     value: token,
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     maxAge: CSRF_COOKIE_MAX_AGE,
     path: "/",
   });
@@ -72,21 +73,17 @@ export async function validateCsrfToken(requestToken: string | null | undefined)
     return false;
   }
 
-  // Quick length check before constant-time comparison
-  // This doesn't leak timing information about the actual token value
-  if (cookieToken.length !== requestToken.length) {
-    return false;
-  }
-
   // Constant-time comparison to prevent timing attacks
+  // Let timingSafeEqual handle length mismatches by throwing;
+  // we treat any error as a failed comparison to avoid observable early returns
   try {
     return crypto.timingSafeEqual(
       Buffer.from(cookieToken),
       Buffer.from(requestToken)
     );
   } catch (error) {
-    // timingSafeEqual throws if buffers have different lengths
-    // This should not happen due to the length check above, but handle it defensively
+    // timingSafeEqual throws RangeError if buffers have different lengths.
+    // Treat any error as a failed comparison without exposing timing details.
     return false;
   }
 }

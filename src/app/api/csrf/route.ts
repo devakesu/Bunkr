@@ -6,7 +6,9 @@
  */
 
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { initializeCsrfToken, regenerateCsrfToken } from "@/lib/security/csrf";
+import { authRateLimiter } from "@/lib/ratelimit";
 
 export const dynamic = 'force-dynamic';
 
@@ -28,12 +30,14 @@ export async function GET() {
       { 
         status: 200,
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Cache-Control': 'no-store, max-age=0',
         }
       }
     );
   } catch (error) {
-    console.error("CSRF token initialization error:", error);
+    // Log minimal error info to avoid leaking sensitive details
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error("CSRF token initialization error:", { message: errorMessage });
     
     return NextResponse.json(
       { error: "Failed to initialize CSRF token" },
@@ -45,9 +49,25 @@ export async function GET() {
 /**
  * POST /api/csrf
  * Explicitly refresh/regenerate CSRF token (always creates new token)
+ * Rate limited to prevent abuse and token exhaustion attacks
  */
 export async function POST() {
   try {
+    // Get client IP for rate limiting
+    const headersList = await headers();
+    const forwardedFor = headersList.get("x-forwarded-for");
+    const ip = forwardedFor ? forwardedFor.split(",")[0] : "127.0.0.1";
+    
+    // Apply rate limiting to prevent token regeneration abuse
+    const { success } = await authRateLimiter.limit(`csrf_regen_${ip}`);
+    
+    if (!success) {
+      return NextResponse.json(
+        { error: "Too many token regeneration requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+    
     const token = await regenerateCsrfToken();
     
     return NextResponse.json(
@@ -58,12 +78,14 @@ export async function POST() {
       { 
         status: 200,
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Cache-Control': 'no-store, max-age=0',
         }
       }
     );
   } catch (error) {
-    console.error("CSRF token refresh error:", error);
+    // Log minimal error info to avoid leaking sensitive details
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error("CSRF token refresh error:", { message: errorMessage });
     
     return NextResponse.json(
       { error: "Failed to refresh CSRF token" },

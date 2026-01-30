@@ -11,6 +11,20 @@ vi.mock("@/lib/security/csrf", () => ({
   regenerateCsrfToken: vi.fn(),
 }));
 
+// Mock rate limiter
+vi.mock("@/lib/ratelimit", () => ({
+  authRateLimiter: {
+    limit: vi.fn(),
+  },
+}));
+
+// Mock next/headers
+vi.mock("next/headers", () => ({
+  headers: vi.fn(() => ({
+    get: (key: string) => (key === "x-forwarded-for" ? "127.0.0.1" : null),
+  })),
+}));
+
 describe("CSRF API Route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -44,7 +58,7 @@ describe("CSRF API Route", () => {
       const response = await GET();
       
       expect(response.headers.get("Cache-Control")).toBe(
-        "no-store, no-cache, must-revalidate"
+        "no-store, max-age=0"
       );
     });
 
@@ -62,9 +76,10 @@ describe("CSRF API Route", () => {
       expect(data).toEqual({
         error: "Failed to initialize CSRF token",
       });
+      // Check that error logging doesn't expose full error object
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         "CSRF token initialization error:",
-        error
+        expect.objectContaining({ message: "Token initialization failed" })
       );
 
       consoleErrorSpy.mockRestore();
@@ -87,8 +102,11 @@ describe("CSRF API Route", () => {
   describe("POST /api/csrf", () => {
     it("should refresh CSRF token successfully", async () => {
       const { regenerateCsrfToken } = await import("@/lib/security/csrf");
+      const { authRateLimiter } = await import("@/lib/ratelimit");
+      
       const mockToken = "refreshed-token-456";
       vi.mocked(regenerateCsrfToken).mockResolvedValue(mockToken);
+      vi.mocked(authRateLimiter.limit).mockResolvedValue({ success: true } as any);
 
       const response = await POST();
       const data = await response.json();
@@ -103,19 +121,37 @@ describe("CSRF API Route", () => {
 
     it("should have no-cache headers", async () => {
       const { regenerateCsrfToken } = await import("@/lib/security/csrf");
+      const { authRateLimiter } = await import("@/lib/ratelimit");
+      
       vi.mocked(regenerateCsrfToken).mockResolvedValue("token");
+      vi.mocked(authRateLimiter.limit).mockResolvedValue({ success: true } as any);
 
       const response = await POST();
       
       expect(response.headers.get("Cache-Control")).toBe(
-        "no-store, no-cache, must-revalidate"
+        "no-store, max-age=0"
       );
+    });
+
+    it("should enforce rate limiting", async () => {
+      const { authRateLimiter } = await import("@/lib/ratelimit");
+      
+      vi.mocked(authRateLimiter.limit).mockResolvedValue({ success: false } as any);
+
+      const response = await POST();
+      const data = await response.json();
+
+      expect(response.status).toBe(429);
+      expect(data.error).toContain("Too many token regeneration requests");
     });
 
     it("should handle refresh errors", async () => {
       const { regenerateCsrfToken } = await import("@/lib/security/csrf");
+      const { authRateLimiter } = await import("@/lib/ratelimit");
+      
       const error = new Error("Token refresh failed");
       vi.mocked(regenerateCsrfToken).mockRejectedValue(error);
+      vi.mocked(authRateLimiter.limit).mockResolvedValue({ success: true } as any);
 
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -126,20 +162,18 @@ describe("CSRF API Route", () => {
       expect(data).toEqual({
         error: "Failed to refresh CSRF token",
       });
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "CSRF token refresh error:",
-        error
-      );
 
       consoleErrorSpy.mockRestore();
     });
 
     it("should always generate new tokens on POST", async () => {
       const { regenerateCsrfToken } = await import("@/lib/security/csrf");
+      const { authRateLimiter } = await import("@/lib/ratelimit");
       
       vi.mocked(regenerateCsrfToken)
         .mockResolvedValueOnce("token-1")
         .mockResolvedValueOnce("token-2");
+      vi.mocked(authRateLimiter.limit).mockResolvedValue({ success: true } as any);
 
       const response1 = await POST();
       const data1 = await response1.json();

@@ -22,7 +22,7 @@ let mockCookieStore: {
 
 // Mock the Next.js cookies module
 vi.mock("next/headers", () => ({
-  cookies: vi.fn(() => Promise.resolve(mockCookieStore)),
+  cookies: vi.fn(() => mockCookieStore),
 }));
 
 describe("CSRF Protection", () => {
@@ -97,7 +97,7 @@ describe("CSRF Protection", () => {
         value: token,
         httpOnly: true,
         secure: false, // In test environment
-        sameSite: "lax",
+        sameSite: "strict",
         maxAge: 86400, // 24 hours
         path: "/",
       });
@@ -276,11 +276,11 @@ describe("CSRF Protection", () => {
       );
     });
 
-    it("should set sameSite to lax", async () => {
+    it("should set sameSite to strict", async () => {
       await setCsrfCookie("token");
       
       expect(mockCookieStore.set).toHaveBeenCalledWith(
-        expect.objectContaining({ sameSite: "lax" })
+        expect.objectContaining({ sameSite: "strict" })
       );
     });
 
