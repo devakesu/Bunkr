@@ -29,6 +29,11 @@ const PUBLIC_PATHS = new Set([
 
 // Memoized allowed hosts computation for performance
 // Computed lazily on first call, then cached for subsequent requests
+// CACHE BEHAVIOR: The allowed hosts are computed once during application lifetime
+// and never updated. If NEXT_PUBLIC_APP_DOMAIN changes (e.g., during hot reload
+// in development), the application must be restarted for the cache to refresh.
+// This is acceptable in production where environment variables are immutable,
+// but developers should be aware of this limitation in development.
 let cachedAllowedHosts: Set<string> | null = null;
 let allowedHostsComputed = false;
 

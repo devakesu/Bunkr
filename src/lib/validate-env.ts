@@ -152,7 +152,13 @@ export function validateEnvironment() {
 
   if (!process.env.SENTRY_HASH_SALT) {
     if (process.env.NODE_ENV === 'production') {
-      errors.push('❌ SENTRY_HASH_SALT is required in production (used for redacting sensitive data)');
+      errors.push(
+        '❌ SENTRY_HASH_SALT is required in production\n' +
+        '   Used for: Redacting sensitive data (emails, IDs) in logs and error reports\n' +
+        '   Generate with: openssl rand -base64 32\n' +
+        '   Set in: Deployment environment variables (e.g., Coolify, Vercel, Docker)\n' +
+        '   Treat with the same security as database credentials'
+      );
     } else {
       warnings.push('⚠️  SENTRY_HASH_SALT not set - using development-only fallback');
     }
@@ -161,6 +167,15 @@ export function validateEnvironment() {
   // Google Analytics
   if (!process.env.NEXT_PUBLIC_GA_ID) {
     warnings.push('ℹ️  NEXT_PUBLIC_GA_ID not set - analytics disabled (optional)');
+  }
+
+  // Attendance Target Minimum
+  const attendanceTargetMin = process.env.ATTENDANCE_TARGET_MIN;
+  if (attendanceTargetMin) {
+    const minValue = parseInt(attendanceTargetMin, 10);
+    if (isNaN(minValue) || minValue < 1 || minValue > 100) {
+      errors.push('❌ ATTENDANCE_TARGET_MIN must be a number between 1 and 100 (default: 50)');
+    }
   }
 
   // ============================================================================
