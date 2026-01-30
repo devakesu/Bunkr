@@ -140,14 +140,15 @@ export async function POST(req: Request) {
   const supabaseAdmin = getAdminClient();
 
   // 1. CSRF Protection
-  const csrfValid = await validateCsrfToken(req);
+  // Extract CSRF token from request header
+  const headerList = await headers();
+  const csrfToken = headerList.get("x-csrf-token");
+  const csrfValid = await validateCsrfToken(csrfToken);
   if (!csrfValid) {
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 
   // 2. Rate Limit Check
-  const headerList = await headers();
-
   const origin = headerList.get("origin");
   const host = headerList.get("host");
   if (!origin || !host) {

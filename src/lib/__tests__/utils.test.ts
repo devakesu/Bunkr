@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cn, toRoman, normalizeSession, generateSlotKey, formatSessionName, getSessionNumber, formatCourseCode, normalizeDate } from '@/lib/utils'
+import { cn, toRoman, normalizeSession, generateSlotKey, formatSessionName, getSessionNumber, formatCourseCode, normalizeDate, redact, getClientIp } from '@/lib/utils'
 
 describe('Utils', () => {
   describe('cn', () => {
@@ -128,6 +128,113 @@ describe('Utils', () => {
 
     it('should return empty string for empty input', () => {
       expect(normalizeDate('')).toBe('')
+    })
+  })
+
+  describe('redact', () => {
+    it('should redact email addresses deterministically', () => {
+      const email = 'user@example.com'
+      const hash1 = redact('email', email)
+      const hash2 = redact('email', email)
+      
+      // Should produce the same hash for the same input
+      expect(hash1).toBe(hash2)
+      
+      // Should be 12 characters long
+      expect(hash1).toHaveLength(12)
+      
+      // Should not contain the original email
+      expect(hash1).not.toContain('@')
+      expect(hash1).not.toContain('example')
+    })
+
+    it('should redact IDs deterministically', () => {
+      const id = '12345'
+      const hash1 = redact('id', id)
+      const hash2 = redact('id', id)
+      
+      // Should produce the same hash for the same input
+      expect(hash1).toBe(hash2)
+      
+      // Should be 12 characters long
+      expect(hash1).toHaveLength(12)
+      
+      // Should not contain the original ID
+      expect(hash1).not.toContain('12345')
+    })
+
+    it('should produce different hashes for different types', () => {
+      const value = 'test@example.com'
+      const emailHash = redact('email', value)
+      const idHash = redact('id', value)
+      
+      // Different types should produce different hashes
+      expect(emailHash).not.toBe(idHash)
+    })
+
+    it('should produce different hashes for different values', () => {
+      const email1 = 'user1@example.com'
+      const email2 = 'user2@example.com'
+      
+      const hash1 = redact('email', email1)
+      const hash2 = redact('email', email2)
+      
+      // Different values should produce different hashes
+      expect(hash1).not.toBe(hash2)
+    })
+  })
+
+  describe('getClientIp', () => {
+    it('should return IP from cf-connecting-ip header', () => {
+      const headers = new Headers()
+      headers.set('cf-connecting-ip', '1.2.3.4')
+      
+      expect(getClientIp(headers)).toBe('1.2.3.4')
+    })
+
+    it('should return IP from x-real-ip header when cf-connecting-ip is not present', () => {
+      const headers = new Headers()
+      headers.set('x-real-ip', '5.6.7.8')
+      
+      expect(getClientIp(headers)).toBe('5.6.7.8')
+    })
+
+    it('should return IP from x-forwarded-for header when others are not present', () => {
+      const headers = new Headers()
+      headers.set('x-forwarded-for', '9.10.11.12, 192.168.1.1')
+      
+      expect(getClientIp(headers)).toBe('9.10.11.12')
+    })
+
+    it('should prioritize cf-connecting-ip over other headers', () => {
+      const headers = new Headers()
+      headers.set('cf-connecting-ip', '1.2.3.4')
+      headers.set('x-real-ip', '5.6.7.8')
+      headers.set('x-forwarded-for', '9.10.11.12')
+      
+      expect(getClientIp(headers)).toBe('1.2.3.4')
+    })
+
+    it('should prioritize x-real-ip over x-forwarded-for', () => {
+      const headers = new Headers()
+      headers.set('x-real-ip', '5.6.7.8')
+      headers.set('x-forwarded-for', '9.10.11.12')
+      
+      expect(getClientIp(headers)).toBe('5.6.7.8')
+    })
+
+    it('should trim whitespace from IP addresses', () => {
+      const headers = new Headers()
+      headers.set('cf-connecting-ip', '  1.2.3.4  ')
+      
+      expect(getClientIp(headers)).toBe('1.2.3.4')
+    })
+
+    it('should handle x-forwarded-for with multiple IPs and trim', () => {
+      const headers = new Headers()
+      headers.set('x-forwarded-for', ' 9.10.11.12 , 192.168.1.1 ')
+      
+      expect(getClientIp(headers)).toBe('9.10.11.12')
     })
   })
 })

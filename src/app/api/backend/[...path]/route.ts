@@ -190,7 +190,8 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       return NextResponse.json({ error: "Invalid origin" }, { status: 400 });
     }
 
-    const csrfOk = await validateCsrfToken(req as unknown as Request);
+    const csrfToken = req.headers.get("x-csrf-token");
+    const csrfOk = await validateCsrfToken(csrfToken);
     if (!csrfOk) {
       return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
     }
