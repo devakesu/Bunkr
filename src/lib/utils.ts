@@ -30,6 +30,15 @@ const SECRET = (() => {
   // In development (server) or any browser bundle, fall back to a fixed
   // non-secret salt so we do not crash the client runtime.
   if (process.env.NODE_ENV === "development" || isBrowser) {
+    // Log warning in development server context (not browser) about using fallback salt
+    // This helps developers understand that production logs will be different
+    if (!isBrowser && process.env.NODE_ENV === "development") {
+      console.warn(
+        "[SECURITY WARNING] Using fallback salt for redaction. " +
+        "Set SENTRY_HASH_SALT environment variable for production-like hashing. " +
+        "Development logs with this salt will produce different hashes than production logs."
+      );
+    }
     return "dev-salt-only";
   }
 

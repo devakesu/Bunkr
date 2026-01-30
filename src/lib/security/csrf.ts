@@ -29,11 +29,42 @@ async function generateCsrfToken(): Promise<string> {
  * 
  * CRITICAL XSS DEPENDENCY: This pattern is vulnerable if the application has XSS vulnerabilities.
  * An XSS attack could read the cookie value and include it in malicious requests. Therefore:
- * - Content Security Policy (CSP) with nonce-based script execution is REQUIRED (see src/lib/csp.ts)
- * - All user input must be properly sanitized and validated
- * - Implement secure coding practices to prevent XSS (e.g., use React's built-in escaping)
- * - Regular security audits and dependency updates are essential
- * Without XSS prevention measures, this CSRF protection can be bypassed.
+ * 
+ * REQUIRED XSS PREVENTION MEASURES (all layers must be maintained):
+ * 
+ * 1. Content Security Policy (CSP) - IMPLEMENTED in src/lib/csp.ts
+ *    • Production: Enforces nonce-based script execution with 'strict-dynamic'
+ *    • Only scripts with valid nonces can execute, preventing XSS injection
+ *    • CSP headers applied via middleware (src/proxy.ts)
+ * 
+ * 2. React Built-in XSS Protection - USED THROUGHOUT
+ *    • React automatically escapes all rendered content
+ *    • dangerouslySetInnerHTML is avoided (or sanitized when necessary)
+ *    • User input is never directly inserted into DOM
+ * 
+ * 3. Input Validation & Sanitization - APPLIED TO ALL USER INPUTS
+ *    • All API endpoints validate input format and type
+ *    • File uploads restricted by type and size
+ *    • SQL injection prevented via parameterized queries (Supabase RLS)
+ * 
+ * 4. Dependency Security - ONGOING MAINTENANCE
+ *    • Regular updates via dependabot
+ *    • Security audits with npm audit
+ *    • Third-party scripts loaded via Subresource Integrity (SRI) when possible
+ * 
+ * 5. Cookie Security Best Practices - IMPLEMENTED
+ *    • SameSite=lax prevents cross-site cookie sending
+ *    • Secure flag enabled in production (HTTPS only)
+ *    • Path=/ limits cookie scope to application
+ *    • MaxAge limits token lifetime to 1 hour
+ * 
+ * MONITORING & INCIDENT RESPONSE:
+ * • Cookie access patterns are implicitly monitored via CSRF validation failures
+ * • Failed CSRF validations logged to Sentry for security monitoring
+ * • In case of suspected XSS: Rotate CSRF secret, review recent code changes, audit logs
+ * 
+ * Without these XSS prevention measures, this CSRF protection can be bypassed.
+ * Regular security audits and code reviews are essential to maintain these protections.
  */
 export async function setCsrfCookie(token: string): Promise<void> {
   const cookieStore = await cookies();

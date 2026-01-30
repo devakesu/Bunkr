@@ -179,6 +179,38 @@ export function validateEnvironment() {
   }
 
   // ============================================================================
+  // DEPLOYMENT SECURITY VALIDATION
+  // ============================================================================
+  
+  // Docker HOSTNAME binding security check
+  // When HOSTNAME="0.0.0.0", the container accepts connections from any network interface.
+  // This is ONLY safe when deployed behind a reverse proxy with proper access controls.
+  const hostname = process.env.HOSTNAME;
+  if (hostname === "0.0.0.0") {
+    // Check for common reverse proxy headers that indicate proper deployment
+    // Note: This check runs at startup, so we can't check actual request headers
+    // Instead, we check if the app appears to be in a properly configured environment
+    
+    const isProduction = process.env.NODE_ENV === "production";
+    const hasProxyIndicators = 
+      process.env.NEXT_PUBLIC_APP_DOMAIN && 
+      process.env.NEXT_PUBLIC_APP_DOMAIN !== "localhost" &&
+      !process.env.NEXT_PUBLIC_APP_DOMAIN.includes("127.0.0.1");
+    
+    if (isProduction && !hasProxyIndicators) {
+      warnings.push(
+        '⚠️  SECURITY: HOSTNAME=0.0.0.0 in production without clear reverse proxy configuration.\n' +
+        '   This binding accepts connections from ANY network interface.\n' +
+        '   REQUIRED: Deploy behind a reverse proxy (nginx, Cloudflare, etc.) with:\n' +
+        '     • Firewall rules preventing direct container access\n' +
+        '     • Proper IP forwarding headers (X-Forwarded-For, X-Real-IP)\n' +
+        '     • TLS termination at the proxy layer\n' +
+        '   See SECURITY.md for deployment patterns and checklist.'
+      );
+    }
+  }
+
+  // ============================================================================
   // REPORT RESULTS
   // ============================================================================
 
