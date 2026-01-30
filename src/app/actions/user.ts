@@ -5,6 +5,25 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { TERMS_VERSION } from "@/app/config/legal";
 
+/**
+ * Server action for accepting terms and conditions.
+ * Updates user record with acceptance timestamp and version.
+ * Sets persistent cookie for terms acceptance tracking.
+ * 
+ * @param version - Terms version being accepted
+ * @throws {Error} If user not authenticated or database update fails
+ * 
+ * Process:
+ * 1. Authenticate user
+ * 2. Update database with acceptance timestamp and version
+ * 3. Set cookie with 1 year expiry
+ * 4. Revalidate dashboard path
+ * 
+ * @example
+ * ```ts
+ * await acceptTermsAction("1.0.0");
+ * ```
+ */
 export async function acceptTermsAction(version: string) {
 
   const supabase = await createClient(); 

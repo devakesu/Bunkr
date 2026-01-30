@@ -1,13 +1,33 @@
 import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { TrackAttendance } from "@/types";
+import { TrackAttendance, User } from "@/types";
 import { useFetchAcademicYear, useFetchSemester } from "../users/settings";
 import * as Sentry from "@sentry/nextjs";
 import { redact } from "@/lib/utils";
 
-type TrackingUser = { id: string | number; username?: string | null } | null | undefined;
-
-export function useTrackingData(user: TrackingUser, options?: { enabled?: boolean }) {
+/**
+ * React Query hook for fetching user's attendance tracking data.
+ * Automatically filters by current semester and academic year.
+ * 
+ * @param user - User object or user identifier
+ * @param options - Optional configuration object
+ * @param options.enabled - Whether the query should run (default: true)
+ * @returns Query result containing tracking attendance records
+ * 
+ * Query Configuration:
+ * - Auto-refetch: Every 60 seconds
+ * - Window focus refetch: Enabled
+ * - Stale time: 30 seconds
+ * - Cache time: 2 minutes
+ * - Error handling: Logs to Sentry with redacted user info
+ * 
+ * @example
+ * ```tsx
+ * const { data: trackingData } = useTrackingData(user);
+ * trackingData?.forEach(record => console.log(record.date));
+ * ```
+ */
+export function useTrackingData(user: User | null | undefined, options?: { enabled?: boolean }) {
   const supabase = createClient();
   
   const { data: semesterData } = useFetchSemester();

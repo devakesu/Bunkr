@@ -5,20 +5,44 @@ import * as Sentry from "@sentry/nextjs";
 import { logger } from "@/lib/logger";
 import { AlertTriangle, RefreshCcw, RotateCcw } from "lucide-react";
 
+/**
+ * Props for ErrorBoundary component.
+ */
 interface ErrorBoundaryProps {
+  /** Child components to be wrapped */
   children: ReactNode;
+  /** Custom fallback UI or render function */
   fallback?: ReactNode | ((error: Error, resetError: () => void) => ReactNode);
+  /** Optional error handler callback */
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
+/**
+ * State for ErrorBoundary component.
+ */
 interface ErrorBoundaryState {
+  /** Whether an error has been caught */
   hasError: boolean;
+  /** The caught error object */
   error: Error | null;
 }
 
 /**
- * ErrorBoundary component that catches JavaScript errors anywhere in the child component tree,
- * logs those errors, and displays a fallback UI instead of the component tree that crashed.
+ * ErrorBoundary component that catches JavaScript errors anywhere in the child component tree.
+ * Logs errors to Sentry and displays a fallback UI instead of crashing.
+ * 
+ * Features:
+ * - Catches runtime errors in child components
+ * - Reports errors to Sentry with context
+ * - Provides fallback UI with reload and reset options
+ * - Environment-aware error logging
+ * 
+ * @example
+ * ```tsx
+ * <ErrorBoundary fallback={<ErrorFallback />}>
+ *   <App />
+ * </ErrorBoundary>
+ * ```
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {

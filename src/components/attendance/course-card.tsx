@@ -11,15 +11,43 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useUser } from "@/hooks/users/user";
 
+/**
+ * Extended Course interface with additional attendance statistics.
+ */
 interface ExtendedCourse extends Course {
+  /** Number of present marks */
   present?: number;
+  /** Total attendance records */
   total?: number;
 }
 
+/**
+ * Props for CourseCard component.
+ */
 interface CourseCardProps {
+  /** Course data with optional attendance statistics */
   course: ExtendedCourse;
 }
 
+/**
+ * Course card component displaying attendance statistics and bunk calculator.
+ * Shows present/absent/total counts, attendance percentage, and required attendance calculations.
+ * 
+ * Features:
+ * - Real-time attendance percentage
+ * - Color-coded status (danger/warning/success)
+ * - Bunk calculator (classes can miss/must attend)
+ * - Tracking data integration
+ * - Local storage preferences
+ * 
+ * @param course - Course object with attendance data
+ * @returns Interactive course card with attendance stats
+ * 
+ * @example
+ * ```tsx
+ * <CourseCard course={courseData} />
+ * ```
+ */
 export function CourseCard({ course }: CourseCardProps) {
   const { data: courseDetails, isLoading } = useCourseDetails(
     course.id.toString()
@@ -68,7 +96,7 @@ export function CourseCard({ course }: CourseCardProps) {
   const stats = useMemo(() => {
     // 1. Official Data (From API)
     const realPresent = courseDetails?.present || 0;
-    const realTotal = courseDetails?.totel || 0;
+    const realTotal = courseDetails?.total || 0;
     const realAbsent = courseDetails?.absent || 0;
     const officialPercentage = realTotal > 0 ? (realPresent / realTotal) * 100 : 0;
     
@@ -126,7 +154,7 @@ export function CourseCard({ course }: CourseCardProps) {
       safeMetrics,
       extraMetrics
     };
-  }, [courseDetails?.present, courseDetails?.totel, courseDetails?.absent, trackingData, courseIdentifiers, course.present, course.total, targetPercentage, normalize]);
+  }, [courseDetails?.present, courseDetails?.total, courseDetails?.absent, trackingData, courseIdentifiers, course.present, course.total, targetPercentage, normalize]);
 
   const hasAttendanceData = useMemo(() => 
     !isLoading && stats.displayTotal > 0,

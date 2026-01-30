@@ -4,6 +4,27 @@ import { createClient } from "@/lib/supabase/client";
 import * as Sentry from "@sentry/nextjs";
 import { deleteCookie } from "cookies-next";
 
+/**
+ * Performs comprehensive logout with cleanup of all authentication state.
+ * Handles Supabase session, local storage, cookies, and redirects to home.
+ * 
+ * Process:
+ * 1. Sign out from Supabase (server-side session)
+ * 2. Clear browser storage (localStorage, sessionStorage)
+ * 3. Clear authentication and terms cookies via API
+ * 4. Redirect to home page
+ * 
+ * Error Handling:
+ * - Logs errors to Sentry
+ * - Forces redirect even on failure to prevent user from being stuck
+ * - Best-effort cleanup continues even if individual steps fail
+ * 
+ * @example
+ * ```ts
+ * await handleLogout();
+ * // User is redirected to home page with all auth state cleared
+ * ```
+ */
 export const handleLogout = async () => {
   const supabase = createClient();
   

@@ -51,20 +51,54 @@ interface User {
   auth_id?: string;
 }
 
+/**
+ * Props for AddAttendanceDialog component.
+ */
 interface AddAttendanceDialogProps {
+  /** Whether the dialog is open */
   open: boolean;
+  /** Callback when dialog open state changes */
   onOpenChange: (open: boolean) => void;
+  /** Attendance report data for validation */
   attendanceData?: AttendanceReport;
+  /** User's tracking records */
   trackingData: TrackAttendance[];
+  /** Available courses data */
   coursesData?: { courses: Record<string, Course> };
+  /** Current user */
   user: User;
+  /** Callback on successful submission */
   onSuccess: () => void;
+  /** Selected semester filter */
   selectedSemester?: "odd" | "even";
+  /** Selected academic year */
   selectedYear?: string;
 }
 
 const SESSIONS = ["1", "2", "3", "4", "5", "6", "7"];
 
+/**
+ * Dialog for manually adding attendance records.
+ * Allows users to track additional attendance or corrections.
+ * 
+ * Features:
+ * - Course selection with semester filtering
+ * - Date picker with semester bounds
+ * - Session selection (1-7)
+ * - Status selection (Present/Absent/Duty Leave)
+ * - Duplicate detection
+ * - Optimistic UI updates
+ * 
+ * @example
+ * ```tsx
+ * <AddAttendanceDialog
+ *   open={isOpen}
+ *   onOpenChange={setIsOpen}
+ *   user={user}
+ *   onSuccess={handleSuccess}
+ * />
+ * ```
+ */
 export function AddAttendanceDialog({
   open,
   onOpenChange,

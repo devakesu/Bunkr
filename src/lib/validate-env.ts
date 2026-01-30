@@ -178,6 +178,33 @@ export function validateEnvironment() {
     }
   }
 
+  // Authentication Lock TTL
+  const authLockTtl = process.env.AUTH_LOCK_TTL;
+  if (authLockTtl) {
+    const ttlValue = parseInt(authLockTtl, 10);
+    if (isNaN(ttlValue) || ttlValue < 15 || ttlValue > 60) {
+      errors.push('❌ AUTH_LOCK_TTL must be a number between 15 and 60 seconds (default: 20)');
+    }
+  }
+
+  // Request Signature Max Age
+  const requestSigMaxAge = process.env.REQUEST_SIGNATURE_MAX_AGE;
+  if (requestSigMaxAge) {
+    const maxAgeValue = parseInt(requestSigMaxAge, 10);
+    if (isNaN(maxAgeValue) || maxAgeValue < 60 || maxAgeValue > 3600) {
+      errors.push('❌ REQUEST_SIGNATURE_MAX_AGE must be a number between 60 and 3600 seconds (default: 600)');
+    }
+  }
+
+  // Sentry Replay Rate
+  const sentryReplayRate = process.env.NEXT_PUBLIC_SENTRY_REPLAY_RATE;
+  if (sentryReplayRate) {
+    const replayRate = parseFloat(sentryReplayRate);
+    if (isNaN(replayRate) || replayRate < 0 || replayRate > 1) {
+      errors.push('❌ NEXT_PUBLIC_SENTRY_REPLAY_RATE must be a number between 0.0 and 1.0 (default: 0)');
+    }
+  }
+
   // ============================================================================
   // DEPLOYMENT SECURITY VALIDATION
   // ============================================================================

@@ -5,6 +5,25 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/lib/axios";
 import { Institution } from "@/types";
 
+/**
+ * React Query hook for fetching user's enrolled institutions.
+ * Automatically filters to show only institutions where user has student role.
+ * 
+ * @returns Query result containing array of student institutions
+ * 
+ * Query Configuration:
+ * - Stale time: 5 minutes
+ * - Retry: Disabled
+ * - Cache key: ["institutions"]
+ * 
+ * @throws {Error} If no student institutions found
+ * 
+ * @example
+ * ```tsx
+ * const { data: institutions } = useInstitutions();
+ * institutions?.forEach(inst => console.log(inst.name));
+ * ```
+ */
 export function useInstitutions() {
   return useQuery<Institution[]>({
     queryKey: ["institutions"],
@@ -28,6 +47,16 @@ export function useInstitutions() {
   });
 }
 
+/**
+ * React Query hook for fetching user's default institution ID.
+ * 
+ * @returns Query result containing default institution ID
+ * 
+ * @example
+ * ```tsx
+ * const { data: defaultId } = useDefaultInstitute();
+ * ```
+ */
 export function useDefaultInstitute() {
   return useQuery<number>({
     queryKey: ["defaultInstitute"],

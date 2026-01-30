@@ -5,6 +5,26 @@ import axios from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 import { Course } from "@/types";
 
+/**
+ * React Query hook for fetching user's enrolled courses with student data.
+ * Returns courses in a normalized object format keyed by course ID.
+ * 
+ * @param options - Optional configuration object
+ * @param options.enabled - Whether the query should run (default: true)
+ * @returns Query result with courses object
+ * 
+ * Query Configuration:
+ * - Auto-refetch: Every 60 seconds
+ * - Window focus refetch: Enabled
+ * - Stale time: 30 seconds
+ * - Cache time: 5 minutes
+ * 
+ * @example
+ * ```tsx
+ * const { data, isLoading } = useFetchCourses();
+ * const course = data?.courses["101"];
+ * ```
+ */
 export const useFetchCourses = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ["courses"],

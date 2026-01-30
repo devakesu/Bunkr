@@ -1,19 +1,38 @@
+/**
+ * Represents a course/subject in the academic system.
+ * Contains course details, academic period info, and enrolled users.
+ */
 export interface Course {
+  /** Unique course identifier */
   id: number;
+  /** Serial number for ordering */
   si_no?: number;
-  name: string; // Course name
-  code?: string; // Course code
-  academic_year?: string; // Academic year
-  academic_semester?: string; // Even or Odd
+  /** Course name */
+  name: string;
+  /** Course code (e.g., "CS101") */
+  code?: string;
+  /** Academic year (e.g., "2023-2024") */
+  academic_year?: string;
+  /** Academic semester (Even or Odd) */
+  academic_semester?: string;
+  /** User subgroup information */
   usersubgroup?: {
+    /** Subgroup ID */
     id: number;
-    start_date: string; // Sem start date
-    end_date: string; // Sem end date
+    /** Semester start date (ISO format) */
+    start_date: string;
+    /** Semester end date (ISO format) */
+    end_date: string;
+    /** User group details */
     usergroup: {
+      /** Group ID */
       id: number;
-      name: string; // Branch name
-      affiliated_university: string; // University name
+      /** Branch/department name */
+      name: string;
+      /** University affiliation */
+      affiliated_university: string;
     };
   };
+  /** List of enrolled institution users */
   institution_users?: CourseUser[];
 }
