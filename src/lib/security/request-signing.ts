@@ -2,6 +2,10 @@
 // src/lib/security/request-signing.ts
 import crypto from "crypto";
 
+// Compute default maxAge once at module initialization for performance
+// Can be overridden via REQUEST_SIGNATURE_MAX_AGE environment variable
+const DEFAULT_MAX_AGE = Number(process.env.REQUEST_SIGNATURE_MAX_AGE) || 600;
+
 /**
  * Signs a request payload with HMAC-SHA256
  * @param payload Request payload (should be JSON stringified)
@@ -33,7 +37,7 @@ export function verifyRequestSignature(
   payload: string,
   timestamp: number,
   signature: string,
-  maxAge: number = Number(process.env.REQUEST_SIGNATURE_MAX_AGE) || 600
+  maxAge: number = DEFAULT_MAX_AGE
 ): boolean {
   try {
     // Check timestamp validity (prevent replay attacks)

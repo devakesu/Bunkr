@@ -153,6 +153,17 @@ export async function POST(req: Request) {
   if (!origin || !host) {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   }
+
+  // Validate that NEXT_PUBLIC_APP_DOMAIN is configured for origin validation
+  const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+  if (!appDomain?.trim()) {
+    logger.error("NEXT_PUBLIC_APP_DOMAIN is not configured - origin validation cannot proceed");
+    return NextResponse.json(
+      { error: "Server configuration error: security validation unavailable" },
+      { status: 500 }
+    );
+  }
+
   try {
     // Use .hostname (not .host) to exclude port and properly handle IPv6 addresses
     const originHostname = new URL(origin).hostname.toLowerCase();
@@ -163,18 +174,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
     }
 
-    // Additionally, enforce that the origin matches the configured app domain (if set)
+    // Enforce that the origin matches the configured app domain
     // This provides consistency with backend proxy route validation
-    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
-    if (appDomain) {
-      const appDomainUrl = appDomain.startsWith("http://") || appDomain.startsWith("https://")
-        ? appDomain
-        : `https://${appDomain}`;
-      const appDomainHostname = new URL(appDomainUrl).hostname.toLowerCase();
+    const appDomainUrl = appDomain.startsWith("http://") || appDomain.startsWith("https://")
+      ? appDomain
+      : `https://${appDomain}`;
+    const appDomainHostname = new URL(appDomainUrl).hostname.toLowerCase();
 
-      if (originHostname !== appDomainHostname) {
-        return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-      }
+    if (originHostname !== appDomainHostname) {
+      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
     }
   } catch {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
