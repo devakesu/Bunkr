@@ -70,36 +70,11 @@ export default function ProtectedLayout({
           return;
         }
 
-        // Ensure the EzyGo access token cookie is present before authorizing
-        let hasEzygoAccessToken = false;
-        if (typeof document !== "undefined") {
-          const cookies = document.cookie ? document.cookie.split(";") : [];
-          for (const rawCookie of cookies) {
-            const cookie = rawCookie.trim();
-            if (cookie.startsWith("ezygo_access_token=")) {
-              // Validate that the cookie has a non-empty value after the equals sign
-              const value = cookie.substring("ezygo_access_token=".length).trim();
-              if (value) {
-                hasEzygoAccessToken = true;
-              }
-              break;
-            }
-          }
-        }
-
-        if (!hasEzygoAccessToken) {
-          // Missing EzyGo token: treat as unauthorized and force logout
-          // handleLogout will redirect, so no need to call router.replace
-          active = false;
-          try {
-            await handleLogout();
-          } catch (logoutErr) {
-            // If logout fails, handleLogout will still attempt to redirect
-            // Only use router as fallback if window redirect somehow fails
-            console.error("Logout failed:", logoutErr instanceof Error ? logoutErr.message : String(logoutErr));
-          }
-          return;
-        }
+        // At this point, Supabase has confirmed a valid user session.
+        // The EzyGo access token cookie (ezygo_access_token) is HttpOnly and cannot be validated
+        // from client-side JavaScript; it's automatically sent with API requests and validated
+        // server-side. Any additional validation should occur on the server (e.g., via a server
+        // action or API endpoint).
 
         if (active) setIsAuthorized(true);
       } catch (err) {
