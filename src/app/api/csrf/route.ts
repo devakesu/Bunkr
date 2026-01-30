@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { initializeCsrfToken } from "@/lib/security/csrf";
+import { initializeCsrfToken, regenerateCsrfToken } from "@/lib/security/csrf";
 
 export const dynamic = 'force-dynamic';
 
@@ -44,18 +44,23 @@ export async function GET() {
 
 /**
  * POST /api/csrf
- * Explicitly refresh/regenerate CSRF token
+ * Explicitly refresh/regenerate CSRF token (always creates new token)
  */
 export async function POST() {
   try {
-    const token = await initializeCsrfToken();
+    const token = await regenerateCsrfToken();
     
     return NextResponse.json(
       { 
         token,
         message: "CSRF token refreshed successfully" 
       },
-      { status: 200 }
+      { 
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        }
+      }
     );
   } catch (error) {
     console.error("CSRF token refresh error:", error);

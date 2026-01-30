@@ -8,7 +8,7 @@ import { GET, POST } from "../route";
 // Mock the CSRF module
 vi.mock("@/lib/security/csrf", () => ({
   initializeCsrfToken: vi.fn(),
-  getCsrfToken: vi.fn(),
+  regenerateCsrfToken: vi.fn(),
 }));
 
 describe("CSRF API Route", () => {
@@ -86,9 +86,9 @@ describe("CSRF API Route", () => {
 
   describe("POST /api/csrf", () => {
     it("should refresh CSRF token successfully", async () => {
-      const { initializeCsrfToken } = await import("@/lib/security/csrf");
+      const { regenerateCsrfToken } = await import("@/lib/security/csrf");
       const mockToken = "refreshed-token-456";
-      vi.mocked(initializeCsrfToken).mockResolvedValue(mockToken);
+      vi.mocked(regenerateCsrfToken).mockResolvedValue(mockToken);
 
       const response = await POST();
       const data = await response.json();
@@ -98,13 +98,24 @@ describe("CSRF API Route", () => {
         token: mockToken,
         message: "CSRF token refreshed successfully",
       });
-      expect(initializeCsrfToken).toHaveBeenCalledOnce();
+      expect(regenerateCsrfToken).toHaveBeenCalledOnce();
+    });
+
+    it("should have no-cache headers", async () => {
+      const { regenerateCsrfToken } = await import("@/lib/security/csrf");
+      vi.mocked(regenerateCsrfToken).mockResolvedValue("token");
+
+      const response = await POST();
+      
+      expect(response.headers.get("Cache-Control")).toBe(
+        "no-store, no-cache, must-revalidate"
+      );
     });
 
     it("should handle refresh errors", async () => {
-      const { initializeCsrfToken } = await import("@/lib/security/csrf");
+      const { regenerateCsrfToken } = await import("@/lib/security/csrf");
       const error = new Error("Token refresh failed");
-      vi.mocked(initializeCsrfToken).mockRejectedValue(error);
+      vi.mocked(regenerateCsrfToken).mockRejectedValue(error);
 
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -123,10 +134,10 @@ describe("CSRF API Route", () => {
       consoleErrorSpy.mockRestore();
     });
 
-    it("should return different tokens on multiple calls", async () => {
-      const { initializeCsrfToken } = await import("@/lib/security/csrf");
+    it("should always generate new tokens on POST", async () => {
+      const { regenerateCsrfToken } = await import("@/lib/security/csrf");
       
-      vi.mocked(initializeCsrfToken)
+      vi.mocked(regenerateCsrfToken)
         .mockResolvedValueOnce("token-1")
         .mockResolvedValueOnce("token-2");
 
@@ -138,7 +149,7 @@ describe("CSRF API Route", () => {
 
       expect(data1.token).toBe("token-1");
       expect(data2.token).toBe("token-2");
-      expect(initializeCsrfToken).toHaveBeenCalledTimes(2);
+      expect(regenerateCsrfToken).toHaveBeenCalledTimes(2);
     });
   });
 

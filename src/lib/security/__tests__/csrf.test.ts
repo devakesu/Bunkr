@@ -9,6 +9,7 @@ import {
   setCsrfCookie,
   validateCsrfToken,
   initializeCsrfToken,
+  regenerateCsrfToken,
   removeCsrfToken,
 } from "../csrf";
 
@@ -205,6 +206,36 @@ describe("CSRF Protection", () => {
       await removeCsrfToken();
       
       expect(mockCookieStore.delete).toHaveBeenCalledWith("csrf_token");
+    });
+  });
+
+  describe("regenerateCsrfToken", () => {
+    it("should always create a new token", async () => {
+      mockCookieStore.get.mockReturnValue({ value: "old-token" });
+
+      const token = await regenerateCsrfToken();
+      
+      expect(token).toHaveLength(64);
+      expect(mockCookieStore.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "csrf_token",
+          value: token,
+        })
+      );
+    });
+
+    it("should generate different tokens on successive calls", async () => {
+      const token1 = await regenerateCsrfToken();
+      const token2 = await regenerateCsrfToken();
+      
+      expect(token1).not.toBe(token2);
+      expect(mockCookieStore.set).toHaveBeenCalledTimes(2);
+    });
+
+    it("should generate valid hex tokens", async () => {
+      const token = await regenerateCsrfToken();
+      
+      expect(token).toMatch(/^[0-9a-f]{64}$/);
     });
   });
 

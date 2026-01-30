@@ -110,6 +110,18 @@ export async function initializeCsrfToken(): Promise<string> {
 }
 
 /**
+ * Regenerate CSRF token - always creates a new token
+ * WARNING: Can ONLY be called from Route Handlers or Server Actions
+ * @returns The new token
+ */
+export async function regenerateCsrfToken(): Promise<string> {
+  const newToken = generateCsrfToken();
+  await setCsrfCookie(newToken);
+  
+  return newToken;
+}
+
+/**
  * Remove CSRF token from cookies
  * WARNING: Can ONLY be called from Route Handlers or Server Actions
  */
