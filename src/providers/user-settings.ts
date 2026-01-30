@@ -18,13 +18,19 @@ import { logger } from "@/lib/logger";
 // Minimum target defaults to 50% but can be configured via ATTENDANCE_TARGET_MIN environment variable
 // to support institutions with different minimum attendance requirements.
 // Values below the configured minimum are unrealistic and could cause issues in attendance calculations.
+//
+// Parse the environment variable once at module load time for performance
+const MIN_TARGET = (() => {
+  const envValue = process.env.ATTENDANCE_TARGET_MIN;
+  if (!envValue) return 50;
+  const parsed = parseInt(envValue, 10);
+  // Clamp to valid range, falling back to 50 if invalid
+  return !isNaN(parsed) ? Math.min(100, Math.max(1, parsed)) : 50;
+})();
+
 const normalizeTarget = (value?: number | null) => {
-  const minTarget = process.env.ATTENDANCE_TARGET_MIN 
-    ? Math.min(100, Math.max(1, parseInt(process.env.ATTENDANCE_TARGET_MIN, 10) || 50))
-    : 50;
-  
   if (typeof value !== "number" || !Number.isFinite(value)) return 75;
-  return Math.min(100, Math.max(minTarget, Math.round(value)));
+  return Math.min(100, Math.max(MIN_TARGET, Math.round(value)));
 };
 
 export function useUserSettings() {
