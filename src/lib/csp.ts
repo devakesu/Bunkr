@@ -7,22 +7,15 @@ export const getCspHeader = (nonce?: string) => {
 
   // In production, nonce is mandatory for strict CSP enforcement
   if (!isDev && !nonce) {
-    // Log error internally for developers (will only appear in server-side logs)
+    // Consolidate logging: explain the problem, troubleshooting steps, and fallback behavior
     logger.error(
       '[CSP] Nonce is required in production for secure CSP enforcement. ' +
+      'Falling back to less secure CSP with unsafe-inline. This should not happen in production - investigate immediately. ' +
       'Troubleshooting: ' +
       '1. Verify middleware is generating nonce (check src/proxy.ts nonce generation) ' +
       '2. Ensure middleware is passing nonce via x-nonce header to downstream components ' +
       '3. Check that getCspHeader is called with the nonce parameter from headers ' +
       '4. Confirm middleware matcher includes the current route (see matcher config in src/proxy.ts)'
-    );
-    
-    // Instead of throwing an error that could cause 500 errors during response generation,
-    // return a fallback CSP without nonce (less secure but functional) and ensure the error
-    // is logged for monitoring. This prevents poor user experience while still alerting developers.
-    logger.error(
-      '[CSP] Falling back to less secure CSP without nonce due to missing nonce. ' +
-      'This should not happen in production. Investigate and fix immediately.'
     );
     
     // Fallback CSP for production when nonce is missing (not recommended, but better than crashing)
