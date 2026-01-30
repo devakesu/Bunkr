@@ -27,6 +27,12 @@ const SECRET = (() => {
     return process.env.SENTRY_HASH_SALT;
   }
 
+  // Additional safety check: explicitly verify we're not in production before using fallback
+  // This prevents silent fallback usage if NODE_ENV is misconfigured
+  if (process.env.NODE_ENV === "production" && !isBrowser) {
+    throw new Error("SENTRY_HASH_SALT is required in production");
+  }
+
   // In development (server) or any browser bundle, fall back to a fixed
   // non-secret salt so we do not crash the client runtime.
   if (process.env.NODE_ENV === "development" || isBrowser) {
@@ -42,7 +48,7 @@ const SECRET = (() => {
     return "dev-salt-only";
   }
 
-  // In production on the server, we still fail fast if the secret is missing.
+  // Final safety net: if we reach here, we're in an unexpected environment
   throw new Error("SENTRY_HASH_SALT is required in production");
 })();
 
@@ -258,12 +264,21 @@ export function getClientIp(headerList: Headers): string | null {
   if (forwardedIp) return forwardedIp;
 
   // In development, return localhost IP for testing rate limiting and IP-dependent features
-  // Production deployments should ensure proper IP forwarding headers are configured
   if (process.env.NODE_ENV === "development") {
-    logger.warn("[getClientIp] No IP headers found in development mode. Using 127.0.0.1 for testing.");
+    logger.warn(
+      "[getClientIp] No IP headers found in development mode. Using 127.0.0.1 for testing. " +
+      "In production, this would return null and may cause request failures."
+    );
     return "127.0.0.1";
   }
 
+  // In production, return null to signal that IP extraction failed
+  // Callers must handle this null case appropriately (e.g., by rejecting the request)
+  logger.warn(
+    "[getClientIp] No IP forwarding headers found in production. " +
+    "Ensure reverse proxy is configured to set x-forwarded-for, x-real-ip, or cf-connecting-ip headers. " +
+    "Request will be rejected if IP is required for security checks."
+  );
   return null;
 }
 

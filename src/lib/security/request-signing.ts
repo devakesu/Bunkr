@@ -30,7 +30,7 @@ export function signRequest(payload: string, timestamp: number): string {
  * while still preventing most replay attacks. This can be overridden via REQUEST_SIGNATURE_MAX_AGE
  * environment variable if needed.
  * 
- * CSRF token expiration is handled separately by cookie maxAge (TOKEN_TTL = 3600s in csrf.ts).
+ * CSRF token expiration is handled separately by cookie maxAge (24 hours / 86400 seconds in csrf.ts).
  * The browser automatically removes expired CSRF cookies, making them invalid for validation.
  */
 export function verifyRequestSignature(
