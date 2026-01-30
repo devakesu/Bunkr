@@ -77,19 +77,26 @@ export default function ProtectedLayout({
           for (const rawCookie of cookies) {
             const cookie = rawCookie.trim();
             if (cookie.startsWith("ezygo_access_token=")) {
-              hasEzygoAccessToken = true;
+              // Validate that the cookie has a non-empty value after the equals sign
+              const value = cookie.substring("ezygo_access_token=".length).trim();
+              if (value) {
+                hasEzygoAccessToken = true;
+              }
               break;
             }
           }
         }
 
         if (!hasEzygoAccessToken) {
-          // Missing EzyGo token: treat as unauthorized and force logout + redirect
+          // Missing EzyGo token: treat as unauthorized and force logout
+          // handleLogout will redirect, so no need to call router.replace
           active = false;
           try {
             await handleLogout();
-          } finally {
-            router.replace("/");
+          } catch (logoutErr) {
+            // If logout fails, handleLogout will still attempt to redirect
+            // Only use router as fallback if window redirect somehow fails
+            console.error("Logout failed:", logoutErr instanceof Error ? logoutErr.message : String(logoutErr));
           }
           return;
         }
