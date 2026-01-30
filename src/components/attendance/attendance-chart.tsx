@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -28,9 +28,9 @@ const ResponsiveContainer = lazy(() =>
 );
 
 // --- HELPERS ---
-const formatCourseCode = (code: string) => {
-  if (!code) return "";
-  return code.length > 10 ? code.substring(0, 10) + "..." : code;
+const formatCourseCode = (code: string | undefined, fallback?: string) => {
+  const val = code ?? fallback ?? "";
+  return val.length > 10 ? val.substring(0, 10) + "..." : val;
 };
 
 const isPresent = (code: number) => [110, 225, 112].includes(Number(code));
@@ -43,9 +43,34 @@ interface AttendanceChartProps {
   coursesData?: { courses: Record<string, Course> };
 }
 
+interface BarShapeProps {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fill?: string;
+  stroke?: string;
+  payload?: {
+    displayedExtra: number;
+  };
+}
+
+interface LabelProps {
+  viewBox?: {
+    width?: number;
+    height?: number;
+    x?: number;
+    y?: number;
+  };
+  value?: number;
+  // Recharts passes additional undocumented props like offset, position, etc.
+  // Using unknown for type safety while allowing Recharts' internal props
+  [key: string]: unknown;
+}
+
 // --- SHAPES ---
-const HatchedBarShape = (props: any) => {
-  const { x, y, width, height, fill, stroke } = props;
+const HatchedBarShape = (props: BarShapeProps) => {
+  const { x, y, width, height, fill = '#000', stroke = '#000' } = props;
   const radius = 4;
   if (!height || height <= 0 || isNaN(height)) return null;
   const r = Math.min(radius, height);
@@ -58,8 +83,8 @@ const HatchedBarShape = (props: any) => {
   );
 };
 
-const BottomBarShape = (props: any) => {
-  const { fill, x, y, width, height, payload } = props;
+const BottomBarShape = (props: BarShapeProps) => {
+  const { fill = '#000', x, y, width, height, payload } = props;
   if (!height || height <= 0 || isNaN(height)) return null;
   const hasTopStack = payload && payload.displayedExtra > 0;
   const radius = hasTopStack ? 0 : 4;
@@ -68,35 +93,61 @@ const BottomBarShape = (props: any) => {
   return <path d={pathD} fill={fill} stroke={fill} strokeWidth={1} />;
 };
 
-const CustomTargetLabel = (props: any) => {
-  const { viewBox, value } = props;
+const CustomTargetLabel = (props: LabelProps) => {
+  const { viewBox, value = 0 } = props;
+  if (!viewBox || viewBox.width == null || viewBox.x == null || viewBox.y == null) return null;
   const x = viewBox.width - 15;
-  const y = viewBox.y;
+  const y = viewBox.y; // align label center on the target line
   return (
     <g style={{ pointerEvents: 'none' }}>
       <rect x={x - 85} y={y - 12} width="90" height="24" fill="rgba(20, 20, 20, 0.95)" rx="4" stroke="#f59e0b" strokeWidth="1" />
-      <text x={x - 40} y={y + 5} fill="#f59e0b" textAnchor="middle" fontSize="12" fontWeight="bold">Target: {value}%</text>
+      <text x={x - 40} y={y + 6} fill="#f59e0b" textAnchor="middle" fontSize="12" fontWeight="bold">Target: {value}%</text>
     </g>
   );
 };
 
 export function AttendanceChart({ attendanceData, trackingData, coursesData }: AttendanceChartProps) {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 640px)").matches;
+  });
   const { targetPercentage } = useAttendanceSettings();
   const safeTarget = Number(targetPercentage) > 0 ? Number(targetPercentage) : 75;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(max-width: 640px)");
+    const handler = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
 
   const data = useMemo(() => {
     if (!coursesData?.courses || !attendanceData?.studentAttendanceData) {
       return [];
     }
 
-    const courseAttendance: Record<string, any> = {};
+    interface CourseStats {
+      id: string;
+      code: string;
+      present: number;
+      absent: number;
+      total: number;
+      selfPresent: number;
+      selfTotal: number;
+      name: string;
+      fullName: string;
+    }
+
+    const courseAttendance: Record<string, CourseStats> = {};
     const officialSessionMap = new Map<string, number>();
 
     // 1. Initialize Courses
     Object.entries(coursesData.courses).forEach(([courseId, course]) => {
       courseAttendance[courseId] = {
         id: courseId,
-        code: course.code,
+        code: course.code ?? course.name ?? "",
         present: 0,
         absent: 0,
         total: 0,
@@ -109,12 +160,13 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
 
     // 2. Process Official Data
     Object.entries(attendanceData.studentAttendanceData).forEach(([dateStr, dateData]) => {
-      Object.entries(dateData).forEach(([sessionKey, session]: [string, any], index) => {
-        if (session.course !== null && courseAttendance[session.course.toString()]) {
-          const stats = courseAttendance[session.course.toString()];
-          const status = Number(session.attendance);
+      Object.entries(dateData).forEach(([sessionKey, session]: [string, unknown], index) => {
+        const sessionData = session as { course: string | number | null; attendance: string | number; session?: string };
+        if (sessionData.course !== null && courseAttendance[sessionData.course.toString()]) {
+          const stats = courseAttendance[sessionData.course.toString()];
+          const status = Number(sessionData.attendance);
           
-          let sessionName = session.session;
+          let sessionName = sessionData.session;
           if (!sessionName || sessionName === "null") {
              if (!isNaN(parseInt(sessionKey)) && parseInt(sessionKey) < 20) {
                  sessionName = sessionKey;
@@ -123,7 +175,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
              }
           }
 
-          const key = generateSlotKey(session.course.toString(), dateStr, sessionName);
+          const key = generateSlotKey(sessionData.course.toString(), dateStr, sessionName);
           officialSessionMap.set(key, status);
 
           if ([110, 225, 112].includes(status)) {
@@ -139,7 +191,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
 
     // 3. Process Tracking Data
     if (trackingData) {
-      Object.values(courseAttendance).forEach((courseStats: any) => {
+      Object.values(courseAttendance).forEach((courseStats) => {
         const targetId = String(courseStats.id);
         const targetName = normalize(courseStats.fullName);
         const targetCode = normalize(courseStats.code);
@@ -174,9 +226,23 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
       });
     }
 
+    interface CourseData extends CourseStats {
+      officialPercentage: number;
+      totalPercentage: number;
+      displayedBase: number;
+      displayedExtra: number;
+      baseSuccess: number;
+      baseDanger: number;
+      extraSuccess: number;
+      extraDanger: number;
+      isLoss: boolean;
+      mergedPresent: number;
+      mergedTotal: number;
+    }
+
     return Object.values(courseAttendance)
-      .filter((course: any) => (course.total + course.selfTotal) > 0)
-      .map((course: any) => {
+      .filter((course) => (course.total + course.selfTotal) > 0)
+      .map((course): CourseData => {
         const officialPct = course.total > 0 ? parseFloat(((course.present / course.total) * 100).toFixed(2)) : 0;
         
         const mergedTotal = Math.max(course.total + course.selfTotal, 0); 
@@ -216,7 +282,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
           selfTotal: course.selfTotal
         };
       })
-      .sort((a: any, b: any) => a.totalPercentage - b.totalPercentage);
+      .sort((a, b) => a.totalPercentage - b.totalPercentage);
   }, [attendanceData, trackingData, coursesData, safeTarget]);
 
   const getBarSize = () => {
@@ -239,14 +305,30 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
   const calculatedMin = Math.floor(minRef / 5) * 5 - 5;
   const yAxisMin = Math.max(0, calculatedMin);
 
+// Render functions for Recharts components
+// Note: Using TypeScript interfaces for type safety. ESLint prop-types is disabled
+// because TypeScript provides superior type checking for these component props.
+/* eslint-disable react/prop-types */
+const renderBottomBar = (props: BarShapeProps) => <BottomBarShape {...props} />;
+const renderHatchedBar = (props: BarShapeProps) => <HatchedBarShape {...props} />;
+const renderTargetLabel = (props: LabelProps) => {
+  if (!props?.viewBox) return null;
+  return <CustomTargetLabel viewBox={props.viewBox} value={safeTarget} />;
+};
+/* eslint-enable react/prop-types */
+
 return (
-  <div className="w-full h-full min-h-[300px] -mb-12">
+  <div
+    className="w-full h-full min-h-[220px]"
+    role="img"
+    aria-label="Attendance overview bar chart"
+  >
     {data.length > 0 ? (
       <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={300} debounce={1}>
         <BarChart 
-            data={data} 
-            margin={{ top: 10, right: 25, left: -20, bottom: 0 }} 
-            barSize={getBarSize()}
+          data={data} 
+          margin={{ top: 10, right: 20, left: -12, bottom: 18 }} 
+          barSize={getBarSize()}
         >
             <defs>
               <pattern id="striped-green" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
@@ -264,10 +346,10 @@ return (
               dataKey="name" 
               interval={0} 
               textAnchor="end" 
-              angle={-45} 
-              height={50} 
-              tick={{ fontSize: 11, fill: "#888" }} 
-              tickMargin={18} 
+              angle={isMobile ? -90 : -45} 
+              height={isMobile ? 72 : 58} 
+              tick={{ fontSize: 11, fill: "#888", dy: 22 }} 
+              tickMargin={isMobile ? 16 : 16} 
             />
             <YAxis domain={[yAxisMin, 100]} type="number" allowDecimals={false} allowDataOverflow={true} tickCount={Math.ceil((100 - yAxisMin) / 5) + 1} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
             <Tooltip
@@ -277,7 +359,7 @@ return (
                   if (active && payload && payload.length) {
                     const d = payload[0].payload;
                     return (
-                      <div className="bg-[#141414] border border-[#333] p-3 rounded-lg shadow-xl text-xs">
+                      <div className="bg-[#141414] border border-[#333] p-3 rounded-lg shadow-md text-xs">
                         <p className="text-gray-400 mb-2 font-medium">{d.fullName}</p>
                         <div className="flex justify-between gap-4 mb-1">
                           <span className="text-gray-500">Official:</span>
@@ -299,12 +381,12 @@ return (
                   return null;
               }}
             />
-            <Bar dataKey="baseSuccess" stackId="a" isAnimationActive={false} fill="#10b981" shape={<BottomBarShape />} />
-            <Bar dataKey="baseDanger" stackId="a" isAnimationActive={false} fill="#ef4444" shape={<BottomBarShape />} />
-            <Bar dataKey="extraSuccess" stackId="a" isAnimationActive={false} fill="url(#striped-green)" stroke="#10b981" shape={<HatchedBarShape />} />
-            <Bar dataKey="extraDanger" stackId="a" isAnimationActive={false} fill="url(#striped-red)" stroke="#ef4444" shape={<HatchedBarShape />} />
+            <Bar dataKey="baseSuccess" stackId="a" isAnimationActive={false} fill="#10b981" shape={renderBottomBar} />
+            <Bar dataKey="baseDanger" stackId="a" isAnimationActive={false} fill="#ef4444" shape={renderBottomBar} />
+            <Bar dataKey="extraSuccess" stackId="a" isAnimationActive={false} fill="url(#striped-green)" stroke="#10b981" shape={renderHatchedBar} />
+            <Bar dataKey="extraDanger" stackId="a" isAnimationActive={false} fill="url(#striped-red)" stroke="#ef4444" shape={renderHatchedBar} />
 
-            <ReferenceLine y={safeTarget} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={2} strokeOpacity={1} label={<CustomTargetLabel value={safeTarget} />} />
+            <ReferenceLine y={safeTarget} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={2} strokeOpacity={1} label={renderTargetLabel} />
           </BarChart>
       </ResponsiveContainer>
     ) : (

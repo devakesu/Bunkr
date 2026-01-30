@@ -8,6 +8,8 @@ import { z } from "zod";
 import sanitizeHtml from "sanitize-html";
 import { headers } from "next/headers";
 import { syncRateLimiter } from "@/lib/ratelimit";
+import { redact, getClientIp } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 // VALIDATION SCHEMA
 const contactSchema = z.object({
@@ -97,7 +99,6 @@ const getContactEmail = () => {
   return 'contact' + appEmail;
 };
 
-
 export async function submitContactForm(formData: FormData) {
 
   // HONEYPOT CHECK (anti-bot)
@@ -108,8 +109,49 @@ export async function submitContactForm(formData: FormData) {
   }
 
   // RATE LIMIT BY IP 
-  const headersList = await headers();
-  const ip = headersList.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
+  const headerList = await headers();
+
+  // Server Actions have built-in CSRF protection through Next.js origin validation.
+  // The framework automatically validates that requests come from the same origin.
+  // We enforce additional origin validation below for defense-in-depth.
+  
+  // Enforce origin validation for all requests
+  const origin = headerList.get("origin");
+  const host = headerList.get("host");
+  if (!origin || !host) {
+    return { error: "Invalid origin" };
+  }
+
+  try {
+    // Use .hostname (not .host) to exclude port and properly handle IPv6 addresses
+    const originHostname = new URL(origin).hostname.toLowerCase();
+    const headerHostname = new URL(`http://${host}`).hostname.toLowerCase();
+    
+    if (originHostname !== headerHostname) {
+      return { error: "Invalid origin" };
+    }
+  } catch {
+    return { error: "Invalid origin" };
+  }
+
+  const ip = getClientIp(headerList);
+  if (!ip) {
+    const relevantHeaders: Record<string, string | null> = {
+      "cf-connecting-ip": headerList.get("cf-connecting-ip"),
+      "x-real-ip": headerList.get("x-real-ip"),
+      "x-forwarded-for": headerList.get("x-forwarded-for"),
+    };
+    const safeHeaders = Object.fromEntries(
+      Object.entries(relevantHeaders).map(([k, v]) => [k, v ? redact("id", v) : null])
+    );
+    logger.error("Unable to determine client IP from headers in contact form", { headers: safeHeaders });
+    Sentry.captureMessage("Unable to determine client IP from headers in contact form", {
+      level: "warning",
+      extra: { headers: safeHeaders },
+    });
+    return { error: "Unable to determine client IP" };
+  }
+
   const { success } = await syncRateLimiter.limit(`contact:${ip}`);
   
   if (!success) {
@@ -277,7 +319,7 @@ export async function submitContactForm(formData: FormData) {
       Sentry.captureException(confirmationError, {
         level: "warning",
         tags: { type: "email_confirmation_failed", location: "contact_form" },
-        extra: { email }
+        extra: { email: redact("email", email), insertedId: insertedId }
       });
     }
 
@@ -290,7 +332,7 @@ export async function submitContactForm(formData: FormData) {
     Sentry.captureException(error, {
         tags: { type: "contact_form_failure", location: "contact_form" },
         extra: { 
-            email, 
+            email: redact("email", email),
             has_inserted_db: !!insertedId,
             user_ip_truncated: ip.split('.').slice(0,3).join('.') + '.0',
         }
@@ -313,7 +355,7 @@ export async function submitContactForm(formData: FormData) {
              extra: { insertedId }
         });
       } else {
-        console.log("Rollback successful.");
+        logger.dev("Rollback successful.");
       }
     }
 

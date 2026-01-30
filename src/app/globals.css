@@ -70,7 +70,7 @@
   --destructive: oklch(0.60 0.25 15);
   --destructive-foreground: oklch(0.98 0 0);
 
-  --border: oklch(0.30 0.05 285);
+  --border: oklch(0.24 0.04 285);
   --input: oklch(0.25 0.05 285);
   --ring: oklch(0.65 0.22 280);
 
@@ -216,7 +216,7 @@ select:focus-visible {
   }
 
   .custom-container {
-    @apply bg-card/40 border-white/10 border-2 backdrop-blur-xl shadow-xl text-sm font-medium rounded-[12px];
+    @apply bg-card/95 border-white/10 border-2 text-sm font-medium rounded-[12px];
   }
 }
 
@@ -225,4 +225,22 @@ select:focus-visible {
     @apply flex flex-col items-center justify-center;
     @apply gap-3;
   }
+}
+
+/* Page blur effect during route transitions */
+body {
+  transition: backdrop-filter 0.2s ease;
+}
+
+body:has(#nprogress) {
+  backdrop-filter: blur(4px);
+}
+
+body:has(#nprogress) > * {
+  filter: blur(3px);
+  transition: filter 0.2s ease;
+}
+
+body:has(#nprogress) #nprogress {
+  filter: none;
 }

@@ -1,5 +1,6 @@
 // src/lib/redis.ts
 import { Redis } from '@upstash/redis';
+import { logger } from '@/lib/logger';
 
 /**
  * Creates a Redis client with validated environment variables
@@ -50,7 +51,7 @@ export function getRedis(): Redis {
     redisInstance = createRedisClient();
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('[Redis] Client initialized successfully');
+      logger.dev('[Redis] Client initialized successfully');
     }
   }
   

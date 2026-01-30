@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { submitContactForm } from "@/app/actions/contact";
 import Turnstile, { useTurnstile } from "react-turnstile";
 import { Loader2, Send, AlertCircle } from "lucide-react";
+import { logger } from "@/lib/logger";
 import * as Sentry from "@sentry/nextjs";
 
 interface ContactFormProps {
@@ -48,7 +49,7 @@ export function ContactForm({ userDetails }: ContactFormProps) {
             try {
                 formData.set("cf-turnstile-response", token);
             } catch (setError) {
-                console.error("Failed to set Turnstile token on FormData:", setError);
+                logger.error("Failed to set Turnstile token on FormData:", setError);
                 
                 Sentry.captureException(setError, {
                     tags: {
@@ -63,7 +64,7 @@ export function ContactForm({ userDetails }: ContactFormProps) {
             }
         } else {
             const noSetError = new Error("FormData.set is not available when submitting contact form.");
-            console.error(noSetError);
+            logger.error(noSetError);
             
             Sentry.captureException(noSetError, {
                 tags: {
@@ -90,7 +91,7 @@ export function ContactForm({ userDetails }: ContactFormProps) {
             setToken(""); 
         }
     } catch (error) {
-        console.error("Form Error:", error);
+        logger.error("Form Error:", error);
         toast.error("Something went wrong. Please try again.");
         
         // Capture Client-Side Submission Errors

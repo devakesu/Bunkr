@@ -1,6 +1,7 @@
 // src/lib/ratelimit.ts
 import { Ratelimit } from "@upstash/ratelimit";
 import { redis } from "@/lib/redis";
+import { logger } from "@/lib/logger";
 
 /**
  * Configurable rate limiter for different endpoints
@@ -34,8 +35,8 @@ if (AUTH_WINDOW < 1 || AUTH_WINDOW > 3600) {
 }
 // Log configuration in development
 if (process.env.NODE_ENV === 'development') {
-  console.log(`[Rate Limit] ${RATE_LIMIT_REQUESTS} requests per ${RATE_LIMIT_WINDOW}s`);
-  console.log(`[Auth Rate Limit] ${AUTH_LIMIT} requests per ${AUTH_WINDOW}s`);
+  logger.dev(`[Rate Limit] ${RATE_LIMIT_REQUESTS} requests per ${RATE_LIMIT_WINDOW}s`);
+  logger.dev(`[Auth Rate Limit] ${AUTH_LIMIT} requests per ${AUTH_WINDOW}s`);
 }
 
 // Create rate limiter instances once at module load time

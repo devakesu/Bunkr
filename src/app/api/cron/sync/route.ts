@@ -6,11 +6,12 @@ import { NextResponse } from "next/server";
 import { decrypt } from "@/lib/crypto";
 import { headers } from "next/headers";
 import { syncRateLimiter } from "@/lib/ratelimit";
-import { toRoman, normalizeSession } from "@/lib/utils"; 
+import { toRoman, normalizeSession, redact } from "@/lib/utils"; 
 import { Course } from "@/types";
 import { sendEmail } from "@/lib/email";
 import { renderAttendanceConflictEmail, renderCourseMismatchEmail } from "@/lib/email-templates";
 import { z } from "zod";
+import { logger } from "@/lib/logger";
 
 export const dynamic = 'force-dynamic';
 
@@ -87,8 +88,43 @@ export async function GET(req: Request) {
 
   // 1. Rate Limit
   const headerList = await headers();
-  const forwardedFor = headerList.get("x-forwarded-for");
-  const ip = (forwardedFor?.split(",")[0] || "127.0.0.1").trim();
+
+  // Note: This cron endpoint is typically called by non-browser automation (e.g. Vercel Cron, GitHub Actions),
+  // so we do not depend on Origin-based validation here. Authentication is handled via CRON_SECRET below.
+
+  const trustedIpHeader = headerList.get("cf-connecting-ip") ?? headerList.get("x-real-ip");
+  const ip = trustedIpHeader?.trim() || null;
+  
+  if (!ip) {
+    if (process.env.NODE_ENV === "development") {
+      // In development, fail fast if we cannot determine the client IP.
+      // This avoids masking misconfigurations and ensures IP extraction is exercised before production.
+      // Redact IP values to avoid leaking IPs if dev logs are aggregated or NODE_ENV is misconfigured.
+      const cfIp = headerList.get("cf-connecting-ip");
+      const realIp = headerList.get("x-real-ip");
+      logger.warn("Unable to determine client IP in development; failing request to expose configuration issue", {
+        headers: {
+          "cf-connecting-ip": cfIp ? redact("id", cfIp) : null,
+          "x-real-ip": realIp ? redact("id", realIp) : null,
+        },
+      });
+      return NextResponse.json(
+        { error: "Development configuration error: unable to determine client IP address" },
+        { status: 500 },
+      );
+    } else {
+      // In production, reject requests without a determinable IP to prevent rate limiting bypass
+      // Log header presence (boolean) rather than values to avoid IP leakage
+      logger.error("Unable to determine client IP for cron request", {
+        headers: {
+          "cf-connecting-ip": headerList.has("cf-connecting-ip"),
+          "x-real-ip": headerList.has("x-real-ip"),
+        },
+      });
+      return NextResponse.json({ error: "Unable to determine client IP address" }, { status: 400 });
+    }
+  }
+  
   const { success, reset } = await syncRateLimiter.limit(ip);
 
   if (!success) {
@@ -232,7 +268,7 @@ export async function GET(req: Request) {
                                     notifications.push({
                                         auth_user_id: user.auth_id,
                                         title: "Course Mismatch 💀",
-                                        description: `Removed ${coursesMap[String(item.course)]?.name}. Official: ${official.course_name}`,
+                                        description: `${item.date} (${item.session}): Removed ${coursesMap[String(item.course)]?.name}. Official: ${official.course_name}`,
                                         topic: `conflict-course-${key}`
                                     });
 
@@ -266,7 +302,7 @@ export async function GET(req: Request) {
                                     notifications.push({
                                         auth_user_id: user.auth_id,
                                         title: "Attendance Updated 🥳",
-                                        description: `Official record is Present. Manual entry removed.`,
+                                        description: `${official.course_name} - ${item.date} (${item.session}): Official record is Present. Manual entry removed.`,
                                         topic: `sync-surprise-${key}`
                                     });
                                 }
@@ -276,7 +312,7 @@ export async function GET(req: Request) {
                                 notifications.push({
                                     auth_user_id: user.auth_id,
                                     title: "Attendance Conflict 💀",
-                                    description: `Mismatch! You marked Present, Official says Absent.`,
+                                    description: `${official.course_name} - ${item.date} (${item.session}): You marked Present, Official says Absent.`,
                                     topic: `conflict-${key}`
                                 });
                                 
@@ -325,9 +361,8 @@ export async function GET(req: Request) {
                 // CAPTURE INDIVIDUAL USER FAILURES
                 Sentry.captureException(err, {
                     tags: { type: "sync_user_failure", location: "cron/sync" },
-                    extra: { 
-                        username: user.username,
-                        user_id: user.auth_id
+                    extra: {
+                        user_id: redact("id", user.auth_id)
                     }
                 });
                 

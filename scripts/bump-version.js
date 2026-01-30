@@ -1,6 +1,3 @@
- 
- 
-
 const fs = require('fs');
 const { execSync } = require('child_process');
 const path = require('path');
@@ -17,7 +14,7 @@ try {
   let branchName = 'unknown';
   try {
     branchName = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
-  } catch (e) {
+  } catch (_err) {
     console.error(`${RED}❌ Failed to get git branch. Are you in a git repo?${RESET}`);
     process.exit(1);
   }
@@ -39,7 +36,7 @@ try {
   try {
     execSync(`npm version ${newVersion} --no-git-tag-version --allow-same-version`, { stdio: 'ignore' });
     console.log(`${GREEN}   ✔ Updated package.json & package-lock.json${RESET}`);
-  } catch (e) {
+  } catch (_err) {
     console.error(`${RED}   ❌ Failed to update package.json. Is the JSON valid?${RESET}`);
     process.exit(1);
   }
@@ -74,7 +71,7 @@ try {
 
   console.log(`\n${GREEN}✅ Successfully bumped all files to v${newVersion}.${RESET}\n`);
 
-} catch (e) {
-  console.error(`\n${RED}❌ Script failed: ${e.message}${RESET}`);
+} catch (_err) {
+  console.error(`\n${RED}❌ Script failed: ${_err.message}${RESET}`);
   process.exit(1);
 }

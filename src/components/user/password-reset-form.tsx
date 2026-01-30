@@ -11,8 +11,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 import { Eye, EyeOff, Mail, Phone, User } from "lucide-react";
 
-import axios from "@/lib/axios";
-import { setToken } from "@/lib/auth";
+import ezygoClient from "@/lib/axios";
+import axios from "axios";
+import { ensureCsrfToken } from "@/lib/axios";
+import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 
 import { motion } from "framer-motion";
 
@@ -75,7 +77,7 @@ export function PasswordResetForm({
     setError(null);
 
     try {
-      const lookupResponse = await axios.post("/login/lookup", {
+      const lookupResponse = await ezygoClient.post("/login/lookup", {
         username: username,
       });
 
@@ -83,7 +85,7 @@ export function PasswordResetForm({
         const usernameToUse = lookupResponse.data.users[0];
         setActualUsername(usernameToUse);
 
-        const response = await axios.post("/password/reset/options", {
+        const response = await ezygoClient.post("/password/reset/options", {
           username: usernameToUse,
         });
         setResetOptions(response.data);
@@ -105,13 +107,13 @@ export function PasswordResetForm({
     setError(null);
 
     try {
-      await axios.post("/password/reset/request", {
+      await ezygoClient.post("/password/reset/request", {
         username: actualUsername,
         option: selectedOption,
       });
       setStep("otp");
     } catch (error: any) {
-      setError(`Ezygo: ${error.response?.data?.message || "Failed to fetch reset options."}`);
+      setError(`Ezygo: ${error.response?.data?.message || "Failed to request password reset."}`);
     } finally {
       setIsLoading(false);
     }
@@ -123,18 +125,27 @@ export function PasswordResetForm({
     setError(null);
 
     try {
-      const response = await axios.post("/password/reset", {
+      const response = await ezygoClient.post("/password/reset", {
         otp,
         username: actualUsername,
         password,
         password_confirmation: passwordConfirmation,
       });
       const token = response.data.access_token;
-      await axios.post("/api/auth/save-token", { token });
-      setToken(token);
+      
+      // Use plain axios for internal auth endpoint (not proxied through /api/backend/)
+      // Add CSRF token for the save-token call
+      const csrfToken = ensureCsrfToken();
+      await axios.post("/api/auth/save-token", 
+        { token },
+        {
+          headers: csrfToken ? { [CSRF_HEADER]: csrfToken } : {}
+        }
+      );
+      
       router.push("/dashboard");
     } catch (error: any) {
-      setError(`Ezygo: ${error.response?.data?.message || "Failed to fetch reset options."}`);
+      setError(`Ezygo: ${error.response?.data?.message || "Failed to complete login after password reset."}`);
     } finally {
       setIsLoading(false);
     }

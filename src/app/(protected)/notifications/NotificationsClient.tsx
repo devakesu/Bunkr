@@ -8,13 +8,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import * as Sentry from "@sentry/nextjs";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { 
   CheckCheck, BellOff, Loader2, RefreshCcw, 
   AlertTriangle, Info, CalendarClock, AlertCircle 
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, redact } from "@/lib/utils";
 import { Loading } from "@/components/loading";
 
 const getNotificationIcon = (topic?: string) => {
@@ -194,7 +195,7 @@ export default function NotificationsPage() {
 
     // Check if sync already ran for THIS mount
     if (lastSyncMountId.current === mountId.current) {
-      console.log('[Notifications] Sync already completed for this mount, skipping');
+      logger.dev('[Notifications] Sync already completed for this mount, skipping');
       setIsSyncing(false);
       setSyncCompleted(true);
       return;
@@ -204,7 +205,7 @@ export default function NotificationsPage() {
     let isCleanedUp = false;
 
     const syncNotifications = async () => {
-      console.log('[Notifications] Starting sync for mount:', mountId.current);
+      logger.dev('[Notifications] Starting sync for mount:', mountId.current);
       setIsSyncing(true);
       setSyncCompleted(false);
 
@@ -228,7 +229,7 @@ export default function NotificationsPage() {
           Sentry.captureMessage("Partial sync failure in notifications", {
             level: "warning",
             tags: { type: "notification_partial_sync", location: "NotificationsClient/useEffect/syncNotifications" },
-            extra: { username: user.username, response: data }
+            extra: { userId: redact("id", String(user?.id)), response: data }
           });
           
           // Still invalidate queries as partial sync may have updated some records
@@ -243,7 +244,7 @@ export default function NotificationsPage() {
         }
       } catch (error: any) {
         if (error.name === 'AbortError') {
-          console.log('[Notifications] Sync request aborted');
+          logger.dev('[Notifications] Sync request aborted');
           return;
         }
         
@@ -252,11 +253,11 @@ export default function NotificationsPage() {
         }
         Sentry.captureException(error, {
           tags: { type: "notification_sync", location: "NotificationsClient/useEffect/syncNotifications" },
-          extra: { username: user.username }
+          extra: { userId: redact("id", String(user?.id)) }
         });
       } finally {
         if (!isCleanedUp) {
-          console.log('[Notifications] Sync completed for mount:', mountId.current);
+          logger.dev('[Notifications] Sync completed for mount:', mountId.current);
           lastSyncMountId.current = mountId.current;
           setIsSyncing(false);
           setSyncCompleted(true);
@@ -271,7 +272,7 @@ export default function NotificationsPage() {
       isCleanedUp = true;
       abortController.abort();
     };
-  }, [user?.username, queryClient]);
+  }, [user?.id, user?.username, queryClient]);
 
   // Reset mountId on true navigation
   useEffect(() => {
@@ -302,12 +303,12 @@ export default function NotificationsPage() {
           toast.error("Could not update notification");
           Sentry.captureException(error, {
               tags: { type: "mark_notification_read", location: "NotificationsClient/handleMarkRead" },
-              extra: { notification_id: id, action: "mark_read" } 
+              extra: { notification_id: id, action: "mark_read", userId: redact("id", String(user?.id)) }
           });
       } finally { 
           setReadingId(null); 
       }
-  }, [markAsRead, readingId, rowVirtualizer]);
+  }, [markAsRead, readingId, rowVirtualizer, user?.id]);
 
   // Wait for both data loading AND sync completion
   if (isLoading || isSyncing || !syncCompleted) return <Loading />;

@@ -4,18 +4,28 @@ import { Manrope, DM_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import Script from "next/script";
 import NextTopLoader from "nextjs-toploader";
+import { headers } from "next/headers";
 import "./globals.css";
 import { GlobalInit } from "@/lib/global-init";
 
+const metadataBaseUrl = (() => {
+  try {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    return appUrl ? new URL(appUrl) : new URL("http://localhost:3000");
+  } catch {
+    return new URL("http://localhost:3000");
+  }
+})();
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || ''),
+  metadataBase: metadataBaseUrl,
   title: {
     default: "GhostClass | Smart Attendance Tracker",
     template: "%s | GhostClass",
   },
   description: "GhostClass — Survive Attendance!",
   keywords:
-    "GhostClass, bunk college, bunk, college attendance, skip lectures, 75% attendance, bunkr, bunk letures, Bunkr attendance calculator, skip class calculator for college, Bunkr Ezygo alternative, optimize college attendance percentage, Bunkr smart skip strategy, minimum attendance calculator for students, Bunkr class absence planner, how many classes can I skip Bunkr, attendance percentage tracker app, Bunkr vs Ezygo comparison, automate student attendance tracking, Bunkr attendance predictor, avoid attendance shortage Bunkr, college attendance skip allowance, Bunkr attendance optimizer, student absence management app, calculate class skip limit Bunkr, Bunkr attendance analytics dashboard, best app to skip college classes, Bunkr digital roll call system, attendance risk calculator for students",
+    "GhostClass, bunk college, bunk, college attendance, skip lectures, 75% attendance, bunkr, bunk lectures, Bunkr attendance calculator, skip class calculator for college, Bunkr Ezygo alternative, optimize college attendance percentage, Bunkr smart skip strategy, minimum attendance calculator for students, Bunkr class absence planner, how many classes can I skip Bunkr, attendance percentage tracker app, Bunkr vs Ezygo comparison, automate student attendance tracking, Bunkr attendance predictor, avoid attendance shortage Bunkr, college attendance skip allowance, Bunkr attendance optimizer, student absence management app, calculate class skip limit Bunkr, Bunkr attendance analytics dashboard, best app to skip college classes, Bunkr digital roll call system, attendance risk calculator for students",
   creator: "@deva.kesu",
   openGraph: {
     title: "GhostClass | Smart Attendance Tracker",
@@ -54,11 +64,13 @@ const dmMono = DM_Mono({
 });
 
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headerList = await headers();
+  const nonce = headerList.get("x-nonce") ?? undefined;
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
   const hasGoogleAnalytics = !!gaId && gaId !== 'undefined' && gaId.startsWith('G-');
 
@@ -89,13 +101,14 @@ export default function RootLayout({
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
               strategy="afterInteractive"
+              nonce={nonce}
             />
-            <Script id="google-analytics" strategy="afterInteractive">
+            <Script id="google-analytics" strategy="afterInteractive" nonce={nonce}>
               {`
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
-                gtag('config', '${gaId}');
+                gtag('config', '${gaId}', { anonymize_ip: true });
               `}
             </Script>
           </>
@@ -111,7 +124,7 @@ export default function RootLayout({
             showSpinner={false}
             easing="ease"
             speed={200}
-            shadow="0 0 10px #a855f7,0 0 5px #a855f7"
+            shadow={false}
             zIndex={99999}
           />
           <GlobalInit />
