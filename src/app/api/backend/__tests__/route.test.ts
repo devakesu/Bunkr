@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vite
 import { NextRequest } from 'next/server';
 
 // Set up environment before any imports
+// Note: NEXT_PUBLIC_APP_DOMAIN is already set to 'localhost' in vitest.setup.ts
+// and the route module caches allowed hosts on first import, so we use 'localhost' here
 beforeAll(() => {
-  vi.stubEnv('NEXT_PUBLIC_APP_DOMAIN', 'app.example.com');
   vi.stubEnv('NEXT_PUBLIC_BACKEND_URL', 'https://api.example.com');
 });
 
@@ -46,7 +47,7 @@ describe('Backend Proxy Route', () => {
       const request = new NextRequest('http://localhost:3000/api/backend/users', {
         method: 'POST',
         headers: {
-          origin: 'http://app.example.com',
+          origin: 'http://localhost',
         },
       });
 
@@ -70,7 +71,7 @@ describe('Backend Proxy Route', () => {
       const request = new NextRequest('http://localhost:3000/api/backend/users', {
         method: 'POST',
         headers: {
-          origin: 'http://app.example.com',
+          origin: 'http://localhost',
           'content-type': 'application/json',
         },
         body: JSON.stringify({ name: 'Test' }),
@@ -107,7 +108,7 @@ describe('Backend Proxy Route', () => {
       const request = new NextRequest('http://localhost:3000/api/backend/users/1', {
         method: 'PUT',
         headers: {
-          origin: 'http://app.example.com',
+          origin: 'http://localhost',
         },
       });
 
@@ -124,7 +125,7 @@ describe('Backend Proxy Route', () => {
       const request = new NextRequest('http://localhost:3000/api/backend/users/1', {
         method: 'PATCH',
         headers: {
-          origin: 'http://app.example.com',
+          origin: 'http://localhost',
         },
       });
 
@@ -141,7 +142,7 @@ describe('Backend Proxy Route', () => {
       const request = new NextRequest('http://localhost:3000/api/backend/users/1', {
         method: 'DELETE',
         headers: {
-          origin: 'http://app.example.com',
+          origin: 'http://localhost',
         },
       });
 
@@ -192,7 +193,7 @@ describe('Backend Proxy Route', () => {
       const request = new NextRequest('http://localhost:3000/api/backend/users', {
         method: 'POST',
         headers: {
-          origin: 'http://app.example.com',
+          origin: 'http://localhost',
           'content-type': 'application/json',
         },
         body: JSON.stringify({ name: 'Test' }),
