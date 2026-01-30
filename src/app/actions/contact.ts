@@ -10,6 +10,7 @@ import { headers } from "next/headers";
 import { syncRateLimiter } from "@/lib/ratelimit";
 import { redact, getClientIp } from "@/lib/utils";
 import { logger } from "@/lib/logger";
+import { validateCsrfToken } from "@/lib/security/csrf";
 
 // VALIDATION SCHEMA
 const contactSchema = z.object({
@@ -35,6 +36,10 @@ const contactSchema = z.object({
   
   token: z.string()
     .min(20, "Invalid CAPTCHA token"),
+  
+  csrf_token: z.string()
+    .min(1, "Missing CSRF token")
+    .optional(),
 });
 
 // Sanitize HTML to prevent injection attacks while preserving safe formatting
@@ -91,6 +96,18 @@ const FOOTER_STYLE = `
   color: #6b7280;
 `;
 
+/**
+ * Gets the contact email address from environment variable.
+ * Formats it with 'contact' prefix for contact form submissions.
+ * 
+ * @returns Contact email address
+ * @throws {Error} If NEXT_PUBLIC_APP_EMAIL is not configured
+ * 
+ * @example
+ * ```ts
+ * const email = getContactEmail(); // Returns 'contact@example.com'
+ * ```
+ */
 const getContactEmail = () => {
   const appEmail = process.env.NEXT_PUBLIC_APP_EMAIL;
   if (!appEmail) {
@@ -99,6 +116,40 @@ const getContactEmail = () => {
   return 'contact' + appEmail;
 };
 
+/**
+ * Server action for processing contact form submissions with comprehensive security.
+ * Implements honeypot, rate limiting, CSRF protection, CAPTCHA verification, and origin validation.
+ * 
+ * @param formData - Form data containing contact information and security tokens
+ * @returns Success/error response with status message
+ * 
+ * Security Features:
+ * - Honeypot field for bot detection
+ * - IP-based rate limiting
+ * - CSRF token validation
+ * - Origin header validation
+ * - Cloudflare Turnstile CAPTCHA
+ * - Input sanitization and validation (Zod schema)
+ * 
+ * Process:
+ * 1. Honeypot check
+ * 2. CSRF validation
+ * 3. Origin validation
+ * 4. IP extraction and rate limiting
+ * 5. Input validation (name, email, message)
+ * 6. CAPTCHA verification
+ * 7. Check for spam patterns
+ * 8. Upsert user in database
+ * 9. Send email notifications
+ * 
+ * @example
+ * ```ts
+ * const result = await submitContactForm(formData);
+ * if (result.error) {
+ *   console.error(result.error);
+ * }
+ * ```
+ */
 export async function submitContactForm(formData: FormData) {
 
   // HONEYPOT CHECK (anti-bot)
@@ -110,6 +161,15 @@ export async function submitContactForm(formData: FormData) {
 
   // RATE LIMIT BY IP 
   const headerList = await headers();
+
+  // CSRF PROTECTION
+  // Validate CSRF token from FormData against cookie
+  const csrfToken = formData.get("csrf_token") as string | null;
+  const csrfValid = await validateCsrfToken(csrfToken);
+  if (!csrfValid) {
+    logger.warn("Invalid CSRF token in contact form submission");
+    return { error: "Invalid security token. Please refresh and try again." };
+  }
 
   // Server Actions have built-in CSRF protection through Next.js origin validation.
   // The framework automatically validates that requests come from the same origin.
@@ -164,6 +224,7 @@ export async function submitContactForm(formData: FormData) {
     subject: formData.get("subject"),
     message: formData.get("message"),
     token: formData.get("cf-turnstile-response"),
+    csrf_token: formData.get("csrf_token"),
   };
 
   // 1. Validate Input

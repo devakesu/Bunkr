@@ -37,12 +37,21 @@ const isPresent = (code: number) => [110, 225, 112].includes(Number(code));
 
 const normalize = (s: string | undefined) => s?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
 
+/**
+ * Props for AttendanceChart component.
+ */
 interface AttendanceChartProps {
+  /** Attendance report data */
   attendanceData?: AttendanceReport;
+  /** User tracking records */
   trackingData?: TrackAttendance[];
+  /** Available courses data */
   coursesData?: { courses: Record<string, Course> };
 }
 
+/**
+ * Props for custom bar shape in chart.
+ */
 interface BarShapeProps {
   x: number;
   y: number;
@@ -55,6 +64,9 @@ interface BarShapeProps {
   };
 }
 
+/**
+ * Props for chart label rendering.
+ */
 interface LabelProps {
   viewBox?: {
     width?: number;
@@ -68,7 +80,13 @@ interface LabelProps {
   [key: string]: unknown;
 }
 
-// --- SHAPES ---
+/**
+ * Custom bar shape component with hatched pattern for visual distinction.
+ * Renders rounded-top bars with fill and stroke.
+ * 
+ * @param props - Bar shape properties (position, size, colors)
+ * @returns SVG path element for hatched bar
+ */
 const HatchedBarShape = (props: BarShapeProps) => {
   const { x, y, width, height, fill = '#000', stroke = '#000' } = props;
   const radius = 4;

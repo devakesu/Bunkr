@@ -70,7 +70,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const headerList = await headers();
-  const nonce = headerList.get("x-nonce") ?? undefined;
+  const nonce = headerList.get("x-nonce");
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
   const hasGoogleAnalytics = !!gaId && gaId !== 'undefined' && gaId.startsWith('G-');
 
@@ -101,9 +101,9 @@ export default async function RootLayout({
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
               strategy="afterInteractive"
-              nonce={nonce}
+              nonce={nonce ?? undefined}
             />
-            <Script id="google-analytics" strategy="afterInteractive" nonce={nonce}>
+            <Script id="google-analytics" strategy="afterInteractive" nonce={nonce ?? undefined}>
               {`
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}

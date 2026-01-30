@@ -3,6 +3,28 @@ import { redact } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import * as Sentry from "@sentry/nextjs";
 
+/**
+ * Uploads user avatar to Supabase storage and updates user profile.
+ * Handles authentication, file upload, URL generation, and database update.
+ * Automatically cleans up storage on failure.
+ * 
+ * @param file - Avatar image file to upload
+ * @returns Promise resolving to public URL of uploaded avatar
+ * @throws {Error} If user not authenticated or upload fails
+ * 
+ * Process:
+ * 1. Authenticate user
+ * 2. Upload file to Supabase storage (avatars bucket)
+ * 3. Generate public URL
+ * 4. Update user profile with new avatar URL
+ * 5. Cleanup on failure
+ * 
+ * @example
+ * ```ts
+ * const avatarUrl = await uploadUserAvatar(imageFile);
+ * console.log('New avatar URL:', avatarUrl);
+ * ```
+ */
 export async function uploadUserAvatar(file: File) {
   const supabase = createClient();
   

@@ -4,18 +4,32 @@ import * as Sentry from "@sentry/nextjs";
 import { redact } from "./utils";
 import { logger } from "./logger";
 
-// Types
+/**
+ * Email sending configuration parameters.
+ */
 interface SendEmailProps {
+  /** Recipient email address */
   to: string;
+  /** Email subject line */
   subject: string;
+  /** HTML email body */
   html: string;
+  /** Plain text fallback (optional) */
   text?: string;
 }
 
+/**
+ * Result of an email provider send attempt.
+ * Used for failover logic and error tracking.
+ */
 interface ProviderResult {
+  /** Whether the email was successfully sent */
   success: boolean;
+  /** Email provider that handled the request */
   provider: "Brevo" | "SendPulse";
+  /** Message ID from provider (if successful) */
   id?: string;
+  /** Error message or object (if failed) */
   error?: string | Error;
 }
 
@@ -25,6 +39,13 @@ const hasSendPulse = !!(
   process.env.SENDPULSE_CLIENT_SECRET
 );
 
+/**
+ * Gets the sender email address from environment configuration.
+ * Formats with 'admin' prefix for system emails.
+ * 
+ * @returns Formatted sender email address
+ * @throws {Error} If NEXT_PUBLIC_APP_EMAIL is not configured
+ */
 const getSenderEmail = () => {
   const appEmail = process.env.NEXT_PUBLIC_APP_EMAIL;
   if (!appEmail) {
@@ -54,7 +75,11 @@ const CONFIG = {
 };
 
 /**
- * SendPulse Adapter
+ * Obtains OAuth access token from SendPulse API.
+ * Required for authenticating email send requests.
+ * 
+ * @returns Access token string
+ * @throws {Error} If SendPulse credentials not configured or auth fails
  */
 async function getSendPulseToken() {
   if (!hasSendPulse) throw new Error("SendPulse credentials not configured");
@@ -72,6 +97,14 @@ async function getSendPulseToken() {
   }
 }
 
+/**
+ * Sends email via SendPulse provider.
+ * Handles authentication and API communication.
+ * 
+ * @param params - Email parameters (to, subject, html, text)
+ * @returns Provider result with success status and details
+ * @throws {Error} If SendPulse not configured
+ */
 async function sendViaSendPulse({ to, subject, html, text }: SendEmailProps): Promise<ProviderResult> {
   if (!hasSendPulse) throw new Error("SendPulse not configured");
 

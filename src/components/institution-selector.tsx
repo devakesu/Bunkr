@@ -20,6 +20,24 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 
+/**
+ * Institution selector component for managing user's default institution.
+ * Displays enrolled institutions with radio selection and optimistic UI updates.
+ * Handles loading states and empty states gracefully.
+ * 
+ * @returns Interactive institution selection card with animations
+ * 
+ * Features:
+ * - Radio button selection for institutions
+ * - Optimistic UI updates with rollback on error
+ * - Loading and empty state handling
+ * - Animated transitions
+ * 
+ * @example
+ * ```tsx
+ * <InstitutionSelector />
+ * ```
+ */
 export function InstitutionSelector() {
   const { data: institutions, isLoading } = useInstitutions();
   const { data: defaultInstitutionUser } = useDefaultInstitutionUser();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,7 @@ import Turnstile, { useTurnstile } from "react-turnstile";
 import { Loader2, Send, AlertCircle } from "lucide-react";
 import { logger } from "@/lib/logger";
 import * as Sentry from "@sentry/nextjs";
+import { ensureCsrfToken } from "@/lib/axios";
 
 interface ContactFormProps {
   userDetails?: {
@@ -19,6 +20,19 @@ interface ContactFormProps {
   };
 }
 
+/**
+ * Contact form component with Cloudflare Turnstile CAPTCHA and CSRF protection.
+ * Handles form submission with rate limiting and security validations.
+ * Pre-fills user details if authenticated.
+ * 
+ * @param userDetails - Optional pre-filled user information
+ * @returns Secure contact form with CAPTCHA
+ * 
+ * @example
+ * ```tsx
+ * <ContactForm userDetails={{ name: "John Doe", email: "john@example.com" }} />
+ * ```
+ */
 export function ContactForm({ userDetails }: ContactFormProps) {
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string>("");
@@ -26,6 +40,21 @@ export function ContactForm({ userDetails }: ContactFormProps) {
   
   const formRef = useRef<HTMLFormElement>(null);
   const turnstile = useTurnstile();
+
+  // Initialize CSRF token on component mount
+  useEffect(() => {
+    const initCsrf = async () => {
+      try {
+        // Call the /api/csrf/init endpoint to initialize the CSRF token cookie
+        await fetch("/api/csrf/init");
+        // Token is now set in cookie and can be read by ensureCsrfToken()
+      } catch (error) {
+        // Log error but don't block the form - the token will be checked on submission
+        logger.error("Failed to initialize CSRF token:", error);
+      }
+    };
+    initCsrf();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); 
@@ -76,6 +105,12 @@ export function ContactForm({ userDetails }: ContactFormProps) {
             toast.error("Something went wrong with the security check. Please try again.");
             setLoading(false);
             return;
+        }
+
+        // Add CSRF token to FormData
+        const csrfToken = ensureCsrfToken();
+        if (csrfToken) {
+            formData.set("csrf_token", csrfToken);
         }
 
         const result = await submitContactForm(formData);

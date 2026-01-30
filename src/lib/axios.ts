@@ -13,12 +13,28 @@ const axiosInstance = axios.create({
   timeout: 10000,
 });
 
+/**
+ * Retrieves a cookie value by name from document.cookie.
+ * Client-side only - returns null on server.
+ * 
+ * @param name - Cookie name to retrieve
+ * @returns Cookie value or null if not found
+ */
 export function getCookie(name: string) {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp(`${name}=([^;]+)`));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+/**
+ * Reads the CSRF token from cookies without generating a new one.
+ * Used for double-submit cookie pattern in client-side requests.
+ * 
+ * IMPORTANT: This function only reads - never generates tokens client-side.
+ * Token must be initialized server-side through /api/csrf/init endpoint.
+ * 
+ * @returns CSRF token from cookie or null if not present
+ */
 export function ensureCsrfToken(): string | null {
   if (typeof document === "undefined") return null;
   // Only read existing token - never generate client-side

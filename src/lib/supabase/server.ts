@@ -2,6 +2,24 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import * as Sentry from "@sentry/nextjs";
 
+/**
+ * Creates a Supabase server client with cookie-based session management.
+ * For use in Server Components, Server Actions, and Route Handlers.
+ * 
+ * Features:
+ * - Automatic cookie handling for session persistence
+ * - Environment variable validation with Sentry reporting
+ * - Graceful handling of Server Component cookie writes
+ * 
+ * @returns Configured Supabase server client
+ * @throws {Error} If Supabase environment variables are missing
+ * 
+ * @example
+ * ```ts
+ * const supabase = await createClient();
+ * const { data } = await supabase.from('users').select();
+ * ```
+ */
 export async function createClient() {
   const cookieStore = await cookies();
   

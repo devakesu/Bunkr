@@ -20,6 +20,25 @@ interface FetchResponse {
   nextPage: number | null;
 }
 
+/**
+ * React Query hook for fetching user notifications with action-based prioritization.
+ * Separates urgent conflict notifications from general feed.
+ * Implements infinite scroll pagination for the general feed.
+ * 
+ * @param enabled - Whether queries should run (default: true)
+ * @returns Object containing action notifications, paginated feed, and utility functions
+ * 
+ * Features:
+ * - Priority query for unread conflicts (auto-refresh every 30s)
+ * - Infinite scroll pagination for general feed (15 items per page)
+ * - Mark as read functionality with optimistic updates
+ * - Automatic cache invalidation
+ * 
+ * @example
+ * ```tsx
+ * const { actionNotifications, allNotifications, markAsRead } = useNotifications();
+ * ```
+ */
 export function useNotifications(enabled = true) {
   const supabase = createClient();
   const queryClient = useQueryClient();

@@ -63,6 +63,26 @@ interface ExtendedAttendanceEvent extends AttendanceEvent {
 
 const getNormalizedSession = (s: string | number) => parseInt(normalizeSession(s), 10) || 0;
 
+/**
+ * Interactive attendance calendar component for viewing and managing attendance records.
+ * Displays monthly view with color-coded attendance events, filtering, and record management.
+ * 
+ * @param attendanceData - Attendance report data containing courses, sessions, and records
+ * @returns Calendar view with attendance events and management features
+ * 
+ * Features:
+ * - Monthly calendar view with navigation
+ * - Color-coded attendance status (present, absent, on-duty)
+ * - Filter by course or status
+ * - Add/delete attendance records
+ * - Automatic sync with tracking data
+ * - Optimistic UI updates
+ * 
+ * @example
+ * ```tsx
+ * <AttendanceCalendar attendanceData={reportData} />
+ * ```
+ */
 export function AttendanceCalendar({
   attendanceData,
 }: AttendanceCalendarProps) {

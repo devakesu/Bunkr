@@ -6,25 +6,51 @@ import { twMerge } from "tailwind-merge";
 import crypto from "crypto";
 import { logger } from "./logger";
 
+/**
+ * Combines and merges Tailwind CSS classes with proper precedence handling.
+ * Uses clsx for conditional class handling and tailwind-merge to resolve conflicts.
+ * 
+ * @param inputs - Class values to merge (strings, arrays, objects, etc.)
+ * @returns Merged class string with resolved Tailwind conflicts
+ * @example
+ * ```ts
+ * cn('px-2 py-1', 'px-4') // Returns 'py-1 px-4' (px-4 overrides px-2)
+ * cn('text-red-500', { 'text-blue-500': isActive }) // Conditionally applies classes
+ * ```
+ */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 /**
- * Initialize SENTRY_HASH_SALT at module load time to fail fast in production.
- * This prevents errors during error reporting and ensures the secret is validated
- * before the application starts processing requests.
+ * Lazy initialization of SENTRY_HASH_SALT to avoid validation during Next.js build.
+ * The secret is retrieved on first use (at runtime) rather than module load time.
+ * 
+ * LAZY EVALUATION RATIONALE:
+ * - Next.js build evaluates server code at compile time
+ * - Module-level validation would fail during build (SENTRY_HASH_SALT unavailable)
+ * - Lazy getter defers validation until actual runtime usage
+ * - Caches result after first access for performance
  * 
  * IMPORTANT: This module is also used in client bundles. In the browser,
  * non-NEXT_PUBLIC env vars like SENTRY_HASH_SALT are not available and
  * process.env.NODE_ENV is inlined as "production". To avoid breaking the
  * client runtime, we must not throw during module evaluation in the browser.
  */
-const SECRET = (() => {
+let SECRET: string | null = null;
+let secretWarningShown = false;
+
+function getSecret(): string {
+  // Return cached value if already initialized
+  if (SECRET !== null) {
+    return SECRET;
+  }
+
   const isBrowser = typeof window !== "undefined";
 
   if (process.env.SENTRY_HASH_SALT) {
-    return process.env.SENTRY_HASH_SALT;
+    SECRET = process.env.SENTRY_HASH_SALT;
+    return SECRET;
   }
 
   // Additional safety check: explicitly verify we're not in production before using fallback
@@ -38,19 +64,21 @@ const SECRET = (() => {
   if (process.env.NODE_ENV === "development" || isBrowser) {
     // Log warning in development server context (not browser) about using fallback salt
     // This helps developers understand that production logs will be different
-    if (!isBrowser && process.env.NODE_ENV === "development") {
+    if (!isBrowser && process.env.NODE_ENV === "development" && !secretWarningShown) {
       console.warn(
         "[SECURITY WARNING] Using fallback salt for redaction. " +
         "Set SENTRY_HASH_SALT environment variable for production-like hashing. " +
         "Development logs with this salt will produce different hashes than production logs."
       );
+      secretWarningShown = true;
     }
-    return "dev-salt-only";
+    SECRET = "dev-salt-only";
+    return SECRET;
   }
 
   // Final safety net: if we reach here, we're in an unexpected environment
   throw new Error("SENTRY_HASH_SALT is required in production");
-})();
+}
 
 /**
  * Redacts sensitive data (email, ID) for safe logging using deterministic hashing.
@@ -87,11 +115,25 @@ const SECRET = (() => {
  */
 export const redact = (type: "email" | "id", value: string) =>
   crypto
-    .createHmac("sha256", SECRET)
+    .createHmac("sha256", getSecret())
     .update(`${type}:${value}`)
     .digest("hex")
     .slice(0, 12);
 
+/**
+ * Converts a number to Roman numeral representation (1-12).
+ * Numbers outside this range are returned as-is.
+ * 
+ * @param num - Number or string to convert (1-12)
+ * @returns Roman numeral string (I-XII) or original value if out of range
+ * @example
+ * ```ts
+ * toRoman(1) // Returns "I"
+ * toRoman(3) // Returns "III"
+ * toRoman(12) // Returns "XII"
+ * toRoman(15) // Returns "15" (out of range)
+ * ```
+ */
 export const toRoman = (num: number | string): string => {
   const n = typeof num === 'string' ? parseInt(num, 10) : num;
   if (isNaN(n) || n < 1) return String(num);
@@ -100,8 +142,19 @@ export const toRoman = (num: number | string): string => {
 };
 
 /**
+ * Normalizes session identifiers to a standard format.
  * Converts various session inputs ("Session 1", "2nd Hour", "iii", "Lab")
  * into a standardized string number ("1", "2", "3") or upper case string ("LAB").
+ * 
+ * @param session - Session identifier in various formats
+ * @returns Normalized session string (numeric or uppercase)
+ * @example
+ * ```ts
+ * normalizeSession("Session 1") // Returns "1"
+ * normalizeSession("iii") // Returns "3"
+ * normalizeSession("2nd Hour") // Returns "2"
+ * normalizeSession("Lab") // Returns "LAB"
+ * ```
  */
 export const normalizeSession = (session: string | number): string => {
   let s = String(session).toLowerCase().trim();
@@ -129,7 +182,16 @@ export const normalizeSession = (session: string | number): string => {
 
 /**
  * Standardizes date to YYYYMMDD format.
- * Handles Date objects, ISO strings, and "DD-MM-YYYY".
+ * Handles Date objects, ISO strings, and "DD-MM-YYYY" formats.
+ * 
+ * @param date - Date in various formats (Date object, ISO string, DD-MM-YYYY)
+ * @returns Date string in YYYYMMDD format
+ * @example
+ * ```ts
+ * normalizeDate(new Date(2024, 0, 15)) // Returns "20240115"
+ * normalizeDate("2024-01-15T10:30:00Z") // Returns "20240115"
+ * normalizeDate("15-01-2024") // Returns "20240115"
+ * ```
  */
 export const normalizeDate = (date: string | Date): string => {
   if (!date) return "";
@@ -161,8 +223,18 @@ export const normalizeDate = (date: string | Date): string => {
 };
 
 /**
- * Generates the canonical key for maps and deduplication.
+ * Generates a canonical key for attendance slot identification and deduplication.
  * Format: {COURSEID}_{YYYYMMDD}_{SESSION_ROMAN_OR_UPPER}
+ * 
+ * @param courseId - Course identifier
+ * @param date - Date of the session
+ * @param session - Session identifier
+ * @returns Canonical slot key string
+ * @example
+ * ```ts
+ * generateSlotKey(101, "2024-01-15", 1) // Returns "101_20240115_I"
+ * generateSlotKey("CS101", new Date(2024, 0, 15), "iii") // Returns "CS101_20240115_III"
+ * ```
  */
 export const generateSlotKey = (courseId: string | number, date: string | Date, session: string | number) => {
   const cId = String(courseId).trim();
@@ -176,7 +248,19 @@ export const generateSlotKey = (courseId: string | number, date: string | Date, 
   return `${cId}_${d}_${finalSession}`;
 };
 
-// Format for Display (1st Hour, 2nd Hour)
+/**
+ * Formats session name for user-friendly display.
+ * Converts session identifiers to ordinal format (1st Hour, 2nd Hour, etc.).
+ * 
+ * @param sessionName - Raw session identifier
+ * @returns Formatted session name for display
+ * @example
+ * ```ts
+ * formatSessionName("i") // Returns "1st Hour"
+ * formatSessionName("2") // Returns "2nd Hour"
+ * formatSessionName("iii") // Returns "3rd Hour"
+ * ```
+ */
 export function formatSessionName(sessionName: string): string {
   if (!sessionName) return "";
   const clean = sessionName.toString().replace(/Session|Hour/gi, "").trim();
@@ -204,7 +288,20 @@ export function formatSessionName(sessionName: string): string {
   return sessionName.toLowerCase().includes("session") ? sessionName : `Session ${sessionName}`;
 }
 
-// Get Sortable Number (1, 2, 3)
+/**
+ * Extracts numeric value from session name for sorting.
+ * Converts Roman numerals and text to sortable numbers.
+ * 
+ * @param name - Session name in any format
+ * @returns Numeric value for sorting (999 if unable to parse)
+ * @example
+ * ```ts
+ * getSessionNumber("1st Hour") // Returns 1
+ * getSessionNumber("iii") // Returns 3
+ * getSessionNumber("Session 5") // Returns 5
+ * getSessionNumber("Lab") // Returns 999 (fallback)
+ * ```
+ */
 export function getSessionNumber(name: string): number {
   if (!name) return 999;
   const clean = name.toString().toLowerCase().replace(/session|hour/g, "").replace(/hour/g, "").trim();
@@ -218,6 +315,18 @@ export function getSessionNumber(name: string): number {
   return match ? parseInt(match[0], 10) : 999;
 }
 
+/**
+ * Formats course code by removing whitespace and extracting main code.
+ * Handles hyphenated codes by taking the prefix.
+ * 
+ * @param code - Raw course code
+ * @returns Formatted course code without whitespace
+ * @example
+ * ```ts
+ * formatCourseCode("CS 101-A") // Returns "CS101"
+ * formatCourseCode("MATH 201") // Returns "MATH201"
+ * ```
+ */
 export const formatCourseCode = (code: string): string => {
   if (code.includes("-")) {
     const subcode = code.split("-")[0].trim();
@@ -282,7 +391,21 @@ export function getClientIp(headerList: Headers): string | null {
   return null;
 }
 
-// Helper function to compress image
+/**
+ * Compresses an image file to JPEG format with quality control.
+ * Automatically resizes images larger than 1920px width while maintaining aspect ratio.
+ * Adds white background to handle transparent PNGs.
+ * 
+ * @param file - Image file to compress
+ * @param quality - JPEG quality (0-1), defaults to 0.7
+ * @returns Promise resolving to compressed JPEG file
+ * @throws {Error} If canvas context cannot be created or compression fails
+ * @example
+ * ```ts
+ * const compressed = await compressImage(imageFile, 0.8)
+ * // Returns JPEG with 80% quality, max width 1920px
+ * ```
+ */
 export const compressImage = (file: File, quality = 0.7): Promise<File> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

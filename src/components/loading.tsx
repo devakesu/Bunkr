@@ -7,6 +7,22 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { handleLogout } from "@/lib/security/auth";
 
+/**
+ * Loading screen component with timeout warning and logout option.
+ * Displays when waiting for external services (e.g., Ezygo authentication).
+ * Shows a warning message after 5 seconds with option to logout.
+ * 
+ * Features:
+ * - Animated spinner with accessible labels
+ * - Timeout warning after 5 seconds
+ * - Logout button for stuck states
+ * - Humorous loading message
+ * 
+ * @example
+ * ```tsx
+ * <Loading />
+ * ```
+ */
 export function Loading() {
   const [showWarning, setShowWarning] = useState(false);
 

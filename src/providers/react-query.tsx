@@ -8,6 +8,27 @@ import { useState } from "react";
 import { PropsWithChildren } from "react";
 import { AttendanceSettingsProvider } from "./attendance-settings";
 
+/**
+ * React Query provider with pre-configured defaults for the application.
+ * Wraps the app with QueryClientProvider and AttendanceSettingsProvider.
+ * 
+ * Query Configuration:
+ * - Stale time: 3 minutes
+ * - Garbage collection: 10 minutes
+ * - Retry: 2 attempts
+ * - Window focus refetch: Disabled
+ * - Auto refetch interval: 15 minutes
+ * 
+ * @param children - Child components to wrap
+ * @returns Configured React Query provider with attendance settings
+ * 
+ * @example
+ * ```tsx
+ * <ReactQueryProvider>
+ *   <App />
+ * </ReactQueryProvider>
+ * ```
+ */
 export default function ReactQueryProvider({ children }: PropsWithChildren) {
   const [queryClient] = useState(
     () =>
