@@ -63,9 +63,34 @@ export default function ProtectedLayout({
         const { data: { user }, error } = await supabaseRef.current.auth.getUser();
         if (error) throw error;
 
+        // If no Supabase user, redirect to public landing
         if (!user) {
           active = false;
           router.replace("/");
+          return;
+        }
+
+        // Ensure the EzyGo access token cookie is present before authorizing
+        let hasEzygoAccessToken = false;
+        if (typeof document !== "undefined") {
+          const cookies = document.cookie ? document.cookie.split(";") : [];
+          for (const rawCookie of cookies) {
+            const cookie = rawCookie.trim();
+            if (cookie.startsWith("ezygo_access_token=")) {
+              hasEzygoAccessToken = true;
+              break;
+            }
+          }
+        }
+
+        if (!hasEzygoAccessToken) {
+          // Missing EzyGo token: treat as unauthorized and force logout + redirect
+          active = false;
+          try {
+            await handleLogout();
+          } finally {
+            router.replace("/");
+          }
           return;
         }
 
