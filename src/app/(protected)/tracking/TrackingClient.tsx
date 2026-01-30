@@ -188,7 +188,7 @@ export default function TrackingClient() {
       isCleanedUp = true;
       abortController.abort();
     };
-  }, [user?.id, refetchTrackingData, refetchCount]); // Re-sync when user identity or refetch functions change
+  }, [user?.id, user?.username, refetchTrackingData, refetchCount]); // Re-sync when user identity or refetch functions change
 
   // Reset mountId on real navigation (when component truly remounts with new state)
   useEffect(() => {
