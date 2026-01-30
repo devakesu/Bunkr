@@ -158,8 +158,23 @@ export async function POST(req: Request) {
     const originHostname = new URL(origin).hostname.toLowerCase();
     const headerHostname = new URL(`http://${host}`).hostname.toLowerCase();
     
+    // Ensure the request is same-origin with the Host header
     if (originHostname !== headerHostname) {
       return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+    }
+
+    // Additionally, enforce that the origin matches the configured app domain (if set)
+    // This provides consistency with backend proxy route validation
+    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+    if (appDomain) {
+      const appDomainUrl = appDomain.startsWith("http://") || appDomain.startsWith("https://")
+        ? appDomain
+        : `https://${appDomain}`;
+      const appDomainHostname = new URL(appDomainUrl).hostname.toLowerCase();
+
+      if (originHostname !== appDomainHostname) {
+        return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+      }
     }
   } catch {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });

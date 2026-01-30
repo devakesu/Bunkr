@@ -64,13 +64,17 @@ export async function getCsrfTokenFromCookie(): Promise<string | undefined> {
  */
 function compareTokens(headerToken: string | null, cookieToken: string | null | undefined): boolean {
   try {
-    // Validate header token
-    if (!headerToken || headerToken.trim() === '') {
+    // Trim tokens first to ensure consistent whitespace handling
+    const trimmedHeaderToken = headerToken?.trim() ?? '';
+    const trimmedCookieToken = cookieToken?.trim() ?? '';
+
+    // Validate header token - must not be empty after trimming
+    if (!trimmedHeaderToken) {
       return false;
     }
 
-    // Validate cookie token
-    if (!cookieToken || cookieToken.trim() === '') {
+    // Validate cookie token - must not be empty after trimming
+    if (!trimmedCookieToken) {
       // Token must be pre-initialized through a trusted flow (e.g., GET request)
       // Never accept a token without a matching cookie to prevent CSRF bypass
       return false;
@@ -78,8 +82,8 @@ function compareTokens(headerToken: string | null, cookieToken: string | null | 
 
     // Constant-time comparison to prevent timing attacks
     // Check lengths first since timingSafeEqual requires equal-length buffers
-    const headerBuffer = Buffer.from(headerToken);
-    const cookieBuffer = Buffer.from(cookieToken);
+    const headerBuffer = Buffer.from(trimmedHeaderToken);
+    const cookieBuffer = Buffer.from(trimmedCookieToken);
     
     if (headerBuffer.length !== cookieBuffer.length) {
       return false;
