@@ -151,33 +151,10 @@ ENV PORT=3000
 # Override at build time with: --build-arg NEXT_HOSTNAME=127.0.0.1 for localhost-only binding
 ARG NEXT_HOSTNAME="0.0.0.0"
 
-# Bind the Next.js server to network interface(s) inside the container.
-# Default: "0.0.0.0" - binds to all interfaces within the container, allowing connections from
-# other containers in the same network (e.g., reverse proxy in separate container/pod).
-# 
-# DEPLOYMENT PATTERNS:
-# 1. Separate container reverse proxy (MOST COMMON): Use default "0.0.0.0"
-#    - Reverse proxy (nginx, traefik) in separate container/pod needs to reach app over network
-#    - Network isolation is provided by container network policies/firewall rules
-# 
-# 2. Same-host reverse proxy: Use --build-arg NEXT_HOSTNAME=127.0.0.1
-#    - Reverse proxy runs on the same host (not containerized) accessing via localhost
-#    - More restrictive binding, but less common in containerized deployments
-# 
-# ⚠️ CRITICAL SECURITY REQUIREMENTS (when using 0.0.0.0):
-# - This container MUST run strictly behind a reverse proxy, firewall, or service mesh
-# - Direct access to the container must be blocked (no NodePort, HostPort, or direct Docker port mapping)
-# - Only the reverse proxy should be able to reach this container
-# - Configure network policies to restrict access to the container
-# 
-# DEPLOYMENT VALIDATION CHECKLIST:
-# ✓ Verify reverse proxy/load balancer is correctly configured
-# ✓ Confirm direct container access is blocked at the network level
-# ✓ Test that only reverse proxy can reach the container
-# ✓ Review container network policies and firewall rules
-# ✓ Ensure these checks are enforced in CI/CD pipelines
-#
 # NOTE: HOSTNAME controls the network interface binding (listen address), not the public URL hostname.
+# When binding to 0.0.0.0, this container must be deployed behind a reverse proxy, firewall,
+# or equivalent network control; direct external access to the container must be prevented.
+# For the full security checklist and deployment patterns, see docs/SECURITY.md.
 ENV HOSTNAME="${NEXT_HOSTNAME}"
 
 WORKDIR /app

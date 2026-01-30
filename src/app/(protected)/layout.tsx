@@ -63,11 +63,18 @@ export default function ProtectedLayout({
         const { data: { user }, error } = await supabaseRef.current.auth.getUser();
         if (error) throw error;
 
+        // If no Supabase user, redirect to public landing
         if (!user) {
           active = false;
           router.replace("/");
           return;
         }
+
+        // At this point, Supabase has confirmed a valid user session.
+        // The EzyGo access token cookie (ezygo_access_token) is HttpOnly and cannot be validated
+        // from client-side JavaScript; it's automatically sent with API requests and validated
+        // server-side. Any additional validation should occur on the server (e.g., via a server
+        // action or API endpoint).
 
         if (active) setIsAuthorized(true);
       } catch (err) {

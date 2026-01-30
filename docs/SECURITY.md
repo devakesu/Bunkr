@@ -357,3 +357,78 @@ Consider adding metrics for:
 - Signature validation failure rate
 - Replay attack attempts
 - Token expiration patterns
+
+---
+
+## Container Deployment Security
+
+### Network Binding Configuration
+
+The application container uses the `HOSTNAME` environment variable to control which network interfaces the Next.js server binds to. This is a critical security configuration when deploying in containers.
+
+#### Default Configuration (0.0.0.0)
+
+The default binding of `0.0.0.0` allows the container to accept connections from other containers in the same network. This is the **most common deployment pattern** when using a separate reverse proxy container.
+
+**Build with default binding:**
+```dockerfile
+docker build -t ghostclass .
+```
+
+**Override at build time:**
+```dockerfile
+docker build --build-arg NEXT_HOSTNAME=127.0.0.1 -t ghostclass .
+```
+
+#### Deployment Patterns
+
+**1. Separate Container Reverse Proxy (RECOMMENDED)**
+- **Binding:** Use default `0.0.0.0`
+- **Use case:** Reverse proxy (nginx, traefik, Envoy) runs in separate container/pod
+- **Security:** Network isolation provided by container network policies and firewall rules
+- **Example:** Kubernetes pods, Docker Compose with separate nginx container
+
+**2. Same-Host Reverse Proxy**
+- **Binding:** Use `--build-arg NEXT_HOSTNAME=127.0.0.1`
+- **Use case:** Reverse proxy runs on same host (not containerized)
+- **Security:** More restrictive binding, application only accessible via localhost
+- **Example:** nginx on host machine with app in container
+
+#### ⚠️ Critical Security Requirements (0.0.0.0 binding)
+
+When using the default `0.0.0.0` binding, you **MUST** ensure:
+
+1. **Reverse Proxy Required** - Container must run strictly behind a reverse proxy, firewall, or service mesh
+2. **No Direct Access** - Block direct container access (no NodePort, HostPort, or direct Docker port mapping)
+3. **Network Policies** - Configure network policies to restrict which services can reach the container
+4. **Proxy-Only Access** - Only the reverse proxy should be able to connect to the container
+
+#### Deployment Validation Checklist
+
+Before deploying to production, verify:
+
+- ✅ Reverse proxy/load balancer is correctly configured
+- ✅ Direct container access is blocked at the network level
+- ✅ Only reverse proxy can reach the container (test with network tools)
+- ✅ Container network policies and firewall rules are reviewed
+- ✅ These checks are enforced in CI/CD pipelines
+
+#### Security Best Practices
+
+1. **Never expose the container directly** to the public internet
+2. **Always use a reverse proxy** with proper security headers, rate limiting, and SSL/TLS termination
+3. **Implement network segmentation** to isolate the application container
+4. **Monitor network traffic** to detect unauthorized access attempts
+5. **Regular security audits** of your container deployment configuration
+
+#### Common Misconfigurations
+
+❌ **AVOID:**
+- Exposing container ports directly with `docker run -p 3000:3000` without a reverse proxy
+- Using NodePort in Kubernetes without network policies
+- Mapping host ports directly to container in production
+
+✅ **CORRECT:**
+- Using an ingress controller in Kubernetes
+- Docker Compose with nginx proxy in separate container
+- Cloud load balancer → reverse proxy → application container

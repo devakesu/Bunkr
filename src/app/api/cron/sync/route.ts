@@ -93,21 +93,25 @@ export async function GET(req: Request) {
   // so we do not depend on Origin-based validation here. Authentication is handled via CRON_SECRET below.
 
   const trustedIpHeader = headerList.get("cf-connecting-ip") ?? headerList.get("x-real-ip");
-  let ip = trustedIpHeader?.trim() || null;
+  const ip = trustedIpHeader?.trim() || null;
   
   if (!ip) {
     if (process.env.NODE_ENV === "development") {
-      // Fallback to localhost in development. Log warning to catch IP extraction issues during testing.
-      // Redact IP values to avoid leaking IPs if dev logs are aggregated or NODE_ENV is misconfigured
+      // In development, fail fast if we cannot determine the client IP.
+      // This avoids masking misconfigurations and ensures IP extraction is exercised before production.
+      // Redact IP values to avoid leaking IPs if dev logs are aggregated or NODE_ENV is misconfigured.
       const cfIp = headerList.get("cf-connecting-ip");
       const realIp = headerList.get("x-real-ip");
-      logger.warn("Unable to determine client IP in development, using fallback", {
+      logger.warn("Unable to determine client IP in development; failing request to expose configuration issue", {
         headers: {
           "cf-connecting-ip": cfIp ? redact("id", cfIp) : null,
           "x-real-ip": realIp ? redact("id", realIp) : null,
         },
       });
-      ip = "127.0.0.1";
+      return NextResponse.json(
+        { error: "Development configuration error: unable to determine client IP address" },
+        { status: 500 },
+      );
     } else {
       // In production, reject requests without a determinable IP to prevent rate limiting bypass
       // Log header presence (boolean) rather than values to avoid IP leakage
