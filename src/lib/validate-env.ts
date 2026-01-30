@@ -192,10 +192,24 @@ export function validateEnvironment() {
     // Instead, we check if the app appears to be in a properly configured environment
     
     const isProduction = process.env.NODE_ENV === "production";
-    const hasProxyIndicators = 
-      process.env.NEXT_PUBLIC_APP_DOMAIN && 
-      process.env.NEXT_PUBLIC_APP_DOMAIN !== "localhost" &&
-      !process.env.NEXT_PUBLIC_APP_DOMAIN.includes("127.0.0.1");
+    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "";
+    
+    // Extract hostname from NEXT_PUBLIC_APP_DOMAIN to check if it's a local address
+    let isLocalDomain = false;
+    try {
+      const hostname = new URL(`https://${appDomain}`).hostname.toLowerCase();
+      // Exact match for localhost and loopback addresses
+      isLocalDomain = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+    } catch {
+      // If parsing fails, fall back to string checks with word boundaries
+      isLocalDomain = !appDomain || 
+        appDomain === "localhost" || 
+        appDomain === "127.0.0.1" ||
+        appDomain.startsWith("localhost:") ||
+        appDomain.startsWith("127.0.0.1:");
+    }
+    
+    const hasProxyIndicators = appDomain && !isLocalDomain;
     
     if (isProduction && !hasProxyIndicators) {
       warnings.push(
