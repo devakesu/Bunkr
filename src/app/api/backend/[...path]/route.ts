@@ -61,6 +61,17 @@ function getAllowedHosts(): Set<string> | null {
       // Extract hostname without port for consistent comparison
       cachedAllowedHosts = new Set(
         [process.env.NEXT_PUBLIC_APP_DOMAIN].map((host) => {
+          // Validate that host doesn't include protocol (common misconfiguration)
+          if (host.includes("://")) {
+            logger.error(
+              "[backend-proxy] Invalid NEXT_PUBLIC_APP_DOMAIN configuration: value must not include protocol",
+              { appDomain: host }
+            );
+            throw new Error(
+              "Configuration error: NEXT_PUBLIC_APP_DOMAIN must be hostname only (e.g., 'example.com', not 'https://example.com')"
+            );
+          }
+          
           try {
             // Parse as URL to extract hostname (strips port if present)
             return new URL(`https://${host}`).hostname.toLowerCase();

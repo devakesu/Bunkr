@@ -58,10 +58,10 @@ async function generateCsrfToken(): Promise<string> {
  *    • Path=/ limits cookie scope to application
  *    • MaxAge limits token lifetime to 1 hour
  * 
- * MONITORING & INCIDENT RESPONSE:
- * • Cookie access patterns are implicitly monitored via CSRF validation failures
- * • Failed CSRF validations logged to Sentry for security monitoring
- * • In case of suspected XSS: Rotate CSRF secret, review recent code changes, audit logs
+ * MONITORING & INCIDENT RESPONSE (RECOMMENDED OPERATIONAL PRACTICES):
+ * • Monitor CSRF validation failures via your application's logging or security tooling
+ * • Configure centralized monitoring (e.g., log aggregation or an error-reporting service) for anomalies
+ * • In case of suspected XSS: Rotate CSRF secrets, review recent code changes, and audit access logs
  * 
  * Without these XSS prevention measures, this CSRF protection can be bypassed.
  * Regular security audits and code reviews are essential to maintain these protections.

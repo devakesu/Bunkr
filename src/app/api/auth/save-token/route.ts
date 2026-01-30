@@ -180,13 +180,22 @@ export async function POST(req: Request) {
     // 
     // However, developers might include ports in development (e.g., "localhost:3000").
     // Extract hostname to handle this edge case consistently with backend proxy route.
+    const appDomainNormalized = appDomain.trim();
+
+    if (appDomainNormalized.includes("://")) {
+      logger.error("Invalid NEXT_PUBLIC_APP_DOMAIN configuration: value must not include protocol", {
+        appDomain: redact("id", appDomainNormalized),
+      });
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+
     let appDomainHostname: string;
     try {
       // Parse as URL to extract hostname (strips port if present)
-      appDomainHostname = new URL(`https://${appDomain}`).hostname.toLowerCase();
+      appDomainHostname = new URL(`https://${appDomainNormalized}`).hostname.toLowerCase();
     } catch {
-      // Fallback: assume it's already a hostname
-      appDomainHostname = appDomain.toLowerCase();
+      // Fallback: assume it's already a hostname; strip any port if present
+      appDomainHostname = appDomainNormalized.split(":")[0].toLowerCase();
     }
 
     if (originHostname !== appDomainHostname) {

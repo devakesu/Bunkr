@@ -197,9 +197,9 @@ export function validateEnvironment() {
     // Extract hostname from NEXT_PUBLIC_APP_DOMAIN to check if it's a local address
     let isLocalDomain = false;
     try {
-      const hostname = new URL(`https://${appDomain}`).hostname.toLowerCase();
+      const appDomainHostname = new URL(`https://${appDomain}`).hostname.toLowerCase();
       // Exact match for localhost and loopback addresses
-      isLocalDomain = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+      isLocalDomain = appDomainHostname === "localhost" || appDomainHostname === "127.0.0.1" || appDomainHostname === "::1";
     } catch {
       // If parsing fails, fall back to string checks with word boundaries
       isLocalDomain = !appDomain || 
@@ -209,7 +209,7 @@ export function validateEnvironment() {
         appDomain.startsWith("127.0.0.1:");
     }
     
-    const hasProxyIndicators = appDomain && !isLocalDomain;
+    const hasProxyIndicators = Boolean(appDomain) && !isLocalDomain;
     
     if (isProduction && !hasProxyIndicators) {
       warnings.push(

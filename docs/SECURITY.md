@@ -63,7 +63,7 @@ Prevents Cross-Site Request Forgery attacks by validating that requests originat
 - Uses BOTH cookie and custom header validation for protection
 - Cookie is intentionally NOT HttpOnly (required for double-submit pattern)
 - Client JavaScript reads cookie value and sends it in custom header
-- Attacker from different origin cannot read cookie due to SameSite policy
+- Cross-site requests cannot include the cookie due to same-origin policy (cookie domain/path scoping)
 
 **XSS Protection (Critical Dependency):**
 - Content Security Policy (CSP) with nonce-based script execution in production
@@ -73,7 +73,7 @@ Prevents Cross-Site Request Forgery attacks by validating that requests originat
 
 **Additional Safeguards:**
 - Constant-time comparison prevents timing attacks
-- SameSite=lax prevents cross-site cookie access
+- SameSite=Lax restricts when cookies are sent on cross-site requests (cookies not sent on most cross-site subresource requests, but still sent on top-level navigations)
 - 1-hour TTL limits exposure window
 - Automatic cleanup on logout
 - Secure flag enabled in production (HTTPS only)
@@ -508,7 +508,7 @@ The following scenarios must be tested for all security features:
 
 ```bash
 # Run all security tests
-npm test src/lib/security/
+npm test -- src/lib/security/
 
 # Run with coverage report
 npm run test:coverage -- src/lib/security/
@@ -542,10 +542,10 @@ When adding new security features, follow this testing checklist:
 5. **Verify no false positives** that could block legitimate users
 6. **Run full test suite** before committing
 
-#### Continuous Security Testing
+#### Continuous Security Testing (Recommended Practices)
 
-- **Pre-commit hooks:** Run security tests automatically via husky
-- **CI/CD pipeline:** Fail builds if security tests fail
-- **CodeQL scanning:** Automated vulnerability detection in CI
-- **Dependency audits:** Regular `npm audit` checks
-- **Manual security reviews:** Before each major release
+- **Pre-commit checks (recommended):** Run security-related tests locally before committing (for example, via Husky or other Git hooks)
+- **CI/CD pipeline (recommended):** Configure your pipeline to fail if security tests fail
+- **Static analysis (optional but recommended):** Integrate a tool such as GitHub CodeQL or similar into CI for automated vulnerability detection
+- **Dependency audits (recommended):** Run `npm audit` regularly (manually or in CI) and address high/critical findings
+- **Manual security reviews:** Perform a focused security review before each major release
