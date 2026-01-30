@@ -140,6 +140,7 @@ export async function POST(req: Request) {
   const supabaseAdmin = getAdminClient();
 
   // 1. CSRF Protection
+  // Extract CSRF token from request header
   const headerList = await headers();
   const csrfToken = headerList.get("x-csrf-token");
   const csrfValid = await validateCsrfToken(csrfToken);
@@ -148,7 +149,6 @@ export async function POST(req: Request) {
   }
 
   // 2. Rate Limit Check
-
   const origin = headerList.get("origin");
   const host = headerList.get("host");
   if (!origin || !host) {
