@@ -58,11 +58,25 @@ Prevents Cross-Site Request Forgery attacks by validating that requests originat
    ```
 
 ### Security Features
+
+**Double-Submit CSRF Pattern:**
+- Uses BOTH cookie and custom header validation for protection
+- Cookie is intentionally NOT HttpOnly (required for double-submit pattern)
+- Client JavaScript reads cookie value and sends it in custom header
+- Cross-site requests cannot include the cookie due to same-origin policy (cookie domain/path scoping)
+
+**XSS Protection (Critical Dependency):**
+- Content Security Policy (CSP) with nonce-based script execution in production
+- React's built-in escaping prevents injection attacks
+- Regular security audits and dependency updates
+- Without XSS prevention, CSRF protection can be bypassed
+
+**Additional Safeguards:**
 - Constant-time comparison prevents timing attacks
-- HttpOnly cookies prevent XSS token theft
-- SameSite=lax provides additional CSRF protection
+- SameSite=Lax restricts when cookies are sent on cross-site requests (cookies not sent on most cross-site subresource requests, but still sent on top-level navigations)
 - 1-hour TTL limits exposure window
 - Automatic cleanup on logout
+- Secure flag enabled in production (HTTPS only)
 
 ---
 
@@ -432,3 +446,106 @@ Before deploying to production, verify:
 - Using an ingress controller in Kubernetes
 - Docker Compose with nginx proxy in separate container
 - Cloud load balancer → reverse proxy → application container
+
+---
+
+## Testing Security Features
+
+### Test Coverage Strategy
+
+Security-critical code paths should have comprehensive test coverage to prevent regressions and ensure proper functionality. The following components have dedicated test suites:
+
+#### Current Test Coverage
+
+1. **CSRF Protection** (`src/lib/security/__tests__/csrf.test.ts`)
+   - ✅ 32 test cases covering:
+     - Token generation and validation
+     - Header and cookie token extraction
+     - Whitespace handling edge cases
+     - Timing attack prevention
+     - Token lifecycle (initialization, refresh, cleanup)
+     - Cookie security settings
+
+2. **Request Signing** (`src/lib/security/__tests__/request-signing.test.ts`)
+   - ✅ 33 test cases covering:
+     - Signature generation and verification
+     - Timestamp validation and replay attack prevention
+     - Signature tampering detection
+     - Header validation
+     - Edge cases and error handling
+
+#### Critical Security Test Scenarios
+
+The following scenarios must be tested for all security features:
+
+**CSRF Protection:**
+- ✓ Valid token validation succeeds
+- ✓ Missing token validation fails
+- ✓ Mismatched header/cookie validation fails
+- ✓ Expired token validation fails
+- ✓ Token with whitespace is rejected
+- ✓ Replay attacks are prevented
+
+**Origin Validation:**
+- ✓ Requests from allowed origins succeed
+- ✓ Requests from disallowed origins fail
+- ✓ Missing Origin header fails
+- ✓ Malformed Origin header fails
+- ✓ Query parameters and fragments don't bypass validation
+
+**IP Extraction:**
+- ✓ Valid IP headers are extracted correctly
+- ✓ Missing IP headers return null (production) or localhost (dev)
+- ✓ Malformed IP addresses are handled gracefully
+
+**Request Signing:**
+- ✓ Valid signatures are accepted
+- ✓ Invalid signatures are rejected
+- ✓ Timestamp validation prevents replay attacks
+- ✓ Signature tampering is detected
+
+#### Running Security Tests
+
+```bash
+# Run all security tests
+npm test -- src/lib/security/
+
+# Run with coverage report
+npm run test:coverage -- src/lib/security/
+
+# Watch mode for development
+npm run test:watch -- src/lib/security/
+```
+
+#### Coverage Thresholds
+
+Current project-wide coverage thresholds are set at 10% to allow for initial development. However, security-critical modules should maintain higher coverage:
+
+**Recommended coverage for security modules:**
+- Lines: ≥80%
+- Functions: ≥80%
+- Branches: ≥75%
+- Statements: ≥80%
+
+#### Adding New Security Features
+
+When adding new security features, follow this testing checklist:
+
+1. **Create test file** in `src/lib/security/__tests__/`
+2. **Test all edge cases** including:
+   - Valid inputs with expected behavior
+   - Invalid inputs with proper error handling
+   - Boundary conditions (empty strings, null, undefined)
+   - Attack vectors (injection, bypass attempts, replay)
+3. **Mock external dependencies** (cookies, headers, crypto)
+4. **Document test scenarios** with clear descriptions
+5. **Verify no false positives** that could block legitimate users
+6. **Run full test suite** before committing
+
+#### Continuous Security Testing (Recommended Practices)
+
+- **Pre-commit checks (recommended):** Run security-related tests locally before committing (for example, via Husky or other Git hooks)
+- **CI/CD pipeline (recommended):** Configure your pipeline to fail if security tests fail
+- **Static analysis (optional but recommended):** Integrate a tool such as GitHub CodeQL or similar into CI for automated vulnerability detection
+- **Dependency audits (recommended):** Run `npm audit` regularly (manually or in CI) and address high/critical findings
+- **Manual security reviews:** Perform a focused security review before each major release

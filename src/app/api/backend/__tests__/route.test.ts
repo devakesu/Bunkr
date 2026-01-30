@@ -284,5 +284,45 @@ describe('Backend Proxy Route', () => {
       const body = await response.json();
       expect(body.error).toBe('Missing path');
     });
+
+    it('should reject requests with query parameters in path segments', async () => {
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      // Simulate path segment containing query parameter (defense in depth)
+      const response = await forward(request, 'GET', ['users?admin=true']);
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body.error).toBe('Invalid path format');
+    });
+
+    it('should reject requests with fragment identifiers in path segments', async () => {
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      // Simulate path segment containing fragment (defense in depth)
+      const response = await forward(request, 'GET', ['users#section']);
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body.error).toBe('Invalid path format');
+    });
+
+    it('should accept valid path segments', async () => {
+      vi.mocked(mockFetch).mockResolvedValue(
+        new Response(JSON.stringify({ data: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users/123', {
+        method: 'GET',
+      });
+
+      const response = await forward(request, 'GET', ['users', '123']);
+      expect(response.status).toBe(200);
+    });
   });
 });

@@ -44,11 +44,34 @@ function getAllowedHosts(): Set<string> | null {
     if (!process.env.NEXT_PUBLIC_APP_DOMAIN?.trim()) {
       cachedAllowedHosts = null;
     } else {
+      // SECURITY: NEXT_PUBLIC_APP_DOMAIN format requirements
+      // ====================================================
+      // REQUIRED FORMAT: Hostname only, WITHOUT protocol prefix
+      //   ✓ Correct: "example.com", "app.example.com", "localhost"
+      //   ✗ Wrong:   "https://example.com", "http://localhost:3000"
+      //
+      // PORTS: If your domain includes a non-standard port (e.g., "localhost:3000"),
+      // it will be automatically stripped for origin validation. This is intentional
+      // to match standard browser behavior where Origin headers contain ports but
+      // hostname comparisons typically exclude them.
+      //
+      // This format is enforced in .example.env and must be consistent across all
+      // environment files. Inconsistent formats can cause security validation failures.
+      //
       // Extract hostname without port for consistent comparison
-      // NEXT_PUBLIC_APP_DOMAIN should contain only the hostname (e.g., "example.com" not "example.com:3000")
-      // If your domain includes a port, it will be automatically stripped for origin validation
       cachedAllowedHosts = new Set(
         [process.env.NEXT_PUBLIC_APP_DOMAIN].map((host) => {
+          // Validate that host doesn't include protocol (common misconfiguration)
+          if (host.includes("://")) {
+            logger.error(
+              "[backend-proxy] Invalid NEXT_PUBLIC_APP_DOMAIN configuration: value must not include protocol",
+              { appDomain: host }
+            );
+            throw new Error(
+              "Configuration error: NEXT_PUBLIC_APP_DOMAIN must be hostname only (e.g., 'example.com', not 'https://example.com')"
+            );
+          }
+          
           try {
             // Parse as URL to extract hostname (strips port if present)
             return new URL(`https://${host}`).hostname.toLowerCase();
@@ -58,6 +81,16 @@ function getAllowedHosts(): Set<string> | null {
           }
         })
       );
+      
+      // In development, warn about cache behavior to help developers understand
+      // that environment variable changes require a restart
+      if (process.env.NODE_ENV === "development") {
+        logger.dev(
+          "[backend-proxy] Allowed hosts computed and cached. " +
+          "Environment variable changes (NEXT_PUBLIC_APP_DOMAIN) require application restart.",
+          { allowedHosts: Array.from(cachedAllowedHosts) }
+        );
+      }
     }
   }
   
@@ -106,6 +139,26 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
   }
 
   const isWrite = method !== "GET" && method !== "HEAD";
+  
+  // SECURITY: Path matching for PUBLIC_PATHS whitelist
+  // Next.js route params ([...path]) automatically exclude query parameters and fragments,
+  // but we explicitly validate this to prevent potential bypass attacks. An attacker cannot
+  // bypass protection by adding ?query or #fragment because those are stripped by Next.js
+  // before reaching this handler.
+  // 
+  // Additional safety: Check that no path segment contains '?' or '#' characters
+  // (this should never happen with Next.js routing, but defense in depth)
+  const hasInvalidChars = pathSegments.some(segment => 
+    segment.includes('?') || segment.includes('#')
+  );
+  if (hasInvalidChars) {
+    logger.warn("[backend-proxy] Path segments contain query or fragment characters", {
+      path: pathSegments,
+      method
+    });
+    return NextResponse.json({ error: "Invalid path format" }, { status: 400 });
+  }
+  
   // Check for exact path match (join all segments to compare against full paths in PUBLIC_PATHS)
   const fullPath = pathSegments.join("/");
   const isPublic = PUBLIC_PATHS.has(fullPath);

@@ -175,11 +175,28 @@ export async function POST(req: Request) {
     }
 
     // Enforce that the origin matches the configured app domain
-    // This provides consistency with backend proxy route validation
-    const appDomainUrl = appDomain.startsWith("http://") || appDomain.startsWith("https://")
-      ? appDomain
-      : `https://${appDomain}`;
-    const appDomainHostname = new URL(appDomainUrl).hostname.toLowerCase();
+    // SECURITY: NEXT_PUBLIC_APP_DOMAIN must be hostname only (no protocol)
+    // Format enforced in .example.env: "example.com" NOT "https://example.com"
+    // 
+    // However, developers might include ports in development (e.g., "localhost:3000").
+    // Extract hostname to handle this edge case consistently with backend proxy route.
+    const appDomainNormalized = appDomain.trim();
+
+    if (appDomainNormalized.includes("://")) {
+      logger.error("Invalid NEXT_PUBLIC_APP_DOMAIN configuration: value must not include protocol", {
+        appDomain: redact("id", appDomainNormalized),
+      });
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+
+    let appDomainHostname: string;
+    try {
+      // Parse as URL to extract hostname (strips port if present)
+      appDomainHostname = new URL(`https://${appDomainNormalized}`).hostname.toLowerCase();
+    } catch {
+      // Fallback: assume it's already a hostname; strip any port if present
+      appDomainHostname = appDomainNormalized.split(":")[0].toLowerCase();
+    }
 
     if (originHostname !== appDomainHostname) {
       return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
