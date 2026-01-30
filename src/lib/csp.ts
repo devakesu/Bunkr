@@ -1,4 +1,5 @@
 // Content Security Policy
+import { logger } from "@/lib/logger";
 
 export const getCspHeader = (nonce?: string) => {
   const isDev = process.env.NODE_ENV !== "production";
@@ -6,13 +7,13 @@ export const getCspHeader = (nonce?: string) => {
 
   // In production, nonce is mandatory for strict CSP enforcement
   if (!isDev && !nonce) {
-    // Log detailed troubleshooting information internally for developers
-    console.error(
-      '[CSP] Nonce is required in production for secure CSP enforcement.\n' +
-      'Troubleshooting:\n' +
-      '1. Verify middleware is generating nonce (check src/proxy.ts nonce generation)\n' +
-      '2. Ensure middleware is passing nonce via x-nonce header to downstream components\n' +
-      '3. Check that getCspHeader is called with the nonce parameter from headers\n' +
+    // Log error internally for developers (will only appear in server-side logs)
+    logger.error(
+      '[CSP] Nonce is required in production for secure CSP enforcement. ' +
+      'Troubleshooting: ' +
+      '1. Verify middleware is generating nonce (check src/proxy.ts nonce generation) ' +
+      '2. Ensure middleware is passing nonce via x-nonce header to downstream components ' +
+      '3. Check that getCspHeader is called with the nonce parameter from headers ' +
       '4. Confirm middleware matcher includes the current route (see matcher config in src/proxy.ts)'
     );
     // Throw a generic error message that doesn't expose internal implementation details
