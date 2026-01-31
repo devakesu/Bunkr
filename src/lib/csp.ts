@@ -79,10 +79,10 @@ export const getCspHeader = (nonce?: string) => {
   
   // style-src-attr allows inline style attributes (e.g., style="color: red;") used by some libraries like Recharts
   // In development: allow all inline styles for easier debugging
-  // In production: remove unsafe-inline to prevent XSS via style attributes
+  // In production: omit directive entirely to prevent XSS via style attributes (falls back to default-src)
   // Note: This may break some third-party libraries that rely on inline styles without CSP support
   // If needed, consider using CSP3 unsafe-hashes or refactoring library usage
-  const styleSrcAttrParts = isDev ? ["'unsafe-inline'"] : [];
+  const styleSrcAttrDirective = isDev ? `style-src-attr 'unsafe-inline';` : '';
   
   // Fallback style-src for CSP Level 2 browsers that don't support style-src-elem/style-src-attr
   // In production, we only include nonce to maintain security for Level 2 browsers
@@ -92,17 +92,11 @@ export const getCspHeader = (nonce?: string) => {
     ? ["'self'", "'unsafe-inline'"]
     : ["'self'", `'nonce-${nonce}'`];
 
-  // Build CSP directives conditionally
-  const styleSrcAttrDirective = styleSrcAttrParts.length > 0 
-    ? `style-src-attr ${styleSrcAttrParts.join(" ")};` 
-    : '';
-
   return `
     default-src 'self';
     script-src ${scriptSrcParts.join(" ")};
     style-src ${styleSrcParts.join(" ")};
-    style-src-elem ${styleSrcElemParts.join(" ")};
-    ${styleSrcAttrDirective}
+    style-src-elem ${styleSrcElemParts.join(" ")};${styleSrcAttrDirective ? `\n    ${styleSrcAttrDirective}` : ''}
     img-src 'self' blob: data: ${supabaseOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.google.co.in https://*.doubleclick.net;
     font-src 'self' data:;
     object-src 'none';
