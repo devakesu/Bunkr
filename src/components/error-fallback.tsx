@@ -35,8 +35,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
   const handleEmailReport = () => {
     const appDomain =
       process.env.NEXT_PUBLIC_APP_DOMAIN ||
-      (typeof window !== "undefined" ? window.location.hostname : "ghostclass.app") ||
-      "ghostclass.app";
+      (typeof window !== "undefined" ? window.location.hostname : "ghostclass.app");
     const subject = encodeURIComponent('Error Report - GhostClass');
     const body = encodeURIComponent(
       `Hi Admin,\n\nI encountered an error while using GhostClass.\n\n` +
