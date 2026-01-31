@@ -82,6 +82,7 @@ const CSRF_STORAGE_KEY = "csrf_token_memory";
 // - Provides clearer code structure and easier maintenance
 // - Prevents regex complexity (single regex would be /^[0-9a-f]{64,}$/)
 // - Both validations use the same generic error message to avoid exposing details
+// Note: crypto.randomBytes().toString("hex") always produces lowercase hex in Node.js
 const CSRF_TOKEN_MIN_LENGTH = 64;
 const CSRF_TOKEN_HEX_PATTERN = /^[0-9a-f]+$/;
 

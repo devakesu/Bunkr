@@ -7,10 +7,14 @@ import { logger } from "@/lib/logger";
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
 // Runtime validation: ensure NODE_ENV is explicitly set at module load time
-// Note: When NODE_ENV is undefined, isProduction will be false, resulting in
-// development mode behavior (verbose error messages exposed to clients)
+// SECURITY CONSIDERATION: When NODE_ENV is undefined, IS_PRODUCTION will be false,
+// resulting in development mode behavior (verbose error messages exposed to clients).
+// This is intentional - we log an error to alert monitoring systems but continue
+// execution to avoid breaking the application. The default to development mode is
+// safer than throwing an error (which would cause a service outage).
+// CRITICAL: CI/CD pipelines MUST enforce NODE_ENV=production for production deployments.
 if (!process.env.NODE_ENV) {
-  logger.error("NODE_ENV is not set - will use development mode error handling (verbose messages)");
+  logger.error("CRITICAL: NODE_ENV is not set - defaulting to development mode with verbose error messages. This MUST be fixed in production.");
 }
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
