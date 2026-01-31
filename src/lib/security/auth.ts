@@ -21,8 +21,11 @@ import { deleteCookie } from "cookies-next";
  * ```
  */
 export const isAuthSessionMissingError = (error: any): boolean => {
-  return error?.message?.toLowerCase().includes("session missing") ||
-         error?.message?.toLowerCase().includes("auth session");
+  if (!error || typeof error.message !== 'string') {
+    return false;
+  }
+  const lowerMessage = error.message.toLowerCase();
+  return lowerMessage.includes("session missing") || lowerMessage.includes("auth session");
 };
 
 /**
