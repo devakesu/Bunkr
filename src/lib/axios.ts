@@ -181,18 +181,19 @@ export function setCsrfToken(token: string | null): void {
   if (token) {
     // Validate token format before storing
     if (typeof token !== 'string' || token.trim().length === 0) {
-      console.error('[CSRF] Invalid token format - token must be a non-empty string');
+      console.error('[CSRF] Invalid token format');
       return;
     }
     // Additional validation: ensure minimum length and valid hex format
     // CSRF tokens are generated as hex strings (see generateCsrfToken in csrf.ts)
+    // Use generic error messages to avoid exposing implementation details to potential attackers
     if (token.length < CSRF_TOKEN_MIN_LENGTH) {
-      console.error(`[CSRF] Invalid token format - token too short (minimum ${CSRF_TOKEN_MIN_LENGTH} characters)`);
+      console.error('[CSRF] Invalid token format');
       return;
     }
-    // Ensure token contains only lowercase hex characters (0-9, a-f)
+    // Ensure token contains only valid characters
     if (!CSRF_TOKEN_HEX_PATTERN.test(token)) {
-      console.error('[CSRF] Invalid token format - token must be lowercase hexadecimal');
+      console.error('[CSRF] Invalid token format');
       return;
     }
     sessionStorage.setItem(CSRF_STORAGE_KEY, token);

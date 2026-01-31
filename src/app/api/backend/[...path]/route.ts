@@ -6,6 +6,14 @@ import { logger } from "@/lib/logger";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
+// Runtime validation: ensure NODE_ENV is explicitly set at module load time
+// Note: When NODE_ENV is undefined, isProduction will be false, resulting in
+// development mode behavior (verbose error messages exposed to clients)
+if (!process.env.NODE_ENV) {
+  logger.error("NODE_ENV is not set - will use development mode error handling (verbose messages)");
+}
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 // PUBLIC_PATHS: Exact endpoints that are exempt from CSRF validation but NOT from origin validation.
 // Uses full path matching (not prefix) to prevent accidentally exposing sensitive sub-paths.
 // 
@@ -320,16 +328,8 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       // - Monitor server logs for detailed error information
       // - Consider a separate DEBUG flag for controlled verbose logging if needed
       
-      // Runtime validation: ensure NODE_ENV is explicitly set to prevent accidental exposure
-      // Note: When NODE_ENV is undefined, isProduction will be false, resulting in
-      // development mode behavior (verbose error messages exposed to clients)
-      if (!process.env.NODE_ENV) {
-        logger.error("NODE_ENV is not set - will use development mode error handling (verbose messages)");
-      }
-      
-      const isProduction = process.env.NODE_ENV === "production";
       const is5xxError = res.status >= 500;
-      const clientMessage = (isProduction && is5xxError)
+      const clientMessage = (IS_PRODUCTION && is5xxError)
         ? "An error occurred while processing your request" 
         : errorMessage;
       
