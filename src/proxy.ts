@@ -113,7 +113,7 @@ export async function proxy(request: NextRequest) {
       
       const logoutUrl = url.clone();
       logoutUrl.pathname = '/logout';
-      logoutUrl.search = '?reason=terms_redirect_loop';
+      logoutUrl.searchParams.set('reason', 'terms_redirect_loop');
       const logoutRes = NextResponse.redirect(logoutUrl);
       logoutRes.headers.set('Content-Security-Policy', cspHeader);
       logoutRes.headers.set("x-nonce", nonce);
