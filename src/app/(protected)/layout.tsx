@@ -60,9 +60,6 @@ export default function ProtectedLayout({
 
   const { error: institutionError, isLoading: institutionLoading } = useInstitutions();
 
-  // Initialize CSRF token
-  useCSRFToken();
-
   useEffect(() => {
     let active = true;
 
