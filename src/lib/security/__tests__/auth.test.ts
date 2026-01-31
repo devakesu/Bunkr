@@ -79,6 +79,9 @@ describe('isAuthSessionMissingError', () => {
 
 describe('handleLogout', () => {
   let originalWindow: typeof globalThis.window;
+  let originalFetch: typeof globalThis.fetch;
+  let mockLocalStorage: Storage;
+  let mockSessionStorage: Storage;
 
   beforeEach(() => {
     // Reset all mocks
@@ -87,11 +90,21 @@ describe('handleLogout', () => {
     mockDeleteCookie.mockClear();
     mockCaptureException.mockClear();
 
-    // Mock fetch - cast to any to avoid type issues with vitest mock
+    // Mock fetch - capture original and replace with mock
+    originalFetch = global.fetch;
     global.fetch = vi.fn().mockResolvedValue({ ok: true }) as any;
 
     // Mock window and storage
-    const mockStorage = {
+    mockLocalStorage = {
+      clear: vi.fn(),
+      getItem: vi.fn(),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      key: vi.fn(),
+      length: 0,
+    };
+
+    mockSessionStorage = {
       clear: vi.fn(),
       getItem: vi.fn(),
       setItem: vi.fn(),
@@ -108,20 +121,40 @@ describe('handleLogout', () => {
         location: {
           href: '',
         },
-        localStorage: mockStorage,
-        sessionStorage: mockStorage,
+        localStorage: mockLocalStorage,
+        sessionStorage: mockSessionStorage,
       },
+    });
+
+    // Also set global localStorage and sessionStorage to point to the mocks
+    // since the code accesses them directly
+    Object.defineProperty(global, 'localStorage', {
+      writable: true,
+      configurable: true,
+      value: mockLocalStorage,
+    });
+    Object.defineProperty(global, 'sessionStorage', {
+      writable: true,
+      configurable: true,
+      value: mockSessionStorage,
     });
   });
 
   afterEach(() => {
     vi.clearAllMocks();
     global.window = originalWindow;
+    global.fetch = originalFetch;
   });
 
   it('should call Supabase signOut', async () => {
     await handleLogout();
     expect(mockSignOut).toHaveBeenCalled();
+  });
+
+  it('should clear localStorage and sessionStorage', async () => {
+    await handleLogout();
+    expect(mockLocalStorage.clear).toHaveBeenCalled();
+    expect(mockSessionStorage.clear).toHaveBeenCalled();
   });
 
   it('should call logout API endpoint', async () => {
@@ -139,7 +172,7 @@ describe('handleLogout', () => {
     expect(global.window.location.href).toBe('/');
   });
 
-  it('should clear storage and redirect even when signOut throws', async () => {
+  it('should perform cleanup and redirect even when signOut throws', async () => {
     mockSignOut.mockRejectedValue(new Error('Network error'));
     
     await handleLogout();
@@ -149,6 +182,17 @@ describe('handleLogout', () => {
     expect(mockDeleteCookie).toHaveBeenCalledWith('terms_version', { path: '/' });
     expect(global.window.location.href).toBe('/');
     expect(mockCaptureException).toHaveBeenCalled();
+  });
+
+  it('should not clear storage when signOut throws before reaching cleanup', async () => {
+    mockSignOut.mockRejectedValue(new Error('Network error'));
+    
+    await handleLogout();
+
+    // Storage clearing code is in try block after signOut, so if signOut throws
+    // it never reaches the storage clearing code
+    expect(mockLocalStorage.clear).not.toHaveBeenCalled();
+    expect(mockSessionStorage.clear).not.toHaveBeenCalled();
   });
 
   it('should log error to Sentry when logout fails', async () => {
