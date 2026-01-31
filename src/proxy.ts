@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getCspHeader } from "./lib/csp";
+import { TERMS_VERSION } from "./app/config/legal";
 
 /**
  * Creates a cryptographically secure nonce for CSP.
@@ -62,7 +63,6 @@ export async function proxy(request: NextRequest) {
   // 6. Routing Logic
   const ezygoToken = request.cookies.get("ezygo_access_token")?.value;
   const termsVersion = request.cookies.get("terms_version")?.value;
-  const TERMS_VERSION = "2.1"; // Import from config in production
   const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard");
   const isProfileRoute = request.nextUrl.pathname.startsWith("/profile");
   const isNotificationsRoute = request.nextUrl.pathname.startsWith("/notifications");
