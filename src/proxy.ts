@@ -14,7 +14,7 @@ function createNonce() {
   return btoa(String.fromCharCode(...bytes));
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const nonce = createNonce();
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
