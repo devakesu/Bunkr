@@ -28,13 +28,31 @@ export function getCookie(name: string) {
 
 /**
  * Storage for CSRF token using sessionStorage (Synchronizer Token Pattern).
- * The token is stored in an httpOnly cookie server-side (XSS-safe),
- * but also returned in API responses for client to include in request headers.
  * 
- * Using sessionStorage scopes the token to a single browser tab while
- * maintaining security (sessionStorage is isolated per origin per tab and cleared on tab close).
+ * SECURITY ARCHITECTURE:
+ * - Server stores token in httpOnly cookie (inaccessible to JavaScript)
+ * - Server returns token in API response for client-side storage
+ * - Client stores token in sessionStorage for use in request headers
+ * - Server validates request header token against httpOnly cookie
  * 
- * IMPORTANT: Token must be initialized by calling /api/csrf/init endpoint
+ * ⚠️ XSS VULNERABILITY CONSIDERATION:
+ * sessionStorage is accessible to JavaScript, which means if an XSS vulnerability
+ * exists in the application, an attacker can read this token. This implementation
+ * is ONLY secure when combined with strict XSS prevention measures:
+ * 
+ * - Content Security Policy (CSP) with nonce-based script execution (see src/lib/csp.ts)
+ * - Input sanitization and output encoding
+ * - Regular security audits and vulnerability scanning
+ * 
+ * This architectural trade-off was chosen to balance security with usability:
+ * - Token persists across page navigations (better UX than in-memory storage)
+ * - Simple implementation (simpler than meta tag injection or hidden fields)
+ * - Tab-scoped storage (sessionStorage is isolated per tab, cleared on tab close)
+ * 
+ * ⚠️ CRITICAL: XSS prevention is the primary defense. CSRF protection is a
+ * secondary layer. If XSS vulnerabilities exist, both defenses can be bypassed.
+ * 
+ * INITIALIZATION: Token must be initialized by calling /api/csrf/init endpoint
  * and storing the returned token using setCsrfToken().
  */
 const CSRF_STORAGE_KEY = "csrf_token_memory";
