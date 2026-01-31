@@ -42,9 +42,9 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
       // Check if hostname is a local development environment or IP address
       const localhostVariants = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
       const isLocalhost = localhostVariants.has(hostname);
-      const isIPv4 = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname);
-      // IPv6 addresses contain colons; window.location.hostname never includes ports
-      const isIPv6 = hostname.includes(':') || hostname.startsWith('[');
+      const isIPv4 = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(hostname);
+      // IPv6 addresses contain multiple colons; window.location.hostname never includes ports
+      const isIPv6 = (hostname.match(/:/g) || []).length >= 2 || hostname.startsWith('[');
       
       if (hostname && !isLocalhost && !isIPv4 && !isIPv6) {
         appDomain = hostname;
