@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
 
 // Mock the security modules before importing route
@@ -17,31 +17,15 @@ global.fetch = mockFetch as any;
 describe('Backend Proxy Route', () => {
   type ForwardHandler = typeof import('../[...path]/route')['forward'];
   let forward: ForwardHandler;
-  let originalNodeEnv: string | undefined;
 
   beforeAll(async () => {
-    // Save original NODE_ENV
-    originalNodeEnv = process.env.NODE_ENV;
-    
-    // Set NODE_ENV to 'production' to enable origin validation
-    // Using type assertion to bypass TypeScript's read-only check
-    (process.env as any).NODE_ENV = 'production';
-    
-    // Set other required environment variables
-    (process.env as any).NEXT_PUBLIC_BACKEND_URL = 'https://api.example.com';
+    // Use vi.stubEnv for automatic restoration by vi.unstubAllEnvs() in setup
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_BACKEND_URL', 'https://api.example.com');
     
     // Import route module AFTER setting environment
     const routeModule = await import('../[...path]/route');
     forward = routeModule.forward;
-  });
-  
-  afterAll(() => {
-    // Restore original NODE_ENV
-    if (originalNodeEnv !== undefined) {
-      (process.env as any).NODE_ENV = originalNodeEnv;
-    } else {
-      delete (process.env as any).NODE_ENV;
-    }
   });
 
   beforeEach(() => {
