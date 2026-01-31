@@ -4,6 +4,7 @@ import { Component, ErrorInfo, ReactNode } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { logger } from "@/lib/logger";
 import { AlertTriangle, Mail, RefreshCcw, RotateCcw } from "lucide-react";
+import { getAppDomain } from "@/lib/utils";
 
 /**
  * Props for ErrorBoundary component.
@@ -103,7 +104,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     const error = this.state.error;
     if (!error) return;
 
-    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+    const appDomain = getAppDomain();
     const subject = encodeURIComponent('Error Report - GhostClass');
     const body = encodeURIComponent(
       `Hi Admin,\n\nI encountered an error while using GhostClass.\n\n` +

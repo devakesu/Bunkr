@@ -467,3 +467,45 @@ export const compressImage = (file: File, quality = 0.7): Promise<File> => {
     reader.onerror = (error) => reject(error);
   });
 };
+
+// Constants for hostname validation
+const LOCALHOST_VARIANTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
+const IPV4_PATTERN = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+/**
+ * Gets the application domain for email addresses, extracting from environment
+ * variable or window.location.hostname with validation to filter out localhost/IP addresses.
+ * 
+ * This utility provides consistent hostname detection logic across error components.
+ * 
+ * @param fallbackDomain - The fallback domain to use if no valid domain can be determined (default: 'ghostclass.app')
+ * @returns The application domain suitable for use in email addresses
+ * 
+ * @example
+ * ```ts
+ * const domain = getAppDomain(); // Returns 'ghostclass.app' or actual domain
+ * const email = `admin@${domain}`;
+ * ```
+ */
+export function getAppDomain(fallbackDomain: string = 'ghostclass.app'): string {
+  let appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+  
+  // Fallback to window.location.hostname if env var not set
+  if (!appDomain && typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    
+    // Check if hostname is a local development environment or IP address
+    const isLocalhost = LOCALHOST_VARIANTS.has(hostname);
+    const isIPv4 = IPV4_PATTERN.test(hostname);
+    // IPv6 addresses contain multiple colons; window.location.hostname never includes ports
+    // This check assumes well-formed values from window.location.hostname
+    const isIPv6 = (hostname.match(/:/g) || []).length >= 2 || hostname.startsWith('[');
+    
+    if (hostname && !isLocalhost && !isIPv4 && !isIPv6) {
+      appDomain = hostname;
+    }
+  }
+  
+  // Final fallback
+  return appDomain ?? fallbackDomain;
+}

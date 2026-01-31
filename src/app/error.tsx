@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCcw, Home, Mail } from "lucide-react";
 import { PublicNavbar } from "@/components/layout/public-navbar";
 import { Footer } from "@/components/layout/footer";
+import { getAppDomain } from "@/lib/utils";
 
 /**
  * Custom Error Page for client-side errors
@@ -32,7 +33,7 @@ export default function Error({
   }, [error]);
 
   const handleEmailReport = () => {
-    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || 'ghostclass.app';
+    const appDomain = getAppDomain();
     const subject = encodeURIComponent('Error Report - GhostClass');
     const body = encodeURIComponent(
       `Hi Admin,\n\nI encountered an error while using GhostClass.\n\n` +

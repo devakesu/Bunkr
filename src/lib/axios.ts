@@ -172,6 +172,11 @@ export function setCsrfToken(token: string | null): void {
   }
 
   if (token) {
+    // Validate token format before storing
+    if (typeof token !== 'string' || token.trim().length === 0) {
+      console.error('[CSRF] Invalid token format - token must be a non-empty string');
+      return;
+    }
     sessionStorage.setItem(CSRF_STORAGE_KEY, token);
   } else {
     sessionStorage.removeItem(CSRF_STORAGE_KEY);

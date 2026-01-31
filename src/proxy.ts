@@ -98,7 +98,30 @@ export async function proxy(request: NextRequest) {
   // Explicitly check for null/undefined termsVersion or version mismatch
   if (ezygoToken && user && (!termsVersion || termsVersion !== TERMS_VERSION) && isProtectedRoute) {
     const url = request.nextUrl.clone();
+    
+    // Redirect loop protection: check if we've already redirected
+    const redirectCount = parseInt(url.searchParams.get('retry') || '0', 10);
+    
+    if (redirectCount >= 3) {
+      // Too many redirect attempts - log user out to break the loop
+      console.error('Terms acceptance redirect loop detected. Logging user out.', {
+        userId: user.id,
+        termsVersion,
+        expectedVersion: TERMS_VERSION,
+        redirectCount
+      });
+      
+      const logoutUrl = url.clone();
+      logoutUrl.pathname = '/logout';
+      logoutUrl.search = '?reason=terms_redirect_loop';
+      const logoutRes = NextResponse.redirect(logoutUrl);
+      logoutRes.headers.set('Content-Security-Policy', cspHeader);
+      logoutRes.headers.set("x-nonce", nonce);
+      return logoutRes;
+    }
+    
     url.pathname = "/accept-terms";
+    url.searchParams.set('retry', String(redirectCount + 1));
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
     redirectRes.headers.set("x-nonce", nonce);
