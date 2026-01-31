@@ -298,6 +298,9 @@ describe('handleLogout', () => {
   });
   
   it('should handle CSRF token fetch failure gracefully', async () => {
+    // Mock getCsrfToken to return null (no cached token)
+    mockGetCsrfToken.mockReturnValue(null);
+    
     // Mock CSRF fetch to fail
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if (url === '/api/csrf') {
@@ -318,6 +321,9 @@ describe('handleLogout', () => {
   });
   
   it('should handle CSRF token fetch exception gracefully', async () => {
+    // Mock getCsrfToken to return null (no cached token)
+    mockGetCsrfToken.mockReturnValue(null);
+    
     // Mock CSRF fetch to throw
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if (url === '/api/csrf') {
