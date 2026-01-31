@@ -6,7 +6,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { handleLogout } from "@/lib/security/auth";
-import { getCsrfToken } from "@/lib/axios";
 
 /**
  * Loading screen component with timeout warning and logout option.
@@ -36,8 +35,7 @@ export function Loading() {
   }, []);
 
   const handleLogoutClick = async () => {
-    const csrfToken = getCsrfToken();
-    await handleLogout(csrfToken);
+    await handleLogout();
   };
 
   return (
