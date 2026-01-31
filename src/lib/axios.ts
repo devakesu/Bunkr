@@ -2,7 +2,7 @@
 // src/lib/axios.ts
 
 import axios from "axios";
-import { CSRF_HEADER, CSRF_TOKEN_NAME } from "@/lib/security/csrf-constants";
+import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 
 const axiosInstance = axios.create({
   baseURL: "/api/backend/",
@@ -27,26 +27,47 @@ export function getCookie(name: string) {
 }
 
 /**
- * Reads the CSRF token from cookies without generating a new one.
- * Used for double-submit cookie pattern in client-side requests.
+ * Storage for CSRF token in memory (Synchronizer Token Pattern).
+ * The token is stored in an httpOnly cookie server-side (XSS-safe),
+ * but also returned in API responses for client to include in request headers.
  * 
- * IMPORTANT: This function only reads - never generates tokens client-side.
- * Token must be initialized server-side through /api/csrf/init endpoint.
- * 
- * @returns CSRF token from cookie or null if not present
+ * IMPORTANT: Token must be initialized by calling /api/csrf/init endpoint
+ * and storing the returned token using setCsrfToken().
  */
-export function ensureCsrfToken(): string | null {
-  if (typeof document === "undefined") return null;
-  // Only read existing token - never generate client-side
-  // Token must be initialized server-side through a trusted flow
-  const token = getCookie(CSRF_TOKEN_NAME);
-  return token;
+let csrfTokenCache: string | null = null;
+
+/**
+ * Get the current CSRF token from memory.
+ * Used for Synchronizer Token Pattern in client-side requests.
+ * 
+ * @returns CSRF token from memory or null if not initialized
+ */
+export function getCsrfToken(): string | null {
+  return csrfTokenCache;
 }
 
-// Attach CSRF token from readable cookie (double-submit pattern)
+/**
+ * Set the CSRF token in memory after receiving it from server.
+ * Should be called after fetching token from /api/csrf/init endpoint.
+ * 
+ * @param token - The CSRF token received from server
+ */
+export function setCsrfToken(token: string | null): void {
+  csrfTokenCache = token;
+}
+
+/**
+ * Legacy function name for backward compatibility.
+ * @deprecated Use getCsrfToken() instead
+ */
+export function ensureCsrfToken(): string | null {
+  return getCsrfToken();
+}
+
+// Attach CSRF token from memory (Synchronizer Token Pattern)
 axiosInstance.interceptors.request.use((config) => {
   if (typeof document !== "undefined") {
-    const token = ensureCsrfToken();
+    const token = getCsrfToken();
     if (token) {
       config.headers.set(CSRF_HEADER, token);
     }

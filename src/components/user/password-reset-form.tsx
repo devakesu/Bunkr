@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
@@ -13,8 +13,9 @@ import { Eye, EyeOff, Mail, Phone, User } from "lucide-react";
 
 import ezygoClient from "@/lib/axios";
 import axios from "axios";
-import { ensureCsrfToken } from "@/lib/axios";
+import { getCsrfToken, setCsrfToken } from "@/lib/axios";
 import { CSRF_HEADER } from "@/lib/security/csrf-constants";
+import { logger } from "@/lib/logger";
 
 import { motion } from "framer-motion";
 
@@ -70,6 +71,28 @@ export function PasswordResetForm({
   const [loginMethod, setLoginMethod] = useState<
     "username" | "email" | "phone"
   >("username");
+
+  // Initialize CSRF token on component mount
+  useEffect(() => {
+    const initCsrf = async () => {
+      try {
+        // Call the /api/csrf/init endpoint to initialize the CSRF token
+        // The token is stored in an httpOnly cookie (XSS-safe) and returned in response
+        const response = await fetch("/api/csrf/init");
+        if (response.ok) {
+          const data = await response.json();
+          // Store token in memory for use in subsequent requests
+          setCsrfToken(data.token);
+        } else {
+          logger.error("Failed to initialize CSRF token:", response.statusText);
+        }
+      } catch (error) {
+        // Log error but don't block the form - the token will be checked on submission
+        logger.error("Failed to initialize CSRF token:", error);
+      }
+    };
+    initCsrf();
+  }, []);
 
   const handleUsernameSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -135,7 +158,7 @@ export function PasswordResetForm({
       
       // Use plain axios for internal auth endpoint (not proxied through /api/backend/)
       // Add CSRF token for the save-token call
-      const csrfToken = ensureCsrfToken();
+      const csrfToken = getCsrfToken();
       await axios.post("/api/auth/save-token", 
         { token },
         {
