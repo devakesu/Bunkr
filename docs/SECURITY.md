@@ -564,18 +564,24 @@ The following package overrides are in place to address known security issues:
 
 1. **fast-xml-parser: ^5.3.4**
    - **Reason:** Addresses known security vulnerabilities in older versions of fast-xml-parser
+   - **CVE:** TBD (see associated tracking issue and npm audit report)
+   - **Advisory:** TBD (e.g., relevant entry in https://github.com/advisories or other vendor advisory)
    - **Impact:** Non-breaking semver-compatible update for our dependencies
    - **Validation:** Changes have been validated by running the full test suite
    - **Type:** Transitive dependency override (brought in by other packages)
 
 2. **js-yaml: ^4.1.1**
    - **Reason:** Addresses known security vulnerabilities in older versions of js-yaml
+   - **CVE:** TBD (see associated tracking issue and npm audit report)
+   - **Advisory:** TBD (e.g., relevant entry in https://github.com/advisories or other vendor advisory)
    - **Impact:** Non-breaking semver-compatible update for our dependencies
    - **Validation:** Changes have been validated by running the full test suite
    - **Type:** Transitive dependency override (brought in by other packages)
 
 3. **tar: ^7.5.6**
    - **Reason:** Addresses known security vulnerabilities in older versions of tar
+   - **CVE:** TBD (see associated tracking issue and npm audit report)
+   - **Advisory:** TBD (e.g., relevant entry in https://github.com/advisories or other vendor advisory)
    - **Impact:** Non-breaking semver-compatible update for our dependencies
    - **Validation:** Changes have been validated by running the full test suite
    - **Type:** Transitive dependency override (brought in by other packages)
