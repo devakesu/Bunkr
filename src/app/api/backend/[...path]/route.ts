@@ -111,7 +111,7 @@ function getAllowedHosts(): Set<string> | null {
   return cachedAllowedHosts;
 }
 
-const MAX_RESPONSE_BYTES = 5_000_000;
+const MAX_RESPONSE_BYTES = 3_000_000;
 const UPSTREAM_TIMEOUT_MS = 15_000;
 
 async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: number, signal: AbortSignal) {
