@@ -14,7 +14,7 @@ function createNonce() {
   return btoa(String.fromCharCode(...bytes));
 }
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const nonce = createNonce();
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
@@ -61,14 +61,20 @@ export async function proxy(request: NextRequest) {
 
   // 6. Routing Logic
   const ezygoToken = request.cookies.get("ezygo_access_token")?.value;
+  const termsVersion = request.cookies.get("terms_version")?.value;
   const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard");
   const isProfileRoute = request.nextUrl.pathname.startsWith("/profile");
   const isNotificationsRoute = request.nextUrl.pathname.startsWith("/notifications");
   const isTrackingRoute = request.nextUrl.pathname.startsWith("/tracking");
+  const isContactRoute = request.nextUrl.pathname.startsWith("/contact");
   const isAuthRoute = request.nextUrl.pathname === "/";
+  const isAcceptTermsRoute = request.nextUrl.pathname === "/accept-terms";
+
+  // Protected routes that require authentication and terms acceptance
+  const isProtectedRoute = isDashboardRoute || isProfileRoute || isNotificationsRoute || isTrackingRoute || isContactRoute;
 
   // Scenario A: Not logged in -> Redirect to Login
-  if ((!ezygoToken || !user) && (isDashboardRoute || isProfileRoute || isNotificationsRoute || isTrackingRoute)) {
+  if ((!ezygoToken || !user) && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     const redirectRes = NextResponse.redirect(url);
@@ -77,7 +83,18 @@ export async function proxy(request: NextRequest) {
     return redirectRes;
   }
 
-  // Scenario B: Logged in -> Redirect to Dashboard
+  // Scenario B: Logged in but terms not accepted -> Redirect to Accept Terms
+  // Skip this check if already on accept-terms page to avoid redirect loop
+  if (ezygoToken && user && !termsVersion && isProtectedRoute && !isAcceptTermsRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/accept-terms";
+    const redirectRes = NextResponse.redirect(url);
+    redirectRes.headers.set('Content-Security-Policy', cspHeader);
+    redirectRes.headers.set("x-nonce", nonce);
+    return redirectRes;
+  }
+
+  // Scenario C: Logged in -> Redirect to Dashboard
   if (ezygoToken && user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";

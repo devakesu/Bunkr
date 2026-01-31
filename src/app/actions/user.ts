@@ -48,7 +48,7 @@ export async function acceptTermsAction(version: string) {
     maxAge: 31536000, // 1 year
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    httpOnly: false, // Client needs to read this for terms modal
+    httpOnly: true, // Secure cookie - checked server-side in proxy.ts
   });
   
   revalidatePath("/dashboard");
