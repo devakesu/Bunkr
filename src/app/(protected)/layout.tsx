@@ -11,7 +11,7 @@ import { motion, useScroll } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { createClient } from "@/lib/supabase/client";
-import { handleLogout } from "@/lib/security/auth";
+import { handleLogout, isAuthSessionMissingError } from "@/lib/security/auth";
 import { logger } from "@/lib/logger";
 import { useCSRFToken } from "@/hooks/use-csrf-token";
 
@@ -65,9 +65,9 @@ export default function ProtectedLayout({
     const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabaseRef.current.auth.getUser();
-        // Handle "Auth session missing" error - redirect to login
+        // Handle auth session missing errors - redirect to login
         if (error) {
-          if (error.message === "Auth session missing!") {
+          if (isAuthSessionMissingError(error)) {
             active = false;
             router.replace("/");
             return;

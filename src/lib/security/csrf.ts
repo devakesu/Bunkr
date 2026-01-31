@@ -5,8 +5,18 @@
  * This module provides token generation and validation for protecting
  * against Cross-Site Request Forgery attacks.
  * 
- * The token is stored in an httpOnly cookie (XSS-safe) and also returned
- * in API responses for the client to include in request headers.
+ * Security Model:
+ * - The token is stored in an httpOnly cookie (server-side validation)
+ * - Client receives token via API response and stores in sessionStorage
+ * - Client includes token in X-CSRF-Token header for state-changing requests
+ * - Server validates header token against httpOnly cookie
+ * 
+ * XSS Protection:
+ * - httpOnly cookie prevents JavaScript from reading the validation token
+ * - However, client-side token in sessionStorage IS accessible to XSS attacks
+ * - This pattern relies on proper Content Security Policy (CSP) and XSS prevention
+ * - If XSS occurs, attacker can read sessionStorage token and bypass CSRF protection
+ * - Always maintain strict CSP headers and sanitize user input to prevent XSS
  * 
  * IMPORTANT: Cookie writes must only happen in Route Handlers or Server Actions,
  * not in Server Components. Use getCsrfToken() from Server Components (read-only),
@@ -52,7 +62,7 @@ export async function setCsrfCookie(token: string): Promise<void> {
   cookieStore.set({
     name: CSRF_COOKIE_NAME,
     value: token,
-    httpOnly: true, // XSS-safe: token not accessible to JavaScript
+    httpOnly: true, // Server-side validation token (not accessible to JavaScript)
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: CSRF_COOKIE_MAX_AGE,

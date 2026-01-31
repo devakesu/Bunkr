@@ -22,6 +22,7 @@ import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/client";
 import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 import { logger } from "@/lib/logger";
+import { isAuthSessionMissingError } from "@/lib/security/auth";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
@@ -117,8 +118,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       const supabase = createClient();
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
-        // Ignore "Auth session missing" error - it's expected when not logged in
-        if (error && error.message !== "Auth session missing!") {
+        // Ignore auth session missing errors - they're expected when not logged in
+        if (error && !isAuthSessionMissingError(error)) {
           throw error;
         }
         if (user && isMounted) {
@@ -126,7 +127,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           return;
         }
       } catch (err) {
-        if (err instanceof Error && err.message !== "Auth session missing!") {
+        if (err instanceof Error && !isAuthSessionMissingError(err)) {
           logger.error("Unexpected error checking user session:", err);
         }
       } finally {
