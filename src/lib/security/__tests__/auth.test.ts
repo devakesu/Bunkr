@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Create mock functions
 const mockSignOut = vi.fn();
-const mockDeleteCookie = vi.fn();
 const mockCaptureException = vi.fn();
 
 // Mock modules at the top level with factory functions
@@ -12,10 +11,6 @@ vi.mock('@/lib/supabase/client', () => ({
       signOut: () => mockSignOut(),
     },
   }),
-}));
-
-vi.mock('cookies-next', () => ({
-  deleteCookie: (...args: any[]) => mockDeleteCookie(...args),
 }));
 
 vi.mock('@sentry/nextjs', () => ({
@@ -95,7 +90,6 @@ describe('handleLogout', () => {
     // Reset all mocks
     mockSignOut.mockReset();
     mockSignOut.mockResolvedValue({ error: null });
-    mockDeleteCookie.mockClear();
     mockCaptureException.mockClear();
     mockGetCsrfToken.mockClear();
     
