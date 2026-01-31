@@ -32,6 +32,12 @@ import { logger } from "@/lib/logger";
 // Module-level promise to prevent concurrent CSRF initialization across component instances
 // This is only used for request deduplication, not for tracking initialization state
 // The source of truth for initialization is sessionStorage, which is checked in each component
+//
+// ERROR RECOVERY: If initialization fails, the promise is rejected and cleared in the finally
+// block (line 112). Components mounting during a failure will see the rejected promise and
+// verify token state afterward (lines 78-82). If no token exists after the failed promise,
+// they will start a new initialization attempt. This ensures eventual consistency even if
+// some initialization attempts fail due to network issues or component unmounts.
 let csrfInitPromise: Promise<void> | null = null;
 
 export function useCSRFToken() {
@@ -68,7 +74,7 @@ export function useCSRFToken() {
       if (csrfInitPromise) {
         try {
           await csrfInitPromise;
-        } catch (error) {
+        } catch (_error) {
           // Error already logged by the component that created the promise
           logger.dev("CSRF init promise rejected, will check token state");
         }
@@ -115,7 +121,7 @@ export function useCSRFToken() {
 
       try {
         await csrfInitPromise;
-      } catch (error) {
+      } catch (_error) {
         // Error already logged above
       }
     };

@@ -21,8 +21,9 @@ export default function ProtectedLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  // Use explicit state machine for authorization: 'checking' | 'authorized' | 'unauthorized'
-  const [authState, setAuthState] = useState<'checking' | 'authorized' | 'unauthorized'>('checking');
+  // Track authorization state: 'checking' initially, 'authorized' once confirmed
+  // Unauthorized cases redirect immediately rather than setting a state
+  const [authState, setAuthState] = useState<'checking' | 'authorized'>('checking');
   const [isHidden, setIsHidden] = useState(false);
   const { scrollY } = useScroll();
   const lastScrollY = useRef(0);

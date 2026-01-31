@@ -337,6 +337,7 @@ export const formatCourseCode = (code: string): string => {
 };
 
 // Track if we've already logged the development IP warning to avoid spam
+// This flag persists across hot module reloads and will only log once per server restart
 let hasLoggedDevIpWarning = false;
 
 /**
@@ -496,6 +497,8 @@ const LOCALHOST_VARIANTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0'])
 const IPV4_PATTERN = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
 // IPv6 pattern: matches standard IPv6 format or bracket-enclosed format
 // window.location.hostname never includes ports, so we don't need to worry about port separators
+// Note: The bracket pattern is intentionally permissive for localhost detection purposes only.
+// It matches [::1] and other bracket-enclosed formats without full RFC 4291 validation.
 const IPV6_PATTERN = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^\[.*\]$/;
 
 /**

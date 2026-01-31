@@ -120,6 +120,8 @@ function checkForCspMetaTag(): boolean {
 }
 
 // Track if we've already logged the CSP warning to avoid spam
+// This flag is shared between getCsrfToken() and setCsrfToken() to avoid duplicate warnings
+// from either function, as they're typically called together during CSRF token operations
 let cspWarningLogged = false;
 
 /**
@@ -175,6 +177,17 @@ export function setCsrfToken(token: string | null): void {
     // Validate token format before storing
     if (typeof token !== 'string' || token.trim().length === 0) {
       console.error('[CSRF] Invalid token format - token must be a non-empty string');
+      return;
+    }
+    // Additional validation: ensure minimum length and alphanumeric characters
+    // CSRF tokens should be at least 32 characters (128-bit security minimum)
+    if (token.length < 32) {
+      console.error('[CSRF] Invalid token format - token too short (minimum 32 characters)');
+      return;
+    }
+    // Ensure token contains only safe characters (alphanumeric, hyphens, underscores)
+    if (!/^[A-Za-z0-9_-]+$/.test(token)) {
+      console.error('[CSRF] Invalid token format - token contains invalid characters');
       return;
     }
     sessionStorage.setItem(CSRF_STORAGE_KEY, token);

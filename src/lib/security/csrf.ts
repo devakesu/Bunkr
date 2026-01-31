@@ -56,6 +56,7 @@
 
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { logger } from "@/lib/logger";
 
 // Configuration
 const CSRF_COOKIE_NAME = "csrf_token";
@@ -128,6 +129,13 @@ export async function validateCsrfToken(requestToken: string | null | undefined)
   } catch (_error) {
     // timingSafeEqual throws RangeError if buffers have different lengths.
     // Treat any error as a failed comparison without exposing timing details.
+    // Log sanitized error metadata for debugging without exposing token values
+    logger.error("CSRF token validation failed", {
+      errorType: _error instanceof Error ? _error.name : 'unknown',
+      cookieTokenLength: cookieToken.length,
+      requestTokenLength: requestToken.length,
+      // Never log actual token values - only metadata for debugging
+    });
     return false;
   }
 }
