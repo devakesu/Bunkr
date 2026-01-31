@@ -27,7 +27,9 @@
   "overrides": {
     "tar": "^7.5.6",
     "fast-xml-parser": "^5.3.4",
-    "js-yaml": "^4.1.1"
+    "_comment_fast-xml-parser": "Override transitive fast-xml-parser to ^5.3.4 to address known security issues; this is a non-breaking semver-compatible update for our dependencies.",
+    "js-yaml": "^4.1.1",
+    "_comment_js-yaml": "Override transitive js-yaml to ^4.1.1 to address known security issues; this is a non-breaking semver-compatible update for our dependencies."
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
