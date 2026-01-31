@@ -311,7 +311,7 @@ GhostClass is optimized for maximum performance:
 
 **Bundle Optimization**
 - Tree-shaking for `lucide-react`, `date-fns`, `framer-motion`
-- Console.log removal in production (keeps error/warn)
+- Selective console logging in production (keeps log/error/warn)
 - Font optimization with `display: swap` (prevents FOIT)
 - Priority loading for critical images (logo, avatar)
 - Blur placeholders for instant image feedback
