@@ -31,8 +31,8 @@ export function getCookie(name: string) {
  * The token is stored in an httpOnly cookie server-side (XSS-safe),
  * but also returned in API responses for client to include in request headers.
  * 
- * Using sessionStorage allows token sharing across browser tabs while
- * maintaining security (sessionStorage is isolated per origin and cleared on tab close).
+ * Using sessionStorage scopes the token to a single browser tab while
+ * maintaining security (sessionStorage is isolated per origin per tab and cleared on tab close).
  * 
  * IMPORTANT: Token must be initialized by calling /api/csrf/init endpoint
  * and storing the returned token using setCsrfToken().
