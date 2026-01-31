@@ -110,7 +110,7 @@ function verifyCspEnabled(): boolean {
     }
 
     // No meta tag found - this is expected when CSP is enforced via HTTP headers
-    // Log a one-time informational warning (not an error)
+    // Return false so caller can log a one-time informational warning if needed
     // To verify CSP is active: check Network tab in DevTools for Content-Security-Policy header
     return false;
   }
