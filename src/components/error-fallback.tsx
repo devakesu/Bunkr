@@ -47,6 +47,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
       const isLocalhost = LOCALHOST_VARIANTS.has(hostname);
       const isIPv4 = IPV4_PATTERN.test(hostname);
       // IPv6 addresses contain multiple colons; window.location.hostname never includes ports
+      // This check assumes well-formed values from window.location.hostname
       const isIPv6 = (hostname.match(/:/g) || []).length >= 2 || hostname.startsWith('[');
       
       if (hostname && !isLocalhost && !isIPv4 && !isIPv6) {
