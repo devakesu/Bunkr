@@ -295,11 +295,10 @@ The application will be available at:
 
 GhostClass is optimized for maximum performance:
 
-**Code Splitting & Lazy Loading**
-- Dynamic imports for heavy client components (Dashboard, Profile, Tracking, Notifications)
+**Code Splitting & Loading Strategy**
+- Next.js App Router route-based code splitting for pages and layouts
 - Lazy loaded Recharts components (XAxis, YAxis, Tooltip, ResponsiveContainer)
 - Lazy loaded Framer Motion with `domAnimation` features only
-- React Suspense boundaries with loading states
 
 **Caching Strategy**
 - React Query with smart cache timing:
