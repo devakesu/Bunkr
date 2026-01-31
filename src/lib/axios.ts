@@ -77,25 +77,25 @@ export function getCookie(name: string) {
 const CSRF_STORAGE_KEY = "csrf_token_memory";
 
 /**
- * Verifies that Content Security Policy is enabled in production.
- * This is a critical security check since the CSRF token in sessionStorage
- * is vulnerable to XSS attacks if CSP is not properly configured.
+ * Check for CSP meta tag in the document.
  * 
- * IMPORTANT LIMITATION: This function can only check for CSP meta tags, not HTTP headers.
- * In this application, CSP is enforced via HTTP headers in the proxy middleware
- * (set in src/proxy.ts middleware), which cannot be directly read from JavaScript.
+ * NOTE: This function has limited scope - it only checks for CSP meta tags,
+ * NOT HTTP headers (which cannot be read from JavaScript). In most production
+ * configurations, CSP is enforced via HTTP headers, so this function will
+ * return false even when CSP is correctly configured.
  * 
- * The function assumes CSP is properly configured if:
- * 1. In development mode (CSP enforcement may vary in dev)
+ * Returns true if any of:
+ * 1. Running in development mode (CSP not required)
  * 2. A CSP meta tag is found (alternative CSP delivery method)
  * 3. On server-side (CSP will be applied by middleware)
  * 
  * If no meta tag is found in production (normal for HTTP header-based CSP),
- * a one-time warning is logged for awareness. This does NOT indicate CSP is disabled.
+ * this indicates the common case, NOT a security issue. Callers should log
+ * informational warnings, not errors.
  * 
  * @returns true if in dev mode, CSP meta tag found, or on server-side
  */
-function verifyCspEnabled(): boolean {
+function checkForCspMetaTag(): boolean {
   // Skip check in development mode
   if (process.env.NODE_ENV !== "production") {
     return true;
@@ -126,20 +126,20 @@ let cspWarningLogged = false;
  * Get the current CSRF token from sessionStorage.
  * Used for Synchronizer Token Pattern in client-side requests.
  * 
- * Performs runtime CSP verification in production to ensure security measures are active.
- * Note: This can only detect CSP meta tags, not HTTP headers. See verifyCspEnabled() docs.
+ * Performs runtime CSP check in production to raise awareness about security posture.
+ * Note: CSP check only detects meta tags, not HTTP headers. See checkForCspMetaTag() docs.
  * 
  * @returns CSRF token from sessionStorage or null if not initialized
  */
 export function getCsrfToken(): string | null {
   if (typeof sessionStorage === "undefined") return null;
 
-  // Verify CSP is enabled in production (critical for sessionStorage security)
+  // Check for CSP meta tag in production (for awareness only)
   // Only log warning once to avoid console spam
-  if (process.env.NODE_ENV === "production" && !verifyCspEnabled() && !cspWarningLogged) {
+  if (process.env.NODE_ENV === "production" && !checkForCspMetaTag() && !cspWarningLogged) {
     cspWarningLogged = true;
     console.warn(
-      "[CSRF Security] No CSP meta tag detected. This is expected if CSP is enforced via HTTP headers. " +
+      "[CSRF Security] No CSP meta tag detected. This is EXPECTED if CSP is enforced via HTTP headers (recommended). " +
       "To verify CSP is active, check the Network tab in browser DevTools for the Content-Security-Policy header. " +
       "If the header is missing, contact the security team immediately."
     );
@@ -152,19 +152,20 @@ export function getCsrfToken(): string | null {
  * Set the CSRF token in sessionStorage after receiving it from server.
  * Should be called after fetching token from /api/csrf/init endpoint.
  * 
- * Performs runtime CSP verification in production to ensure security measures are active.
+ * Performs runtime CSP check in production to raise awareness about security posture.
+ * Note: CSP check only detects meta tags, not HTTP headers. See checkForCspMetaTag() docs.
  * 
  * @param token - The CSRF token received from server
  */
 export function setCsrfToken(token: string | null): void {
   if (typeof sessionStorage === "undefined") return;
 
-  // Verify CSP is enabled in production (critical for sessionStorage security)
+  // Check for CSP meta tag in production (for awareness only)
   // Only log warning once to avoid console spam (reuses the same flag as getCsrfToken)
-  if (process.env.NODE_ENV === "production" && !verifyCspEnabled() && !cspWarningLogged) {
+  if (process.env.NODE_ENV === "production" && !checkForCspMetaTag() && !cspWarningLogged) {
     cspWarningLogged = true;
     console.warn(
-      "[CSRF Security] No CSP meta tag detected. This is expected if CSP is enforced via HTTP headers. " +
+      "[CSRF Security] No CSP meta tag detected. This is EXPECTED if CSP is enforced via HTTP headers (recommended). " +
       "To verify CSP is active, check the Network tab in browser DevTools for the Content-Security-Policy header. " +
       "If the header is missing, contact the security team immediately."
     );

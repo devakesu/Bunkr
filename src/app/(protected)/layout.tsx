@@ -114,37 +114,40 @@ export default function ProtectedLayout({
   return (
     <ErrorBoundary>
       <div className="flex min-h-screen flex-col">
-        {(!isAuthorized || institutionLoading || institutionError) ? (
+        {/* Show loading state if not yet authorized or institutions are loading/error */}
+        {(!isAuthorized || institutionLoading || institutionError) && (
           <div className="h-screen flex items-center justify-center">
             <Loading />
           </div>
-        ) : (
-          <>
+        )}
 
-        <motion.div
-          variants={{
-            visible: { y: 0 },
-            hidden: { y: "-100%" },
-          }}
-          animate={isHidden ? "hidden" : "visible"}
-          transition={{ duration: 0.35, ease: "easeInOut" }}
-          className={cn(
-            "fixed top-0 left-0 right-0 z-50",
-            isHidden ? "pointer-events-none" : "pointer-events-auto"
-          )}
-        >
-          <Navbar />
-        </motion.div>
-        
-        <main className="flex-1 w-full bg-background pt-20">
-          <ErrorBoundary>
-            {children}
-          </ErrorBoundary>
-        </main>
-        
-        <Footer />
-        <Toaster richColors position="bottom-right"/>
-        </>
+        {/* Only render protected content when authorized and institutions loaded */}
+        {isAuthorized && !institutionLoading && !institutionError && (
+          <>
+            <motion.div
+              variants={{
+                visible: { y: 0 },
+                hidden: { y: "-100%" },
+              }}
+              animate={isHidden ? "hidden" : "visible"}
+              transition={{ duration: 0.35, ease: "easeInOut" }}
+              className={cn(
+                "fixed top-0 left-0 right-0 z-50",
+                isHidden ? "pointer-events-none" : "pointer-events-auto"
+              )}
+            >
+              <Navbar />
+            </motion.div>
+            
+            <main className="flex-1 w-full bg-background pt-20">
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+            </main>
+            
+            <Footer />
+            <Toaster richColors position="bottom-right"/>
+          </>
         )}
       </div>
     </ErrorBoundary>
