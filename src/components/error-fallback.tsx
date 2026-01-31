@@ -41,7 +41,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
       // Use hostname only if it's not localhost, loopback, or an IP address
       const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '0.0.0.0';
       const isIPv4 = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname);
-      const isIPv6 = hostname.includes(':') && hostname.includes('[') || /^[0-9a-fA-F:]+$/.test(hostname);
+      const isIPv6 = /^[0-9a-fA-F:]+$/.test(hostname) || hostname.startsWith('[');
       
       if (hostname && !isLocalhost && !isIPv4 && !isIPv6) {
         appDomain = hostname;
