@@ -298,7 +298,7 @@ describe('handleLogout', () => {
   });
   
   it('should handle CSRF token fetch failure gracefully', async () => {
-    // Mock getCsrfToken to return null (no cached token)
+    // Mock getCsrfToken to return null (no initial token)
     mockGetCsrfToken.mockReturnValue(null);
     
     // Mock CSRF fetch to fail
@@ -321,7 +321,7 @@ describe('handleLogout', () => {
   });
   
   it('should handle CSRF token fetch exception gracefully', async () => {
-    // Mock getCsrfToken to return null (no cached token)
+    // Mock getCsrfToken to return null (no initial token)
     mockGetCsrfToken.mockReturnValue(null);
     
     // Mock CSRF fetch to throw
