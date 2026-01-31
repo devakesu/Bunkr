@@ -321,7 +321,7 @@ GhostClass is optimized for maximum performance:
 - Turbopack enabled by default (Next.js 15+)
 - Origin validation skipped in dev mode
 - Fast Refresh with React 19
-- No NPProgress blur on login page
+- No NProgress blur on login page
 
 <br />
 
