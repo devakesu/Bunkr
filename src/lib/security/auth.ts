@@ -64,9 +64,12 @@ export const handleLogout = async (csrfToken?: string | null) => {
   let token: string | null = csrfToken ?? null;
   
   try {
-    // Get CSRF token inside try/catch to handle module load errors
-    const { getCsrfToken: getToken } = await import("@/lib/axios");
-    token = csrfToken ?? getToken();
+    // Only import and get CSRF token if not provided to avoid unnecessary module loads
+    if (!csrfToken) {
+      const { getCsrfToken: getToken } = await import("@/lib/axios");
+      token = getToken();
+    }
+    
     // 1. Sign out from Supabase (Server-side session)
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
