@@ -61,23 +61,22 @@ export const isAuthSessionMissingError = (error: unknown): boolean => {
 export const handleLogout = async (csrfToken?: string | null) => {
   const supabase = createClient();
   
+  // Get CSRF token early (avoid duplication in try/catch blocks)
+  const { getCsrfToken: getToken } = await import("@/lib/axios");
+  const token = csrfToken ?? getToken();
+  
   try {
     // 1. Sign out from Supabase (Server-side session)
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
 
-    // 2. Get CSRF token if not provided
-    // Import here to avoid circular dependencies
-    const { getCsrfToken } = await import("@/lib/axios");
-    const token = csrfToken ?? getCsrfToken();
-
-    // 3. Clear Local Storage (Client-side cache)
+    // 2. Clear Local Storage (Client-side cache)
     if (typeof window !== "undefined") {
         localStorage.clear();
         sessionStorage.clear();
     }
 
-    // 4. Clear Cookies with CSRF protection
+    // 3. Clear Cookies with CSRF protection
     if (token) {
       await fetch("/api/logout", { 
         method: "POST",
@@ -86,11 +85,11 @@ export const handleLogout = async (csrfToken?: string | null) => {
         }
       });
     } else {
-      logger.warn("Logout called without CSRF token - server cookies may not be cleared");
+      logger.warn("Logout called without CSRF token - server cookies may not be cleared. User will need to re-authenticate on next visit.");
     }
     deleteCookie("terms_version", { path: '/' }); // Clear legal acceptance (client-side cookie)
     
-    // 5. Redirect
+    // 4. Redirect
     if (typeof window !== "undefined") {
       window.location.href = "/";
     }
@@ -105,9 +104,7 @@ export const handleLogout = async (csrfToken?: string | null) => {
 
     // Force redirect anyway so user isn't stuck on a broken page
     if (typeof window !== "undefined") {
-      // Best-effort cleanup of known app cookies; HttpOnly cookies cannot be cleared client-side
-      const { getCsrfToken } = await import("@/lib/axios");
-      const token = csrfToken ?? getCsrfToken();
+      // Best-effort cleanup of known app cookies
       if (token) {
         await fetch("/api/logout", { 
           method: "POST",
