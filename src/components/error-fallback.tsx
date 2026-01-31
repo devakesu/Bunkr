@@ -33,9 +33,20 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
   };
 
   const handleEmailReport = () => {
-    const appDomain =
-      process.env.NEXT_PUBLIC_APP_DOMAIN ||
-      (typeof window !== "undefined" ? window.location.hostname : "ghostclass.app");
+    let appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+    
+    // Fallback to window.location.hostname if env var not set
+    if (!appDomain && typeof window !== "undefined") {
+      const hostname = window.location.hostname;
+      // Use hostname only if it's not localhost or an IP address
+      if (hostname && hostname !== 'localhost' && !/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+        appDomain = hostname;
+      }
+    }
+    
+    // Final fallback
+    appDomain = appDomain || 'ghostclass.app';
+    
     const subject = encodeURIComponent('Error Report - GhostClass');
     const body = encodeURIComponent(
       `Hi Admin,\n\nI encountered an error while using GhostClass.\n\n` +
