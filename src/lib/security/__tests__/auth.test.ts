@@ -22,6 +22,12 @@ vi.mock('@sentry/nextjs', () => ({
   captureException: (...args: any[]) => mockCaptureException(...args),
 }));
 
+// Mock the getCsrfToken function
+const mockGetCsrfToken = vi.fn();
+vi.mock('@/lib/axios', () => ({
+  getCsrfToken: () => mockGetCsrfToken(),
+}));
+
 import { isAuthSessionMissingError, handleLogout } from '../auth';
 
 describe('isAuthSessionMissingError', () => {
@@ -91,6 +97,10 @@ describe('handleLogout', () => {
     mockSignOut.mockResolvedValue({ error: null });
     mockDeleteCookie.mockClear();
     mockCaptureException.mockClear();
+    mockGetCsrfToken.mockClear();
+    
+    // Default: return a valid CSRF token
+    mockGetCsrfToken.mockReturnValue('test-csrf-token');
 
     // Mock fetch - capture original and replace with mock
     originalFetch = global.fetch;
@@ -189,12 +199,24 @@ describe('handleLogout', () => {
 
   it('should call logout API endpoint', async () => {
     await handleLogout();
-    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { method: 'POST' });
+    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
+      method: 'POST',
+      headers: {
+        'x-csrf-token': 'test-csrf-token'
+      }
+    });
   });
 
   it('should delete terms_version cookie', async () => {
     await handleLogout();
-    expect(mockDeleteCookie).toHaveBeenCalledWith('terms_version', { path: '/' });
+    // Note: terms_version cookie deletion is now handled server-side via /api/logout
+    // Client-side deletion was removed as it's httpOnly
+    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
+      method: 'POST',
+      headers: {
+        'x-csrf-token': 'test-csrf-token'
+      }
+    });
   });
 
   it('should redirect to home page after successful logout', async () => {
@@ -208,8 +230,12 @@ describe('handleLogout', () => {
     await handleLogout();
 
     // Should still attempt cleanup
-    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { method: 'POST' });
-    expect(mockDeleteCookie).toHaveBeenCalledWith('terms_version', { path: '/' });
+    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
+      method: 'POST',
+      headers: {
+        'x-csrf-token': 'test-csrf-token'
+      }
+    });
     expect(global.window.location.href).toBe('/');
     expect(mockCaptureException).toHaveBeenCalled();
   });
