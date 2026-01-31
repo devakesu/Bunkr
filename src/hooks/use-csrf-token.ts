@@ -14,12 +14,12 @@
  */
 
 import { useEffect } from "react";
-import { setCsrfToken } from "@/lib/axios";
+import { setCsrfToken, getCsrfToken } from "@/lib/axios";
 import { logger } from "@/lib/logger";
 
-// Module-level guards to prevent duplicate or concurrent CSRF initialization
+// Module-level guard to prevent concurrent CSRF initialization
+// Note: We only use this to prevent duplicate concurrent requests, not to track initialization state
 let csrfInitPromise: Promise<void> | null = null;
-let csrfInitialized = false;
 
 export function useCSRFToken() {
   useEffect(() => {
@@ -29,8 +29,10 @@ export function useCSRFToken() {
         return;
       }
 
-      // If we've already successfully initialized, do nothing
-      if (csrfInitialized) {
+      // Check if token already exists in sessionStorage - this is the source of truth
+      // This allows re-initialization if token is cleared, fixing hot module replacement issues
+      const existingToken = getCsrfToken();
+      if (existingToken) {
         return;
       }
 
@@ -49,7 +51,6 @@ export function useCSRFToken() {
             const data = await response.json();
             // Store token in sessionStorage for use in subsequent requests
             setCsrfToken(data.token);
-            csrfInitialized = true;
           } else {
             logger.error("Failed to initialize CSRF token:", response.statusText);
           }
