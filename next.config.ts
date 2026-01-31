@@ -38,13 +38,13 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: headersList,
       },
-      // Cache static assets for 1 year
+      // Cache fonts for 1 year without immutable (font files are not versioned/hashed)
       {
         source: "/fonts/:path*",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
+            value: "public, max-age=31536000",
           },
         ],
       },
