@@ -72,14 +72,20 @@ export const getCspHeader = (nonce?: string) => {
         "https://static.cloudflareinsights.com",
       ];
 
-  const styleSrcParts = isDev
+  // Use granular style directives instead of global unsafe-inline for better XSS protection
+  const styleSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
-    : ["'self'", `'nonce-${nonce}'`, "'unsafe-inline'"]; // unsafe-inline needed for Recharts and dynamic style injection
+    : ["'self'", `'nonce-${nonce}'`];
+  
+  // style-src-attr allows inline style attributes (e.g., style="color: red;") used by some libraries like Recharts
+  // This is a security trade-off: more restrictive than global unsafe-inline but still permits inline styles
+  const styleSrcAttrParts = ["'unsafe-inline'"];
 
   return `
     default-src 'self';
     script-src ${scriptSrcParts.join(" ")};
-    style-src ${styleSrcParts.join(" ")};
+    style-src-elem ${styleSrcElemParts.join(" ")};
+    style-src-attr ${styleSrcAttrParts.join(" ")};
     img-src 'self' blob: data: ${supabaseOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.google.co.in https://*.doubleclick.net;
     font-src 'self' data:;
     object-src 'none';

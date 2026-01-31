@@ -299,11 +299,10 @@ export const Navbar = () => {
                       className="object-cover rounded-full"
                       priority
                       sizes="36px"
-                      loading="eager"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center rounded-full bg-muted">
-                      <Image src={UserPlaceholder} alt="Default avatar" width={36} height={36} className="object-contain" priority loading="eager"/>
+                      <Image src={UserPlaceholder} alt="Default avatar" width={36} height={36} className="object-contain" priority />
                     </div>
                   )}
                 </Avatar>
