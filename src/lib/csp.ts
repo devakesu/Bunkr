@@ -79,7 +79,7 @@ export const getCspHeader = (nonce?: string) => {
   
   // style-src-attr allows inline style attributes (e.g., style="color: red;") used by some libraries like Recharts
   // In development: allow all inline styles for easier debugging
-  // In production: omit directive entirely to prevent XSS via style attributes (falls back to default-src)
+  // In production: omit directive entirely so inline style attributes are blocked (falls back to style-src which doesn't include 'unsafe-inline')
   // Note: This may break some third-party libraries that rely on inline styles without CSP support
   // If needed, consider using CSP3 unsafe-hashes or refactoring library usage
   const styleSrcAttrDirective = isDev ? `style-src-attr 'unsafe-inline';` : '';
