@@ -1,11 +1,5 @@
 import { Metadata } from "next";
-import { Suspense } from "react";
-import { Loading } from "@/components/loading";
-import dynamic from "next/dynamic";
-
-const DashboardClient = dynamic(() => import("./DashboardClient"), {
-  ssr: false,
-});
+import DashboardClient from "./DashboardClient";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -16,9 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function DashboardPage() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <DashboardClient />
-    </Suspense>
-  );
+  return <DashboardClient />;
 }
