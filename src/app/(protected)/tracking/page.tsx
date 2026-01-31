@@ -1,11 +1,5 @@
 import { Metadata } from "next";
-import { Suspense } from "react";
-import { LoadingSkeleton } from "@/components/loading-skeleton";
-import dynamic from "next/dynamic";
-
-const TrackingClient = dynamic(() => import("./TrackingClient"), {
-  ssr: false,
-});
+import TrackingClient from "./TrackingClient";
 
 export const metadata: Metadata = {
   title: "Tracking",
@@ -16,9 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function TrackingPage() {
-  return (
-    <Suspense fallback={<LoadingSkeleton />}>
-      <TrackingClient />
-    </Suspense>
-  );
+  return <TrackingClient />;
 }

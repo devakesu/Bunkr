@@ -2,7 +2,6 @@
 // src/lib/security/auth.ts
 import { createClient } from "@/lib/supabase/client";
 import * as Sentry from "@sentry/nextjs";
-import { deleteCookie } from "cookies-next";
 import { logger } from "@/lib/logger";
 
 /**
@@ -87,7 +86,6 @@ export const handleLogout = async (csrfToken?: string | null) => {
     } else {
       logger.warn("Logout called without CSRF token - server cookies may not be cleared. User will need to re-authenticate on next visit.");
     }
-    deleteCookie("terms_version", { path: '/' }); // Clear legal acceptance (client-side cookie)
     
     // 4. Redirect
     if (typeof window !== "undefined") {
@@ -113,7 +111,6 @@ export const handleLogout = async (csrfToken?: string | null) => {
           }
         });
       }
-      deleteCookie("terms_version", { path: '/' });
       window.location.href = "/";
     }
   }
