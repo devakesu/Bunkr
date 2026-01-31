@@ -106,12 +106,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
     const subject = encodeURIComponent('Error Report - GhostClass');
     const body = encodeURIComponent(
-      `Hi Admin,\n\nI encountered an error while using GhostClass:\n\n` +
-      `Error: ${error.message}\n\n` +
-      `Stack Trace:\n${error.stack || 'No stack trace available'}\n\n` +
-      `User Agent: ${navigator.userAgent}\n` +
-      `URL: ${window.location.href}\n` +
+      `Hi Admin,\n\nI encountered an error while using GhostClass.\n\n` +
       `Timestamp: ${new Date().toISOString()}\n\n` +
+      `Note: Detailed error information has been automatically logged to our monitoring system.\n\n` +
       `Please help resolve this issue.\n\nThank you!`
     );
 
