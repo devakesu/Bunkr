@@ -94,7 +94,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Scenario B: Logged in but terms not accepted or outdated -> Redirect to Accept Terms
-  // Note: /accept-terms is not a protected route, so we don't need to check for it here
+  // Note: /accept-terms requires authentication (handled in Scenario A.1), but is accessible with outdated/missing terms
   // Explicitly check for null/undefined termsVersion or version mismatch
   if (ezygoToken && user && (!termsVersion || termsVersion !== TERMS_VERSION) && isProtectedRoute) {
     const url = request.nextUrl.clone();
