@@ -160,10 +160,13 @@ export function setCsrfToken(token: string | null): void {
   if (typeof sessionStorage === "undefined") return;
 
   // Verify CSP is enabled in production (critical for sessionStorage security)
-  if (process.env.NODE_ENV === "production" && !verifyCspEnabled()) {
-    console.error(
-      "[CSRF Security] CSP verification failed. Token storage in sessionStorage is vulnerable without CSP. " +
-      "This is a critical security issue - contact the security team immediately."
+  // Only log warning once to avoid console spam (reuses the same flag as getCsrfToken)
+  if (process.env.NODE_ENV === "production" && !verifyCspEnabled() && !cspWarningLogged) {
+    cspWarningLogged = true;
+    console.warn(
+      "[CSRF Security] No CSP meta tag detected. This is expected if CSP is enforced via HTTP headers. " +
+      "To verify CSP is active, check the Network tab in browser DevTools for the Content-Security-Policy header. " +
+      "If the header is missing, contact the security team immediately."
     );
   }
 
