@@ -577,6 +577,7 @@ The following package overrides are in place to address known security issues:
 3. **tar: ^7.5.6**
    - **Reason:** Addresses known security vulnerabilities in older versions of tar
    - **Impact:** Non-breaking semver-compatible update for our dependencies
+   - **Validation:** Changes have been validated by running the full test suite
    - **Type:** Transitive dependency override (brought in by other packages)
 
 #### Maintenance Process
