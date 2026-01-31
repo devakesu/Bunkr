@@ -80,6 +80,8 @@ describe('isAuthSessionMissingError', () => {
 describe('handleLogout', () => {
   let originalWindow: typeof globalThis.window;
   let originalFetch: typeof globalThis.fetch;
+  let originalLocalStorage: Storage;
+  let originalSessionStorage: Storage;
   let mockLocalStorage: Storage;
   let mockSessionStorage: Storage;
 
@@ -128,6 +130,8 @@ describe('handleLogout', () => {
 
     // Also set global localStorage and sessionStorage to point to the mocks
     // since the code accesses them directly
+    originalLocalStorage = global.localStorage;
+    originalSessionStorage = global.sessionStorage;
     Object.defineProperty(global, 'localStorage', {
       writable: true,
       configurable: true,
@@ -144,6 +148,8 @@ describe('handleLogout', () => {
     vi.clearAllMocks();
     global.window = originalWindow;
     global.fetch = originalFetch;
+    global.localStorage = originalLocalStorage;
+    global.sessionStorage = originalSessionStorage;
   });
 
   it('should call Supabase signOut', async () => {
