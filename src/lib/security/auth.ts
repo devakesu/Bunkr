@@ -59,7 +59,8 @@ export const isAuthSessionMissingError = (error: unknown): boolean => {
  */
 export const handleLogout = async (csrfToken?: string | null) => {
   const supabase = createClient();
-  let token: string | null = null;
+  // Initialize token with csrfToken to maintain fallback behavior even if dynamic import fails
+  let token: string | null = csrfToken ?? null;
   
   try {
     // Get CSRF token inside try/catch to handle module load errors
@@ -105,6 +106,8 @@ export const handleLogout = async (csrfToken?: string | null) => {
         });
         
         // Retry once on 403 with a fresh CSRF token
+        // 403 typically indicates a stale CSRF token (mismatch between header and cookie)
+        // which justifies retrying with a freshly fetched token
         if (logoutResponse.status === 403) {
           logger.warn("Logout received 403 - retrying with fresh CSRF token");
           try {
