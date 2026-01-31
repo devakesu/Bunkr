@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { handleLogout } from "@/lib/security/auth";
+import { getCsrfToken } from "@/lib/axios";
 
 /**
  * Loading screen component with timeout warning and logout option.
@@ -33,6 +34,11 @@ export function Loading() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  const handleLogoutClick = async () => {
+    const csrfToken = getCsrfToken();
+    await handleLogout(csrfToken);
+  };
 
   return (
     <div 
@@ -68,7 +74,7 @@ export function Loading() {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
             className="gap-2"
             aria-label="Sign out and return to login page"
           >

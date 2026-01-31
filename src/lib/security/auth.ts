@@ -39,7 +39,7 @@ export const isAuthSessionMissingError = (error: unknown): boolean => {
  * Process:
  * 1. Sign out from Supabase (server-side session)
  * 2. Clear browser storage (localStorage, sessionStorage)
- * 3. Clear authentication and terms cookies via API
+ * 3. Clear authentication and terms cookies via API (with CSRF protection)
  * 4. Redirect to home page
  * 
  * Error Handling:
@@ -47,13 +47,18 @@ export const isAuthSessionMissingError = (error: unknown): boolean => {
  * - Forces redirect even on failure to prevent user from being stuck
  * - Best-effort cleanup continues even if individual steps fail
  * 
+ * @param csrfToken - Optional CSRF token for API logout. If not provided, will attempt to retrieve from storage.
+ * 
  * @example
  * ```ts
- * await handleLogout();
+ * import { getCsrfToken } from "@/lib/axios";
+ * 
+ * const csrfToken = getCsrfToken();
+ * await handleLogout(csrfToken);
  * // User is redirected to home page with all auth state cleared
  * ```
  */
-export const handleLogout = async () => {
+export const handleLogout = async (csrfToken?: string | null) => {
   const supabase = createClient();
   
   try {
@@ -61,17 +66,31 @@ export const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
 
-    // 2. Clear Local Storage (Client-side cache)
+    // 2. Get CSRF token if not provided
+    // Import here to avoid circular dependencies
+    const { getCsrfToken } = await import("@/lib/axios");
+    const token = csrfToken ?? getCsrfToken();
+
+    // 3. Clear Local Storage (Client-side cache)
     if (typeof window !== "undefined") {
         localStorage.clear();
         sessionStorage.clear();
     }
 
-    // 3. Clear Cookies
-    await fetch("/api/logout", { method: "POST" }); // Clear auth token
-    deleteCookie("terms_version", { path: '/' }); // Clear legal acceptance
+    // 4. Clear Cookies with CSRF protection
+    if (token) {
+      await fetch("/api/logout", { 
+        method: "POST",
+        headers: {
+          "x-csrf-token": token
+        }
+      });
+    } else {
+      logger.warn("Logout called without CSRF token - server cookies may not be cleared");
+    }
+    deleteCookie("terms_version", { path: '/' }); // Clear legal acceptance (client-side cookie)
     
-    // 4. Redirect
+    // 5. Redirect
     if (typeof window !== "undefined") {
       window.location.href = "/";
     }
@@ -87,7 +106,16 @@ export const handleLogout = async () => {
     // Force redirect anyway so user isn't stuck on a broken page
     if (typeof window !== "undefined") {
       // Best-effort cleanup of known app cookies; HttpOnly cookies cannot be cleared client-side
-      await fetch("/api/logout", { method: "POST" });
+      const { getCsrfToken } = await import("@/lib/axios");
+      const token = csrfToken ?? getCsrfToken();
+      if (token) {
+        await fetch("/api/logout", { 
+          method: "POST",
+          headers: {
+            "x-csrf-token": token
+          }
+        });
+      }
       deleteCookie("terms_version", { path: '/' });
       window.location.href = "/";
     }

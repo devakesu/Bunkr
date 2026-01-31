@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { Suspense } from "react";
-import { Loading } from "@/components/loading";
+import { LoadingSkeleton } from "@/components/loading-skeleton";
 import dynamic from "next/dynamic";
 
 const NotificationsClient = dynamic(() => import("./NotificationsClient"), {
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 export default function NotificationsPage() {
   return (
-    <Suspense fallback={<Loading />}>
+    <Suspense fallback={<LoadingSkeleton />}>
       <NotificationsClient />
     </Suspense>
   );

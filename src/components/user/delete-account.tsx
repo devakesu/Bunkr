@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useQueryClient } from "@tanstack/react-query";
 import { handleLogout } from "@/lib/security/auth";
+import { getCsrfToken } from "@/lib/axios";
 
 export function DeleteAccount() {
   const [isOpen, setIsOpen] = useState(false);
@@ -43,8 +44,9 @@ export function DeleteAccount() {
       // Clear React Query cache
       queryClient.clear();
       
-      // Use centralized logout logic (handles auth, storage, cookies, redirect)
-      await handleLogout();
+      // Get CSRF token and use centralized logout logic (handles auth, storage, cookies, redirect)
+      const csrfToken = getCsrfToken();
+      await handleLogout(csrfToken);
       
     } catch (error: any) {
       toast.error(error.message || "Failed to delete account");
