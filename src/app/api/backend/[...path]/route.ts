@@ -167,6 +167,9 @@ function getAllowedHosts(): Set<string> | null {
 // Responses exceeding this limit will be rejected with an error.
 const MAX_RESPONSE_BYTES = 3_000_000;
 const UPSTREAM_TIMEOUT_MS = 15_000;
+// Maximum length of error body to log. Truncate longer error bodies to prevent
+// exposing sensitive information in server logs (database errors, internal paths, etc.)
+const MAX_ERROR_BODY_LOG_LENGTH = 500;
 
 async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: number, signal: AbortSignal) {
   if (!body) return "";
@@ -329,7 +332,9 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     if (!res.ok) {
       // Sanitize error body for logging to avoid exposing sensitive information
       // Even in server logs, we should be careful about what we log from upstream errors
-      const sanitizedBody = text.length > 500 ? text.substring(0, 500) + '...' : text;
+      const sanitizedBody = text.length > MAX_ERROR_BODY_LOG_LENGTH 
+        ? text.substring(0, MAX_ERROR_BODY_LOG_LENGTH) + '...' 
+        : text;
       logger.error("Proxy upstream error", { 
         status: res.status, 
         target, 
