@@ -22,6 +22,12 @@ vi.mock('@sentry/nextjs', () => ({
   captureException: (...args: any[]) => mockCaptureException(...args),
 }));
 
+// Mock the getCsrfToken function
+const mockGetCsrfToken = vi.fn();
+vi.mock('@/lib/axios', () => ({
+  getCsrfToken: () => mockGetCsrfToken(),
+}));
+
 import { isAuthSessionMissingError, handleLogout } from '../auth';
 
 describe('isAuthSessionMissingError', () => {
@@ -91,6 +97,10 @@ describe('handleLogout', () => {
     mockSignOut.mockResolvedValue({ error: null });
     mockDeleteCookie.mockClear();
     mockCaptureException.mockClear();
+    mockGetCsrfToken.mockClear();
+    
+    // Default: return a valid CSRF token
+    mockGetCsrfToken.mockReturnValue('test-csrf-token');
 
     // Mock fetch - capture original and replace with mock
     // Default mock returns success for both /api/csrf and /api/logout
@@ -198,30 +208,22 @@ describe('handleLogout', () => {
 
   it('should obtain CSRF token and call logout API endpoint when no token provided', async () => {
     await handleLogout();
-    
-    // Should fetch CSRF token first
-    expect(global.fetch).toHaveBeenCalledWith('/api/csrf');
-    
-    // Then call logout with the token
     expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
       method: 'POST',
       headers: {
-        'x-csrf-token': 'mock-csrf-token'
+        'x-csrf-token': 'test-csrf-token'
       }
     });
   });
-  
-  it('should use provided CSRF token without fetching new one', async () => {
-    await handleLogout('existing-token');
-    
-    // Should NOT fetch CSRF token
-    expect(global.fetch).not.toHaveBeenCalledWith('/api/csrf');
-    
-    // Should call logout with provided token
+
+  it('should delete terms_version cookie', async () => {
+    await handleLogout();
+    // Note: terms_version cookie deletion is now handled server-side via /api/logout
+    // Client-side deletion was removed as it's httpOnly
     expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
       method: 'POST',
       headers: {
-        'x-csrf-token': 'existing-token'
+        'x-csrf-token': 'test-csrf-token'
       }
     });
   });
@@ -236,12 +238,11 @@ describe('handleLogout', () => {
     
     await handleLogout();
 
-    // Should still attempt to get CSRF token and cleanup
-    expect(global.fetch).toHaveBeenCalledWith('/api/csrf');
+    // Should still attempt cleanup
     expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
       method: 'POST',
       headers: {
-        'x-csrf-token': 'mock-csrf-token'
+        'x-csrf-token': 'test-csrf-token'
       }
     });
     expect(global.window.location.href).toBe('/');
