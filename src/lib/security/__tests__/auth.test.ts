@@ -216,7 +216,7 @@ describe('handleLogout', () => {
     });
   });
 
-  it('should delete terms_version cookie', async () => {
+  it('should trigger server-side cookie clearing via /api/logout', async () => {
     await handleLogout();
     // Note: terms_version cookie deletion is now handled server-side via /api/logout
     // Client-side deletion was removed as it's httpOnly
