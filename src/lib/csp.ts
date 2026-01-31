@@ -82,6 +82,9 @@ export const getCspHeader = (nonce?: string) => {
   const styleSrcAttrParts = ["'unsafe-inline'"];
   
   // Fallback style-src for CSP Level 2 browsers that don't support style-src-elem/style-src-attr
+  // CSP Level 3 browsers will ignore 'unsafe-inline' when nonce is present (maintaining security)
+  // CSP Level 2 browsers will use 'unsafe-inline' (necessary for compatibility with libraries like Recharts)
+  // This creates a security trade-off: older browsers get less protection, but the app remains functional
   const styleSrcParts = isDev
     ? ["'self'", "'unsafe-inline'"]
     : ["'self'", `'nonce-${nonce}'`, "'unsafe-inline'"];
