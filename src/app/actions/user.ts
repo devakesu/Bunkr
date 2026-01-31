@@ -42,22 +42,6 @@ import { revalidatePath } from "next/cache";
  * @param version - The terms version being accepted (must match current TERMS_VERSION)
  * @throws {Error} If database update fails
  */
- * - No client-side JavaScript can read or modify the cookie
- * 
- * @param version - Terms version being accepted
- * @throws {Error} If user not authenticated or database update fails
- * 
- * Process:
- * 1. Authenticate user
- * 2. Update database with acceptance timestamp and version
- * 3. Set httpOnly cookie with 1 year expiry
- * 4. Revalidate dashboard path
- * 
- * @example
- * ```ts
- * await acceptTermsAction("1.0.0");
- * ```
- */
 export async function acceptTermsAction(version: string) {
 
   const supabase = await createClient(); 
