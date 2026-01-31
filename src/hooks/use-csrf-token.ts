@@ -4,11 +4,17 @@
  * This hook fetches the CSRF token from the server and stores it
  * in sessionStorage for use in subsequent requests.
  * 
+ * ⚠️ SECURITY NOTE:
+ * The token is stored in sessionStorage, which is accessible to JavaScript.
+ * This implementation relies on strict XSS prevention measures (CSP with nonce,
+ * input sanitization) to prevent token theft. See src/lib/security/csrf.ts
+ * for detailed security architecture and trade-offs.
+ * 
  * @example
  * ```tsx
  * function MyComponent() {
  *   useCSRFToken();
- *   // ... rest of component
+ *   // Token is now available for API calls via axios interceptor
  * }
  * ```
  */
@@ -43,7 +49,11 @@ export function useCSRFToken() {
       csrfInitPromise = (async () => {
         try {
           // Call the /api/csrf/init endpoint to initialize the CSRF token
-          // The token is stored in an httpOnly cookie (XSS-safe) and returned in response
+          // The token is stored in an httpOnly cookie (server-side validation)
+          // and returned in the response for client-side storage in sessionStorage.
+          // 
+          // SECURITY: Token storage in sessionStorage is protected by CSP (see src/lib/csp.ts)
+          // which prevents unauthorized script execution and XSS attacks.
           const response = await fetch("/api/csrf/init");
           if (response.ok) {
             const data = await response.json();

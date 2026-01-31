@@ -11,12 +11,43 @@
  * - Client includes token in X-CSRF-Token header for state-changing requests
  * - Server validates header token against httpOnly cookie
  * 
- * XSS Protection:
- * - httpOnly cookie prevents JavaScript from reading the validation token
- * - However, client-side token in sessionStorage IS accessible to XSS attacks
- * - This pattern relies on proper Content Security Policy (CSP) and XSS prevention
- * - If XSS occurs, attacker can read sessionStorage token and bypass CSRF protection
- * - Always maintain strict CSP headers and sanitize user input to prevent XSS
+ * ⚠️ CRITICAL SECURITY TRADE-OFF - sessionStorage and XSS:
+ * 
+ * This implementation stores the CSRF token in sessionStorage, which is accessible
+ * to JavaScript and therefore vulnerable to XSS (Cross-Site Scripting) attacks.
+ * If an attacker can execute arbitrary JavaScript in the application context,
+ * they can read the token from sessionStorage and bypass CSRF protection.
+ * 
+ * WHY THIS APPROACH WAS CHOSEN:
+ * - sessionStorage provides token persistence across page navigations within a tab
+ * - Allows token sharing across all pages in the same browsing session
+ * - Avoids repeated server round-trips for token retrieval
+ * - Simpler client-side implementation than alternatives (meta tags, hidden fields)
+ * 
+ * ALTERNATIVE APPROACHES CONSIDERED:
+ * 1. In-Memory Only: Token lost on page refresh, poor UX
+ * 2. Meta Tag Injection: Complex with client-side navigation in Next.js
+ * 3. Hidden Form Fields: Only works for forms, not AJAX requests
+ * 
+ * MANDATORY SECURITY REQUIREMENTS:
+ * This approach is ONLY secure when combined with strict XSS prevention:
+ * 
+ * 1. CONTENT SECURITY POLICY (CSP):
+ *    - Implemented in src/lib/csp.ts with nonce-based script execution
+ *    - Production uses 'strict-dynamic' and blocks 'unsafe-inline'
+ *    - Prevents unauthorized JavaScript execution
+ * 
+ * 2. INPUT SANITIZATION:
+ *    - All user input must be sanitized to prevent script injection
+ *    - Use proper encoding when rendering user content
+ * 
+ * 3. SECURITY HEADERS:
+ *    - X-Content-Type-Options: nosniff
+ *    - X-Frame-Options: DENY (or via CSP frame-ancestors)
+ * 
+ * ⚠️ WARNING: If CSP is disabled or weakened, or if XSS vulnerabilities exist,
+ * this CSRF protection can be bypassed. XSS prevention is the PRIMARY defense;
+ * CSRF protection is a secondary layer. Both must be maintained.
  * 
  * IMPORTANT: Cookie writes must only happen in Route Handlers or Server Actions,
  * not in Server Components. Use getCsrfToken() from Server Components (read-only),
