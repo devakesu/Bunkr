@@ -44,7 +44,8 @@ export const isAuthSessionMissingError = (error: unknown): boolean => {
  * Error Handling:
  * - Logs errors to Sentry
  * - Forces redirect even on failure to prevent user from being stuck
- * - Best-effort cleanup continues even if individual steps fail
+ * - Client storage cleanup (localStorage/sessionStorage) always happens via finally block
+ * - Best-effort cleanup of server cookies continues even if Supabase signOut fails
  * 
  * @param csrfToken - Optional CSRF token for API logout. If not provided, will attempt to retrieve from storage.
  * 
@@ -70,13 +71,7 @@ export const handleLogout = async (csrfToken?: string | null) => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
 
-    // 2. Clear Local Storage (Client-side cache)
-    if (typeof window !== "undefined") {
-        localStorage.clear();
-        sessionStorage.clear();
-    }
-
-    // 3. Clear Cookies with CSRF protection
+    // 2. Clear Cookies with CSRF protection
     let csrfTokenToUse = token;
     
     // If no CSRF token is available, obtain one before logging out
@@ -142,7 +137,7 @@ export const handleLogout = async (csrfToken?: string | null) => {
       logger.warn("Unable to obtain CSRF token - server cookies may not be cleared. User will need to re-authenticate on next visit.");
     }
     
-    // 4. Redirect
+    // 3. Redirect
     if (typeof window !== "undefined") {
       window.location.href = "/";
     }
@@ -186,6 +181,13 @@ export const handleLogout = async (csrfToken?: string | null) => {
         }
       }
       window.location.href = "/";
+    }
+  } finally {
+    // Always clear browser storage regardless of success or failure
+    // This ensures client state is cleared even if Supabase signOut fails
+    if (typeof window !== "undefined") {
+        localStorage.clear();
+        sessionStorage.clear();
     }
   }
 };
