@@ -40,6 +40,9 @@ export function useCSRFToken() {
   const hasInitialized = useRef(false);
 
   useEffect(() => {
+    // Track if this component is still mounted to prevent state updates after unmount
+    let isMounted = true;
+    
     const initCsrf = async () => {
       // Only run in the browser
       if (typeof window === "undefined") {
@@ -89,16 +92,20 @@ export function useCSRFToken() {
           // SECURITY: Token storage in sessionStorage is protected by CSP (see src/lib/csp.ts)
           // which prevents unauthorized script execution and XSS attacks.
           const response = await fetch("/api/csrf/init");
-          if (response.ok) {
+          if (response.ok && isMounted) {
             const data = await response.json();
             // Store token in sessionStorage for use in subsequent requests
             setCsrfToken(data.token);
+          } else if (!isMounted) {
+            logger.dev("Component unmounted before CSRF init completed");
           } else {
             logger.error("Failed to initialize CSRF token:", response.statusText);
           }
         } catch (error) {
           // Log error but don't block the form - the token will be checked on submission
-          logger.error("Failed to initialize CSRF token:", error);
+          if (isMounted) {
+            logger.error("Failed to initialize CSRF token:", error);
+          }
           throw error; // Re-throw so waiting components know initialization failed
         } finally {
           // Clear in-flight promise to allow retry on future attempts if needed
@@ -114,5 +121,10 @@ export function useCSRFToken() {
     };
 
     void initCsrf();
+    
+    // Cleanup function to mark component as unmounted
+    return () => {
+      isMounted = false;
+    };
   }, []); // Empty deps array - initialization should only happen once per component mount
 }

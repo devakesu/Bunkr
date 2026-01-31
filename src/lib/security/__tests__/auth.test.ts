@@ -145,11 +145,35 @@ describe('handleLogout', () => {
   });
 
   afterEach(() => {
+    // Clear mocks first
     vi.clearAllMocks();
-    global.window = originalWindow;
-    global.fetch = originalFetch;
-    global.localStorage = originalLocalStorage;
-    global.sessionStorage = originalSessionStorage;
+    
+    // Restore globals with try-finally to ensure all restorations happen
+    // even if one throws an exception
+    try {
+      global.window = originalWindow;
+    } catch (err) {
+      // Log but continue with other restorations
+      console.error('Failed to restore window:', err);
+    }
+    
+    try {
+      global.fetch = originalFetch;
+    } catch (err) {
+      console.error('Failed to restore fetch:', err);
+    }
+    
+    try {
+      global.localStorage = originalLocalStorage;
+    } catch (err) {
+      console.error('Failed to restore localStorage:', err);
+    }
+    
+    try {
+      global.sessionStorage = originalSessionStorage;
+    } catch (err) {
+      console.error('Failed to restore sessionStorage:', err);
+    }
   });
 
   it('should call Supabase signOut', async () => {
@@ -216,14 +240,16 @@ describe('handleLogout', () => {
   it('should handle missing window object gracefully', async () => {
     // Remove window object
     const windowBackup = global.window;
-    // @ts-expect-error - Testing undefined window
-    delete global.window;
-    
-    // Should not throw
-    await expect(handleLogout()).resolves.not.toThrow();
-
-    // Restore window
-    global.window = windowBackup;
+    try {
+      // @ts-expect-error - Testing undefined window
+      delete global.window;
+      
+      // Should not throw
+      await expect(handleLogout()).resolves.not.toThrow();
+    } finally {
+      // Always restore window, even if test fails
+      global.window = windowBackup;
+    }
   });
 
   it('should handle signOut error object gracefully', async () => {

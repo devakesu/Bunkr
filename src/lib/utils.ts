@@ -336,6 +336,9 @@ export const formatCourseCode = (code: string): string => {
   return code.replace(/[\s\u00A0]/g, "");
 };
 
+// Track if we've already logged the development IP warning to avoid spam
+let hasLoggedDevIpWarning = false;
+
 /**
  * Extracts the client IP address from request headers.
  * 
@@ -358,6 +361,10 @@ export const formatCourseCode = (code: string): string => {
  * These headers can be spoofed if not properly configured at the reverse proxy level.
  * Ensure your reverse proxy strips/overwrites these headers from client requests.
  * 
+ * DEVELOPMENT TESTING:
+ * In development mode, set TEST_CLIENT_IP environment variable to test IP-based logic
+ * with a specific IP address (e.g., TEST_CLIENT_IP=203.0.113.45).
+ * 
  * @param headerList - The Headers object from the request
  * @returns The client IP address or null if it cannot be determined
  */
@@ -372,13 +379,29 @@ export function getClientIp(headerList: Headers): string | null {
   const forwardedIp = forwarded?.split(",")[0]?.trim();
   if (forwardedIp) return forwardedIp;
 
-  // Always return localhost IP for dev/test if no IP headers are present
+  // In development, allow testing with a specific IP via environment variable
   if (process.env.NODE_ENV === "development") {
-    logger.warn(
-      "[getClientIp] No IP headers found in development mode. Returning 127.0.0.1 for all requests. " +
-      "If you want to test real IP logic, set x-real-ip or cf-connecting-ip in your request headers."
-    );
-    return "127.0.0.1";
+    const testIp = process.env.TEST_CLIENT_IP;
+    
+    // Log warning once per server start to make it prominent but avoid spam
+    if (!hasLoggedDevIpWarning) {
+      hasLoggedDevIpWarning = true;
+      logger.warn(
+        "\n" +
+        "═══════════════════════════════════════════════════════════════════════\n" +
+        "⚠️  DEVELOPMENT MODE: Client IP Detection\n" +
+        "═══════════════════════════════════════════════════════════════════════\n" +
+        "No IP forwarding headers found. This affects IP-based security features\n" +
+        "such as rate limiting, geolocation, and audit logging.\n\n" +
+        "To test real IP logic in development:\n" +
+        "  1. Set TEST_CLIENT_IP environment variable (e.g., TEST_CLIENT_IP=203.0.113.45)\n" +
+        "  2. Or send x-real-ip or cf-connecting-ip headers in your requests\n" +
+        `\nCurrent fallback: ${testIp || "127.0.0.1"}\n` +
+        "═══════════════════════════════════════════════════════════════════════\n"
+      );
+    }
+    
+    return testIp || "127.0.0.1";
   }
 
   // In production, return null to signal that IP extraction failed
@@ -481,12 +504,23 @@ const IPV6_PATTERN = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^\[.*\]$/;
  * 
  * This utility provides consistent hostname detection logic across error components.
  * 
+ * FALLBACK BEHAVIOR:
+ * 1. Uses NEXT_PUBLIC_APP_DOMAIN environment variable if set
+ * 2. Falls back to window.location.hostname if available and not localhost/IP
+ * 3. Uses NEXT_PUBLIC_DEFAULT_DOMAIN environment variable if set
+ * 4. Uses the provided fallbackDomain parameter (default: 'ghostclass.app')
+ * 
+ * SECURITY NOTE:
+ * The fallback domain should match your production domain. Using an incorrect
+ * fallback could expose error details to unintended recipients via email reports.
+ * Set NEXT_PUBLIC_DEFAULT_DOMAIN in your environment for production safety.
+ * 
  * @param fallbackDomain - The fallback domain to use if no valid domain can be determined (default: 'ghostclass.app')
  * @returns The application domain suitable for use in email addresses
  * 
  * @example
  * ```ts
- * const domain = getAppDomain(); // Returns 'ghostclass.app' or actual domain
+ * const domain = getAppDomain(); // Returns domain from env or fallback
  * const email = `admin@${domain}`;
  * ```
  */
@@ -507,6 +541,9 @@ export function getAppDomain(fallbackDomain: string = 'ghostclass.app'): string 
     }
   }
   
+  // Use environment variable for default domain if set, otherwise use parameter
+  const defaultDomain = process.env.NEXT_PUBLIC_DEFAULT_DOMAIN || fallbackDomain;
+  
   // Final fallback
-  return appDomain ?? fallbackDomain;
+  return appDomain ?? defaultDomain;
 }

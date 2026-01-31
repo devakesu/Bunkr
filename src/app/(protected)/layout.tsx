@@ -21,7 +21,8 @@ export default function ProtectedLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  // Use explicit state machine for authorization: 'checking' | 'authorized' | 'unauthorized'
+  const [authState, setAuthState] = useState<'checking' | 'authorized' | 'unauthorized'>('checking');
   const [isHidden, setIsHidden] = useState(false);
   const { scrollY } = useScroll();
   const lastScrollY = useRef(0);
@@ -88,7 +89,7 @@ export default function ProtectedLayout({
         // server-side. Any additional validation should occur on the server (e.g., via a server
         // action or API endpoint).
 
-        if (active) setIsAuthorized(true);
+        if (active) setAuthState('authorized');
       } catch (err) {
         if (active) {
           // Log the error for debugging, then attempt logout
@@ -111,18 +112,22 @@ export default function ProtectedLayout({
     };
   }, [router]); 
 
+  // Determine if we should show content or loading
+  const isAuthorized = authState === 'authorized';
+  const showLoading = authState === 'checking' || !isAuthorized || institutionLoading || institutionError;
+
   return (
     <ErrorBoundary>
       <div className="flex min-h-screen flex-col">
-        {/* Show loading state if not yet authorized or institutions are loading/error */}
-        {(!isAuthorized || institutionLoading || institutionError) && (
+        {/* Show loading state while checking auth or if institutions are loading/error */}
+        {showLoading && (
           <div className="h-screen flex items-center justify-center">
             <Loading />
           </div>
         )}
 
-        {/* Only render protected content when authorized and institutions loaded */}
-        {isAuthorized && !institutionLoading && !institutionError && (
+        {/* Only render protected content when definitively authorized and institutions loaded */}
+        {!showLoading && (
           <>
             <motion.div
               variants={{

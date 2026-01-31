@@ -143,7 +143,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     };
   }, [router]);
 
-  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
