@@ -11,6 +11,10 @@ interface ErrorFallbackProps {
   homeUrl?: string;
 }
 
+// Constants for hostname validation
+const LOCALHOST_VARIANTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
+const IPV4_PATTERN = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
 /**
  * ErrorFallback component that displays a user-friendly error message
  * with options to try again or go back to the dashboard.
@@ -40,9 +44,8 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
       const hostname = window.location.hostname;
       
       // Check if hostname is a local development environment or IP address
-      const localhostVariants = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
-      const isLocalhost = localhostVariants.has(hostname);
-      const isIPv4 = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(hostname);
+      const isLocalhost = LOCALHOST_VARIANTS.has(hostname);
+      const isIPv4 = IPV4_PATTERN.test(hostname);
       // IPv6 addresses contain multiple colons; window.location.hostname never includes ports
       const isIPv6 = (hostname.match(/:/g) || []).length >= 2 || hostname.startsWith('[');
       
