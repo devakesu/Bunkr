@@ -11,6 +11,10 @@ interface ErrorFallbackProps {
   homeUrl?: string;
 }
 
+// Constants for hostname validation
+const LOCALHOST_VARIANTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
+const IPV4_PATTERN = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
 /**
  * ErrorFallback component that displays a user-friendly error message
  * with options to try again or go back to the dashboard.
@@ -33,7 +37,27 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
   };
 
   const handleEmailReport = () => {
-    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || 'ghostclass.app';
+    let appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+    
+    // Fallback to window.location.hostname if env var not set
+    if (!appDomain && typeof window !== "undefined") {
+      const hostname = window.location.hostname;
+      
+      // Check if hostname is a local development environment or IP address
+      const isLocalhost = LOCALHOST_VARIANTS.has(hostname);
+      const isIPv4 = IPV4_PATTERN.test(hostname);
+      // IPv6 addresses contain multiple colons; window.location.hostname never includes ports
+      // This check assumes well-formed values from window.location.hostname
+      const isIPv6 = (hostname.match(/:/g) || []).length >= 2 || hostname.startsWith('[');
+      
+      if (hostname && !isLocalhost && !isIPv4 && !isIPv6) {
+        appDomain = hostname;
+      }
+    }
+    
+    // Final fallback
+    appDomain = appDomain || 'ghostclass.app';
+    
     const subject = encodeURIComponent('Error Report - GhostClass');
     const body = encodeURIComponent(
       `Hi Admin,\n\nI encountered an error while using GhostClass.\n\n` +

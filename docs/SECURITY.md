@@ -549,3 +549,71 @@ When adding new security features, follow this testing checklist:
 - **Static analysis (optional but recommended):** Integrate a tool such as GitHub CodeQL or similar into CI for automated vulnerability detection
 - **Dependency audits (recommended):** Run `npm audit` regularly (manually or in CI) and address high/critical findings
 - **Manual security reviews:** Perform a focused security review before each major release
+
+---
+
+## Dependency Security
+
+### Package Overrides for Security Patches
+
+The project uses npm's `overrides` feature in `package.json` to enforce secure versions of transitive dependencies. This ensures that all packages, including those not directly listed in `dependencies`, use patched versions that address known security vulnerabilities.
+
+#### Current Security Overrides
+
+The following package overrides are in place to address known security issues:
+
+1. **fast-xml-parser: ^5.3.4**
+   - **Reason:** Addresses known security vulnerabilities in older versions of fast-xml-parser
+   - **Impact:** Non-breaking semver-compatible update for our dependencies
+   - **Validation:** Changes have been validated by running the full test suite
+   - **Type:** Transitive dependency override (brought in by other packages)
+
+2. **js-yaml: ^4.1.1**
+   - **Reason:** Addresses known security vulnerabilities in older versions of js-yaml
+   - **Impact:** Non-breaking semver-compatible update for our dependencies
+   - **Validation:** Changes have been validated by running the full test suite
+   - **Type:** Transitive dependency override (brought in by other packages)
+
+3. **tar: ^7.5.6**
+   - **Reason:** Addresses known security vulnerabilities in older versions of tar
+   - **Impact:** Non-breaking semver-compatible update for our dependencies
+   - **Validation:** Changes have been validated by running the full test suite
+   - **Type:** Transitive dependency override (brought in by other packages)
+
+#### Maintenance Process
+
+When adding or updating dependency overrides:
+
+1. **Document the CVE or security advisory** being addressed
+2. **Create a tracking issue** to monitor when the override can be removed (once direct dependencies naturally upgrade)
+3. **Verify compatibility** by running the full test suite (`npm run test:all`)
+4. **Monitor for updates** and remove overrides when they're no longer needed
+5. **Review periodically** to ensure overrides are still necessary and up-to-date
+
+#### Checking for Security Updates
+
+Run these commands regularly to identify security issues:
+
+```bash
+# Check for known vulnerabilities
+npm audit
+
+# Check for available updates
+npm outdated
+
+# Update dependencies safely
+npm update
+
+# Review and apply security fixes
+npm audit fix
+```
+
+#### Best Practices
+
+- ✅ Keep overrides up-to-date with the latest secure versions
+- ✅ Remove overrides once direct dependencies have been updated
+- ✅ Document the reason for each override
+- ✅ Test thoroughly after adding or updating overrides
+- ✅ Use `npm audit` regularly to identify new vulnerabilities
+- ⚠️ Be cautious with major version overrides (may introduce breaking changes)
+- ⚠️ Monitor for conflicts between overridden and direct dependencies
