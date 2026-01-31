@@ -20,8 +20,11 @@ import { deleteCookie } from "cookies-next";
  * }
  * ```
  */
-export const isAuthSessionMissingError = (error: any): boolean => {
-  if (!error || typeof error.message !== 'string') {
+export const isAuthSessionMissingError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  if (!('message' in error) || typeof error.message !== 'string') {
     return false;
   }
   const lowerMessage = error.message.toLowerCase();

@@ -68,7 +68,7 @@ export async function POST() {
       console.error("CSRF token refresh error: unable to determine client IP for rate limiting");
       return NextResponse.json(
         { error: "Unable to determine client IP for rate limiting" },
-        { status: 400 }
+        { status: 500 }
       );
     }
     
