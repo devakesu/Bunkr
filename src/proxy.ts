@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getCspHeader } from "./lib/csp";
+import { TERMS_VERSION } from "./app/config/legal";
 
 /**
  * Creates a cryptographically secure nonce for CSP.
@@ -61,14 +62,19 @@ export async function proxy(request: NextRequest) {
 
   // 6. Routing Logic
   const ezygoToken = request.cookies.get("ezygo_access_token")?.value;
+  const termsVersion = request.cookies.get("terms_version")?.value;
   const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard");
   const isProfileRoute = request.nextUrl.pathname.startsWith("/profile");
   const isNotificationsRoute = request.nextUrl.pathname.startsWith("/notifications");
   const isTrackingRoute = request.nextUrl.pathname.startsWith("/tracking");
   const isAuthRoute = request.nextUrl.pathname === "/";
+  const isAcceptTermsRoute = request.nextUrl.pathname === "/accept-terms";
+
+  // Protected routes that require authentication and terms acceptance
+  const isProtectedRoute = isDashboardRoute || isProfileRoute || isNotificationsRoute || isTrackingRoute;
 
   // Scenario A: Not logged in -> Redirect to Login
-  if ((!ezygoToken || !user) && (isDashboardRoute || isProfileRoute || isNotificationsRoute || isTrackingRoute)) {
+  if ((!ezygoToken || !user) && (isProtectedRoute || isAcceptTermsRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     const redirectRes = NextResponse.redirect(url);
@@ -77,7 +83,28 @@ export async function proxy(request: NextRequest) {
     return redirectRes;
   }
 
-  // Scenario B: Logged in -> Redirect to Dashboard
+  // Scenario B: Logged in but terms not accepted or outdated -> Redirect to Accept Terms
+  // Skip this check if already on accept-terms page to avoid redirect loop
+  if (ezygoToken && user && termsVersion !== TERMS_VERSION && isProtectedRoute && !isAcceptTermsRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/accept-terms";
+    const redirectRes = NextResponse.redirect(url);
+    redirectRes.headers.set('Content-Security-Policy', cspHeader);
+    redirectRes.headers.set("x-nonce", nonce);
+    return redirectRes;
+  }
+
+  // Scenario C: Terms accepted but on accept-terms page -> Redirect to Dashboard
+  if (ezygoToken && user && termsVersion === TERMS_VERSION && isAcceptTermsRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    const redirectRes = NextResponse.redirect(url);
+    redirectRes.headers.set('Content-Security-Policy', cspHeader);
+    redirectRes.headers.set("x-nonce", nonce);
+    return redirectRes;
+  }
+
+  // Scenario D: Logged in -> Redirect to Dashboard
   if (ezygoToken && user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";

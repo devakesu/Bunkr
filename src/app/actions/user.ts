@@ -48,8 +48,26 @@ export async function acceptTermsAction(version: string) {
     maxAge: 31536000, // 1 year
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    httpOnly: false, // Client needs to read this for terms modal
+    httpOnly: true, // Secure cookie - checked server-side in proxy.ts
   });
   
   revalidatePath("/dashboard");
+}
+
+/**
+ * Server action to clear the terms_version cookie.
+ * Should be called during logout or account deletion to avoid
+ * persisting terms acceptance across different users on the same browser.
+ */
+export async function clearTermsVersionCookie() {
+  const cookieStore = await cookies();
+  cookieStore.set({
+    name: "terms_version",
+    value: "",
+    path: "/",
+    maxAge: 0,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+  });
 }

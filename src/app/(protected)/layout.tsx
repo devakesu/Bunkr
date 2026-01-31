@@ -7,7 +7,6 @@ import { useInstitutions } from "@/hooks/users/institutions";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Toaster } from "sonner";
-import TermsModal from "@/components/legal/TermsModal";
 import { motion, useScroll } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -147,8 +146,6 @@ export default function ProtectedLayout({
         >
           <Navbar />
         </motion.div>
-
-        <TermsModal />
         
         <main className="flex-1 w-full bg-background pt-20">
           <ErrorBoundary>
