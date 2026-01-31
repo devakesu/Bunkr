@@ -524,7 +524,7 @@ export async function POST(req: Request) {
       .from("users")
       .select("terms_version, terms_accepted_at")
       .eq("id", verifieduserId)
-      .single();
+      .maybeSingle();
 
     const { error: dbError } = await supabaseAdmin
       .from("users")

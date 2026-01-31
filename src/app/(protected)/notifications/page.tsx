@@ -1,8 +1,11 @@
 import { Metadata } from "next";
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { Loading } from "@/components/loading";
+import dynamic from "next/dynamic";
 
-const NotificationsClient = lazy(() => import("./NotificationsClient"));
+const NotificationsClient = dynamic(() => import("./NotificationsClient"), {
+  ssr: false,
+});
 
 export const metadata: Metadata = {
   title: "Notifications",

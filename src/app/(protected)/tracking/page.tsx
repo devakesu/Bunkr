@@ -1,8 +1,11 @@
 import { Metadata } from "next";
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { Loading } from "@/components/loading";
+import dynamic from "next/dynamic";
 
-const TrackingClient = lazy(() => import("./TrackingClient"));
+const TrackingClient = dynamic(() => import("./TrackingClient"), {
+  ssr: false,
+});
 
 export const metadata: Metadata = {
   title: "Tracking",

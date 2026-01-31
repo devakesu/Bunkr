@@ -68,7 +68,7 @@ const nextConfig: NextConfig = {
   // Performance: Minimize JavaScript bundle
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn'],
+      exclude: ['error', 'warn', 'log'], // Preserve console.log for logger.info() and logger.dev()
     } : false,
   },
   
