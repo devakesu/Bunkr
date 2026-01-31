@@ -56,7 +56,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
     }
     
     // Final fallback
-    appDomain = appDomain || 'ghostclass.app';
+    appDomain = appDomain ?? 'ghostclass.app';
     
     const subject = encodeURIComponent('Error Report - GhostClass');
     const body = encodeURIComponent(
