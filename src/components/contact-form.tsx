@@ -45,7 +45,7 @@ export function ContactForm({ userDetails }: ContactFormProps) {
   // Initialize CSRF token
   useCSRFToken();
 
-  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); 
     
     if (!token) {

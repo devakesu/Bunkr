@@ -75,7 +75,7 @@ export function PasswordResetForm({
   // Initialize CSRF token
   useCSRFToken();
 
-  const handleUsernameSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleUsernameSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -105,7 +105,7 @@ export function PasswordResetForm({
     }
   };
 
-  const handleOptionSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleOptionSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -123,7 +123,7 @@ export function PasswordResetForm({
     }
   };
 
-  const handleResetSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleResetSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);

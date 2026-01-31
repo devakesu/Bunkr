@@ -301,9 +301,23 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
         // Not JSON, use raw text as error message
       }
       
-      // In production, sanitize only 5xx error messages to avoid exposing internal details
-      // Allow 4xx errors through as they contain actionable information for users
-      // Log full details server-side for all errors
+      // ERROR SANITIZATION STRATEGY:
+      // In production (NODE_ENV=production), sanitize 5xx server errors to prevent
+      // exposing internal implementation details (database errors, file paths, etc.)
+      // to clients. 4xx client errors are passed through as they contain actionable
+      // user-facing information (validation errors, permission issues, etc.).
+      //
+      // IMPORTANT: In development mode, all error messages are exposed to aid debugging.
+      // This is intentional but means:
+      // 1. NODE_ENV must be properly set in all environments
+      // 2. Development builds should NEVER be deployed to production
+      // 3. Use logging/monitoring tools for production troubleshooting, not error messages
+      //
+      // PRODUCTION SAFETY CHECKLIST:
+      // - Verify NODE_ENV=production in production environments
+      // - Use CI/CD to enforce production builds
+      // - Monitor server logs for detailed error information
+      // - Consider a separate DEBUG flag for controlled verbose logging if needed
       const isProduction = process.env.NODE_ENV === "production";
       const is5xxError = res.status >= 500;
       const clientMessage = (isProduction && is5xxError)
