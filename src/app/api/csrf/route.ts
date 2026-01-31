@@ -62,6 +62,15 @@ export async function POST() {
     // Note: x-forwarded-for can be spoofed, but provides basic protection
     const headersList = await headers();
     const ip = getClientIp(headersList);
+
+    // If we cannot determine the client IP, avoid using a shared rate limit key
+    if (!ip) {
+      console.error("CSRF token refresh error: unable to determine client IP for rate limiting");
+      return NextResponse.json(
+        { error: "Unable to determine client IP for rate limiting" },
+        { status: 400 }
+      );
+    }
     
     // Apply rate limiting to prevent token regeneration abuse
     const { success } = await authRateLimiter.limit(`csrf_regen_${ip}`);
