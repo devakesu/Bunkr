@@ -471,6 +471,9 @@ export const compressImage = (file: File, quality = 0.7): Promise<File> => {
 // Constants for hostname validation
 const LOCALHOST_VARIANTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
 const IPV4_PATTERN = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+// IPv6 pattern: matches standard IPv6 format or bracket-enclosed format
+// window.location.hostname never includes ports, so we don't need to worry about port separators
+const IPV6_PATTERN = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^\[.*\]$/;
 
 /**
  * Gets the application domain for email addresses, extracting from environment
@@ -497,9 +500,6 @@ export function getAppDomain(fallbackDomain: string = 'ghostclass.app'): string 
     // Check if hostname is a local development environment or IP address
     const isLocalhost = LOCALHOST_VARIANTS.has(hostname);
     const isIPv4 = IPV4_PATTERN.test(hostname);
-    // IPv6 pattern: matches standard IPv6 format or bracket-enclosed format
-    // window.location.hostname never includes ports, so we don't need to worry about port separators
-    const IPV6_PATTERN = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^\[.*\]$/;
     const isIPv6 = IPV6_PATTERN.test(hostname);
     
     if (hostname && !isLocalhost && !isIPv4 && !isIPv6) {

@@ -100,7 +100,7 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     
     // Redirect loop protection: check if we've already redirected
-    const redirectCount = parseInt(url.searchParams.get('retry') || '0', 10);
+    const redirectCount = parseInt(url.searchParams.get('redirect_count') || '0', 10);
     
     if (redirectCount >= 3) {
       // Too many redirect attempts - log user out to break the loop
@@ -121,7 +121,7 @@ export async function proxy(request: NextRequest) {
     }
     
     url.pathname = "/accept-terms";
-    url.searchParams.set('retry', String(redirectCount + 1));
+    url.searchParams.set('redirect_count', String(redirectCount + 1));
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
     redirectRes.headers.set("x-nonce", nonce);
