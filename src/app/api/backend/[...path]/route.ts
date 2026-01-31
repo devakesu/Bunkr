@@ -137,6 +137,9 @@ function getAllowedHosts(): Set<string> | null {
   return cachedAllowedHosts;
 }
 
+// Maximum response size limit (3MB). This accommodates bulk data exports and large
+// institutional datasets while preventing memory exhaustion from unbounded responses.
+// Responses exceeding this limit will be rejected with an error.
 const MAX_RESPONSE_BYTES = 3_000_000;
 const UPSTREAM_TIMEOUT_MS = 15_000;
 
@@ -298,10 +301,12 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
         // Not JSON, use raw text as error message
       }
       
-      // In production, sanitize error messages to avoid exposing internal details
-      // Log full details server-side but return generic messages to client
+      // In production, sanitize only 5xx error messages to avoid exposing internal details
+      // Allow 4xx errors through as they contain actionable information for users
+      // Log full details server-side for all errors
       const isProduction = process.env.NODE_ENV === "production";
-      const clientMessage = isProduction 
+      const is5xxError = res.status >= 500;
+      const clientMessage = (isProduction && is5xxError)
         ? "An error occurred while processing your request" 
         : errorMessage;
       

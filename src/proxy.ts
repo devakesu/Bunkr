@@ -74,7 +74,7 @@ export async function proxy(request: NextRequest) {
   const isProtectedRoute = isDashboardRoute || isProfileRoute || isNotificationsRoute || isTrackingRoute;
 
   // Scenario A: Not logged in -> Redirect to Login
-  if ((!ezygoToken || !user) && (isProtectedRoute || isAcceptTermsRoute)) {
+  if ((!ezygoToken || !user) && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     const redirectRes = NextResponse.redirect(url);
