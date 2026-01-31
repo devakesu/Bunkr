@@ -62,19 +62,19 @@ export async function proxy(request: NextRequest) {
   // 6. Routing Logic
   const ezygoToken = request.cookies.get("ezygo_access_token")?.value;
   const termsVersion = request.cookies.get("terms_version")?.value;
+  const TERMS_VERSION = "2.1"; // Import from config in production
   const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard");
   const isProfileRoute = request.nextUrl.pathname.startsWith("/profile");
   const isNotificationsRoute = request.nextUrl.pathname.startsWith("/notifications");
   const isTrackingRoute = request.nextUrl.pathname.startsWith("/tracking");
-  const isContactRoute = request.nextUrl.pathname.startsWith("/contact");
   const isAuthRoute = request.nextUrl.pathname === "/";
   const isAcceptTermsRoute = request.nextUrl.pathname === "/accept-terms";
 
   // Protected routes that require authentication and terms acceptance
-  const isProtectedRoute = isDashboardRoute || isProfileRoute || isNotificationsRoute || isTrackingRoute || isContactRoute;
+  const isProtectedRoute = isDashboardRoute || isProfileRoute || isNotificationsRoute || isTrackingRoute;
 
   // Scenario A: Not logged in -> Redirect to Login
-  if ((!ezygoToken || !user) && isProtectedRoute) {
+  if ((!ezygoToken || !user) && (isProtectedRoute || isAcceptTermsRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     const redirectRes = NextResponse.redirect(url);
@@ -83,9 +83,9 @@ export async function proxy(request: NextRequest) {
     return redirectRes;
   }
 
-  // Scenario B: Logged in but terms not accepted -> Redirect to Accept Terms
+  // Scenario B: Logged in but terms not accepted or outdated -> Redirect to Accept Terms
   // Skip this check if already on accept-terms page to avoid redirect loop
-  if (ezygoToken && user && !termsVersion && isProtectedRoute && !isAcceptTermsRoute) {
+  if (ezygoToken && user && termsVersion !== TERMS_VERSION && isProtectedRoute && !isAcceptTermsRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/accept-terms";
     const redirectRes = NextResponse.redirect(url);
@@ -95,7 +95,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Scenario C: Terms accepted but on accept-terms page -> Redirect to Dashboard
-  if (ezygoToken && user && termsVersion && isAcceptTermsRoute) {
+  if (ezygoToken && user && termsVersion === TERMS_VERSION && isAcceptTermsRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     const redirectRes = NextResponse.redirect(url);
