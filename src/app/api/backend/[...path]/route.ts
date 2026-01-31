@@ -263,7 +263,7 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
 
     if (!res.ok) {
       logger.error("Proxy upstream error", { status: res.status, target, body: text });
-      let errorMessage = undefined;
+      let errorMessage: string | undefined = undefined;
       try {
         // Try to parse JSON error message from upstream
         errorMessage = JSON.parse(text).message;
