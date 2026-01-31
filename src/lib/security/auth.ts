@@ -110,7 +110,7 @@ export const handleLogout = async (csrfToken?: string | null) => {
         logger.error("Error calling logout API:", logoutError);
       }
     } else {
-      logger.error("Unable to obtain CSRF token - server cookies may not be cleared. User will need to re-authenticate on next visit.");
+      logger.warn("Unable to obtain CSRF token - server cookies may not be cleared. User will need to re-authenticate on next visit.");
     }
     
     // 4. Redirect
