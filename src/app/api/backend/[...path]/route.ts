@@ -6,13 +6,26 @@ import { logger } from "@/lib/logger";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
+// Runtime validation: ensure NODE_ENV is explicitly set at module load time
+// SECURITY CONSIDERATION: When NODE_ENV is undefined, IS_PRODUCTION will be false,
+// resulting in development mode behavior (verbose error messages exposed to clients).
+// This is intentional - we log an error to alert monitoring systems but continue
+// execution to avoid breaking the application. The default to development mode is
+// safer than throwing an error (which would cause a service outage).
+// CRITICAL: CI/CD pipelines MUST enforce NODE_ENV=production for production deployments.
+if (!process.env.NODE_ENV) {
+  logger.error("CRITICAL: NODE_ENV is not set - defaulting to development mode with verbose error messages. This MUST be fixed in production.");
+}
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 // PUBLIC_PATHS: Exact endpoints that are exempt from CSRF validation but NOT from origin validation.
 // Uses full path matching (not prefix) to prevent accidentally exposing sensitive sub-paths.
 // 
-// SECURITY MODEL FOR PUBLIC PATHS:
+// SECURITY MODEL FOR PUBLIC PATHS (Enhanced in this PR):
 // These paths are accessible without authentication but still require proper security controls:
 // 
-// 1. Origin Validation (ALWAYS enforced for write operations):
+// 1. Origin Validation (ALWAYS enforced for write operations - enhancement added):
+//    - NOW APPLIES TO ALL state-changing requests including public paths (see line 211)
 //    - Verifies requests originate from allowed domain (NEXT_PUBLIC_APP_DOMAIN)
 //    - Prevents unauthorized sites from making requests to public endpoints
 //    - Protects against cross-origin attacks even before authentication
@@ -318,9 +331,9 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       // - Use CI/CD to enforce production builds
       // - Monitor server logs for detailed error information
       // - Consider a separate DEBUG flag for controlled verbose logging if needed
-      const isProduction = process.env.NODE_ENV === "production";
+      
       const is5xxError = res.status >= 500;
-      const clientMessage = (isProduction && is5xxError)
+      const clientMessage = (IS_PRODUCTION && is5xxError)
         ? "An error occurred while processing your request" 
         : errorMessage;
       

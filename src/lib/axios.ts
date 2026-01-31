@@ -76,6 +76,16 @@ export function getCookie(name: string) {
  */
 const CSRF_STORAGE_KEY = "csrf_token_memory";
 
+// CSRF token validation constants
+// Tokens are 32-byte (256-bit) hex strings, resulting in 64 characters
+// Separate validation steps (length and pattern) are used intentionally:
+// - Provides clearer code structure and easier maintenance
+// - Prevents regex complexity (single regex would be /^[0-9a-f]{64,}$/)
+// - Both validations use the same generic error message to avoid exposing details
+// Note: crypto.randomBytes().toString("hex") always produces lowercase hex in Node.js
+const CSRF_TOKEN_MIN_LENGTH = 64;
+const CSRF_TOKEN_HEX_PATTERN = /^[0-9a-f]+$/;
+
 /**
  * Check for CSP meta tag in the document.
  * 
@@ -120,6 +130,8 @@ function checkForCspMetaTag(): boolean {
 }
 
 // Track if we've already logged the CSP warning to avoid spam
+// This flag is shared between getCsrfToken() and setCsrfToken() to avoid duplicate warnings
+// from either function, as they're typically called together during CSRF token operations
 let cspWarningLogged = false;
 
 /**
@@ -174,7 +186,19 @@ export function setCsrfToken(token: string | null): void {
   if (token) {
     // Validate token format before storing
     if (typeof token !== 'string' || token.trim().length === 0) {
-      console.error('[CSRF] Invalid token format - token must be a non-empty string');
+      console.error('[CSRF] Invalid token format');
+      return;
+    }
+    // Additional validation: ensure minimum length and valid hex format
+    // CSRF tokens are generated as hex strings (see generateCsrfToken in csrf.ts)
+    // Use generic error messages to avoid exposing implementation details to potential attackers
+    if (token.length < CSRF_TOKEN_MIN_LENGTH) {
+      console.error('[CSRF] Invalid token format');
+      return;
+    }
+    // Ensure token contains only valid characters
+    if (!CSRF_TOKEN_HEX_PATTERN.test(token)) {
+      console.error('[CSRF] Invalid token format');
       return;
     }
     sessionStorage.setItem(CSRF_STORAGE_KEY, token);
