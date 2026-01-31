@@ -22,13 +22,7 @@ import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/client";
 import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 import { logger } from "@/lib/logger";
-
-// Helper to check if error is related to missing auth session
-const isAuthSessionMissingError = (error: any): boolean => {
-  return error?.message?.toLowerCase().includes("session missing") ||
-         error?.message?.toLowerCase().includes("auth session");
-};
-
+import { isAuthSessionMissingError } from "@/lib/security/auth";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
