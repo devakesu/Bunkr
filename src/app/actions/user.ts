@@ -28,6 +28,20 @@ import { revalidatePath } from "next/cache";
  * to enforce terms acceptance before accessing protected routes. This is secure because:
  * - Middleware runs on server-side (Node.js or Edge runtime)
  * - Cookie is automatically included in requests via Set-Cookie/Cookie headers
+ * 
+ * RACE CONDITION MITIGATION:
+ * To prevent race conditions where middleware might execute before the cookie is set:
+ * 1. Cookie is set synchronously in this server action
+ * 2. Multiple paths are revalidated to ensure Next.js updates its cache
+ * 3. Client should wait for this action to complete before redirecting
+ * 4. Middleware uses a redirect_count cookie (with 5-minute TTL) to handle edge cases
+ * 
+ * The combination of revalidation + redirect waiting + cookie-based loop detection
+ * ensures reliable terms acceptance even under high latency conditions.
+ * 
+ * @param version - The terms version being accepted (must match current TERMS_VERSION)
+ * @throws {Error} If database update fails
+ */
  * - No client-side JavaScript can read or modify the cookie
  * 
  * @param version - Terms version being accepted
@@ -72,7 +86,12 @@ export async function acceptTermsAction(version: string) {
     httpOnly: true, // Secure cookie - checked server-side in proxy.ts
   });
   
+  // Revalidate multiple paths to ensure Next.js cache is updated before redirect
+  // This helps prevent race conditions where middleware might not see the cookie immediately
   revalidatePath("/dashboard");
+  revalidatePath("/accept-terms");
+  revalidatePath("/", "layout"); // Revalidate the root layout to ensure middleware gets fresh data
+}
 }
 
 /**

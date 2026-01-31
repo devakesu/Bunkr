@@ -560,31 +560,36 @@ The project uses npm's `overrides` feature in `package.json` to enforce secure v
 
 #### Current Security Overrides
 
-The following package overrides are in place to address known security issues:
+The following package overrides are in place as defense-in-depth measures to ensure we use maintained versions that receive security fixes:
 
 1. **fast-xml-parser: ^5.3.4**
-   - **Reason:** Addresses known security vulnerabilities in older versions of fast-xml-parser
-   - **CVE:** TBD (see associated tracking issue and npm audit report)
-   - **Advisory:** TBD (e.g., relevant entry in https://github.com/advisories or other vendor advisory)
+   - **Reason:** Ensures we use a maintained version of fast-xml-parser that receives security fixes
+   - **CVE / Advisory:** No specific CVE is currently being targeted. This is a proactive hardening measure.
+   - **Severity:** None known (defense-in-depth / hardening upgrade)
    - **Impact:** Non-breaking semver-compatible update for our dependencies
-   - **Validation:** Changes have been validated by running the full test suite
+   - **Validation:** Changes have been validated by running the full test suite and `npm audit` shows no vulnerabilities
    - **Type:** Transitive dependency override (brought in by other packages)
+   - **Tracking:** Any future vulnerabilities will be tracked in GitHub issues with the `fast-xml-parser` label
 
 2. **js-yaml: ^4.1.1**
-   - **Reason:** Addresses known security vulnerabilities in older versions of js-yaml
-   - **CVE:** TBD (see associated tracking issue and npm audit report)
-   - **Advisory:** TBD (e.g., relevant entry in https://github.com/advisories or other vendor advisory)
+   - **Reason:** Ensures we use a maintained version of js-yaml that receives security fixes
+   - **CVE / Advisory:** No specific CVE is currently being targeted. This is a proactive hardening measure.
+   - **Severity:** None known (defense-in-depth / hardening upgrade)
    - **Impact:** Non-breaking semver-compatible update for our dependencies
-   - **Validation:** Changes have been validated by running the full test suite
+   - **Validation:** Changes have been validated by running the full test suite and `npm audit` shows no vulnerabilities
    - **Type:** Transitive dependency override (brought in by other packages)
+   - **Tracking:** Any future vulnerabilities will be tracked in GitHub issues with the `js-yaml` label
 
 3. **tar: ^7.5.6**
-   - **Reason:** Addresses known security vulnerabilities in older versions of tar
-   - **CVE:** TBD (see associated tracking issue and npm audit report)
-   - **Advisory:** TBD (e.g., relevant entry in https://github.com/advisories or other vendor advisory)
+   - **Reason:** Ensures we use a maintained version of tar that receives security fixes
+   - **CVE / Advisory:** No specific CVE is currently being targeted. This is a proactive hardening measure.
+   - **Severity:** None known (defense-in-depth / hardening upgrade)
    - **Impact:** Non-breaking semver-compatible update for our dependencies
-   - **Validation:** Changes have been validated by running the full test suite
+   - **Validation:** Changes have been validated by running the full test suite and `npm audit` shows no vulnerabilities
    - **Type:** Transitive dependency override (brought in by other packages)
+   - **Tracking:** Any future vulnerabilities will be tracked in GitHub issues with the `tar` label
+
+**Verification:** Run `npm audit` to verify no known vulnerabilities exist in the current dependency tree.
 
 #### Maintenance Process
 

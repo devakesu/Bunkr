@@ -24,6 +24,9 @@ export function AcceptTermsForm() {
     setLoading(true);
     try {
       await acceptTermsAction(TERMS_VERSION);
+      // Small delay to ensure cookie propagation and cache revalidation complete
+      // This helps prevent race conditions with middleware cookie checks
+      await new Promise(resolve => setTimeout(resolve, 100));
       // Redirect to dashboard after successful acceptance
       router.push("/dashboard");
     } catch (error) {
