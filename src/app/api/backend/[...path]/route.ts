@@ -25,10 +25,21 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 // These paths are accessible without authentication but still require proper security controls:
 // 
 // 1. Origin Validation (ALWAYS enforced for write operations - enhancement added):
-//    - NOW APPLIES TO ALL state-changing requests including public paths (see line 211)
+//    - NOW APPLIES TO ALL state-changing requests including public paths (see line 224)
 //    - Verifies requests originate from allowed domain (NEXT_PUBLIC_APP_DOMAIN)
 //    - Prevents unauthorized sites from making requests to public endpoints
 //    - Protects against cross-origin attacks even before authentication
+//    
+//    ⚠️ IMPORTANT: Origin validation restricts access to web browsers from allowed domains.
+//    Non-browser clients (mobile apps, CLI tools, Postman, curl) will be BLOCKED unless they:
+//    - Send a valid Origin header matching NEXT_PUBLIC_APP_DOMAIN, OR
+//    - Use a different authentication flow (API keys, OAuth tokens, etc.)
+//    
+//    If you need to support non-browser clients, consider:
+//    - Creating separate API endpoints for programmatic access (e.g., /api/v1/auth/login)
+//    - Implementing API key authentication for machine-to-machine communication
+//    - Using OAuth 2.0 client credentials flow for third-party integrations
+//    - Documenting that the web API is browser-only in your API documentation
 // 
 // 2. CSRF Protection (SKIPPED for public paths):
 //    - Not applicable since user has no session/token yet (e.g., login endpoint)
@@ -42,10 +53,11 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 // 
 // VERIFICATION: Each path in PUBLIC_PATHS has been reviewed for security:
 // - "login": Pre-authentication endpoint protected by:
-//   * Origin validation (prevents cross-origin attacks)
+//   * Origin validation (prevents cross-origin attacks, web-only)
 //   * Rate limiting (prevents brute force)
 //   * Input validation (sanitizes username/password)
 //   * Backend authentication logic (validates credentials)
+//   ⚠️ This endpoint is web-browser-only due to origin validation.
 // 
 // SECURITY: Each path must be explicitly listed - sub-paths are NOT automatically included.
 // Example: "login" matches "/api/backend/login" but NOT "/api/backend/login/admin".

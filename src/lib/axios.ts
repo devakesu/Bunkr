@@ -146,14 +146,18 @@ let cspWarningLogged = false;
 export function getCsrfToken(): string | null {
   if (typeof sessionStorage === "undefined") return null;
 
-  // Check for CSP meta tag in production (for awareness only)
+  // Check for CSP meta tag in production (for informational awareness only)
   // Only log warning once to avoid console spam
+  // Note: This check cannot detect HTTP header-based CSP (the recommended and more secure approach)
+  // which is invisible to JavaScript. The absence of a meta tag does NOT indicate a security issue.
   if (process.env.NODE_ENV === "production" && !checkForCspMetaTag() && !cspWarningLogged) {
     cspWarningLogged = true;
-    console.warn(
-      "[CSRF Security] No CSP meta tag detected. This is EXPECTED if CSP is enforced via HTTP headers (recommended). " +
-      "To verify CSP is active, check the Network tab in browser DevTools for the Content-Security-Policy header. " +
-      "If the header is missing, contact the security team immediately."
+    console.info(
+      "[CSRF Security - Informational] No CSP meta tag detected. " +
+      "This is NORMAL and EXPECTED if CSP is enforced via HTTP headers (the recommended approach). " +
+      "HTTP header-based CSP cannot be detected by JavaScript but provides stronger security. " +
+      "To verify CSP is active: Open DevTools → Network tab → Click any request → Check Response Headers for 'Content-Security-Policy'. " +
+      "If the header is missing in production, please contact your security team."
     );
   }
 
@@ -172,14 +176,18 @@ export function getCsrfToken(): string | null {
 export function setCsrfToken(token: string | null): void {
   if (typeof sessionStorage === "undefined") return;
 
-  // Check for CSP meta tag in production (for awareness only)
+  // Check for CSP meta tag in production (for informational awareness only)
   // Only log warning once to avoid console spam (reuses the same flag as getCsrfToken)
+  // Note: This check cannot detect HTTP header-based CSP (the recommended and more secure approach)
+  // which is invisible to JavaScript. The absence of a meta tag does NOT indicate a security issue.
   if (process.env.NODE_ENV === "production" && !checkForCspMetaTag() && !cspWarningLogged) {
     cspWarningLogged = true;
-    console.warn(
-      "[CSRF Security] No CSP meta tag detected. This is EXPECTED if CSP is enforced via HTTP headers (recommended). " +
-      "To verify CSP is active, check the Network tab in browser DevTools for the Content-Security-Policy header. " +
-      "If the header is missing, contact the security team immediately."
+    console.info(
+      "[CSRF Security - Informational] No CSP meta tag detected. " +
+      "This is NORMAL and EXPECTED if CSP is enforced via HTTP headers (the recommended approach). " +
+      "HTTP header-based CSP cannot be detected by JavaScript but provides stronger security. " +
+      "To verify CSP is active: Open DevTools → Network tab → Click any request → Check Response Headers for 'Content-Security-Policy'. " +
+      "If the header is missing in production, please contact your security team."
     );
   }
 
@@ -189,10 +197,10 @@ export function setCsrfToken(token: string | null): void {
       console.error('[CSRF] Invalid token format');
       return;
     }
-    // Additional validation: ensure minimum length and valid hex format
+    // Additional validation: ensure exact length and valid hex format
     // CSRF tokens are generated as hex strings (see generateCsrfToken in csrf.ts)
     // Use generic error messages to avoid exposing implementation details to potential attackers
-    if (token.length < CSRF_TOKEN_MIN_LENGTH) {
+    if (token.length !== CSRF_TOKEN_MIN_LENGTH) {
       console.error('[CSRF] Invalid token format');
       return;
     }

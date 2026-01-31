@@ -508,15 +508,19 @@ const IPV6_PATTERN = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^\[.*\]$/;
  * This utility provides consistent hostname detection logic across error components.
  * 
  * FALLBACK BEHAVIOR:
- * 1. Uses NEXT_PUBLIC_APP_DOMAIN environment variable if set
- * 2. Falls back to window.location.hostname if available and not localhost/IP
- * 3. Uses NEXT_PUBLIC_DEFAULT_DOMAIN environment variable if set
+ * 1. Uses NEXT_PUBLIC_APP_DOMAIN environment variable if set (RECOMMENDED)
+ * 2. Uses NEXT_PUBLIC_DEFAULT_DOMAIN environment variable if set
+ * 3. In development only: Falls back to window.location.hostname if available and not localhost/IP
  * 4. Uses the provided fallbackDomain parameter (default: 'ghostclass.app')
  * 
- * SECURITY NOTE:
- * The fallback domain should match your production domain. Using an incorrect
- * fallback could expose error details to unintended recipients via email reports.
- * Set NEXT_PUBLIC_DEFAULT_DOMAIN in your environment for production safety.
+ * SECURITY WARNING:
+ * In production, this function requires NEXT_PUBLIC_APP_DOMAIN or NEXT_PUBLIC_DEFAULT_DOMAIN
+ * to be explicitly configured. Using window.location.hostname in production could allow
+ * attackers to control the email destination via hostname manipulation (e.g., through
+ * open redirects or malicious proxies), potentially exposing error details.
+ * 
+ * The function will log a warning in production if environment variables are not set
+ * and will refuse to use window.location.hostname as a fallback for security.
  * 
  * @param fallbackDomain - The fallback domain to use if no valid domain can be determined (default: 'ghostclass.app')
  * @returns The application domain suitable for use in email addresses
@@ -528,10 +532,12 @@ const IPV6_PATTERN = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^\[.*\]$/;
  * ```
  */
 export function getAppDomain(fallbackDomain: string = 'ghostclass.app'): string {
+  const isProduction = process.env.NODE_ENV === "production";
   let appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
   
-  // Fallback to window.location.hostname if env var not set
-  if (!appDomain && typeof window !== "undefined") {
+  // Only use window.location.hostname in development for convenience
+  // In production, this is a security risk and should never be used
+  if (!appDomain && typeof window !== "undefined" && !isProduction) {
     const hostname = window.location.hostname;
     
     // Check if hostname is a local development environment or IP address
@@ -546,6 +552,15 @@ export function getAppDomain(fallbackDomain: string = 'ghostclass.app'): string 
   
   // Use environment variable for default domain if set, otherwise use parameter
   const defaultDomain = process.env.NEXT_PUBLIC_DEFAULT_DOMAIN || fallbackDomain;
+  
+  // Security check: warn if using fallback in production
+  if (isProduction && !process.env.NEXT_PUBLIC_APP_DOMAIN && !process.env.NEXT_PUBLIC_DEFAULT_DOMAIN) {
+    console.warn(
+      '[SECURITY] getAppDomain: NEXT_PUBLIC_APP_DOMAIN and NEXT_PUBLIC_DEFAULT_DOMAIN are not set in production. ' +
+      `Using hardcoded fallback domain '${defaultDomain}'. This could be a security risk for error reporting. ` +
+      'Please configure these environment variables.'
+    );
+  }
   
   // Final fallback
   return appDomain ?? defaultDomain;

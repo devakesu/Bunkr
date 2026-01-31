@@ -99,8 +99,10 @@ export async function proxy(request: NextRequest) {
   if (ezygoToken && user && (!termsVersion || termsVersion !== TERMS_VERSION) && isProtectedRoute) {
     const url = request.nextUrl.clone();
     
-    // Redirect loop protection: check if we've already redirected
-    const redirectCount = parseInt(url.searchParams.get('redirect_count') || '0', 10);
+    // Redirect loop protection: use httpOnly cookie to track redirect attempts
+    // This prevents manipulation via URL parameters which could be exploited for DoS
+    const redirectCountCookie = request.cookies.get('terms_redirect_count');
+    const redirectCount = redirectCountCookie ? parseInt(redirectCountCookie.value, 10) : 0;
     
     if (redirectCount >= 3) {
       // Too many redirect attempts - log user out to break the loop
@@ -117,14 +119,23 @@ export async function proxy(request: NextRequest) {
       const logoutRes = NextResponse.redirect(logoutUrl);
       logoutRes.headers.set('Content-Security-Policy', cspHeader);
       logoutRes.headers.set("x-nonce", nonce);
+      // Clear the redirect count cookie
+      logoutRes.cookies.delete('terms_redirect_count');
       return logoutRes;
     }
     
     url.pathname = "/accept-terms";
-    url.searchParams.set('redirect_count', String(redirectCount + 1));
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
     redirectRes.headers.set("x-nonce", nonce);
+    // Increment redirect count in httpOnly cookie (secure, non-manipulable)
+    redirectRes.cookies.set('terms_redirect_count', String(redirectCount + 1), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 300, // 5 minutes - enough for legitimate redirects, prevents long-term accumulation
+    });
     return redirectRes;
   }
 
@@ -137,6 +148,8 @@ export async function proxy(request: NextRequest) {
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
     redirectRes.headers.set("x-nonce", nonce);
+    // Clear the redirect count cookie after successful terms acceptance
+    redirectRes.cookies.delete('terms_redirect_count');
     return redirectRes;
   }
 
