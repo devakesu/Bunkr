@@ -122,6 +122,7 @@ These cookies are fundamental to the operation and security of GhostClass. They 
 * **ezygo_access_token:** A secure, HTTP-only cookie that facilitates communication with the EzyGo API.
 * **csrf_token:** A security token that protects against Cross-Site Request Forgery (CSRF) attacks. This cookie is HTTP-only (not accessible to JavaScript) to protect against XSS attacks. The token is provided to client-side code through secure API responses for use in subsequent requests (Synchronizer Token Pattern).
 * **terms_version:** A secure, HTTP-only cookie used to validate, as part of the authentication flow, that you have accepted the current version of our Terms of Service.
+* **terms_version:** A secure, HTTP-only cookie used to validate, as part of the authentication flow, that you have accepted the current version of our Terms of Service.
 * **__cf_bm / __cf_clearance:** Set by **Cloudflare**. These cookies are used to distinguish between humans and bots (including Turnstile CAPTCHA) and are essential for the security of our site.
 
 **3. Performance & Analytics Cookies**
