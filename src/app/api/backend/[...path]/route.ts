@@ -263,14 +263,13 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
 
     if (!res.ok) {
       logger.error("Proxy upstream error", { status: res.status, target, body: text });
-      let errorMessage: string;
+      let errorMessage: string = text; // Default to raw text
       try {
         // Try to parse JSON error message from upstream
         const parsed = JSON.parse(text);
         errorMessage = parsed.message || text;
       } catch {
-        // Not JSON, just use raw text
-        errorMessage = text;
+        // Not JSON, keep raw text as error message
       }
       
       // In production, sanitize error messages to avoid exposing internal details
