@@ -10,6 +10,12 @@
  * input sanitization) to prevent token theft. See src/lib/security/csrf.ts
  * for detailed security architecture and trade-offs.
  * 
+ * IMPLEMENTATION NOTES:
+ * - Uses useRef to track initialization state to avoid issues with React 18+ concurrent rendering
+ * - Checks sessionStorage as source of truth for token existence
+ * - Module-level promise prevents duplicate concurrent requests across different component instances
+ * - Safe for StrictMode double-effect execution and hot module replacement
+ * 
  * @example
  * ```tsx
  * function MyComponent() {
@@ -19,15 +25,20 @@
  * ```
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { setCsrfToken, getCsrfToken } from "@/lib/axios";
 import { logger } from "@/lib/logger";
 
-// Module-level guard to prevent concurrent CSRF initialization
-// Note: We only use this to prevent duplicate concurrent requests, not to track initialization state
+// Module-level promise to prevent concurrent CSRF initialization across component instances
+// This is only used for request deduplication, not for tracking initialization state
+// The source of truth for initialization is sessionStorage, which is checked in each component
 let csrfInitPromise: Promise<void> | null = null;
 
 export function useCSRFToken() {
+  // Track if this hook instance has already attempted initialization
+  // This prevents duplicate initialization on re-renders and StrictMode double-effect execution
+  const hasInitialized = useRef(false);
+
   useEffect(() => {
     const initCsrf = async () => {
       // Only run in the browser
@@ -35,19 +46,40 @@ export function useCSRFToken() {
         return;
       }
 
+      // Skip if this hook instance already attempted initialization
+      if (hasInitialized.current) {
+        return;
+      }
+
+      // Mark as initialized for this component instance
+      hasInitialized.current = true;
+
       // Check if token already exists in sessionStorage - this is the source of truth
-      // This allows re-initialization if token is cleared, fixing hot module replacement issues
+      // This allows re-initialization if token is cleared (e.g., after logout or session expiry)
       const existingToken = getCsrfToken();
       if (existingToken) {
         return;
       }
 
-      // If an initialization is already in progress, wait for it to complete
+      // If an initialization is already in progress from another component, wait for it
       if (csrfInitPromise) {
-        await csrfInitPromise;
-        return;
+        try {
+          await csrfInitPromise;
+        } catch (error) {
+          // Error already logged by the component that created the promise
+          logger.dev("CSRF init promise rejected, will check token state");
+        }
+        
+        // After waiting, verify that token was actually set
+        // If the other component's initialization failed, we should try again
+        const tokenAfterWait = getCsrfToken();
+        if (tokenAfterWait) {
+          return; // Token exists, initialization succeeded
+        }
+        // Token doesn't exist, fall through to attempt initialization ourselves
       }
 
+      // Start new initialization
       csrfInitPromise = (async () => {
         try {
           // Call the /api/csrf/init endpoint to initialize the CSRF token
@@ -67,15 +99,20 @@ export function useCSRFToken() {
         } catch (error) {
           // Log error but don't block the form - the token will be checked on submission
           logger.error("Failed to initialize CSRF token:", error);
+          throw error; // Re-throw so waiting components know initialization failed
         } finally {
           // Clear in-flight promise to allow retry on future attempts if needed
           csrfInitPromise = null;
         }
       })();
 
-      await csrfInitPromise;
+      try {
+        await csrfInitPromise;
+      } catch (error) {
+        // Error already logged above
+      }
     };
 
     void initCsrf();
-  }, []);
+  }, []); // Empty deps array - initialization should only happen once per component mount
 }

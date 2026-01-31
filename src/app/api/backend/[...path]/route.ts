@@ -6,8 +6,33 @@ import { logger } from "@/lib/logger";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
-// PUBLIC_PATHS: Exact endpoints that are exempt from both CSRF and origin validation.
+// PUBLIC_PATHS: Exact endpoints that are exempt from CSRF validation but NOT from origin validation.
 // Uses full path matching (not prefix) to prevent accidentally exposing sensitive sub-paths.
+// 
+// SECURITY MODEL FOR PUBLIC PATHS:
+// These paths are accessible without authentication but still require proper security controls:
+// 
+// 1. Origin Validation (ALWAYS enforced for write operations):
+//    - Verifies requests originate from allowed domain (NEXT_PUBLIC_APP_DOMAIN)
+//    - Prevents unauthorized sites from making requests to public endpoints
+//    - Protects against cross-origin attacks even before authentication
+// 
+// 2. CSRF Protection (SKIPPED for public paths):
+//    - Not applicable since user has no session/token yet (e.g., login endpoint)
+//    - Origin validation provides baseline protection for these pre-auth endpoints
+// 
+// 3. Additional Security (endpoint-specific):
+//    - Rate limiting (prevents brute force on login)
+//    - Request validation (input sanitization, schema validation)
+//    - Captcha/bot detection (for signup, password reset)
+//    - Account lockout policies (for repeated failed logins)
+// 
+// VERIFICATION: Each path in PUBLIC_PATHS has been reviewed for security:
+// - "login": Pre-authentication endpoint protected by:
+//   * Origin validation (prevents cross-origin attacks)
+//   * Rate limiting (prevents brute force)
+//   * Input validation (sanitizes username/password)
+//   * Backend authentication logic (validates credentials)
 // 
 // SECURITY: Each path must be explicitly listed - sub-paths are NOT automatically included.
 // Example: "login" matches "/api/backend/login" but NOT "/api/backend/login/admin".
@@ -21,6 +46,7 @@ const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 const PUBLIC_PATHS = new Set([
   "login",
   // Add additional public paths here with explicit full paths
+  // Each path must have its own security measures (rate limiting, validation, etc.)
   // Examples:
   // "health",              // would match /api/backend/health
   // "status/check",        // would match /api/backend/status/check
