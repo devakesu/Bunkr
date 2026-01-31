@@ -72,12 +72,14 @@ export const getCspHeader = (nonce?: string) => {
         "https://static.cloudflareinsights.com",
       ];
 
-  // Use granular style directives instead of global unsafe-inline
+  // Use granular style directives instead of global unsafe-inline for better XSS protection
   const styleSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
     : ["'self'", `'nonce-${nonce}'`];
   
-  const styleSrcAttrParts = ["'unsafe-inline'"]; // For inline style attributes used by libraries
+  // style-src-attr allows inline style attributes (e.g., style="color: red;") used by some libraries like Recharts
+  // This is a security trade-off: more restrictive than global unsafe-inline but still permits inline styles
+  const styleSrcAttrParts = ["'unsafe-inline'"];
 
   return `
     default-src 'self';
