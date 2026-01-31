@@ -7,7 +7,28 @@ import { revalidatePath } from "next/cache";
 /**
  * Server action for accepting terms and conditions.
  * Updates user record with acceptance timestamp and version.
- * Sets persistent cookie for terms acceptance tracking.
+ * Sets persistent httpOnly cookie for terms acceptance tracking.
+ * 
+ * COOKIE SECURITY:
+ * The terms_version cookie is set with httpOnly: true, which means:
+ * - Cannot be accessed via JavaScript (document.cookie)
+ * - Only readable by server-side code (middleware, API routes, server actions)
+ * - Protected from XSS attacks
+ * - Automatically included in requests to same origin
+ * 
+ * COOKIE BEHAVIOR:
+ * - Development (NODE_ENV !== "production"): secure flag is false (allows HTTP)
+ * - Production: secure flag is true (requires HTTPS)
+ * - sameSite: "lax" (included in top-level navigation, not cross-site requests)
+ * - maxAge: 1 year (persistent across browser sessions)
+ * - path: "/" (available to all routes)
+ * 
+ * SERVER-SIDE ACCESS:
+ * The cookie is read in src/proxy.ts middleware using request.cookies.get("terms_version")
+ * to enforce terms acceptance before accessing protected routes. This is secure because:
+ * - Middleware runs on server-side (Node.js or Edge runtime)
+ * - Cookie is automatically included in requests via Set-Cookie/Cookie headers
+ * - No client-side JavaScript can read or modify the cookie
  * 
  * @param version - Terms version being accepted
  * @throws {Error} If user not authenticated or database update fails
@@ -15,7 +36,7 @@ import { revalidatePath } from "next/cache";
  * Process:
  * 1. Authenticate user
  * 2. Update database with acceptance timestamp and version
- * 3. Set cookie with 1 year expiry
+ * 3. Set httpOnly cookie with 1 year expiry
  * 4. Revalidate dashboard path
  * 
  * @example
