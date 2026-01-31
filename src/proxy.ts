@@ -85,7 +85,8 @@ export async function proxy(request: NextRequest) {
 
   // Scenario B: Logged in but terms not accepted or outdated -> Redirect to Accept Terms
   // Skip this check if already on accept-terms page to avoid redirect loop
-  if (ezygoToken && user && termsVersion !== TERMS_VERSION && isProtectedRoute && !isAcceptTermsRoute) {
+  // Explicitly check for null/undefined termsVersion or version mismatch
+  if (ezygoToken && user && (!termsVersion || termsVersion !== TERMS_VERSION) && isProtectedRoute && !isAcceptTermsRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/accept-terms";
     const redirectRes = NextResponse.redirect(url);

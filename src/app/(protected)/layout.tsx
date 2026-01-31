@@ -15,6 +15,13 @@ import { handleLogout } from "@/lib/security/auth";
 import { logger } from "@/lib/logger";
 import { useCSRFToken } from "@/hooks/use-csrf-token";
 
+// Helper to check if error is related to missing auth session
+const isAuthSessionMissingError = (error: any): boolean => {
+  return error?.message?.toLowerCase().includes("session missing") ||
+         error?.message?.toLowerCase().includes("auth session");
+};
+
+
 export default function ProtectedLayout({
   children,
 }: {
@@ -65,9 +72,9 @@ export default function ProtectedLayout({
     const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabaseRef.current.auth.getUser();
-        // Handle "Auth session missing" error - redirect to login
+        // Handle auth session missing errors - redirect to login
         if (error) {
-          if (error.message === "Auth session missing!") {
+          if (isAuthSessionMissingError(error)) {
             active = false;
             router.replace("/");
             return;
