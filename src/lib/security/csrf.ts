@@ -129,12 +129,9 @@ export async function validateCsrfToken(requestToken: string | null | undefined)
   } catch (_error) {
     // timingSafeEqual throws RangeError if buffers have different lengths.
     // Treat any error as a failed comparison without exposing timing details.
-    // Log sanitized error metadata for debugging without exposing token values
+    // Log sanitized error for debugging without exposing implementation details
     logger.error("CSRF token validation failed", {
       errorType: _error instanceof Error ? _error.name : 'unknown',
-      cookieTokenLength: cookieToken.length,
-      requestTokenLength: requestToken.length,
-      // Never log actual token values - only metadata for debugging
     });
     return false;
   }

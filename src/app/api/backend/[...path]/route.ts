@@ -319,13 +319,13 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       // - Use CI/CD to enforce production builds
       // - Monitor server logs for detailed error information
       // - Consider a separate DEBUG flag for controlled verbose logging if needed
-      const isProduction = process.env.NODE_ENV === "production";
       
       // Runtime validation: ensure NODE_ENV is explicitly set to prevent accidental exposure
       if (!process.env.NODE_ENV) {
         logger.error("NODE_ENV is not set - defaulting to development mode for error handling");
       }
       
+      const isProduction = process.env.NODE_ENV === "production";
       const is5xxError = res.status >= 500;
       const clientMessage = (isProduction && is5xxError)
         ? "An error occurred while processing your request" 

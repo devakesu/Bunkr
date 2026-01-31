@@ -179,15 +179,16 @@ export function setCsrfToken(token: string | null): void {
       console.error('[CSRF] Invalid token format - token must be a non-empty string');
       return;
     }
-    // Additional validation: ensure minimum length and alphanumeric characters
-    // CSRF tokens should be at least 32 characters (128-bit security minimum)
-    if (token.length < 32) {
-      console.error('[CSRF] Invalid token format - token too short (minimum 32 characters)');
+    // Additional validation: ensure minimum length and valid hex format
+    // CSRF tokens are generated as hex strings (see generateCsrfToken in csrf.ts)
+    // Minimum 64 characters for 32-byte tokens (256-bit security)
+    if (token.length < 64) {
+      console.error('[CSRF] Invalid token format - token too short (minimum 64 characters)');
       return;
     }
-    // Ensure token contains only safe characters (alphanumeric, hyphens, underscores)
-    if (!/^[A-Za-z0-9_-]+$/.test(token)) {
-      console.error('[CSRF] Invalid token format - token contains invalid characters');
+    // Ensure token contains only lowercase hex characters (0-9, a-f)
+    if (!/^[0-9a-f]+$/.test(token)) {
+      console.error('[CSRF] Invalid token format - token must be lowercase hexadecimal');
       return;
     }
     sessionStorage.setItem(CSRF_STORAGE_KEY, token);
