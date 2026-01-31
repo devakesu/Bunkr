@@ -94,7 +94,17 @@ export async function middleware(request: NextRequest) {
     return redirectRes;
   }
 
-  // Scenario C: Logged in -> Redirect to Dashboard
+  // Scenario C: Terms accepted but on accept-terms page -> Redirect to Dashboard
+  if (ezygoToken && user && termsVersion && isAcceptTermsRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    const redirectRes = NextResponse.redirect(url);
+    redirectRes.headers.set('Content-Security-Policy', cspHeader);
+    redirectRes.headers.set("x-nonce", nonce);
+    return redirectRes;
+  }
+
+  // Scenario D: Logged in -> Redirect to Dashboard
   if (ezygoToken && user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";

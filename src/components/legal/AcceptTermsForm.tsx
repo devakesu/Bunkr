@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { logger } from "@/lib/logger";
 import * as Sentry from "@sentry/nextjs";
+import { toast } from "sonner";
 
 export function AcceptTermsForm() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export function AcceptTermsForm() {
         tags: { type: "terms_acceptance_failure", location: "AcceptTermsForm/handleAgree" },
         extra: { version: TERMS_VERSION }
       });
+      toast.error("Failed to accept terms. Please try again.");
     } finally {
       setLoading(false);
     }
