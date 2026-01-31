@@ -321,8 +321,10 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       // - Consider a separate DEBUG flag for controlled verbose logging if needed
       
       // Runtime validation: ensure NODE_ENV is explicitly set to prevent accidental exposure
+      // Note: When NODE_ENV is undefined, isProduction will be false, resulting in
+      // development mode behavior (verbose error messages exposed to clients)
       if (!process.env.NODE_ENV) {
-        logger.error("NODE_ENV is not set - defaulting to development mode for error handling");
+        logger.error("NODE_ENV is not set - will use development mode error handling (verbose messages)");
       }
       
       const isProduction = process.env.NODE_ENV === "production";

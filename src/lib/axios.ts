@@ -76,6 +76,11 @@ export function getCookie(name: string) {
  */
 const CSRF_STORAGE_KEY = "csrf_token_memory";
 
+// CSRF token validation constants
+// Tokens are 32-byte (256-bit) hex strings, resulting in 64 characters
+const CSRF_TOKEN_MIN_LENGTH = 64;
+const CSRF_TOKEN_HEX_PATTERN = /^[0-9a-f]+$/;
+
 /**
  * Check for CSP meta tag in the document.
  * 
@@ -181,13 +186,12 @@ export function setCsrfToken(token: string | null): void {
     }
     // Additional validation: ensure minimum length and valid hex format
     // CSRF tokens are generated as hex strings (see generateCsrfToken in csrf.ts)
-    // Minimum 64 characters for 32-byte tokens (256-bit security)
-    if (token.length < 64) {
-      console.error('[CSRF] Invalid token format - token too short (minimum 64 characters)');
+    if (token.length < CSRF_TOKEN_MIN_LENGTH) {
+      console.error(`[CSRF] Invalid token format - token too short (minimum ${CSRF_TOKEN_MIN_LENGTH} characters)`);
       return;
     }
     // Ensure token contains only lowercase hex characters (0-9, a-f)
-    if (!/^[0-9a-f]+$/.test(token)) {
+    if (!CSRF_TOKEN_HEX_PATTERN.test(token)) {
       console.error('[CSRF] Invalid token format - token must be lowercase hexadecimal');
       return;
     }
