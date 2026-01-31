@@ -69,7 +69,14 @@ export function useCSRFToken() {
           // Error already logged by the component that created the promise
           logger.dev("CSRF init promise rejected, will check token state");
         }
-        return;
+        
+        // After waiting, verify that token was actually set
+        // If the other component's initialization failed, we should try again
+        const tokenAfterWait = getCsrfToken();
+        if (tokenAfterWait) {
+          return; // Token exists, initialization succeeded
+        }
+        // Token doesn't exist, fall through to attempt initialization ourselves
       }
 
       // Start new initialization

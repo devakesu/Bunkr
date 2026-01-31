@@ -81,7 +81,12 @@ const CSRF_STORAGE_KEY = "csrf_token_memory";
  * This is a critical security check since the CSRF token in sessionStorage
  * is vulnerable to XSS attacks if CSP is not properly configured.
  * 
- * @returns true if CSP is enabled or in development mode, false otherwise
+ * Note: This is a best-effort check. CSP is primarily enforced via HTTP headers
+ * (set in src/proxy.ts middleware), which cannot be directly read from JavaScript.
+ * The absence of a CSP meta tag doesn't necessarily mean CSP is disabled, but
+ * it serves as a warning signal to investigate.
+ * 
+ * @returns true if CSP can be verified or in development mode, false if verification fails
  */
 function verifyCspEnabled(): boolean {
   // Skip check in development mode
@@ -89,7 +94,7 @@ function verifyCspEnabled(): boolean {
     return true;
   }
 
-  // Check if CSP meta tag or HTTP header is present
+  // Check if CSP meta tag is present
   if (typeof document !== "undefined") {
     // Check for CSP meta tag
     const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
@@ -97,19 +102,20 @@ function verifyCspEnabled(): boolean {
       return true;
     }
 
-    // Note: We cannot directly check HTTP headers from JavaScript
-    // The best we can do is verify CSP is working by checking if unsafe-inline is blocked
-    // This is done implicitly - if CSP is working, unauthorized scripts won't execute
-    // Log a warning if we can't verify CSP (absence of meta tag doesn't mean CSP is off)
+    // No meta tag found - CSP should be enforced via HTTP headers (set in src/proxy.ts)
+    // Log a warning since we cannot directly verify HTTP headers from JavaScript
     if (typeof console !== "undefined") {
       console.warn(
         "[CSRF Security] Could not verify CSP meta tag. CSP should be enforced via HTTP headers. " +
-        "Verify that Content-Security-Policy header is present in production."
+        "Verify that Content-Security-Policy header is present in production by checking browser DevTools Network tab."
       );
     }
+
+    // Return false to indicate verification failed (CSP may still be active via headers, but we can't verify it)
+    return false;
   }
 
-  // Assume CSP is enabled via HTTP headers (enforced by middleware in src/proxy.ts)
+  // Document is undefined (server-side) - assume CSP will be applied by middleware
   return true;
 }
 
