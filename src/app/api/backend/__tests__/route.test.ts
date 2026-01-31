@@ -1,5 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
+
+// Set environment variables BEFORE any imports using vi.hoisted
+// This ensures they're available when the route module's top-level constants are initialized
+vi.hoisted(() => {
+  vi.stubEnv('NODE_ENV', 'production');
+  vi.stubEnv('NEXT_PUBLIC_BACKEND_URL', 'https://api.example.com');
+});
 
 // Mock the security modules before importing route
 vi.mock('@/lib/security/auth-cookie', () => ({
@@ -18,18 +25,20 @@ describe('Backend Proxy Route', () => {
   type ForwardHandler = typeof import('../[...path]/route')['forward'];
   let forward: ForwardHandler;
 
-  beforeAll(async () => {
-    // Use vi.stubEnv for automatic restoration by vi.unstubAllEnvs() in setup
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    
+    // Ensure env vars are set for each test (in case global afterEach clears them)
+    // Note: This won't affect module-level constants that were already initialized,
+    // but ensures env vars are available for any runtime checks
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('NEXT_PUBLIC_BACKEND_URL', 'https://api.example.com');
     
-    // Import route module AFTER setting environment
-    const routeModule = await import('../[...path]/route');
-    forward = routeModule.forward;
-  });
-
-  beforeEach(() => {
-    vi.clearAllMocks();
+    // Import module in beforeEach to ensure it uses the correct env vars
+    if (!forward) {
+      const routeModule = await import('../[...path]/route');
+      forward = routeModule.forward;
+    }
   });
 
   afterEach(() => {

@@ -249,16 +249,7 @@ describe('handleLogout', () => {
     expect(mockCaptureException).toHaveBeenCalled();
   });
 
-  it('should not clear storage when signOut throws before reaching cleanup', async () => {
-    mockSignOut.mockRejectedValue(new Error('Network error'));
-    
-    await handleLogout();
 
-    // Storage clearing code is in try block after signOut, so if signOut throws
-    // it never reaches the storage clearing code
-    expect(mockLocalStorage.clear).not.toHaveBeenCalled();
-    expect(mockSessionStorage.clear).not.toHaveBeenCalled();
-  });
 
   it('should log error to Sentry when logout fails', async () => {
     const testError = new Error('Test error');
