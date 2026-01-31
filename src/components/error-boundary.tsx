@@ -3,7 +3,7 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { logger } from "@/lib/logger";
-import { AlertTriangle, RefreshCcw, RotateCcw } from "lucide-react";
+import { AlertTriangle, Mail, RefreshCcw, RotateCcw } from "lucide-react";
 
 /**
  * Props for ErrorBoundary component.
@@ -99,6 +99,25 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     window.location.reload();
   };
 
+  handleEmailReport = (): void => {
+    const error = this.state.error;
+    if (!error) return;
+
+    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+    const subject = encodeURIComponent('Error Report - GhostClass');
+    const body = encodeURIComponent(
+      `Hi Admin,\n\nI encountered an error while using GhostClass:\n\n` +
+      `Error: ${error.message}\n\n` +
+      `Stack Trace:\n${error.stack || 'No stack trace available'}\n\n` +
+      `User Agent: ${navigator.userAgent}\n` +
+      `URL: ${window.location.href}\n` +
+      `Timestamp: ${new Date().toISOString()}\n\n` +
+      `Please help resolve this issue.\n\nThank you!`
+    );
+
+    window.location.href = `mailto:admin@${appDomain}?subject=${subject}&body=${body}`;
+  };
+
   render(): ReactNode {
     if (this.state.hasError && this.state.error) {
       // Render custom fallback UI
@@ -124,7 +143,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             We encountered an unexpected error. You can try to recover the component or reload the page.
           </p>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3 justify-center">
             <button
               onClick={this.resetError}
               className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -139,6 +158,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             >
               <RefreshCcw className="mr-2 h-4 w-4" aria-hidden="true" />
               Reload Page
+            </button>
+
+            <button
+              onClick={this.handleEmailReport}
+              className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
+              Report Error
             </button>
           </div>
           

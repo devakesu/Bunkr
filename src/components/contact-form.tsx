@@ -56,7 +56,7 @@ export function ContactForm({ userDetails }: ContactFormProps) {
     initCsrf();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault(); 
     
     if (!token) {

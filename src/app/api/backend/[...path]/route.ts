@@ -111,7 +111,7 @@ function getAllowedHosts(): Set<string> | null {
   return cachedAllowedHosts;
 }
 
-const MAX_RESPONSE_BYTES = 1_000_000; // 1 MB safety cap
+const MAX_RESPONSE_BYTES = 5_000_000;
 const UPSTREAM_TIMEOUT_MS = 15_000;
 
 async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: number, signal: AbortSignal) {
@@ -139,17 +139,17 @@ async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: num
 export async function forward(req: NextRequest, method: string, path: string[]) {
   if (!BASE_API_URL) {
     logger.error("NEXT_PUBLIC_BACKEND_URL is not configured");
-    return NextResponse.json({ error: "Backend URL not configured" }, { status: 500 });
+    return NextResponse.json({ message: "Backend URL not configured" }, { status: 500 });
   }
 
   if (BASE_API_URL?.includes("localhost:3000")) {
     logger.error("Misconfigured NEXT_PUBLIC_BACKEND_URL: points to Next app (3000), causing proxy loop");
-    return NextResponse.json({ error: "Backend URL misconfigured" }, { status: 500 });
+    return NextResponse.json({ message: "Backend URL misconfigured" }, { status: 500 });
   }
 
   const pathSegments = path ?? [];
   if (pathSegments.length === 0) {
-    return NextResponse.json({ error: "Missing path" }, { status: 400 });
+    return NextResponse.json({ message: "Missing path" }, { status: 400 });
   }
 
   const isWrite = method !== "GET" && method !== "HEAD";
@@ -170,44 +170,48 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       path: pathSegments,
       method
     });
-    return NextResponse.json({ error: "Invalid path format" }, { status: 400 });
+    return NextResponse.json({ message: "Invalid path format" }, { status: 400 });
   }
   
   // Check for exact path match (join all segments to compare against full paths in PUBLIC_PATHS)
   const fullPath = pathSegments.join("/");
   const isPublic = PUBLIC_PATHS.has(fullPath);
 
-  // CSRF + Origin protection for state-changing calls (excluding public paths)
-  if (isWrite && !isPublic) {
+  // Origin validation for ALL state-changing calls (including public paths like login)
+  // This prevents unauthorized sites from making requests, even to public endpoints
+  if (isWrite) {
     // Validate that NEXT_PUBLIC_APP_DOMAIN is configured
     const allowedHosts = getAllowedHosts();
     if (!allowedHosts) {
       logger.error("NEXT_PUBLIC_APP_DOMAIN is not configured - origin validation cannot proceed");
       return NextResponse.json(
-        { error: "Server configuration error: security validation unavailable" },
+        { message: "Server configuration error: security validation unavailable" },
         { status: 500 }
       );
     }
 
     const origin = req.headers.get("origin");
     if (!origin) {
-      return NextResponse.json({ error: "Origin required" }, { status: 400 });
+      return NextResponse.json({ message: "Origin required" }, { status: 400 });
     }
     try {
       // Use .hostname (not .host) to exclude port and properly handle IPv6 addresses
       const originHostname = new URL(origin).hostname.toLowerCase();
       // Strict allowlist - don't fall back to Host header which can be spoofed
       if (!allowedHosts.has(originHostname)) {
-        return NextResponse.json({ error: "Origin not allowed" }, { status: 403 });
+        return NextResponse.json({ message: "Origin not allowed" }, { status: 403 });
       }
     } catch {
-      return NextResponse.json({ error: "Invalid origin" }, { status: 400 });
+      return NextResponse.json({ message: "Invalid origin" }, { status: 400 });
     }
+  }
 
+  // CSRF protection for authenticated state-changing calls only (excludes public paths)
+  if (isWrite && !isPublic) {
     const csrfToken = req.headers.get("x-csrf-token");
     const csrfOk = await validateCsrfToken(csrfToken);
     if (!csrfOk) {
-      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+      return NextResponse.json({ message: "Invalid CSRF token" }, { status: 403 });
     }
   }
 
@@ -252,14 +256,22 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
     } catch (sizeErr) {
       logger.error("Proxy response too large", { target, error: (sizeErr as Error)?.message });
-      return NextResponse.json({ error: "Upstream response too large" }, { status: 502 });
+      return NextResponse.json({ message: "Upstream response too large" }, { status: 502 });
     }
 
     const contentType = res.headers.get("content-type") || "application/json";
 
     if (!res.ok) {
       logger.error("Proxy upstream error", { status: res.status, target, body: text });
-      return NextResponse.json({ error: "Upstream error", status: res.status }, { status: res.status });
+      let errorMessage = undefined;
+      try {
+        // Try to parse JSON error message from upstream
+        errorMessage = JSON.parse(text).message;
+      } catch {
+        // Not JSON, just use raw text
+        errorMessage = text;
+      }
+      return NextResponse.json({ message: errorMessage, status: res.status }, { status: res.status });
     }
 
     return new NextResponse(text, { status: res.status, headers: { "content-type": contentType } });
@@ -267,7 +279,7 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     const error = err as Error;
     logger.error("Proxy fetch failed", { target, error: error?.message });
     const isAbort = error?.name === "AbortError";
-    return NextResponse.json({ error: isAbort ? "Upstream timed out" : "Upstream fetch failed" }, { status: 502 });
+    return NextResponse.json({ message: isAbort ? "Upstream timed out" : "Upstream fetch failed" }, { status: 502 });
   }
 }
 

@@ -372,11 +372,11 @@ export function getClientIp(headerList: Headers): string | null {
   const forwardedIp = forwarded?.split(",")[0]?.trim();
   if (forwardedIp) return forwardedIp;
 
-  // In development, return localhost IP for testing rate limiting and IP-dependent features
+  // Always return localhost IP for dev/test if no IP headers are present
   if (process.env.NODE_ENV === "development") {
     logger.warn(
-      "[getClientIp] No IP headers found in development mode. Using 127.0.0.1 for testing. " +
-      "In production, this would return null and may cause request failures."
+      "[getClientIp] No IP headers found in development mode. Returning 127.0.0.1 for all requests. " +
+      "If you want to test real IP logic, set x-real-ip or cf-connecting-ip in your request headers."
     );
     return "127.0.0.1";
   }

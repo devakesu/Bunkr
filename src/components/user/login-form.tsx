@@ -24,7 +24,6 @@ import { logger } from "@/lib/logger";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
-  // csrfToken prop removed - token is read directly from cookie via ensureCsrfToken()
 }
 
 interface ErrorResponse {
@@ -130,10 +129,17 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       const supabase = createClient();
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
+        // Ignore "Auth session missing" error - it's expected when not logged in
+        if (error && error.message !== "Auth session missing!") {
+          throw error;
+        }
         if (user && isMounted) {
           router.push("/dashboard");
           return;
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message !== "Auth session missing!") {
+          logger.error("Unexpected error checking user session:", err);
         }
       } finally {
         if (isMounted) {
@@ -148,7 +154,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     };
   }, [router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -170,7 +176,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       if (!token) throw new Error("Invalid response from server");
 
       // 2. Securely Save Token (Bridge to GhostClass) - requires CSRF token
-      // Use centralized CSRF token helper to avoid duplicate logic
       const csrfToken = ensureCsrfToken();
       
       await axios.post("/api/auth/save-token", 
@@ -202,8 +207,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       } else if (err.code === "ERR_NETWORK") {
          errorMsg = "Network error. Please check your connection.";
       }
-
       setError(errorMsg);
+
       // Announce error to screen readers
       if (typeof window !== 'undefined') {
         const announcement = document.createElement('div');

@@ -44,7 +44,6 @@ import {
 } from "@/components/ui/popover";
 import { normalizeSession, toRoman, formatSessionName, normalizeDate } from "@/lib/utils";
 import { AttendanceReport, TrackAttendance, Course } from "@/types";
-// logger unused
 
 interface User {
   id: string | number;

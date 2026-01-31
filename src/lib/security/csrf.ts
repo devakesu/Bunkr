@@ -49,7 +49,7 @@ export async function setCsrfCookie(token: string): Promise<void> {
   cookieStore.set({
     name: CSRF_COOKIE_NAME,
     value: token,
-    httpOnly: true,
+    httpOnly: false, // Must be readable by client-side JS for double-submit pattern
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: CSRF_COOKIE_MAX_AGE,
@@ -81,7 +81,7 @@ export async function validateCsrfToken(requestToken: string | null | undefined)
       Buffer.from(cookieToken),
       Buffer.from(requestToken)
     );
-  } catch (error) {
+  } catch (_error) {
     // timingSafeEqual throws RangeError if buffers have different lengths.
     // Treat any error as a failed comparison without exposing timing details.
     return false;

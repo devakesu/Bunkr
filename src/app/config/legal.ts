@@ -120,6 +120,7 @@ Cookies are small text files that are placed on your computer or mobile device b
 These cookies are fundamental to the operation and security of GhostClass. They cannot be disabled.
 * **sb-[project-id]-auth-token:** A secure, HTTP-only cookie set by Supabase to maintain your authenticated session.
 * **ezygo_access_token:** A secure, HTTP-only cookie that facilitates communication with the EzyGo API.
+* **csrf_token:** A security token that protects against Cross-Site Request Forgery (CSRF) attacks. This cookie is readable by client-side JavaScript to enable the double-submit protection pattern.
 * **__cf_bm / __cf_clearance:** Set by **Cloudflare**. These cookies are used to distinguish between humans and bots (including Turnstile CAPTCHA) and are essential for the security of our site.
 
 **3. Performance & Analytics Cookies**

@@ -1,8 +1,7 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Mail, RefreshCcw, Home } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 interface ErrorFallbackProps {
@@ -33,56 +32,94 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
     }
   };
 
+  const handleEmailReport = () => {
+    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || 'ghostclass.app';
+    const subject = encodeURIComponent('Error Report - GhostClass');
+    const body = encodeURIComponent(
+      `Hi Admin,\n\nI encountered an error while using GhostClass:\n\n` +
+      `Error: ${error.message}\n\n` +
+      `Stack Trace:\n${error.stack || 'No stack trace available'}\n\n` +
+      `User Agent: ${navigator.userAgent}\n` +
+      `URL: ${window.location.href}\n` +
+      `Timestamp: ${new Date().toISOString()}\n\n` +
+      `Please help resolve this issue.\n\nThank you!`
+    );
+
+    window.location.href = `mailto:admin@${appDomain}?subject=${subject}&body=${body}`;
+  };
+
   return (
-    <div className="flex min-h-[400px] w-full items-center justify-center p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-            <AlertTriangle className="h-6 w-6 text-destructive" aria-hidden="true" />
+    <div className="flex min-h-[400px] w-full items-center justify-center px-4 py-16">
+      <div className="max-w-2xl w-full text-center space-y-6 animate-in fade-in zoom-in duration-300">
+        {/* Error Icon */}
+        <div className="flex justify-center">
+          <div className="rounded-full bg-red-100 p-4 dark:bg-red-900/20">
+            <AlertTriangle className="h-12 w-12 text-red-600 dark:text-red-400" aria-hidden="true" />
           </div>
-          <CardTitle className="text-xl">Something went wrong</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-center text-sm text-muted-foreground">
-            We&apos;re sorry for the inconvenience. An unexpected error occurred while loading this page.
+        </div>
+
+        {/* Error Message */}
+        <div className="space-y-2">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+            Something went wrong
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            We encountered an unexpected error
           </p>
+        </div>
 
-          {(isDevelopment || showDetails) && (
-            <div className="rounded-lg bg-muted p-4">
-              <p className="mb-2 text-sm font-semibold text-foreground">
-                Error Details:
-              </p>
-              <div className="space-y-2">
-                <p className="font-mono text-xs text-foreground">
-                  <span className="font-semibold">Name:</span> {error.name}
-                </p>
-                <p className="font-mono text-xs text-foreground">
-                  <span className="font-semibold">Message:</span> {error.message}
-                </p>
-                {error.stack && (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-xs font-semibold text-foreground hover:text-foreground/80">
-                      Stack Trace
-                    </summary>
-                    <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-background p-2 font-mono text-xs text-foreground">
-                      {error.stack}
-                    </pre>
-                  </details>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <Button onClick={handleTryAgain} variant="default">
-              Try Again
-            </Button>
-            <Button onClick={handleGoHome} variant="outline">
-              Go Home
-            </Button>
+        {/* Error Details (Development Only) */}
+        {(isDevelopment || showDetails) && (
+          <div className="mx-auto max-w-lg">
+            <details className="text-left bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-lg p-4">
+              <summary className="cursor-pointer font-medium text-sm text-red-600 dark:text-red-400">
+                Error Details (Dev Only)
+              </summary>
+              <pre className="mt-2 text-xs font-mono text-red-700 dark:text-red-300 overflow-x-auto">
+                {error.message}
+                {error.stack && `\n\n${error.stack}`}
+              </pre>
+            </details>
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center pt-4">
+          <Button
+            onClick={handleTryAgain}
+            size="lg"
+            className="gap-2 min-w-[180px]"
+          >
+            <RefreshCcw className="w-4 h-4" aria-hidden="true" />
+            Try Again
+          </Button>
+          
+          <Button
+            onClick={handleGoHome}
+            size="lg"
+            variant="outline"
+            className="gap-2 min-w-[180px]"
+          >
+            <Home className="w-4 h-4" aria-hidden="true" />
+            Go Home
+          </Button>
+
+          <Button
+            onClick={handleEmailReport}
+            size="lg"
+            variant="outline"
+            className="gap-2 min-w-[180px]"
+          >
+            <Mail className="w-4 h-4" aria-hidden="true" />
+            Report Error
+          </Button>
+        </div>
+
+        {/* Help Text */}
+        <p className="text-sm text-muted-foreground pt-4">
+          If the problem persists, please report the error or contact support.
+        </p>
+      </div>
     </div>
   );
 }

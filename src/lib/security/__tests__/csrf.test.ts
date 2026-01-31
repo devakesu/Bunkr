@@ -95,7 +95,7 @@ describe("CSRF Protection", () => {
       expect(mockCookieStore.set).toHaveBeenCalledWith({
         name: "csrf_token",
         value: token,
-        httpOnly: true,
+        httpOnly: false, // Must be readable by client for double-submit pattern
         secure: false, // In test environment
         sameSite: "strict",
         maxAge: 86400, // 24 hours
@@ -268,11 +268,11 @@ describe("CSRF Protection", () => {
   });
 
   describe("Security Properties", () => {
-    it("should set httpOnly flag to prevent XSS", async () => {
+    it("should NOT set httpOnly flag (required for double-submit CSRF pattern)", async () => {
       await setCsrfCookie("token");
       
       expect(mockCookieStore.set).toHaveBeenCalledWith(
-        expect.objectContaining({ httpOnly: true })
+        expect.objectContaining({ httpOnly: false })
       );
     });
 

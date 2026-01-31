@@ -5,7 +5,7 @@ openapi: 3.1.0
 
 info:
   title: GhostClass API
-  version: 1.0.0
+  version: 1.3.3
   description: |
     **GhostClass API** provides endpoints for managing attendance synchronization with EzyGo.
     
@@ -60,6 +60,8 @@ servers:
 tags:
   - name: Authentication
     description: Endpoints for managing EzyGo authentication tokens
+  - name: Security
+    description: Security endpoints for CSRF protection
   - name: Sync
     description: Endpoints for synchronizing attendance data with EzyGo
   - name: Health
@@ -204,6 +206,152 @@ paths:
                   summary: Failed to establish session
                   value:
                     message: "Failed to establish secure session"
+
+  /api/csrf:
+    get:
+      tags:
+        - Security
+      summary: Get CSRF token
+      security: []  # No authentication required
+      description: |
+        Retrieves a CSRF token for use in subsequent authenticated requests. The token is automatically set as a cookie and returned in the response.
+        
+        **What it does:**
+        - Generates a new CSRF token if one doesn't exist
+        - Sets the token as a cookie in the response
+        - Returns the token value for client-side use
+        
+        **Authentication:** None required
+        
+        **Rate Limiting:** Standard rate limiting applies
+        
+        **Use Cases:**
+        - Initialize CSRF protection before making authenticated requests
+        - Retrieve current CSRF token for client-side operations
+      
+      operationId: getCsrfToken
+      
+      responses:
+        '200':
+          description: CSRF token retrieved successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: CSRF token cookie
+              example: csrf_token=abc123...; Path=/; SameSite=Strict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: The CSRF token value
+                    example: "abc123def456..."
+                  message:
+                    type: string
+                    description: Success message
+                    example: "CSRF token initialized successfully"
+              examples:
+                success:
+                  summary: Token retrieved
+                  value:
+                    token: "abc123def456ghi789jkl012mno345pqr678stu901vwx234yz"
+                    message: "CSRF token initialized successfully"
+
+  /api/csrf/init:
+    post:
+      tags:
+        - Security
+      summary: Initialize or regenerate CSRF token
+      security: []  # No authentication required
+      description: |
+        Initializes a new CSRF token or regenerates an existing one. Used for security rotation.
+        
+        **What it does:**
+        - Generates a new CSRF token
+        - Invalidates any existing token
+        - Sets the new token as a cookie
+        - Returns the new token value
+        
+        **Authentication:** None required
+        
+        **Rate Limiting:** Standard rate limiting applies
+        
+        **Use Cases:**
+        - Force token regeneration for security
+        - Initialize CSRF protection on app load
+      
+      operationId: initCsrfToken
+      
+      responses:
+        '200':
+          description: CSRF token initialized successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: New CSRF token cookie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: The new CSRF token value
+                  message:
+                    type: string
+                    description: Success message
+              examples:
+                success:
+                  summary: Token initialized
+                  value:
+                    token: "new123abc456def789..."
+                    message: "CSRF token regenerated successfully"
+
+  /api/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout and clear session
+      security:
+        - SupabaseAuth: []
+      description: |
+        Clears authentication cookies and ends the user session.
+        
+        **What it does:**
+        - Removes authentication token cookie
+        - Removes CSRF token cookie
+        - Invalidates the session
+        
+        **Authentication:** Session cookie (automatically cleared)
+        
+        **Rate Limiting:** None
+        
+        **Use Cases:**
+        - User logout
+        - Session termination
+      
+      operationId: logout
+      
+      responses:
+        '200':
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+              examples:
+                success:
+                  summary: Logout successful
+                  value:
+                    ok: true
 
   /api/cron/sync:
     get:

@@ -71,7 +71,7 @@ export function PasswordResetForm({
     "username" | "email" | "phone"
   >("username");
 
-  const handleUsernameSubmit = async (e: React.FormEvent) => {
+  const handleUsernameSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -101,7 +101,7 @@ export function PasswordResetForm({
     }
   };
 
-  const handleOptionSubmit = async (e: React.FormEvent) => {
+  const handleOptionSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -119,7 +119,7 @@ export function PasswordResetForm({
     }
   };
 
-  const handleResetSubmit = async (e: React.FormEvent) => {
+  const handleResetSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);

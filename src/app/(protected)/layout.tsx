@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { createClient } from "@/lib/supabase/client";
 import { handleLogout } from "@/lib/security/auth";
+import { logger } from "@/lib/logger";
 
 export default function ProtectedLayout({
   children,
@@ -56,12 +57,35 @@ export default function ProtectedLayout({
   const { error: institutionError, isLoading: institutionLoading } = useInstitutions();
 
   useEffect(() => {
+    const initCsrf = async () => {
+      try {
+        // Call the /api/csrf/init endpoint to initialize the CSRF token cookie
+        // This is necessary because Next.js 15 forbids cookie mutations in Server Components
+        await fetch("/api/csrf/init");
+        // Token is now set in cookie and can be read by ensureCsrfToken()
+      } catch (error) {
+        // Log error but don't block the form - the token will be checked on submission
+        logger.error("Failed to initialize CSRF token:", error);
+      }
+    };
+    initCsrf();
+  }, []);
+  
+  useEffect(() => {
     let active = true;
 
     const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabaseRef.current.auth.getUser();
-        if (error) throw error;
+        // Handle "Auth session missing" error - redirect to login
+        if (error) {
+          if (error.message === "Auth session missing!") {
+            active = false;
+            router.replace("/");
+            return;
+          }
+          throw error;
+        }
 
         // If no Supabase user, redirect to public landing
         if (!user) {
@@ -80,12 +104,12 @@ export default function ProtectedLayout({
       } catch (err) {
         if (active) {
           // Log the error for debugging, then attempt logout
-          console.error("Auth check failed:", err instanceof Error ? err.message : String(err));
+          logger.error("Auth check failed:", err instanceof Error ? err.message : String(err));
           try {
             await handleLogout();
           } catch (logoutErr) {
             // If logout also fails, force navigation to login page
-            console.error("Logout failed after auth check error:", logoutErr instanceof Error ? logoutErr.message : String(logoutErr));
+            logger.error("Logout failed after auth check error:", logoutErr instanceof Error ? logoutErr.message : String(logoutErr));
             router.replace("/");
           }
         }
@@ -97,19 +121,17 @@ export default function ProtectedLayout({
     return () => { 
       active = false;
     };
-  }, [router]); // Removed supabase from dependencies to prevent re-runs
-
-  if (!isAuthorized || institutionLoading || institutionError) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <Loading />
-      </div>
-    );
-  }
+  }, [router]); 
 
   return (
     <ErrorBoundary>
       <div className="flex min-h-screen flex-col">
+        {(!isAuthorized || institutionLoading || institutionError) ? (
+          <div className="h-screen flex items-center justify-center">
+            <Loading />
+          </div>
+        ) : (
+          <>
 
         <motion.div
           variants={{
@@ -135,7 +157,9 @@ export default function ProtectedLayout({
         </main>
         
         <Footer />
-                <Toaster richColors position="bottom-right"/>
+        <Toaster richColors position="bottom-right"/>
+        </>
+        )}
       </div>
     </ErrorBoundary>
   );

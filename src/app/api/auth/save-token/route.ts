@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 const SaveTokenRequestSchema = z.object({
   token: z.string()
     .min(18, "Token too short")
-    .max(2048, "Token too long") // Increased from 1024 to provide safety margin for JWT tokens
+    .max(2048, "Token too long")
     .trim(),
 });
 
@@ -166,7 +166,6 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Use .hostname (not .host) to exclude port and properly handle IPv6 addresses
     const originHostname = new URL(origin).hostname.toLowerCase();
     const headerHostname = new URL(`http://${host}`).hostname.toLowerCase();
     

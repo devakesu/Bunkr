@@ -1,7 +1,7 @@
 // Fetch attendance report and course details hooks
 // src/hooks/courses/attendance.ts
 
-import axios from "@/lib/axios";
+import axios, { ensureCsrfToken } from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 import { AttendanceReport, CourseDetail } from "@/types";
 
@@ -13,7 +13,7 @@ export const useAttendanceReport = (options?: { enabled?: boolean }) => {
       if (!res) throw new Error("Failed to fetch attendance report data");
       return res.data;
     },
-    enabled: options?.enabled,
+    enabled: options?.enabled && ensureCsrfToken() !== null,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,

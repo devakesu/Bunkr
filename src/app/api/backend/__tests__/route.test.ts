@@ -54,7 +54,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'POST', ['users']);
       expect(response.status).toBe(403);
       const body = await response.json();
-      expect(body.error).toBe('Invalid CSRF token');
+      expect(body.message).toBe('Invalid CSRF token');
     });
 
     it('should allow POST requests with valid CSRF token', async () => {
@@ -115,7 +115,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'PUT', ['users', '1']);
       expect(response.status).toBe(403);
       const body = await response.json();
-      expect(body.error).toBe('Invalid CSRF token');
+      expect(body.message).toBe('Invalid CSRF token');
     });
 
     it('should enforce CSRF validation for PATCH requests', async () => {
@@ -132,7 +132,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'PATCH', ['users', '1']);
       expect(response.status).toBe(403);
       const body = await response.json();
-      expect(body.error).toBe('Invalid CSRF token');
+      expect(body.message).toBe('Invalid CSRF token');
     });
 
     it('should enforce CSRF validation for DELETE requests', async () => {
@@ -149,7 +149,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'DELETE', ['users', '1']);
       expect(response.status).toBe(403);
       const body = await response.json();
-      expect(body.error).toBe('Invalid CSRF token');
+      expect(body.message).toBe('Invalid CSRF token');
     });
   });
 
@@ -162,7 +162,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'POST', ['users']);
       expect(response.status).toBe(400);
       const body = await response.json();
-      expect(body.error).toBe('Origin required');
+      expect(body.message).toBe('Origin required');
     });
 
     it('should reject POST requests from unauthorized origins', async () => {
@@ -176,7 +176,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'POST', ['users']);
       expect(response.status).toBe(403);
       const body = await response.json();
-      expect(body.error).toBe('Origin not allowed');
+      expect(body.message).toBe('Origin not allowed');
     });
 
     it('should accept POST requests from allowed origins', async () => {
@@ -231,7 +231,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'POST', ['users']);
       expect(response.status).toBe(400);
       const body = await response.json();
-      expect(body.error).toBe('Invalid origin');
+      expect(body.message).toBe('Invalid origin');
     });
 
     it('should reject PUT requests without origin header', async () => {
@@ -242,7 +242,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'PUT', ['users', '1']);
       expect(response.status).toBe(400);
       const body = await response.json();
-      expect(body.error).toBe('Origin required');
+      expect(body.message).toBe('Origin required');
     });
 
     it('should reject PATCH requests from unauthorized origins', async () => {
@@ -256,7 +256,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'PATCH', ['users', '1']);
       expect(response.status).toBe(403);
       const body = await response.json();
-      expect(body.error).toBe('Origin not allowed');
+      expect(body.message).toBe('Origin not allowed');
     });
 
     it('should reject DELETE requests from unauthorized origins', async () => {
@@ -270,7 +270,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'DELETE', ['users', '1']);
       expect(response.status).toBe(403);
       const body = await response.json();
-      expect(body.error).toBe('Origin not allowed');
+      expect(body.message).toBe('Origin not allowed');
     });
   });
 
@@ -283,7 +283,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'GET', []);
       expect(response.status).toBe(400);
       const body = await response.json();
-      expect(body.error).toBe('Missing path');
+      expect(body.message).toBe('Missing path');
     });
 
     it('should reject requests with query parameters in path segments', async () => {
@@ -295,7 +295,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'GET', ['users?admin=true']);
       expect(response.status).toBe(400);
       const body = await response.json();
-      expect(body.error).toBe('Invalid path format');
+      expect(body.message).toBe('Invalid path format');
     });
 
     it('should reject requests with fragment identifiers in path segments', async () => {
@@ -307,7 +307,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'GET', ['users#section']);
       expect(response.status).toBe(400);
       const body = await response.json();
-      expect(body.error).toBe('Invalid path format');
+      expect(body.message).toBe('Invalid path format');
     });
 
     it('should accept valid path segments', async () => {

@@ -173,7 +173,6 @@ export default function DashboardClient() {
     } catch (error) {
         console.error("Settings Update Failed:", error);
         
-        // Send to Sentry with context
         Sentry.captureException(error, {
             tags: { type: "update_settings_failed", location: "DashboardClient/handleConfirmChange" },
             extra: {
@@ -352,7 +351,6 @@ export default function DashboardClient() {
 
     performSync();
 
-    // Cleanup
     return () => {
       isCleanedUp = true;
       abortController.abort();

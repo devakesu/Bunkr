@@ -3,24 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client"; 
-import { User } from "@supabase/supabase-js";
-import { Loader2, LayoutDashboard } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 
 export function PublicNavbar() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
-      setLoading(false);
-    };
-    checkAuth();
-  }, []);
 
   return (
     <nav 
@@ -45,31 +30,12 @@ export function PublicNavbar() {
       </div>
       
       <div className="flex gap-2 sm:gap-4 items-center">
-         {loading ? (
-           <div role="status" aria-live="polite">
-             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" aria-hidden="true" />
-             <span className="sr-only">Loading user status...</span>
-           </div>
-         ) : user ? (
-           <Link href="/dashboard">
-              <Button className="gap-2">
-                <LayoutDashboard className="w-4 h-4" />
-                Dashboard
-              </Button>
-           </Link>
-         ) : (
-           <>
-             <Link href="/">
-                <Button variant="ghost">Login</Button>
-             </Link>
-             <Link href="/contact">
-                <Button variant="ghost">Contact</Button>
-             </Link>
-             <Link href="/legal">
-                <Button variant="ghost">Legal</Button>
-             </Link>
-           </>
-         )}
+        <Link href="/dashboard">
+          <Button className="gap-2">
+            <LayoutDashboard className="w-4 h-4" />
+            Dashboard
+          </Button>
+        </Link>
       </div>
     </nav>
   );

@@ -73,7 +73,7 @@ export default async function RootLayout({
   const nonce = headerList.get("x-nonce");
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
   const hasGoogleAnalytics = !!gaId && gaId !== 'undefined' && gaId.startsWith('G-');
-
+  
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>

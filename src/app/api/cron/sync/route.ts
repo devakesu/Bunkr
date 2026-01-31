@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { decrypt } from "@/lib/crypto";
 import { headers } from "next/headers";
 import { syncRateLimiter } from "@/lib/ratelimit";
-import { toRoman, normalizeSession, redact } from "@/lib/utils"; 
+import { toRoman, normalizeSession, redact, getClientIp } from "@/lib/utils"; 
 import { Course } from "@/types";
 import { sendEmail } from "@/lib/email";
 import { renderAttendanceConflictEmail, renderCourseMismatchEmail } from "@/lib/email-templates";
@@ -92,8 +92,7 @@ export async function GET(req: Request) {
   // Note: This cron endpoint is typically called by non-browser automation (e.g. Vercel Cron, GitHub Actions),
   // so we do not depend on Origin-based validation here. Authentication is handled via CRON_SECRET below.
 
-  const trustedIpHeader = headerList.get("cf-connecting-ip") ?? headerList.get("x-real-ip");
-  const ip = trustedIpHeader?.trim() || null;
+  const ip = getClientIp(headerList);
   
   if (!ip) {
     if (process.env.NODE_ENV === "development") {
