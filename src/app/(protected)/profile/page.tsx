@@ -1,7 +1,11 @@
 import { Metadata } from "next";
 import { Suspense } from "react";
 import { Loading } from "@/components/loading";
-import ProfileClient from "./ProfileClient";
+import dynamic from "next/dynamic";
+
+const ProfileClient = dynamic(() => import("./ProfileClient"), {
+  ssr: false,
+});
 export const metadata: Metadata = {
   title: "Profile",
   robots: {
