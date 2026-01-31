@@ -246,17 +246,28 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
 
     const origin = req.headers.get("origin");
     if (!origin) {
-      return NextResponse.json({ message: "Origin required" }, { status: 400 });
+      // Provide helpful error message for non-browser clients
+      return NextResponse.json({ 
+        message: "Origin header required. This endpoint is browser-only. For API access, use programmatic endpoints or implement API key authentication." 
+      }, { status: 400 });
     }
     try {
       // Use .hostname (not .host) to exclude port and properly handle IPv6 addresses
       const originHostname = new URL(origin).hostname.toLowerCase();
       // Strict allowlist - don't fall back to Host header which can be spoofed
       if (!allowedHosts.has(originHostname)) {
-        return NextResponse.json({ message: "Origin not allowed" }, { status: 403 });
+        // Log for monitoring potential attacks or misconfigured clients
+        logger.warn("Origin validation failed", { 
+          origin: originHostname, 
+          path: fullPath,
+          method 
+        });
+        return NextResponse.json({ 
+          message: "Origin not allowed. This endpoint only accepts requests from authorized domains." 
+        }, { status: 403 });
       }
     } catch {
-      return NextResponse.json({ message: "Invalid origin" }, { status: 400 });
+      return NextResponse.json({ message: "Invalid origin header format" }, { status: 400 });
     }
   }
 
@@ -316,7 +327,14 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     const contentType = res.headers.get("content-type") || "application/json";
 
     if (!res.ok) {
-      logger.error("Proxy upstream error", { status: res.status, target, body: text });
+      // Sanitize error body for logging to avoid exposing sensitive information
+      // Even in server logs, we should be careful about what we log from upstream errors
+      const sanitizedBody = text.length > 500 ? text.substring(0, 500) + '...' : text;
+      logger.error("Proxy upstream error", { 
+        status: res.status, 
+        target, 
+        bodyPreview: sanitizedBody 
+      });
       let errorMessage: string = text;
       try {
         // Try to parse JSON error message from upstream

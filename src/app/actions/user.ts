@@ -76,7 +76,6 @@ export async function acceptTermsAction(version: string) {
   revalidatePath("/accept-terms");
   revalidatePath("/", "layout"); // Revalidate the root layout to ensure middleware gets fresh data
 }
-}
 
 /**
  * Server action to clear the terms_version cookie.

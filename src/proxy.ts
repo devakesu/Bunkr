@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getCspHeader } from "./lib/csp";
 import { TERMS_VERSION } from "./app/config/legal";
+import { logger } from "./lib/logger";
 
 /**
  * Creates a cryptographically secure nonce for CSP.
@@ -106,11 +107,11 @@ export async function proxy(request: NextRequest) {
     
     if (redirectCount >= 3) {
       // Too many redirect attempts - log user out to break the loop
-      console.error('Terms acceptance redirect loop detected. Logging user out.', {
-        userId: user.id,
-        termsVersion,
-        expectedVersion: TERMS_VERSION,
-        redirectCount
+      // Use logger to avoid exposing sensitive user information in production logs
+      logger.warn('Terms acceptance redirect loop detected. Logging user out.', {
+        redirectCount,
+        termsVersion: termsVersion || 'none',
+        expectedVersion: TERMS_VERSION
       });
       
       const logoutUrl = url.clone();

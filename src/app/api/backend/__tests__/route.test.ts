@@ -162,7 +162,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'POST', ['users']);
       expect(response.status).toBe(400);
       const body = await response.json();
-      expect(body.message).toBe('Origin required');
+      expect(body.message).toBe('Origin header required. This endpoint is browser-only. For API access, use programmatic endpoints or implement API key authentication.');
     });
 
     it('should reject POST requests from unauthorized origins', async () => {
@@ -176,7 +176,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'POST', ['users']);
       expect(response.status).toBe(403);
       const body = await response.json();
-      expect(body.message).toBe('Origin not allowed');
+      expect(body.message).toBe('Origin not allowed. This endpoint only accepts requests from authorized domains.');
     });
 
     it('should accept POST requests from allowed origins', async () => {
@@ -231,7 +231,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'POST', ['users']);
       expect(response.status).toBe(400);
       const body = await response.json();
-      expect(body.message).toBe('Invalid origin');
+      expect(body.message).toBe('Invalid origin header format');
     });
 
     it('should reject PUT requests without origin header', async () => {
@@ -242,7 +242,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'PUT', ['users', '1']);
       expect(response.status).toBe(400);
       const body = await response.json();
-      expect(body.message).toBe('Origin required');
+      expect(body.message).toBe('Origin header required. This endpoint is browser-only. For API access, use programmatic endpoints or implement API key authentication.');
     });
 
     it('should reject PATCH requests from unauthorized origins', async () => {
@@ -256,7 +256,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'PATCH', ['users', '1']);
       expect(response.status).toBe(403);
       const body = await response.json();
-      expect(body.message).toBe('Origin not allowed');
+      expect(body.message).toBe('Origin not allowed. This endpoint only accepts requests from authorized domains.');
     });
 
     it('should reject DELETE requests from unauthorized origins', async () => {
@@ -270,7 +270,7 @@ describe('Backend Proxy Route', () => {
       const response = await forward(request, 'DELETE', ['users', '1']);
       expect(response.status).toBe(403);
       const body = await response.json();
-      expect(body.message).toBe('Origin not allowed');
+      expect(body.message).toBe('Origin not allowed. This endpoint only accepts requests from authorized domains.');
     });
   });
 
