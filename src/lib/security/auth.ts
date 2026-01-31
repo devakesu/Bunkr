@@ -80,7 +80,10 @@ export const handleLogout = async (csrfToken?: string | null) => {
     // If no CSRF token is available, obtain one before logging out
     if (!csrfTokenToUse) {
       try {
-        const csrfResponse = await fetch("/api/csrf");
+        const csrfResponse = await fetch("/api/csrf", {
+          credentials: "same-origin",
+          cache: "no-store"
+        });
         if (csrfResponse.ok) {
           const csrfData = await csrfResponse.json();
           csrfTokenToUse = csrfData.token;
@@ -109,7 +112,10 @@ export const handleLogout = async (csrfToken?: string | null) => {
         if (logoutResponse.status === 403) {
           logger.warn("Logout received 403 - retrying with fresh CSRF token");
           try {
-            const csrfResponse = await fetch("/api/csrf");
+            const csrfResponse = await fetch("/api/csrf", {
+              credentials: "same-origin",
+              cache: "no-store"
+            });
             if (csrfResponse.ok) {
               const csrfData = await csrfResponse.json();
               const freshToken = csrfData.token;
@@ -137,7 +143,7 @@ export const handleLogout = async (csrfToken?: string | null) => {
         logger.error("Error calling logout API:", logoutError);
       }
     } else {
-      logger.warn("Unable to obtain CSRF token - server cookies may not be cleared. User will need to re-authenticate on next visit.");
+      logger.warn("Unable to obtain CSRF token - skipping /api/logout call. Server-side cookies (ezygo_access_token, terms_version, CSRF cookie) will not be cleared and may remain set, requiring explicit re-authentication on next visit.");
     }
     
     // 3. Redirect
@@ -161,7 +167,10 @@ export const handleLogout = async (csrfToken?: string | null) => {
       // Try to obtain CSRF token if we don't have one
       if (!fallbackToken) {
         try {
-          const csrfResponse = await fetch("/api/csrf");
+          const csrfResponse = await fetch("/api/csrf", {
+            credentials: "same-origin",
+            cache: "no-store"
+          });
           if (csrfResponse.ok) {
             const csrfData = await csrfResponse.json();
             fallbackToken = csrfData.token;
