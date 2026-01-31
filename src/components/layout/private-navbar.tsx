@@ -114,6 +114,12 @@ export const Navbar = () => {
     await queryClient.invalidateQueries({ queryKey: ["track_data"] });
   };
 
+  const onLogoutClick = async () => {
+    const { getCsrfToken } = await import("@/lib/axios");
+    const token = getCsrfToken();
+    await handleLogout(token);
+  };
+
   const currentTarget = settings?.target_percentage ?? 75;
   const currentBunkCalc = settings?.bunk_calculator_enabled ?? true;
 
@@ -387,7 +393,7 @@ export const Navbar = () => {
               </div>
 
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer" variant="destructive">
+              <DropdownMenuItem onClick={onLogoutClick} className="cursor-pointer" variant="destructive">
                 <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
                 <span>Log out</span>
               </DropdownMenuItem>

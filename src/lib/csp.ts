@@ -80,10 +80,19 @@ export const getCspHeader = (nonce?: string) => {
   // style-src-attr allows inline style attributes (e.g., style="color: red;") used by some libraries like Recharts
   // This is a security trade-off: more restrictive than global unsafe-inline but still permits inline styles
   const styleSrcAttrParts = ["'unsafe-inline'"];
+  
+  // Fallback style-src for CSP Level 2 browsers that don't support style-src-elem/style-src-attr
+  // CSP Level 3 browsers will ignore 'unsafe-inline' when nonce is present (maintaining security)
+  // CSP Level 2 browsers will use 'unsafe-inline' (necessary for compatibility with libraries like Recharts)
+  // This creates a security trade-off: older browsers get less protection, but the app remains functional
+  const styleSrcParts = isDev
+    ? ["'self'", "'unsafe-inline'"]
+    : ["'self'", `'nonce-${nonce}'`, "'unsafe-inline'"];
 
   return `
     default-src 'self';
     script-src ${scriptSrcParts.join(" ")};
+    style-src ${styleSrcParts.join(" ")};
     style-src-elem ${styleSrcElemParts.join(" ")};
     style-src-attr ${styleSrcAttrParts.join(" ")};
     img-src 'self' blob: data: ${supabaseOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.google.co.in https://*.doubleclick.net;

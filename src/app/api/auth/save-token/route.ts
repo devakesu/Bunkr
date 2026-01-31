@@ -520,11 +520,21 @@ export async function POST(req: Request) {
     }
 
     // First, check if user has already accepted terms in the database
-    const { data: existingUser } = await supabaseAdmin
+    const { data: existingUser, error: termsReadError } = await supabaseAdmin
       .from("users")
       .select("terms_version, terms_accepted_at")
       .eq("id", verifieduserId)
       .maybeSingle();
+
+    if (termsReadError) {
+      logger.error("Failed to read existing terms acceptance during auth save-token flow:", termsReadError);
+      Sentry.captureException(termsReadError, {
+        tags: { type: "terms_precheck_read_failure", location: "save_token" },
+        extra: { userId: redact("id", String(verifieduserId)) },
+      });
+      // Continue without setting the terms cookie; behavior remains the same,
+      // but the failure is now visible for debugging and monitoring.
+    }
 
     const { error: dbError } = await supabaseAdmin
       .from("users")
