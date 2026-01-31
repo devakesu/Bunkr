@@ -20,7 +20,23 @@ Sentry.init({
   // Security: Handle PII carefully
   sendDefaultPii: false,
 
-  beforeSend(event) {
+  beforeSend(event, hint) {
+    // Filter out common network errors that don't indicate real issues
+    const error = hint?.originalException;
+    
+    if (error && typeof error === 'object' && 'message' in error) {
+      const errorMessage = String(error.message).toLowerCase();
+      
+      // Ignore aborted requests (common during hot reload, navigation, etc.)
+      if (errorMessage.includes('aborted') || 
+          errorMessage.includes('econnreset') ||
+          errorMessage.includes('epipe') ||
+          errorMessage.includes('client closed') ||
+          errorMessage.includes('socket hang up')) {
+        return null; // Don't send to Sentry
+      }
+    }
+    
     // Scrub Authorization headers from all captured requests
     if (event.request && event.request.headers) {
       const headers = { ...event.request.headers };

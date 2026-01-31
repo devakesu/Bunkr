@@ -20,6 +20,7 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 - **Real-time Updates** ⚡ - Get instant updates on your attendance status and skip calculations
 - **Track Status Changes** 📝 – Get notified when your attendance is updated
 - **Mobile Friendly** 📱 - Access your attendance data on any device, anywhere
+- **API Documentation** 📚 - Interactive OpenAPI documentation at `/api-docs`
 
 <br />
 
@@ -41,6 +42,11 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 - **TanStack Query (React Query)** - Server state management
 - **React Hook Form + Zod** - Form validation
 - **Recharts** - Interactive data visualizations
+
+**API & Documentation**
+- **OpenAPI 3.1** - API specification standard
+- **Scalar** - Interactive API documentation viewer
+- **Redocly CLI** - OpenAPI validation and linting
 
 **Backend & Database**
 - **Supabase** - PostgreSQL database with Row Level Security
@@ -276,7 +282,11 @@ x = (target*total - 100*present) / (100 - target)
    yarn dev
    ```
 
-The application will be available at `http://localhost:3000` 🎉
+The application will be available at:
+- **App**: `http://localhost:3000`
+- **API Docs**: `http://localhost:3000/api-docs`
+
+🎉
 
 <br />
 
@@ -319,6 +329,9 @@ npm run test:e2e:ui        # Interactive E2E with Playwright UI
 
 # Run All Tests
 npm run test:all           # Unit + E2E tests
+
+# Validate API Documentation
+npm run docs:validate      # Lint OpenAPI spec
 ```
 
 ### Test Coverage
@@ -393,7 +406,7 @@ GhostClass implements multiple layers of security:
 
 For detailed security implementation, see [SECURITY.md](docs/SECURITY.md).
 
-To report security vulnerabilities, please email: [fusion@devakesu.com](mailto:fusion@devakesu.com)
+To report security vulnerabilities, please email: [admin@ghostclass.devakesu.com](mailto:admin@ghostclass.devakesu.com)
 
 <br />
 

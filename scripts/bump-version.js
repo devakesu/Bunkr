@@ -51,7 +51,7 @@ try {
     if (fs.existsSync(filePath)) {
       let content = fs.readFileSync(filePath, 'utf8');
       
-      // Regex to find the key and replace its value (using global flag to replace all occurrences)
+      // Regex to find the key and replace its value
       const keyRegex = new RegExp(`^${keyToUpdate}=.*$`, 'gm');
       const newLine = `${keyToUpdate}=${newVersion}`;
 

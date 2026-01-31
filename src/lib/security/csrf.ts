@@ -1,9 +1,53 @@
 /**
  * CSRF Protection Module
  * 
- * Implements double-submit cookie pattern for CSRF protection.
+ * Implements Synchronizer Token Pattern for CSRF protection.
  * This module provides token generation and validation for protecting
  * against Cross-Site Request Forgery attacks.
+ * 
+ * Security Model:
+ * - The token is stored in an httpOnly cookie (server-side validation)
+ * - Client receives token via API response and stores in sessionStorage
+ * - Client includes token in X-CSRF-Token header for state-changing requests
+ * - Server validates header token against httpOnly cookie
+ * 
+ * ⚠️ CRITICAL SECURITY TRADE-OFF - sessionStorage and XSS:
+ * 
+ * This implementation stores the CSRF token in sessionStorage, which is accessible
+ * to JavaScript and therefore vulnerable to XSS (Cross-Site Scripting) attacks.
+ * If an attacker can execute arbitrary JavaScript in the application context,
+ * they can read the token from sessionStorage and bypass CSRF protection.
+ * 
+ * WHY THIS APPROACH WAS CHOSEN:
+ * - sessionStorage provides token persistence across page navigations within a tab
+ * - Allows token sharing across all pages in the same browsing session
+ * - Avoids repeated server round-trips for token retrieval
+ * - Simpler client-side implementation than alternatives (meta tags, hidden fields)
+ * 
+ * ALTERNATIVE APPROACHES CONSIDERED:
+ * 1. In-Memory Only: Token lost on page refresh, poor UX
+ * 2. Meta Tag Injection: Complex with client-side navigation in Next.js
+ * 3. Hidden Form Fields: Only works for forms, not AJAX requests
+ * 
+ * MANDATORY SECURITY REQUIREMENTS:
+ * This approach is ONLY secure when combined with strict XSS prevention:
+ * 
+ * 1. CONTENT SECURITY POLICY (CSP):
+ *    - Implemented in src/lib/csp.ts with nonce-based script execution
+ *    - Production uses 'strict-dynamic' and blocks 'unsafe-inline'
+ *    - Prevents unauthorized JavaScript execution
+ * 
+ * 2. INPUT SANITIZATION:
+ *    - All user input must be sanitized to prevent script injection
+ *    - Use proper encoding when rendering user content
+ * 
+ * 3. SECURITY HEADERS:
+ *    - X-Content-Type-Options: nosniff
+ *    - X-Frame-Options: DENY (or via CSP frame-ancestors)
+ * 
+ * ⚠️ WARNING: If CSP is disabled or weakened, or if XSS vulnerabilities exist,
+ * this CSRF protection can be bypassed. XSS prevention is the PRIMARY defense;
+ * CSRF protection is a secondary layer. Both must be maintained.
  * 
  * IMPORTANT: Cookie writes must only happen in Route Handlers or Server Actions,
  * not in Server Components. Use getCsrfToken() from Server Components (read-only),
@@ -12,11 +56,13 @@
 
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { logger } from "@/lib/logger";
 
 // Configuration
 const CSRF_COOKIE_NAME = "csrf_token";
 const CSRF_TOKEN_LENGTH = 32;
 const CSRF_COOKIE_MAX_AGE = 60 * 60 * 24; // 24 hours
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 /**
  * Generate a cryptographically secure random CSRF token
@@ -49,7 +95,7 @@ export async function setCsrfCookie(token: string): Promise<void> {
   cookieStore.set({
     name: CSRF_COOKIE_NAME,
     value: token,
-    httpOnly: true,
+    httpOnly: true, // Server-side validation token (not accessible to JavaScript)
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: CSRF_COOKIE_MAX_AGE,
@@ -81,9 +127,15 @@ export async function validateCsrfToken(requestToken: string | null | undefined)
       Buffer.from(cookieToken),
       Buffer.from(requestToken)
     );
-  } catch (error) {
+  } catch (_error) {
     // timingSafeEqual throws RangeError if buffers have different lengths.
     // Treat any error as a failed comparison without exposing timing details.
+    // Log sanitized error for debugging in development only (avoid exposing info in production logs)
+    if (!IS_PRODUCTION) {
+      logger.error("CSRF token validation failed", {
+        errorType: _error instanceof Error ? _error.name : 'unknown',
+      });
+    }
     return false;
   }
 }

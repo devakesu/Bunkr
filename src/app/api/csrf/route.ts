@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { initializeCsrfToken, regenerateCsrfToken } from "@/lib/security/csrf";
 import { authRateLimiter } from "@/lib/ratelimit";
+import { getClientIp } from "@/lib/utils";
 
 export const dynamic = 'force-dynamic';
 
@@ -60,8 +61,16 @@ export async function POST() {
     // Get client IP for rate limiting
     // Note: x-forwarded-for can be spoofed, but provides basic protection
     const headersList = await headers();
-    const forwardedFor = headersList.get("x-forwarded-for");
-    const ip = forwardedFor ? forwardedFor.split(",")[0] : "127.0.0.1";
+    const ip = getClientIp(headersList);
+
+    // If we cannot determine the client IP, avoid using a shared rate limit key
+    if (!ip) {
+      console.error("CSRF token refresh error: unable to determine client IP for rate limiting");
+      return NextResponse.json(
+        { error: "Unable to determine client IP for rate limiting" },
+        { status: 500 }
+      );
+    }
     
     // Apply rate limiting to prevent token regeneration abuse
     const { success } = await authRateLimiter.limit(`csrf_regen_${ip}`);

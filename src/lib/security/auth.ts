@@ -5,6 +5,33 @@ import * as Sentry from "@sentry/nextjs";
 import { deleteCookie } from "cookies-next";
 
 /**
+ * Checks if an error is related to a missing authentication session.
+ * This helper provides a more robust check than exact string matching,
+ * making it resilient to error message variations.
+ * 
+ * @param error - The error object to check
+ * @returns true if the error is related to a missing auth session
+ * 
+ * @example
+ * ```ts
+ * const { error } = await supabase.auth.getUser();
+ * if (error && !isAuthSessionMissingError(error)) {
+ *   throw error; // Only throw if it's not a session missing error
+ * }
+ * ```
+ */
+export const isAuthSessionMissingError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  if (!('message' in error) || typeof error.message !== 'string') {
+    return false;
+  }
+  const lowerMessage = error.message.toLowerCase();
+  return lowerMessage.includes("session missing") || lowerMessage.includes("auth session");
+};
+
+/**
  * Performs comprehensive logout with cleanup of all authentication state.
  * Handles Supabase session, local storage, cookies, and redirects to home.
  * 

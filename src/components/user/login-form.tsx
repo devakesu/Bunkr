@@ -11,7 +11,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 import axios, { AxiosError } from "axios"; 
-import { ensureCsrfToken } from "@/lib/axios"; 
+import { getCsrfToken } from "@/lib/axios";
+import { useCSRFToken } from "@/hooks/use-csrf-token"; 
 
 import { Loading } from "@/components/loading";
 import { PasswordResetForm } from "./password-reset-form";
@@ -21,10 +22,10 @@ import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/client";
 import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 import { logger } from "@/lib/logger";
+import { isAuthSessionMissingError } from "@/lib/security/auth";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
-  // csrfToken prop removed - token is read directly from cookie via ensureCsrfToken()
 }
 
 interface ErrorResponse {
@@ -91,6 +92,9 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
+  // Initialize CSRF token
+  useCSRFToken();
+
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const password = e.target.value;
     
@@ -107,22 +111,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     }
   };
 
-  // Fetch CSRF token on component mount
-  useEffect(() => {
-    const initCsrf = async () => {
-      try {
-        // Call the /api/csrf/init endpoint to initialize the CSRF token cookie
-        // This is necessary because Next.js 15 forbids cookie mutations in Server Components
-        await fetch("/api/csrf/init");
-        // Token is now set in cookie and can be read by ensureCsrfToken()
-      } catch (error) {
-        // Log error but don't block the form - the token will be checked on submission
-        logger.error("Failed to initialize CSRF token:", error);
-      }
-    };
-    initCsrf();
-  }, []);
-
   useEffect(() => {
     let isMounted = true;
     
@@ -130,10 +118,17 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       const supabase = createClient();
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
+        // Ignore auth session missing errors - they're expected when not logged in
+        if (error && !isAuthSessionMissingError(error)) {
+          throw error;
+        }
         if (user && isMounted) {
           router.push("/dashboard");
           return;
+        }
+      } catch (err) {
+        if (err instanceof Error && !isAuthSessionMissingError(err)) {
+          logger.error("Unexpected error checking user session:", err);
         }
       } finally {
         if (isMounted) {
@@ -148,7 +143,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     };
   }, [router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -170,8 +165,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       if (!token) throw new Error("Invalid response from server");
 
       // 2. Securely Save Token (Bridge to GhostClass) - requires CSRF token
-      // Use centralized CSRF token helper to avoid duplicate logic
-      const csrfToken = ensureCsrfToken();
+      const csrfToken = getCsrfToken();
       
       await axios.post("/api/auth/save-token", 
         { token }, 
@@ -202,8 +196,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       } else if (err.code === "ERR_NETWORK") {
          errorMsg = "Network error. Please check your connection.";
       }
-
       setError(errorMsg);
+
       // Announce error to screen readers
       if (typeof window !== 'undefined') {
         const announcement = document.createElement('div');

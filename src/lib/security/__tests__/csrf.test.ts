@@ -95,7 +95,7 @@ describe("CSRF Protection", () => {
       expect(mockCookieStore.set).toHaveBeenCalledWith({
         name: "csrf_token",
         value: token,
-        httpOnly: true,
+        httpOnly: true, // XSS-safe: token not accessible to JavaScript
         secure: false, // In test environment
         sameSite: "strict",
         maxAge: 86400, // 24 hours
@@ -268,7 +268,7 @@ describe("CSRF Protection", () => {
   });
 
   describe("Security Properties", () => {
-    it("should set httpOnly flag to prevent XSS", async () => {
+    it("should set httpOnly flag (Synchronizer Token Pattern for XSS protection)", async () => {
       await setCsrfCookie("token");
       
       expect(mockCookieStore.set).toHaveBeenCalledWith(

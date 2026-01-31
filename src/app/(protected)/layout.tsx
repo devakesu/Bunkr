@@ -7,12 +7,13 @@ import { useInstitutions } from "@/hooks/users/institutions";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Toaster } from "sonner";
-import TermsModal from "@/components/legal/TermsModal";
 import { motion, useScroll } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { createClient } from "@/lib/supabase/client";
-import { handleLogout } from "@/lib/security/auth";
+import { handleLogout, isAuthSessionMissingError } from "@/lib/security/auth";
+import { logger } from "@/lib/logger";
+import { useCSRFToken } from "@/hooks/use-csrf-token";
 
 export default function ProtectedLayout({
   children,
@@ -20,12 +21,17 @@ export default function ProtectedLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  // Track authorization state: 'checking' initially, 'authorized' once confirmed
+  // Unauthorized cases redirect immediately rather than setting a state
+  const [authState, setAuthState] = useState<'checking' | 'authorized'>('checking');
   const [isHidden, setIsHidden] = useState(false);
   const { scrollY } = useScroll();
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
   const supabaseRef = useRef(createClient());
+
+  // Initialize CSRF token
+  useCSRFToken();
 
   useEffect(() => {
     const unsubscribe = scrollY.on("change", (latest) => {
@@ -61,7 +67,15 @@ export default function ProtectedLayout({
     const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabaseRef.current.auth.getUser();
-        if (error) throw error;
+        // Handle auth session missing errors - redirect to login
+        if (error) {
+          if (isAuthSessionMissingError(error)) {
+            active = false;
+            router.replace("/");
+            return;
+          }
+          throw error;
+        }
 
         // If no Supabase user, redirect to public landing
         if (!user) {
@@ -76,16 +90,16 @@ export default function ProtectedLayout({
         // server-side. Any additional validation should occur on the server (e.g., via a server
         // action or API endpoint).
 
-        if (active) setIsAuthorized(true);
+        if (active) setAuthState('authorized');
       } catch (err) {
         if (active) {
           // Log the error for debugging, then attempt logout
-          console.error("Auth check failed:", err instanceof Error ? err.message : String(err));
+          logger.error("Auth check failed:", err instanceof Error ? err.message : String(err));
           try {
             await handleLogout();
           } catch (logoutErr) {
             // If logout also fails, force navigation to login page
-            console.error("Logout failed after auth check error:", logoutErr instanceof Error ? logoutErr.message : String(logoutErr));
+            logger.error("Logout failed after auth check error:", logoutErr instanceof Error ? logoutErr.message : String(logoutErr));
             router.replace("/");
           }
         }
@@ -97,45 +111,50 @@ export default function ProtectedLayout({
     return () => { 
       active = false;
     };
-  }, [router]); // Removed supabase from dependencies to prevent re-runs
+  }, [router]); 
 
-  if (!isAuthorized || institutionLoading || institutionError) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <Loading />
-      </div>
-    );
-  }
+  // Determine if we should show content or loading
+  const isAuthorized = authState === 'authorized';
+  const showLoading = authState === 'checking' || !isAuthorized || institutionLoading || institutionError;
 
   return (
     <ErrorBoundary>
       <div className="flex min-h-screen flex-col">
+        {/* Show loading state while checking auth or if institutions are loading/error */}
+        {showLoading && (
+          <div className="h-screen flex items-center justify-center">
+            <Loading />
+          </div>
+        )}
 
-        <motion.div
-          variants={{
-            visible: { y: 0 },
-            hidden: { y: "-100%" },
-          }}
-          animate={isHidden ? "hidden" : "visible"}
-          transition={{ duration: 0.35, ease: "easeInOut" }}
-          className={cn(
-            "fixed top-0 left-0 right-0 z-50",
-            isHidden ? "pointer-events-none" : "pointer-events-auto"
-          )}
-        >
-          <Navbar />
-        </motion.div>
-
-        <TermsModal />
-        
-        <main className="flex-1 w-full bg-background pt-20">
-          <ErrorBoundary>
-            {children}
-          </ErrorBoundary>
-        </main>
-        
-        <Footer />
-                <Toaster richColors position="bottom-right"/>
+        {/* Only render protected content when definitively authorized and institutions loaded */}
+        {!showLoading && (
+          <>
+            <motion.div
+              variants={{
+                visible: { y: 0 },
+                hidden: { y: "-100%" },
+              }}
+              animate={isHidden ? "hidden" : "visible"}
+              transition={{ duration: 0.35, ease: "easeInOut" }}
+              className={cn(
+                "fixed top-0 left-0 right-0 z-50",
+                isHidden ? "pointer-events-none" : "pointer-events-auto"
+              )}
+            >
+              <Navbar />
+            </motion.div>
+            
+            <main className="flex-1 w-full bg-background pt-20">
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+            </main>
+            
+            <Footer />
+            <Toaster richColors position="bottom-right"/>
+          </>
+        )}
       </div>
     </ErrorBoundary>
   );

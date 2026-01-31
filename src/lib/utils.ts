@@ -336,6 +336,10 @@ export const formatCourseCode = (code: string): string => {
   return code.replace(/[\s\u00A0]/g, "");
 };
 
+// Track if we've already logged the development IP warning to avoid spam
+// This flag persists across hot module reloads and will only log once per server restart
+let hasLoggedDevIpWarning = false;
+
 /**
  * Extracts the client IP address from request headers.
  * 
@@ -358,6 +362,10 @@ export const formatCourseCode = (code: string): string => {
  * These headers can be spoofed if not properly configured at the reverse proxy level.
  * Ensure your reverse proxy strips/overwrites these headers from client requests.
  * 
+ * DEVELOPMENT TESTING:
+ * In development mode, set TEST_CLIENT_IP environment variable to test IP-based logic
+ * with a specific IP address (e.g., TEST_CLIENT_IP=203.0.113.45).
+ * 
  * @param headerList - The Headers object from the request
  * @returns The client IP address or null if it cannot be determined
  */
@@ -372,13 +380,29 @@ export function getClientIp(headerList: Headers): string | null {
   const forwardedIp = forwarded?.split(",")[0]?.trim();
   if (forwardedIp) return forwardedIp;
 
-  // In development, return localhost IP for testing rate limiting and IP-dependent features
+  // In development, allow testing with a specific IP via environment variable
   if (process.env.NODE_ENV === "development") {
-    logger.warn(
-      "[getClientIp] No IP headers found in development mode. Using 127.0.0.1 for testing. " +
-      "In production, this would return null and may cause request failures."
-    );
-    return "127.0.0.1";
+    const testIp = process.env.TEST_CLIENT_IP;
+    
+    // Log warning once per server start to make it prominent but avoid spam
+    if (!hasLoggedDevIpWarning) {
+      hasLoggedDevIpWarning = true;
+      logger.warn(
+        "\n" +
+        "═══════════════════════════════════════════════════════════════════════\n" +
+        "⚠️  DEVELOPMENT MODE: Client IP Detection\n" +
+        "═══════════════════════════════════════════════════════════════════════\n" +
+        "No IP forwarding headers found. This affects IP-based security features\n" +
+        "such as rate limiting, geolocation, and audit logging.\n\n" +
+        "To test real IP logic in development:\n" +
+        "  1. Set TEST_CLIENT_IP environment variable (e.g., TEST_CLIENT_IP=203.0.113.45)\n" +
+        "  2. Or send x-real-ip or cf-connecting-ip headers in your requests\n" +
+        `\nCurrent fallback: ${testIp || "127.0.0.1"}\n` +
+        "═══════════════════════════════════════════════════════════════════════\n"
+      );
+    }
+    
+    return testIp || "127.0.0.1";
   }
 
   // In production, return null to signal that IP extraction failed
@@ -467,3 +491,77 @@ export const compressImage = (file: File, quality = 0.7): Promise<File> => {
     reader.onerror = (error) => reject(error);
   });
 };
+
+// Constants for hostname validation
+const LOCALHOST_VARIANTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
+const IPV4_PATTERN = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+// IPv6 pattern: matches standard IPv6 format or bracket-enclosed format
+// window.location.hostname never includes ports, so we don't need to worry about port separators
+// Note: The bracket pattern is intentionally permissive for localhost detection purposes only.
+// It matches [::1] and other bracket-enclosed formats without full RFC 4291 validation.
+const IPV6_PATTERN = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^\[.*\]$/;
+
+/**
+ * Gets the application domain for email addresses, extracting from environment
+ * variable or window.location.hostname with validation to filter out localhost/IP addresses.
+ * 
+ * This utility provides consistent hostname detection logic across error components.
+ * 
+ * FALLBACK BEHAVIOR:
+ * 1. Uses NEXT_PUBLIC_APP_DOMAIN environment variable if set (RECOMMENDED)
+ * 2. Uses NEXT_PUBLIC_DEFAULT_DOMAIN environment variable if set
+ * 3. In development only: Falls back to window.location.hostname if available and not localhost/IP
+ * 4. Uses the provided fallbackDomain parameter (default: 'ghostclass.app')
+ * 
+ * SECURITY WARNING:
+ * In production, this function requires NEXT_PUBLIC_APP_DOMAIN or NEXT_PUBLIC_DEFAULT_DOMAIN
+ * to be explicitly configured. Using window.location.hostname in production could allow
+ * attackers to control the email destination via hostname manipulation (e.g., through
+ * open redirects or malicious proxies), potentially exposing error details.
+ * 
+ * The function will log a warning in production if environment variables are not set
+ * and will refuse to use window.location.hostname as a fallback for security.
+ * 
+ * @param fallbackDomain - The fallback domain to use if no valid domain can be determined (default: 'ghostclass.app')
+ * @returns The application domain suitable for use in email addresses
+ * 
+ * @example
+ * ```ts
+ * const domain = getAppDomain(); // Returns domain from env or fallback
+ * const email = `admin@${domain}`;
+ * ```
+ */
+export function getAppDomain(fallbackDomain: string = 'ghostclass.app'): string {
+  const isProduction = process.env.NODE_ENV === "production";
+  let appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+  
+  // Only use window.location.hostname in development for convenience
+  // In production, this is a security risk and should never be used
+  if (!appDomain && typeof window !== "undefined" && !isProduction) {
+    const hostname = window.location.hostname;
+    
+    // Check if hostname is a local development environment or IP address
+    const isLocalhost = LOCALHOST_VARIANTS.has(hostname);
+    const isIPv4 = IPV4_PATTERN.test(hostname);
+    const isIPv6 = IPV6_PATTERN.test(hostname);
+    
+    if (hostname && !isLocalhost && !isIPv4 && !isIPv6) {
+      appDomain = hostname;
+    }
+  }
+  
+  // Use environment variable for default domain if set, otherwise use parameter
+  const defaultDomain = process.env.NEXT_PUBLIC_DEFAULT_DOMAIN || fallbackDomain;
+  
+  // Security check: warn if using fallback in production
+  if (isProduction && !process.env.NEXT_PUBLIC_APP_DOMAIN && !process.env.NEXT_PUBLIC_DEFAULT_DOMAIN) {
+    console.warn(
+      '[SECURITY] getAppDomain: NEXT_PUBLIC_APP_DOMAIN and NEXT_PUBLIC_DEFAULT_DOMAIN are not set in production. ' +
+      `Using hardcoded fallback domain '${defaultDomain}'. This could be a security risk for error reporting. ` +
+      'Please configure these environment variables.'
+    );
+  }
+  
+  // Final fallback
+  return appDomain ?? defaultDomain;
+}

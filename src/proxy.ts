@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getCspHeader } from "./lib/csp";
+import { TERMS_VERSION } from "./app/config/legal";
+import { logger } from "./lib/logger";
 
 /**
  * Creates a cryptographically secure nonce for CSP.
@@ -61,14 +63,19 @@ export async function proxy(request: NextRequest) {
 
   // 6. Routing Logic
   const ezygoToken = request.cookies.get("ezygo_access_token")?.value;
+  const termsVersion = request.cookies.get("terms_version")?.value;
   const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard");
   const isProfileRoute = request.nextUrl.pathname.startsWith("/profile");
   const isNotificationsRoute = request.nextUrl.pathname.startsWith("/notifications");
   const isTrackingRoute = request.nextUrl.pathname.startsWith("/tracking");
   const isAuthRoute = request.nextUrl.pathname === "/";
+  const isAcceptTermsRoute = request.nextUrl.pathname === "/accept-terms";
+
+  // Protected routes that require authentication and terms acceptance
+  const isProtectedRoute = isDashboardRoute || isProfileRoute || isNotificationsRoute || isTrackingRoute;
 
   // Scenario A: Not logged in -> Redirect to Login
-  if ((!ezygoToken || !user) && (isDashboardRoute || isProfileRoute || isNotificationsRoute || isTrackingRoute)) {
+  if ((!ezygoToken || !user) && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     const redirectRes = NextResponse.redirect(url);
@@ -77,10 +84,82 @@ export async function proxy(request: NextRequest) {
     return redirectRes;
   }
 
-  // Scenario B: Logged in -> Redirect to Dashboard
+  // Scenario A.1: Not logged in but trying to access /accept-terms -> Redirect to Login
+  if ((!ezygoToken || !user) && isAcceptTermsRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    const redirectRes = NextResponse.redirect(url);
+    redirectRes.headers.set('Content-Security-Policy', cspHeader);
+    redirectRes.headers.set("x-nonce", nonce);
+    return redirectRes;
+  }
+
+  // Scenario B: Logged in but terms not accepted or outdated -> Redirect to Accept Terms
+  // Note: /accept-terms requires authentication (handled in Scenario A.1), but is accessible with outdated/missing terms
+  // Explicitly check for null/undefined termsVersion or version mismatch
+  if (ezygoToken && user && (!termsVersion || termsVersion !== TERMS_VERSION) && isProtectedRoute) {
+    const url = request.nextUrl.clone();
+    
+    // Redirect loop protection: use httpOnly cookie to track redirect attempts
+    // This prevents manipulation via URL parameters which could be exploited for DoS
+    const redirectCountCookie = request.cookies.get('terms_redirect_count');
+    const redirectCount = redirectCountCookie ? parseInt(redirectCountCookie.value, 10) : 0;
+    
+    if (redirectCount >= 3) {
+      // Too many redirect attempts - log user out to break the loop
+      // Use logger to avoid exposing sensitive user information in production logs
+      logger.warn('Terms acceptance redirect loop detected. Logging user out.', {
+        redirectCount,
+        termsVersion: termsVersion || 'none',
+        expectedVersion: TERMS_VERSION
+      });
+      
+      const logoutUrl = url.clone();
+      logoutUrl.pathname = '/logout';
+      logoutUrl.searchParams.set('reason', 'terms_redirect_loop');
+      const logoutRes = NextResponse.redirect(logoutUrl);
+      logoutRes.headers.set('Content-Security-Policy', cspHeader);
+      logoutRes.headers.set("x-nonce", nonce);
+      // Clear the redirect count cookie
+      logoutRes.cookies.delete('terms_redirect_count');
+      return logoutRes;
+    }
+    
+    url.pathname = "/accept-terms";
+    const redirectRes = NextResponse.redirect(url);
+    redirectRes.headers.set('Content-Security-Policy', cspHeader);
+    redirectRes.headers.set("x-nonce", nonce);
+    // Increment redirect count in httpOnly cookie (secure, non-manipulable)
+    redirectRes.cookies.set('terms_redirect_count', String(redirectCount + 1), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 300, // 5 minutes - enough for legitimate redirects, prevents long-term accumulation
+    });
+    return redirectRes;
+  }
+
+  // Scenario C: Terms accepted but on accept-terms page -> Redirect to Dashboard
+  if (ezygoToken && user && termsVersion === TERMS_VERSION && isAcceptTermsRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    // Clear redirect_count parameter to keep URLs clean after successful terms acceptance
+    url.searchParams.delete('redirect_count');
+    const redirectRes = NextResponse.redirect(url);
+    redirectRes.headers.set('Content-Security-Policy', cspHeader);
+    redirectRes.headers.set("x-nonce", nonce);
+    // Clear the redirect count cookie after successful terms acceptance
+    redirectRes.cookies.delete('terms_redirect_count');
+    return redirectRes;
+  }
+
+  // Scenario D: Logged in -> Redirect to Dashboard
   if (ezygoToken && user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
+    // Clear redirect_count parameter to keep URLs clean
+    url.searchParams.delete('redirect_count');
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
     redirectRes.headers.set("x-nonce", nonce);

@@ -59,8 +59,6 @@ export const Navbar = () => {
   const { data: defaultInstitutionUser } = useDefaultInstitutionUser();
   const updateDefaultInstitutionUser = useUpdateDefaultInstitutionUser();
   const queryClient = useQueryClient();
-  
-  // Use the server value directly - no local state needed for display
   const selectedInstitution = defaultInstitutionUser?.toString() ?? "";
 
   const pathname = usePathname();

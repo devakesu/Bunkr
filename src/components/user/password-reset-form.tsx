@@ -13,8 +13,9 @@ import { Eye, EyeOff, Mail, Phone, User } from "lucide-react";
 
 import ezygoClient from "@/lib/axios";
 import axios from "axios";
-import { ensureCsrfToken } from "@/lib/axios";
+import { getCsrfToken } from "@/lib/axios";
 import { CSRF_HEADER } from "@/lib/security/csrf-constants";
+import { useCSRFToken } from "@/hooks/use-csrf-token";
 
 import { motion } from "framer-motion";
 
@@ -71,7 +72,10 @@ export function PasswordResetForm({
     "username" | "email" | "phone"
   >("username");
 
-  const handleUsernameSubmit = async (e: React.FormEvent) => {
+  // Initialize CSRF token
+  useCSRFToken();
+
+  const handleUsernameSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -101,7 +105,7 @@ export function PasswordResetForm({
     }
   };
 
-  const handleOptionSubmit = async (e: React.FormEvent) => {
+  const handleOptionSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -119,7 +123,7 @@ export function PasswordResetForm({
     }
   };
 
-  const handleResetSubmit = async (e: React.FormEvent) => {
+  const handleResetSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -135,7 +139,7 @@ export function PasswordResetForm({
       
       // Use plain axios for internal auth endpoint (not proxied through /api/backend/)
       // Add CSRF token for the save-token call
-      const csrfToken = ensureCsrfToken();
+      const csrfToken = getCsrfToken();
       await axios.post("/api/auth/save-token", 
         { token },
         {

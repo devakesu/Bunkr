@@ -120,6 +120,8 @@ Cookies are small text files that are placed on your computer or mobile device b
 These cookies are fundamental to the operation and security of GhostClass. They cannot be disabled.
 * **sb-[project-id]-auth-token:** A secure, HTTP-only cookie set by Supabase to maintain your authenticated session.
 * **ezygo_access_token:** A secure, HTTP-only cookie that facilitates communication with the EzyGo API.
+* **csrf_token:** A security token that protects against Cross-Site Request Forgery (CSRF) attacks. This cookie is HTTP-only (not accessible to JavaScript) to protect against XSS attacks. The token is provided to client-side code through secure API responses for use in subsequent requests (Synchronizer Token Pattern).
+* **terms_version:** A secure, HTTP-only cookie used to validate, as part of the authentication flow, that you have accepted the current version of our Terms of Service.
 * **__cf_bm / __cf_clearance:** Set by **Cloudflare**. These cookies are used to distinguish between humans and bots (including Turnstile CAPTCHA) and are essential for the security of our site.
 
 **3. Performance & Analytics Cookies**
@@ -127,9 +129,6 @@ These cookies allow us to count visits and traffic sources so we can measure and
 * **_ga, _gid:** Set by Google Analytics to generate anonymous statistical data on website usage.
 * **sentry-sc:** Set by Sentry to track session errors and debugging information.
 
-**4. Functionality Cookies**
-* **terms_version:** Remembers that you have accepted the latest version of our Terms of Service.
-
-**5. Managing & Disabling Cookies**
+**4. Managing & Disabling Cookies**
 Most web browsers allow some control of most cookies through the browser settings. However, if you block strictly necessary cookies (like Cloudflare or Supabase tokens), the application will fail to function.
 `;
