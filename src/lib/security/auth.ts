@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/client";
 import * as Sentry from "@sentry/nextjs";
 import { deleteCookie } from "cookies-next";
+import { logger } from "@/lib/logger";
 
 /**
  * Checks if an error is related to a missing authentication session.
@@ -76,7 +77,7 @@ export const handleLogout = async () => {
     }
 
   } catch (error) {
-    console.error("Logout failed:", error);
+    logger.error("Logout failed:", error);
     
     // Capture the error but don't trap the user
     Sentry.captureException(error, { 

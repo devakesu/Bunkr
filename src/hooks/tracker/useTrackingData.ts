@@ -4,6 +4,7 @@ import { TrackAttendance, User } from "@/types";
 import { useFetchAcademicYear, useFetchSemester } from "../users/settings";
 import * as Sentry from "@sentry/nextjs";
 import { redact } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 /**
  * React Query hook for fetching user's attendance tracking data.
@@ -59,7 +60,7 @@ export function useTrackingData(user: User | null | undefined, options?: { enabl
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Error fetching tracking data:", error);
+        logger.error("Error fetching tracking data:", error);
         
         Sentry.captureException(error, {
             tags: { type: "tracking_fetch_error" },

@@ -249,7 +249,7 @@ export default function NotificationsPage() {
         }
         
         if (process.env.NODE_ENV === 'development') {
-          console.error("Notification background sync failed", error);
+          logger.error("Notification background sync failed", error);
         }
         Sentry.captureException(error, {
           tags: { type: "notification_sync", location: "NotificationsClient/useEffect/syncNotifications" },
@@ -298,7 +298,7 @@ export default function NotificationsPage() {
           });
       } catch (error) { 
           if (process.env.NODE_ENV === 'development') {
-            console.error("Failed to mark notification read", error);
+            logger.error("Failed to mark notification read", error);
           }
           toast.error("Could not update notification");
           Sentry.captureException(error, {

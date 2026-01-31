@@ -38,11 +38,38 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: headersList,
       },
+      // Cache static assets for 1 year
+      {
+        source: "/fonts/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
     ];
   },
 
   experimental: {
-    optimizePackageImports: ['lucide-react', 'date-fns'],
+    optimizePackageImports: ['lucide-react', 'date-fns', 'framer-motion'],
+    // Turbopack enabled by default in Next.js 15+
+  },
+
+  // Performance: Minimize JavaScript bundle
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'],
+    } : false,
   },
   
   generateBuildId: async () => {

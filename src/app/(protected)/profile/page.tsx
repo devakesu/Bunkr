@@ -1,5 +1,8 @@
 import { Metadata } from "next";
-import ProfileClient from "./ProfileClient"; 
+import { lazy, Suspense } from "react";
+import { Loading } from "@/components/loading";
+
+const ProfileClient = lazy(() => import("./ProfileClient")); 
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -10,5 +13,9 @@ export const metadata: Metadata = {
 };
 
 export default function ProfilePage() {
-  return <ProfileClient />;
+  return (
+    <Suspense fallback={<Loading />}>
+      <ProfileClient />
+    </Suspense>
+  );
 }

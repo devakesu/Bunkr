@@ -287,7 +287,11 @@ export const Navbar = () => {
                 aria-label="Open user menu"
               >
                 <Avatar className="h-9 w-9 outline-2 relative">
-                  {profile?.avatar_url ? (
+                  {!profile ? (
+                    <div className="flex h-full w-full items-center justify-center rounded-full bg-muted animate-pulse">
+                      <div className="h-5 w-5 rounded-full bg-muted-foreground/20"></div>
+                    </div>
+                  ) : profile?.avatar_url ? (
                     <Image
                       src={profile.avatar_url}
                       alt={`${user?.username || 'User'} profile picture`}
@@ -295,10 +299,11 @@ export const Navbar = () => {
                       className="object-cover rounded-full"
                       priority
                       sizes="36px"
+                      loading="eager"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center rounded-full bg-muted">
-                      <Image src={UserPlaceholder} alt="Default avatar" width={36} height={36} className="object-contain" priority/>
+                      <Image src={UserPlaceholder} alt="Default avatar" width={36} height={36} className="object-contain" priority loading="eager"/>
                     </div>
                   )}
                 </Avatar>

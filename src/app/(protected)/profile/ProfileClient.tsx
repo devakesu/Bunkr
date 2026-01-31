@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 import { useProfile } from "@/hooks/users/profile";
 import { useUser } from "@/hooks/users/user";
 import { ProfileForm } from "@/components/user/profile-form";
@@ -88,7 +89,7 @@ export default function ProfileClient() {
             ? await compressImage(originalFile, 0.5) 
             : compressed;
         } catch (error) {
-          console.warn("Compression failed, falling back to original:", error);
+          logger.warn("Compression failed, falling back to original:", error);
           
           // Report non-fatal error to Sentry
           Sentry.captureException(error, { 
@@ -110,7 +111,7 @@ export default function ProfileClient() {
       refetchProfile(); 
 
     } catch (error: any) {
-      console.error("Upload error:", error);
+      logger.error("Upload error:", error);
       
       // 5. Revert to previous valid avatar on failure (Better UX than showing nothing)
       setAvatarPreview(profile?.avatar_url || null); 
@@ -210,6 +211,7 @@ export default function ProfileClient() {
                       fill
                       className="object-cover rounded-full" 
                       priority
+                      loading="eager"
                       unoptimized={!!avatarPreview?.startsWith('blob:')}
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     />

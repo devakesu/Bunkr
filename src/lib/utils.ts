@@ -65,7 +65,7 @@ function getSecret(): string {
     // Log warning in development server context (not browser) about using fallback salt
     // This helps developers understand that production logs will be different
     if (!isBrowser && process.env.NODE_ENV === "development" && !secretWarningShown) {
-      console.warn(
+      logger.warn(
         "[SECURITY WARNING] Using fallback salt for redaction. " +
         "Set SENTRY_HASH_SALT environment variable for production-like hashing. " +
         "Development logs with this salt will produce different hashes than production logs."
@@ -555,7 +555,7 @@ export function getAppDomain(fallbackDomain: string = 'ghostclass.app'): string 
   
   // Security check: warn if using fallback in production
   if (isProduction && !process.env.NEXT_PUBLIC_APP_DOMAIN && !process.env.NEXT_PUBLIC_DEFAULT_DOMAIN) {
-    console.warn(
+    logger.warn(
       '[SECURITY] getAppDomain: NEXT_PUBLIC_APP_DOMAIN and NEXT_PUBLIC_DEFAULT_DOMAIN are not set in production. ' +
       `Using hardcoded fallback domain '${defaultDomain}'. This could be a security risk for error reporting. ` +
       'Please configure these environment variables.'

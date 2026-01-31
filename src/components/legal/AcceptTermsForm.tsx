@@ -42,7 +42,7 @@ export function AcceptTermsForm() {
   };
 
   return (
-    <div className="border border-zinc-800 bg-zinc-950/90 backdrop-blur-xl shadow-lg rounded-lg overflow-hidden">
+    <div className="border border-zinc-800/50 bg-zinc-950/60 backdrop-blur-xl shadow-2xl rounded-lg overflow-hidden">
       {/* Header */}
       <div className="p-6 pb-2">
         <div className="flex flex-row items-center gap-3">
@@ -109,7 +109,7 @@ export function AcceptTermsForm() {
           className={cn(
             "w-full h-11 font-semibold transition-all duration-300",
             checked 
-              ? "bg-white text-black hover:bg-zinc-200 shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)]" 
+              ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 shadow-[0_0_30px_-5px_rgba(168,85,247,0.5)]" 
               : "bg-zinc-800 text-zinc-500 hover:bg-zinc-800"
           )}
           aria-live="polite"

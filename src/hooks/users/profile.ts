@@ -129,6 +129,7 @@ export const useProfile = () => {
     },
     // Cache for 5 mins to avoid spamming the sync logic
     staleTime: 1000 * 60 * 5,
+    gcTime: 30 * 60 * 1000,
     retry: 1, // Only retry once if Ezygo fails
   });
 };

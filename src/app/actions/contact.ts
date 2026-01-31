@@ -155,7 +155,7 @@ export async function submitContactForm(formData: FormData) {
   // HONEYPOT CHECK (anti-bot)
   const honeypot = formData.get("website"); 
   if (honeypot) {
-    console.warn("Honeypot triggered");
+    logger.warn("Honeypot triggered");
     return { error: "Invalid submission" };
   }
 
@@ -175,23 +175,25 @@ export async function submitContactForm(formData: FormData) {
   // The framework automatically validates that requests come from the same origin.
   // We enforce additional origin validation below for defense-in-depth.
   
-  // Enforce origin validation for all requests
-  const origin = headerList.get("origin");
-  const host = headerList.get("host");
-  if (!origin || !host) {
-    return { error: "Invalid origin" };
-  }
-
-  try {
-    // Use .hostname (not .host) to exclude port and properly handle IPv6 addresses
-    const originHostname = new URL(origin).hostname.toLowerCase();
-    const headerHostname = new URL(`http://${host}`).hostname.toLowerCase();
-    
-    if (originHostname !== headerHostname) {
+  // Enforce origin validation for all requests (skip in development)
+  if (process.env.NODE_ENV !== "development") {
+    const origin = headerList.get("origin");
+    const host = headerList.get("host");
+    if (!origin || !host) {
       return { error: "Invalid origin" };
     }
-  } catch {
-    return { error: "Invalid origin" };
+
+    try {
+      // Use .hostname (not .host) to exclude port and properly handle IPv6 addresses
+      const originHostname = new URL(origin).hostname.toLowerCase();
+      const headerHostname = new URL(`http://${host}`).hostname.toLowerCase();
+      
+      if (originHostname !== headerHostname) {
+        return { error: "Invalid origin" };
+      }
+    } catch {
+      return { error: "Invalid origin" };
+    }
   }
 
   const ip = getClientIp(headerList);
@@ -375,7 +377,7 @@ export async function submitContactForm(formData: FormData) {
         `,
       });
     } catch (confirmationError) {
-      console.warn("Failed to send user confirmation email:", confirmationError);
+      logger.warn("Failed to send user confirmation email:", confirmationError);
       // Non-fatal error: Capture as warning
       Sentry.captureException(confirmationError, {
         level: "warning",
@@ -387,7 +389,7 @@ export async function submitContactForm(formData: FormData) {
     return { success: true };
 
   } catch (error: any) {
-    console.error("Contact flow failed:", error);
+    logger.error("Contact flow failed:", error);
 
     // Capture the main failure
     Sentry.captureException(error, {
@@ -401,7 +403,7 @@ export async function submitContactForm(formData: FormData) {
 
     // 8. ROLLBACK (Using Admin Client)
     if (insertedId) {
-      console.warn(`Rolling back: Deleting message ${insertedId}...`);
+      logger.warn(`Rolling back: Deleting message ${insertedId}...`);
       
       const { error: deleteError } = await supabaseAdmin
         .from("contact_messages")
@@ -409,7 +411,7 @@ export async function submitContactForm(formData: FormData) {
         .eq("id", insertedId);
 
       if (deleteError) {
-        console.error("CRITICAL: Rollback failed!", deleteError);
+        logger.error("CRITICAL: Rollback failed!", deleteError);
         // Critical failure: Data inconsistency
         Sentry.captureException(deleteError, {
              tags: { type: "rollback_failed", location: "contact_form" },

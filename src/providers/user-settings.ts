@@ -59,7 +59,7 @@ export function useUserSettings() {
         .maybeSingle(); // Returns null if row missing (cleaner than .single() + error catching)
 
       if (error) {
-        console.error("Error fetching settings:", error);
+        logger.error("Error fetching settings:", error);
         Sentry.captureException(error, { tags: { type: "settings_fetch_error", location: "useUserSettings" } });
         return null;
       }

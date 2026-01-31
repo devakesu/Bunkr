@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 
 export interface Notification {
   id: number;
@@ -83,7 +84,7 @@ export function useNotifications(enabled = true) {
         .eq("is_read", false);
 
       if (error) {
-        console.error(`Error fetching unread count for user ${user.id}:`, error);
+        logger.error(`Error fetching unread count for user ${user.id}:`, error);
         return 0;
       }
 

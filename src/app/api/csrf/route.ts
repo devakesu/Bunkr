@@ -10,6 +10,7 @@ import { headers } from "next/headers";
 import { initializeCsrfToken, regenerateCsrfToken } from "@/lib/security/csrf";
 import { authRateLimiter } from "@/lib/ratelimit";
 import { getClientIp } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ export async function GET() {
   } catch (error) {
     // Log minimal error info to avoid leaking sensitive details
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error("CSRF token initialization error:", { message: errorMessage });
+    logger.error("CSRF token initialization error:", { message: errorMessage });
     
     return NextResponse.json(
       { error: "Failed to initialize CSRF token" },
@@ -65,7 +66,7 @@ export async function POST() {
 
     // If we cannot determine the client IP, avoid using a shared rate limit key
     if (!ip) {
-      console.error("CSRF token refresh error: unable to determine client IP for rate limiting");
+      logger.error("CSRF token refresh error: unable to determine client IP for rate limiting");
       return NextResponse.json(
         { error: "Unable to determine client IP for rate limiting" },
         { status: 500 }
@@ -99,7 +100,7 @@ export async function POST() {
   } catch (error) {
     // Log minimal error info to avoid leaking sensitive details
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error("CSRF token refresh error:", { message: errorMessage });
+    logger.error("CSRF token refresh error:", { message: errorMessage });
     
     return NextResponse.json(
       { error: "Failed to refresh CSRF token" },

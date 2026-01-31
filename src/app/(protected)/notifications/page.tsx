@@ -1,5 +1,8 @@
 import { Metadata } from "next";
-import NotificationsClient from "./NotificationsClient";
+import { lazy, Suspense } from "react";
+import { Loading } from "@/components/loading";
+
+const NotificationsClient = lazy(() => import("./NotificationsClient"));
 
 export const metadata: Metadata = {
   title: "Notifications",
@@ -10,5 +13,9 @@ export const metadata: Metadata = {
 };
 
 export default function NotificationsPage() {
-  return <NotificationsClient />;
+  return (
+    <Suspense fallback={<Loading />}>
+      <NotificationsClient />
+    </Suspense>
+  );
 }

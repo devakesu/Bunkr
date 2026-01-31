@@ -3,6 +3,7 @@
 
 import axios from "axios";
 import { CSRF_HEADER } from "@/lib/security/csrf-constants";
+import { logger } from "@/lib/logger";
 
 const axiosInstance = axios.create({
   baseURL: "/api/backend/",
@@ -152,7 +153,7 @@ export function getCsrfToken(): string | null {
   // which is invisible to JavaScript. The absence of a meta tag does NOT indicate a security issue.
   if (process.env.NODE_ENV === "production" && !checkForCspMetaTag() && !cspWarningLogged) {
     cspWarningLogged = true;
-    console.info(
+    logger.info(
       "[CSRF Security - Informational] No CSP meta tag detected. " +
       "This is NORMAL and EXPECTED if CSP is enforced via HTTP headers (the recommended approach). " +
       "HTTP header-based CSP cannot be detected by JavaScript but provides stronger security. " +
@@ -182,7 +183,7 @@ export function setCsrfToken(token: string | null): void {
   // which is invisible to JavaScript. The absence of a meta tag does NOT indicate a security issue.
   if (process.env.NODE_ENV === "production" && !checkForCspMetaTag() && !cspWarningLogged) {
     cspWarningLogged = true;
-    console.info(
+    logger.info(
       "[CSRF Security - Informational] No CSP meta tag detected. " +
       "This is NORMAL and EXPECTED if CSP is enforced via HTTP headers (the recommended approach). " +
       "HTTP header-based CSP cannot be detected by JavaScript but provides stronger security. " +
@@ -194,19 +195,19 @@ export function setCsrfToken(token: string | null): void {
   if (token) {
     // Validate token format before storing
     if (typeof token !== 'string' || token.trim().length === 0) {
-      console.error('[CSRF] Invalid token format');
+      logger.error('[CSRF] Invalid token format');
       return;
     }
     // Additional validation: ensure exact length and valid hex format
     // CSRF tokens are generated as hex strings (see generateCsrfToken in csrf.ts)
     // Use generic error messages to avoid exposing implementation details to potential attackers
     if (token.length !== CSRF_TOKEN_MIN_LENGTH) {
-      console.error('[CSRF] Invalid token format');
+      logger.error('[CSRF] Invalid token format');
       return;
     }
     // Ensure token contains only valid characters
     if (!CSRF_TOKEN_HEX_PATTERN.test(token)) {
-      console.error('[CSRF] Invalid token format');
+      logger.error('[CSRF] Invalid token format');
       return;
     }
     sessionStorage.setItem(CSRF_STORAGE_KEY, token);

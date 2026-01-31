@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 import {
   Dialog,
   DialogContent,
@@ -145,7 +146,7 @@ export function AddAttendanceDialog({
         };
       }
     } catch (e) {
-      console.warn("Invalid semester bounds:", e);
+      logger.warn("Invalid semester bounds:", e);
       return { min: undefined, max: undefined };
     }
   }, [selectedSemester, selectedYear]);
@@ -347,7 +348,7 @@ export function AddAttendanceDialog({
       onOpenChange(false);
 
     } catch (error: any) {
-      console.error("Add Record Failed:", error);
+      logger.error("Add Record Failed:", error);
       toast.error("Failed to add record");
       
       Sentry.captureException(error, {

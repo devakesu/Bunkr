@@ -74,7 +74,7 @@ export const getCspHeader = (nonce?: string) => {
 
   const styleSrcParts = isDev
     ? ["'self'", "'unsafe-inline'"]
-    : ["'self'", `'nonce-${nonce}'`];
+    : ["'self'", `'nonce-${nonce}'`, "'unsafe-inline'"]; // unsafe-inline needed for Recharts and dynamic style injection
 
   return `
     default-src 'self';

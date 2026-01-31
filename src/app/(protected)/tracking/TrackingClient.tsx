@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useTrackingCount } from "@/hooks/tracker/useTrackingCount";
 import { useUser } from "@/hooks/users/user";
@@ -18,7 +19,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Trash2, CircleAlert, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
 import { toast } from "sonner";
-import { logger } from "@/lib/logger";
 import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import { useAttendanceReport } from "@/hooks/courses/attendance";
 import { useFetchSemester, useFetchAcademicYear } from "@/hooks/users/settings";
@@ -83,6 +83,10 @@ export default function TrackingClient() {
   const [enabled, setEnabled] = useState(false);
   const [isSyncing, setIsSyncing] = useState(true);
   const [syncCompleted, setSyncCompleted] = useState(false);
+  
+  // Per-course record limits (for performance with 100+ records)
+  const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
+  const recordsPerCourseInitial = 10;
   
   // Use a unique ID per mount to detect Strict Mode remounts
   const mountId = useRef(Math.random().toString(36));
@@ -164,7 +168,7 @@ export default function TrackingClient() {
           return;
         }
 
-        console.error("Tracking sync error", err);
+        logger.error("Tracking sync error", err);
         
         Sentry.captureException(err, {
           tags: { type: "tracking_sync", location: "TrackingClient/useEffect/runSync" },
@@ -231,6 +235,18 @@ export default function TrackingClient() {
 
   const goToPrevPage = () => { if (currentPage > 0) setCurrentPage(currentPage - 1); };
   const goToNextPage = () => { if (currentPage < totalPages - 1) setCurrentPage(currentPage + 1); };
+
+  const toggleCourseExpansion = (courseName: string) => {
+    setExpandedCourses(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(courseName)) {
+        newSet.delete(courseName);
+      } else {
+        newSet.add(courseName);
+      }
+      return newSet;
+    });
+  };
 
   const handleDeleteTrackData = async (uniqueId: string, session: string, course: string, date: string) => {
       if (!user) return;
@@ -348,6 +364,11 @@ export default function TrackingClient() {
                     const items = groupedAllData[courseName];
                     const displayCourseName = attendanceData?.courses?.[items[0].course]?.name || coursesData?.courses?.[items[0].course]?.name || courseName; 
                     
+                    // Performance optimization: limit records per course
+                    const isExpanded = expandedCourses.has(courseName);
+                    const visibleItems = isExpanded ? items : items.slice(0, recordsPerCourseInitial);
+                    const hasMore = items.length > recordsPerCourseInitial;
+                    
                     return (
                       <div key={courseName} className="flex flex-col gap-3">
                         <div className="flex items-center gap-2 pl-1 sticky top-16 bg-background/95 backdrop-blur-sm z-10 py-2 border-b border-border/40 shadow-sm rounded-t-md">
@@ -357,7 +378,7 @@ export default function TrackingClient() {
                         </div>
 
                         <div className="flex flex-col gap-3">
-                          {items.map((trackingItem) => {
+                          {visibleItems.map((trackingItem) => {
                             const trackingId = `${trackingItem.auth_user_id}-${trackingItem.session}-${trackingItem.course}-${trackingItem.date}`;
                             
                             // Status Logic
@@ -432,6 +453,21 @@ export default function TrackingClient() {
                             );
                           })}
                         </div>
+
+                        {/* Show More/Less Button */}
+                        {hasMore && (
+                          <m.button
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            onClick={() => toggleCourseExpansion(courseName)}
+                            className="mt-2 w-full py-2 px-4 text-sm font-medium text-primary hover:text-primary/80 bg-primary/5 hover:bg-primary/10 border border-primary/20 rounded-lg transition-colors duration-200"
+                          >
+                            {isExpanded 
+                              ? `Show Less` 
+                              : `Show ${items.length - recordsPerCourseInitial} More ${items.length - recordsPerCourseInitial === 1 ? 'Record' : 'Records'}`
+                            }
+                          </m.button>
+                        )}
                       </div>
                     );
                   })}

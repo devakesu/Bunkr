@@ -5,6 +5,7 @@ import axios from "@/lib/axios";
 import { isAxiosError } from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 
 type SemesterData = {
   default_semester: "even" | "odd";
@@ -87,7 +88,7 @@ export const useSetSemester = () => {
       queryClient.invalidateQueries({ queryKey: ["count"] });      // Refetch stats
     },
     onError: (error) => {
-      console.error("Error setting semester:", error);
+      logger.error("Error setting semester:", error);
       Sentry.captureException(error, { tags: { type: "setting_update_error", location: "useSetSemester/onError" } });
     },
   });
@@ -117,7 +118,7 @@ export const useSetAcademicYear = () => {
       queryClient.invalidateQueries({ queryKey: ["count"] });
     },
     onError: (error) => {
-      console.error("Error setting academic year:", error);
+      logger.error("Error setting academic year:", error);
       Sentry.captureException(error, { tags: { type: "setting_update_error", location: "useSetAcademicYear/onError" } });
     },
   });

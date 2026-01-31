@@ -4,7 +4,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/profile/', '/notifications/', '/api/', '/tracking'],
+      disallow: ['/profile/', '/notifications/', '/api/', '/tracking', '/dashboard', '/accept-terms'],
     },
     sitemap: process.env.NEXT_PUBLIC_SITEMAP_URL,
   };

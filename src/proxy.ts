@@ -74,18 +74,8 @@ export async function proxy(request: NextRequest) {
   // Protected routes that require authentication and terms acceptance
   const isProtectedRoute = isDashboardRoute || isProfileRoute || isNotificationsRoute || isTrackingRoute;
 
-  // Scenario A: Not logged in -> Redirect to Login
-  if ((!ezygoToken || !user) && isProtectedRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    const redirectRes = NextResponse.redirect(url);
-    redirectRes.headers.set('Content-Security-Policy', cspHeader);
-    redirectRes.headers.set("x-nonce", nonce);
-    return redirectRes;
-  }
-
-  // Scenario A.1: Not logged in but trying to access /accept-terms -> Redirect to Login
-  if ((!ezygoToken || !user) && isAcceptTermsRoute) {
+  // Scenario A: Unauthenticated users cannot access protected routes or accept-terms page
+  if ((!ezygoToken || !user) && (isProtectedRoute || isAcceptTermsRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     const redirectRes = NextResponse.redirect(url);
