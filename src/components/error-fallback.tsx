@@ -38,8 +38,12 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
     // Fallback to window.location.hostname if env var not set
     if (!appDomain && typeof window !== "undefined") {
       const hostname = window.location.hostname;
-      // Use hostname only if it's not localhost or an IP address
-      if (hostname && hostname !== 'localhost' && !/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+      // Use hostname only if it's not localhost, loopback, or an IP address
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '0.0.0.0';
+      const isIPv4 = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname);
+      const isIPv6 = hostname.includes(':') && hostname.includes('[') || /^[0-9a-fA-F:]+$/.test(hostname);
+      
+      if (hostname && !isLocalhost && !isIPv4 && !isIPv6) {
         appDomain = hostname;
       }
     }
