@@ -76,15 +76,41 @@ export const handleLogout = async (csrfToken?: string | null) => {
     }
 
     // 3. Clear Cookies with CSRF protection
-    if (token) {
-      await fetch("/api/logout", { 
-        method: "POST",
-        headers: {
-          "x-csrf-token": token
+    let csrfTokenToUse = token;
+    
+    // If no CSRF token is available, obtain one before logging out
+    if (!csrfTokenToUse) {
+      try {
+        const csrfResponse = await fetch("/api/csrf");
+        if (csrfResponse.ok) {
+          const csrfData = await csrfResponse.json();
+          csrfTokenToUse = csrfData.token;
+          logger.info("Obtained CSRF token for logout");
+        } else {
+          logger.error("Failed to obtain CSRF token for logout:", csrfResponse.statusText);
         }
-      });
+      } catch (csrfError) {
+        logger.error("Error obtaining CSRF token for logout:", csrfError);
+      }
+    }
+    
+    // Attempt to call logout API to clear server-side cookies
+    if (csrfTokenToUse) {
+      try {
+        const logoutResponse = await fetch("/api/logout", { 
+          method: "POST",
+          headers: {
+            "x-csrf-token": csrfTokenToUse
+          }
+        });
+        if (!logoutResponse.ok) {
+          logger.error("Logout API call failed:", logoutResponse.status, logoutResponse.statusText);
+        }
+      } catch (logoutError) {
+        logger.error("Error calling logout API:", logoutError);
+      }
     } else {
-      logger.warn("Logout called without CSRF token - server cookies may not be cleared. User will need to re-authenticate on next visit.");
+      logger.warn("Unable to obtain CSRF token - server cookies may not be cleared. User will need to re-authenticate on next visit.");
     }
     
     // 4. Redirect
@@ -103,13 +129,32 @@ export const handleLogout = async (csrfToken?: string | null) => {
     // Force redirect anyway so user isn't stuck on a broken page
     if (typeof window !== "undefined") {
       // Best-effort cleanup of known app cookies
-      if (token) {
-        await fetch("/api/logout", { 
-          method: "POST",
-          headers: {
-            "x-csrf-token": token
+      let fallbackToken = token;
+      
+      // Try to obtain CSRF token if we don't have one
+      if (!fallbackToken) {
+        try {
+          const csrfResponse = await fetch("/api/csrf");
+          if (csrfResponse.ok) {
+            const csrfData = await csrfResponse.json();
+            fallbackToken = csrfData.token;
           }
-        });
+        } catch (_csrfError) {
+          // Ignore CSRF fetch errors in error handler
+        }
+      }
+      
+      if (fallbackToken) {
+        try {
+          await fetch("/api/logout", { 
+            method: "POST",
+            headers: {
+              "x-csrf-token": fallbackToken
+            }
+          });
+        } catch (_logoutError) {
+          // Ignore logout errors in error handler
+        }
       }
       window.location.href = "/";
     }

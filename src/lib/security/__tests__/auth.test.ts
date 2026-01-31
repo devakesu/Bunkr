@@ -103,8 +103,17 @@ describe('handleLogout', () => {
     mockGetCsrfToken.mockReturnValue('test-csrf-token');
 
     // Mock fetch - capture original and replace with mock
+    // Default mock returns success for both /api/csrf and /api/logout
     originalFetch = global.fetch;
-    global.fetch = vi.fn().mockResolvedValue({ ok: true }) as any;
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/csrf') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ token: 'mock-csrf-token' })
+        });
+      }
+      return Promise.resolve({ ok: true });
+    }) as any;
 
     // Mock window and storage
     mockLocalStorage = {
@@ -197,7 +206,7 @@ describe('handleLogout', () => {
     expect(mockSessionStorage.clear).toHaveBeenCalled();
   });
 
-  it('should call logout API endpoint', async () => {
+  it('should obtain CSRF token and call logout API endpoint when no token provided', async () => {
     await handleLogout();
     expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
       method: 'POST',
@@ -286,5 +295,42 @@ describe('handleLogout', () => {
     // Should redirect even on error
     await handleLogout();
     expect(global.window.location.href).toBe('/');
+  });
+  
+  it('should handle CSRF token fetch failure gracefully', async () => {
+    // Mock CSRF fetch to fail
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/csrf') {
+        return Promise.resolve({
+          ok: false,
+          statusText: 'Internal Server Error'
+        });
+      }
+      return Promise.resolve({ ok: true });
+    }) as any;
+    
+    await handleLogout();
+    
+    // Should still redirect despite CSRF failure
+    expect(global.window.location.href).toBe('/');
+    // Should NOT call /api/logout without token
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/logout', expect.anything());
+  });
+  
+  it('should handle CSRF token fetch exception gracefully', async () => {
+    // Mock CSRF fetch to throw
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/csrf') {
+        return Promise.reject(new Error('Network error'));
+      }
+      return Promise.resolve({ ok: true });
+    }) as any;
+    
+    await handleLogout();
+    
+    // Should still redirect despite CSRF failure
+    expect(global.window.location.href).toBe('/');
+    // Should NOT call /api/logout without token
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/logout', expect.anything());
   });
 });
