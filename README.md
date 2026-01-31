@@ -296,7 +296,7 @@ The application will be available at:
 GhostClass is optimized for maximum performance:
 
 **Code Splitting & Loading Strategy**
-- Next.js App Router route-based code splitting for pages and layouts
+- Next.js App Router automatic route-based code splitting for pages and layouts
 - Lazy loaded Recharts components (XAxis, YAxis, Tooltip, ResponsiveContainer)
 - Lazy loaded Framer Motion with `domAnimation` features only
 
@@ -311,7 +311,7 @@ GhostClass is optimized for maximum performance:
 
 **Bundle Optimization**
 - Tree-shaking for `lucide-react`, `date-fns`, `framer-motion`
-- Selective console logging in production (keeps log/error/warn)
+- Console logging preserved in production (keeps log/error/warn)
 - Font optimization with `display: swap` (prevents FOIT)
 - Priority loading for critical images (logo, avatar)
 - Blur placeholders for instant image feedback

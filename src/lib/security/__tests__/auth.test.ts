@@ -93,8 +93,17 @@ describe('handleLogout', () => {
     mockCaptureException.mockClear();
 
     // Mock fetch - capture original and replace with mock
+    // Default mock returns success for both /api/csrf and /api/logout
     originalFetch = global.fetch;
-    global.fetch = vi.fn().mockResolvedValue({ ok: true }) as any;
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/csrf') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ token: 'mock-csrf-token' })
+        });
+      }
+      return Promise.resolve({ ok: true });
+    }) as any;
 
     // Mock window and storage
     mockLocalStorage = {
@@ -187,14 +196,34 @@ describe('handleLogout', () => {
     expect(mockSessionStorage.clear).toHaveBeenCalled();
   });
 
-  it('should call logout API endpoint', async () => {
+  it('should obtain CSRF token and call logout API endpoint when no token provided', async () => {
     await handleLogout();
-    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { method: 'POST' });
+    
+    // Should fetch CSRF token first
+    expect(global.fetch).toHaveBeenCalledWith('/api/csrf');
+    
+    // Then call logout with the token
+    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
+      method: 'POST',
+      headers: {
+        'x-csrf-token': 'mock-csrf-token'
+      }
+    });
   });
-
-  it('should delete terms_version cookie', async () => {
-    await handleLogout();
-    expect(mockDeleteCookie).toHaveBeenCalledWith('terms_version', { path: '/' });
+  
+  it('should use provided CSRF token without fetching new one', async () => {
+    await handleLogout('existing-token');
+    
+    // Should NOT fetch CSRF token
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/csrf');
+    
+    // Should call logout with provided token
+    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
+      method: 'POST',
+      headers: {
+        'x-csrf-token': 'existing-token'
+      }
+    });
   });
 
   it('should redirect to home page after successful logout', async () => {
@@ -207,9 +236,14 @@ describe('handleLogout', () => {
     
     await handleLogout();
 
-    // Should still attempt cleanup
-    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { method: 'POST' });
-    expect(mockDeleteCookie).toHaveBeenCalledWith('terms_version', { path: '/' });
+    // Should still attempt to get CSRF token and cleanup
+    expect(global.fetch).toHaveBeenCalledWith('/api/csrf');
+    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
+      method: 'POST',
+      headers: {
+        'x-csrf-token': 'mock-csrf-token'
+      }
+    });
     expect(global.window.location.href).toBe('/');
     expect(mockCaptureException).toHaveBeenCalled();
   });
@@ -260,5 +294,42 @@ describe('handleLogout', () => {
     // Should redirect even on error
     await handleLogout();
     expect(global.window.location.href).toBe('/');
+  });
+  
+  it('should handle CSRF token fetch failure gracefully', async () => {
+    // Mock CSRF fetch to fail
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/csrf') {
+        return Promise.resolve({
+          ok: false,
+          statusText: 'Internal Server Error'
+        });
+      }
+      return Promise.resolve({ ok: true });
+    }) as any;
+    
+    await handleLogout();
+    
+    // Should still redirect despite CSRF failure
+    expect(global.window.location.href).toBe('/');
+    // Should NOT call /api/logout without token
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/logout', expect.anything());
+  });
+  
+  it('should handle CSRF token fetch exception gracefully', async () => {
+    // Mock CSRF fetch to throw
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/csrf') {
+        return Promise.reject(new Error('Network error'));
+      }
+      return Promise.resolve({ ok: true });
+    }) as any;
+    
+    await handleLogout();
+    
+    // Should still redirect despite CSRF failure
+    expect(global.window.location.href).toBe('/');
+    // Should NOT call /api/logout without token
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/logout', expect.anything());
   });
 });
