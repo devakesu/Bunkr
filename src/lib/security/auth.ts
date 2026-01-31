@@ -59,12 +59,12 @@ export const isAuthSessionMissingError = (error: unknown): boolean => {
  */
 export const handleLogout = async (csrfToken?: string | null) => {
   const supabase = createClient();
-  
-  // Get CSRF token early (avoid duplication in try/catch blocks)
-  const { getCsrfToken: getToken } = await import("@/lib/axios");
-  const token = csrfToken ?? getToken();
+  let token: string | null = null;
   
   try {
+    // Get CSRF token inside try/catch to handle module load errors
+    const { getCsrfToken: getToken } = await import("@/lib/axios");
+    token = csrfToken ?? getToken();
     // 1. Sign out from Supabase (Server-side session)
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -103,7 +103,33 @@ export const handleLogout = async (csrfToken?: string | null) => {
             "x-csrf-token": csrfTokenToUse
           }
         });
-        if (!logoutResponse.ok) {
+        
+        // Retry once on 403 with a fresh CSRF token
+        if (logoutResponse.status === 403) {
+          logger.warn("Logout received 403 - retrying with fresh CSRF token");
+          try {
+            const csrfResponse = await fetch("/api/csrf");
+            if (csrfResponse.ok) {
+              const csrfData = await csrfResponse.json();
+              const freshToken = csrfData.token;
+              
+              const retryResponse = await fetch("/api/logout", {
+                method: "POST",
+                headers: {
+                  "x-csrf-token": freshToken
+                }
+              });
+              
+              if (!retryResponse.ok) {
+                logger.error("Logout API retry failed:", retryResponse.status, retryResponse.statusText);
+              }
+            } else {
+              logger.error("Failed to obtain fresh CSRF token for retry:", csrfResponse.statusText);
+            }
+          } catch (retryError) {
+            logger.error("Error retrying logout with fresh CSRF token:", retryError);
+          }
+        } else if (!logoutResponse.ok) {
           logger.error("Logout API call failed:", logoutResponse.status, logoutResponse.statusText);
         }
       } catch (logoutError) {

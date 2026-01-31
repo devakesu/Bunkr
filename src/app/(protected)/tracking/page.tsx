@@ -1,5 +1,8 @@
+import { Suspense, lazy } from "react";
 import { Metadata } from "next";
-import TrackingClient from "./TrackingClient";
+import { LoadingSkeleton } from "@/components/loading-skeleton";
+
+const TrackingClient = lazy(() => import("./TrackingClient"));
 
 export const metadata: Metadata = {
   title: "Tracking",
@@ -10,5 +13,9 @@ export const metadata: Metadata = {
 };
 
 export default function TrackingPage() {
-  return <TrackingClient />;
+  return (
+    <Suspense fallback={<LoadingSkeleton />}>
+      <TrackingClient />
+    </Suspense>
+  );
 }
