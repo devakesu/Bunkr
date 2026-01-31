@@ -27,33 +27,42 @@ export function getCookie(name: string) {
 }
 
 /**
- * Storage for CSRF token in memory (Synchronizer Token Pattern).
+ * Storage for CSRF token using sessionStorage (Synchronizer Token Pattern).
  * The token is stored in an httpOnly cookie server-side (XSS-safe),
  * but also returned in API responses for client to include in request headers.
+ * 
+ * Using sessionStorage allows token sharing across browser tabs while
+ * maintaining security (sessionStorage is isolated per origin and cleared on tab close).
  * 
  * IMPORTANT: Token must be initialized by calling /api/csrf/init endpoint
  * and storing the returned token using setCsrfToken().
  */
-let csrfTokenCache: string | null = null;
+const CSRF_STORAGE_KEY = "csrf_token_memory";
 
 /**
- * Get the current CSRF token from memory.
+ * Get the current CSRF token from sessionStorage.
  * Used for Synchronizer Token Pattern in client-side requests.
  * 
- * @returns CSRF token from memory or null if not initialized
+ * @returns CSRF token from sessionStorage or null if not initialized
  */
 export function getCsrfToken(): string | null {
-  return csrfTokenCache;
+  if (typeof sessionStorage === "undefined") return null;
+  return sessionStorage.getItem(CSRF_STORAGE_KEY);
 }
 
 /**
- * Set the CSRF token in memory after receiving it from server.
+ * Set the CSRF token in sessionStorage after receiving it from server.
  * Should be called after fetching token from /api/csrf/init endpoint.
  * 
  * @param token - The CSRF token received from server
  */
 export function setCsrfToken(token: string | null): void {
-  csrfTokenCache = token;
+  if (typeof sessionStorage === "undefined") return;
+  if (token) {
+    sessionStorage.setItem(CSRF_STORAGE_KEY, token);
+  } else {
+    sessionStorage.removeItem(CSRF_STORAGE_KEY);
+  }
 }
 
 /**

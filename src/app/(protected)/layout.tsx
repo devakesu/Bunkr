@@ -14,7 +14,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { createClient } from "@/lib/supabase/client";
 import { handleLogout } from "@/lib/security/auth";
 import { logger } from "@/lib/logger";
-import { setCsrfToken } from "@/lib/axios";
+import { useCSRFToken } from "@/hooks/use-csrf-token";
 
 export default function ProtectedLayout({
   children,
@@ -28,6 +28,9 @@ export default function ProtectedLayout({
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
   const supabaseRef = useRef(createClient());
+
+  // Initialize CSRF token
+  useCSRFToken();
 
   useEffect(() => {
     const unsubscribe = scrollY.on("change", (latest) => {
@@ -57,27 +60,9 @@ export default function ProtectedLayout({
 
   const { error: institutionError, isLoading: institutionLoading } = useInstitutions();
 
-  useEffect(() => {
-    const initCsrf = async () => {
-      try {
-        // Call the /api/csrf/init endpoint to initialize the CSRF token
-        // The token is stored in an httpOnly cookie (XSS-safe) and returned in response
-        const response = await fetch("/api/csrf/init");
-        if (response.ok) {
-          const data = await response.json();
-          // Store token in memory for use in subsequent requests
-          setCsrfToken(data.token);
-        } else {
-          logger.error("Failed to initialize CSRF token:", response.statusText);
-        }
-      } catch (error) {
-        // Log error but don't block the form - the token will be checked on submission
-        logger.error("Failed to initialize CSRF token:", error);
-      }
-    };
-    initCsrf();
-  }, []);
-  
+  // Initialize CSRF token
+  useCSRFToken();
+
   useEffect(() => {
     let active = true;
 
