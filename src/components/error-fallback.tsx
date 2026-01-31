@@ -38,10 +38,12 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
     // Fallback to window.location.hostname if env var not set
     if (!appDomain && typeof window !== "undefined") {
       const hostname = window.location.hostname;
-      // Use hostname only if it's not localhost, loopback, or an IP address
-      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '0.0.0.0';
+      
+      // Check if hostname is a local development environment or IP address
+      const localhostVariants = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
+      const isLocalhost = localhostVariants.has(hostname);
       const isIPv4 = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname);
-      // IPv6 addresses contain colons (and brackets if escaped), while domain names don't
+      // IPv6 addresses contain colons; window.location.hostname never includes ports
       const isIPv6 = hostname.includes(':') || hostname.startsWith('[');
       
       if (hostname && !isLocalhost && !isIPv4 && !isIPv6) {
