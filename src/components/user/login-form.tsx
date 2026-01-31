@@ -94,9 +94,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   // Initialize CSRF token
   useCSRFToken();
 
-  // Initialize CSRF token
-  useCSRFToken();
-
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const password = e.target.value;
     
