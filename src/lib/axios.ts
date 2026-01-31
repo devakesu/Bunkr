@@ -78,6 +78,10 @@ const CSRF_STORAGE_KEY = "csrf_token_memory";
 
 // CSRF token validation constants
 // Tokens are 32-byte (256-bit) hex strings, resulting in 64 characters
+// Separate validation steps (length and pattern) are used intentionally:
+// - Provides clearer code structure and easier maintenance
+// - Prevents regex complexity (single regex would be /^[0-9a-f]{64,}$/)
+// - Both validations use the same generic error message to avoid exposing details
 const CSRF_TOKEN_MIN_LENGTH = 64;
 const CSRF_TOKEN_HEX_PATTERN = /^[0-9a-f]+$/;
 

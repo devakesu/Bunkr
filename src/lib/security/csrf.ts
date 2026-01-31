@@ -62,6 +62,7 @@ import { logger } from "@/lib/logger";
 const CSRF_COOKIE_NAME = "csrf_token";
 const CSRF_TOKEN_LENGTH = 32;
 const CSRF_COOKIE_MAX_AGE = 60 * 60 * 24; // 24 hours
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 /**
  * Generate a cryptographically secure random CSRF token
@@ -130,7 +131,7 @@ export async function validateCsrfToken(requestToken: string | null | undefined)
     // timingSafeEqual throws RangeError if buffers have different lengths.
     // Treat any error as a failed comparison without exposing timing details.
     // Log sanitized error for debugging in development only (avoid exposing info in production logs)
-    if (process.env.NODE_ENV !== "production") {
+    if (!IS_PRODUCTION) {
       logger.error("CSRF token validation failed", {
         errorType: _error instanceof Error ? _error.name : 'unknown',
       });
