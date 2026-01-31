@@ -2,8 +2,12 @@
 
 import { Toaster } from "sonner";
 import { AcceptTermsForm } from "@/components/legal/AcceptTermsForm";
+import { useCSRFToken } from "@/hooks/use-csrf-token";
 
 export default function AcceptTermsPage() {
+  // Initialize CSRF token for consistency with other form pages
+  useCSRFToken();
+
   return (
     <>
       <Toaster richColors position="bottom-right" />
