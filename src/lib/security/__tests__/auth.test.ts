@@ -1,0 +1,188 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Create mock functions
+const mockSignOut = vi.fn();
+const mockDeleteCookie = vi.fn();
+const mockCaptureException = vi.fn();
+
+// Mock modules at the top level with factory functions
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    auth: {
+      signOut: () => mockSignOut(),
+    },
+  }),
+}));
+
+vi.mock('cookies-next', () => ({
+  deleteCookie: (...args: any[]) => mockDeleteCookie(...args),
+}));
+
+vi.mock('@sentry/nextjs', () => ({
+  captureException: (...args: any[]) => mockCaptureException(...args),
+}));
+
+import { isAuthSessionMissingError, handleLogout } from '../auth';
+
+describe('isAuthSessionMissingError', () => {
+  it('should return true when error message contains "session missing"', () => {
+    const error = { message: 'Auth session missing' };
+    expect(isAuthSessionMissingError(error)).toBe(true);
+  });
+
+  it('should return true when error message contains "session missing" in different case', () => {
+    const error = { message: 'SESSION MISSING!' };
+    expect(isAuthSessionMissingError(error)).toBe(true);
+  });
+
+  it('should return true when error message contains "auth session"', () => {
+    const error = { message: 'Auth session is invalid' };
+    expect(isAuthSessionMissingError(error)).toBe(true);
+  });
+
+  it('should return true when error message contains "AUTH SESSION" in uppercase', () => {
+    const error = { message: 'AUTH SESSION ERROR' };
+    expect(isAuthSessionMissingError(error)).toBe(true);
+  });
+
+  it('should return false when error message does not contain session-related text', () => {
+    const error = { message: 'Network error' };
+    expect(isAuthSessionMissingError(error)).toBe(false);
+  });
+
+  it('should return false when error is null', () => {
+    expect(isAuthSessionMissingError(null)).toBe(false);
+  });
+
+  it('should return false when error is undefined', () => {
+    expect(isAuthSessionMissingError(undefined)).toBe(false);
+  });
+
+  it('should return false when error has no message', () => {
+    const error = { code: 'SOME_ERROR' };
+    expect(isAuthSessionMissingError(error)).toBe(false);
+  });
+
+  it('should return false when error message is not a string', () => {
+    const error = { message: 123 };
+    expect(isAuthSessionMissingError(error)).toBe(false);
+  });
+
+  it('should handle error with partial matches', () => {
+    const error1 = { message: 'The session missing from request' };
+    expect(isAuthSessionMissingError(error1)).toBe(true);
+
+    const error2 = { message: 'Invalid auth session detected' };
+    expect(isAuthSessionMissingError(error2)).toBe(true);
+  });
+});
+
+describe('handleLogout', () => {
+  let originalWindow: typeof globalThis.window;
+
+  beforeEach(() => {
+    // Reset all mocks
+    mockSignOut.mockReset();
+    mockSignOut.mockResolvedValue({ error: null });
+    mockDeleteCookie.mockClear();
+    mockCaptureException.mockClear();
+
+    // Mock fetch - cast to any to avoid type issues with vitest mock
+    global.fetch = vi.fn().mockResolvedValue({ ok: true }) as any;
+
+    // Mock window and storage
+    const mockStorage = {
+      clear: vi.fn(),
+      getItem: vi.fn(),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      key: vi.fn(),
+      length: 0,
+    };
+
+    originalWindow = global.window;
+    Object.defineProperty(global, 'window', {
+      writable: true,
+      configurable: true,
+      value: {
+        location: {
+          href: '',
+        },
+        localStorage: mockStorage,
+        sessionStorage: mockStorage,
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    global.window = originalWindow;
+  });
+
+  it('should call Supabase signOut', async () => {
+    await handleLogout();
+    expect(mockSignOut).toHaveBeenCalled();
+  });
+
+  it('should call logout API endpoint', async () => {
+    await handleLogout();
+    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { method: 'POST' });
+  });
+
+  it('should delete terms_version cookie', async () => {
+    await handleLogout();
+    expect(mockDeleteCookie).toHaveBeenCalledWith('terms_version', { path: '/' });
+  });
+
+  it('should redirect to home page after successful logout', async () => {
+    await handleLogout();
+    expect(global.window.location.href).toBe('/');
+  });
+
+  it('should clear storage and redirect even when signOut throws', async () => {
+    mockSignOut.mockRejectedValue(new Error('Network error'));
+    
+    await handleLogout();
+
+    // Should still attempt cleanup
+    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { method: 'POST' });
+    expect(mockDeleteCookie).toHaveBeenCalledWith('terms_version', { path: '/' });
+    expect(global.window.location.href).toBe('/');
+    expect(mockCaptureException).toHaveBeenCalled();
+  });
+
+  it('should log error to Sentry when logout fails', async () => {
+    const testError = new Error('Test error');
+    mockSignOut.mockRejectedValue(testError);
+    
+    await handleLogout();
+
+    expect(mockCaptureException).toHaveBeenCalledWith(
+      testError,
+      { tags: { type: 'logout_failure', location: 'handleLogout' } }
+    );
+  });
+
+  it('should handle missing window object gracefully', async () => {
+    // Remove window object
+    const windowBackup = global.window;
+    // @ts-expect-error - Testing undefined window
+    delete global.window;
+    
+    // Should not throw
+    await expect(handleLogout()).resolves.not.toThrow();
+
+    // Restore window
+    global.window = windowBackup;
+  });
+
+  it('should handle signOut error object gracefully', async () => {
+    mockSignOut.mockResolvedValue({ 
+      error: new Error('Supabase signOut failed') 
+    });
+    
+    // Should redirect even on error
+    await handleLogout();
+    expect(global.window.location.href).toBe('/');
+  });
+});
