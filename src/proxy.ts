@@ -83,6 +83,16 @@ export async function proxy(request: NextRequest) {
     return redirectRes;
   }
 
+  // Scenario A.1: Not logged in but trying to access /accept-terms -> Redirect to Login
+  if ((!ezygoToken || !user) && isAcceptTermsRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    const redirectRes = NextResponse.redirect(url);
+    redirectRes.headers.set('Content-Security-Policy', cspHeader);
+    redirectRes.headers.set("x-nonce", nonce);
+    return redirectRes;
+  }
+
   // Scenario B: Logged in but terms not accepted or outdated -> Redirect to Accept Terms
   // Note: /accept-terms is not a protected route, so we don't need to check for it here
   // Explicitly check for null/undefined termsVersion or version mismatch
