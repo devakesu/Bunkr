@@ -1,9 +1,12 @@
 /**
  * CSRF Protection Module
  * 
- * Implements double-submit cookie pattern for CSRF protection.
+ * Implements Synchronizer Token Pattern for CSRF protection.
  * This module provides token generation and validation for protecting
  * against Cross-Site Request Forgery attacks.
+ * 
+ * The token is stored in an httpOnly cookie (XSS-safe) and also returned
+ * in API responses for the client to include in request headers.
  * 
  * IMPORTANT: Cookie writes must only happen in Route Handlers or Server Actions,
  * not in Server Components. Use getCsrfToken() from Server Components (read-only),
@@ -49,7 +52,7 @@ export async function setCsrfCookie(token: string): Promise<void> {
   cookieStore.set({
     name: CSRF_COOKIE_NAME,
     value: token,
-    httpOnly: false, // Must be readable by client-side JS for double-submit pattern
+    httpOnly: true, // XSS-safe: token not accessible to JavaScript
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: CSRF_COOKIE_MAX_AGE,

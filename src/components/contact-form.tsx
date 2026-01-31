@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +11,8 @@ import Turnstile, { useTurnstile } from "react-turnstile";
 import { Loader2, Send, AlertCircle } from "lucide-react";
 import { logger } from "@/lib/logger";
 import * as Sentry from "@sentry/nextjs";
-import { ensureCsrfToken } from "@/lib/axios";
+import { getCsrfToken } from "@/lib/axios";
+import { useCSRFToken } from "@/hooks/use-csrf-token";
 
 interface ContactFormProps {
   userDetails?: {
@@ -41,20 +42,8 @@ export function ContactForm({ userDetails }: ContactFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const turnstile = useTurnstile();
 
-  // Initialize CSRF token on component mount
-  useEffect(() => {
-    const initCsrf = async () => {
-      try {
-        // Call the /api/csrf/init endpoint to initialize the CSRF token cookie
-        await fetch("/api/csrf/init");
-        // Token is now set in cookie and can be read by ensureCsrfToken()
-      } catch (error) {
-        // Log error but don't block the form - the token will be checked on submission
-        logger.error("Failed to initialize CSRF token:", error);
-      }
-    };
-    initCsrf();
-  }, []);
+  // Initialize CSRF token
+  useCSRFToken();
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault(); 
@@ -108,7 +97,7 @@ export function ContactForm({ userDetails }: ContactFormProps) {
         }
 
         // Add CSRF token to FormData
-        const csrfToken = ensureCsrfToken();
+        const csrfToken = getCsrfToken();
         if (csrfToken) {
             formData.set("csrf_token", csrfToken);
         }

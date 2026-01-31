@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { createClient } from "@/lib/supabase/client";
 import { handleLogout } from "@/lib/security/auth";
 import { logger } from "@/lib/logger";
+import { useCSRFToken } from "@/hooks/use-csrf-token";
 
 export default function ProtectedLayout({
   children,
@@ -26,6 +27,9 @@ export default function ProtectedLayout({
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
   const supabaseRef = useRef(createClient());
+
+  // Initialize CSRF token
+  useCSRFToken();
 
   useEffect(() => {
     const unsubscribe = scrollY.on("change", (latest) => {
@@ -55,21 +59,6 @@ export default function ProtectedLayout({
 
   const { error: institutionError, isLoading: institutionLoading } = useInstitutions();
 
-  useEffect(() => {
-    const initCsrf = async () => {
-      try {
-        // Call the /api/csrf/init endpoint to initialize the CSRF token cookie
-        // This is necessary because Next.js 15 forbids cookie mutations in Server Components
-        await fetch("/api/csrf/init");
-        // Token is now set in cookie and can be read by ensureCsrfToken()
-      } catch (error) {
-        // Log error but don't block the form - the token will be checked on submission
-        logger.error("Failed to initialize CSRF token:", error);
-      }
-    };
-    initCsrf();
-  }, []);
-  
   useEffect(() => {
     let active = true;
 

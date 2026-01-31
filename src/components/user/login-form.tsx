@@ -11,7 +11,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 import axios, { AxiosError } from "axios"; 
-import { ensureCsrfToken } from "@/lib/axios"; 
+import { getCsrfToken } from "@/lib/axios";
+import { useCSRFToken } from "@/hooks/use-csrf-token"; 
 
 import { Loading } from "@/components/loading";
 import { PasswordResetForm } from "./password-reset-form";
@@ -90,6 +91,9 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
+  // Initialize CSRF token
+  useCSRFToken();
+
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const password = e.target.value;
     
@@ -105,22 +109,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       setPasswordError(null);
     }
   };
-
-  // Fetch CSRF token on component mount
-  useEffect(() => {
-    const initCsrf = async () => {
-      try {
-        // Call the /api/csrf/init endpoint to initialize the CSRF token cookie
-        // This is necessary because Next.js 15 forbids cookie mutations in Server Components
-        await fetch("/api/csrf/init");
-        // Token is now set in cookie and can be read by ensureCsrfToken()
-      } catch (error) {
-        // Log error but don't block the form - the token will be checked on submission
-        logger.error("Failed to initialize CSRF token:", error);
-      }
-    };
-    initCsrf();
-  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -176,7 +164,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       if (!token) throw new Error("Invalid response from server");
 
       // 2. Securely Save Token (Bridge to GhostClass) - requires CSRF token
-      const csrfToken = ensureCsrfToken();
+      const csrfToken = getCsrfToken();
       
       await axios.post("/api/auth/save-token", 
         { token }, 

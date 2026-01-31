@@ -2,7 +2,7 @@
 // src/lib/axios.ts
 
 import axios from "axios";
-import { CSRF_HEADER, CSRF_TOKEN_NAME } from "@/lib/security/csrf-constants";
+import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 
 const axiosInstance = axios.create({
   baseURL: "/api/backend/",
@@ -27,26 +27,56 @@ export function getCookie(name: string) {
 }
 
 /**
- * Reads the CSRF token from cookies without generating a new one.
- * Used for double-submit cookie pattern in client-side requests.
+ * Storage for CSRF token using sessionStorage (Synchronizer Token Pattern).
+ * The token is stored in an httpOnly cookie server-side (XSS-safe),
+ * but also returned in API responses for client to include in request headers.
  * 
- * IMPORTANT: This function only reads - never generates tokens client-side.
- * Token must be initialized server-side through /api/csrf/init endpoint.
+ * Using sessionStorage scopes the token to a single browser tab while
+ * maintaining security (sessionStorage is isolated per origin per tab and cleared on tab close).
  * 
- * @returns CSRF token from cookie or null if not present
+ * IMPORTANT: Token must be initialized by calling /api/csrf/init endpoint
+ * and storing the returned token using setCsrfToken().
  */
-export function ensureCsrfToken(): string | null {
-  if (typeof document === "undefined") return null;
-  // Only read existing token - never generate client-side
-  // Token must be initialized server-side through a trusted flow
-  const token = getCookie(CSRF_TOKEN_NAME);
-  return token;
+const CSRF_STORAGE_KEY = "csrf_token_memory";
+
+/**
+ * Get the current CSRF token from sessionStorage.
+ * Used for Synchronizer Token Pattern in client-side requests.
+ * 
+ * @returns CSRF token from sessionStorage or null if not initialized
+ */
+export function getCsrfToken(): string | null {
+  if (typeof sessionStorage === "undefined") return null;
+  return sessionStorage.getItem(CSRF_STORAGE_KEY);
 }
 
-// Attach CSRF token from readable cookie (double-submit pattern)
+/**
+ * Set the CSRF token in sessionStorage after receiving it from server.
+ * Should be called after fetching token from /api/csrf/init endpoint.
+ * 
+ * @param token - The CSRF token received from server
+ */
+export function setCsrfToken(token: string | null): void {
+  if (typeof sessionStorage === "undefined") return;
+  if (token) {
+    sessionStorage.setItem(CSRF_STORAGE_KEY, token);
+  } else {
+    sessionStorage.removeItem(CSRF_STORAGE_KEY);
+  }
+}
+
+/**
+ * Legacy function name for backward compatibility.
+ * @deprecated Use getCsrfToken() instead
+ */
+export function ensureCsrfToken(): string | null {
+  return getCsrfToken();
+}
+
+// Attach CSRF token from memory (Synchronizer Token Pattern)
 axiosInstance.interceptors.request.use((config) => {
   if (typeof document !== "undefined") {
-    const token = ensureCsrfToken();
+    const token = getCsrfToken();
     if (token) {
       config.headers.set(CSRF_HEADER, token);
     }
