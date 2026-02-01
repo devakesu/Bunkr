@@ -133,10 +133,11 @@ describe("Content Security Policy", () => {
     expect(header).not.toMatch(/\s{2,}/);
   });
 
-  it("should include Google Analytics domains", () => {
+  it("should NOT include Google Analytics domains (using server-side Measurement Protocol)", () => {
     const header = getCspHeader();
-    expect(header).toContain("google-analytics.com");
-    expect(header).toContain("googletagmanager.com");
+    expect(header).not.toContain("google-analytics.com");
+    expect(header).not.toContain("googletagmanager.com");
+    expect(header).not.toContain("doubleclick.net");
   });
 
   it("should include Cloudflare domains", () => {

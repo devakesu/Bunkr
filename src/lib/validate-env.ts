@@ -164,9 +164,13 @@ export function validateEnvironment() {
     }
   }
 
-  // Google Analytics
+  // Google Analytics (Server-side Measurement Protocol)
   if (!process.env.NEXT_PUBLIC_GA_ID) {
     warnings.push('ℹ️  NEXT_PUBLIC_GA_ID not set - analytics disabled (optional)');
+  } else if (!process.env.GA_API_SECRET) {
+    errors.push('❌ GA_API_SECRET is required when NEXT_PUBLIC_GA_ID is set\n' +
+                '   Get from: Google Analytics → Admin → Data Streams → Measurement Protocol API secrets\n' +
+                '   Used for: Server-side event tracking via GA4 Measurement Protocol');
   }
 
   // Attendance Target Minimum

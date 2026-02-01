@@ -1,6 +1,9 @@
 import { Footer } from "@/components/layout/footer";
 import { LoginForm } from "@/components/user/login-form";
 
+// Force dynamic rendering since we use client components
+export const dynamic = 'force-dynamic';
+
 export default async function LoginPage() {
   return (
     // 1. Single min-h-screen container

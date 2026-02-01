@@ -167,6 +167,45 @@ When adding libraries that inject inline styles:
 - Add host to `script-src-elem` (not `script-src` with `strict-dynamic`)
 - Verify script doesn't inject additional inline scripts
 
+### Server-Side Analytics
+
+To avoid CSP issues with Google Analytics, we use **GA4 Measurement Protocol** for server-side tracking:
+
+**Benefits:**
+- ✅ No CSP violations (no client-side gtag.js script)
+- ✅ Better privacy (server-side tracking)
+- ✅ Ad-blocker resistant
+- ✅ Full GA4 feature parity
+- ✅ Rate-limited API endpoint (100 events/min per IP)
+
+**Implementation:**
+- Client: `<AnalyticsTracker />` component tracks events automatically
+- API: `/api/analytics/track` endpoint forwards events to GA4 Measurement Protocol
+- Library: `src/lib/analytics.ts` handles GA4 API communication
+- Configuration: `GA_API_SECRET` environment variable (server-only)
+
+**Auto-tracked events (matching gtag.js enhanced measurement):**
+- ✅ **Page views** - Route changes via Next.js router
+- ✅ **Scroll depth** - 25%, 50%, 75%, 90% thresholds
+- ✅ **Outbound link clicks** - External domain navigation
+- ✅ **File downloads** - PDF, ZIP, DOC, XLS, etc.
+- ✅ **Form interactions** - Form start and submit events
+- ✅ **Video engagement** - Play, pause, progress, complete
+
+**Manual tracking:**
+```typescript
+import { trackEvent } from "@/components/analytics-tracker";
+
+// Custom events
+await trackEvent("button_click", { button_name: "signup" });
+await trackEvent("purchase", { value: 99.99, currency: "USD" });
+```
+
+**Setup:**
+1. Get GA4 API Secret from Google Analytics (Admin → Data Streams → Measurement Protocol API secrets)
+2. Set `GA_API_SECRET` environment variable (never commit to repo)
+3. Verify events in GA4 Realtime reports (appears within 60 seconds)
+
 ---
 
 ## Request Signing
