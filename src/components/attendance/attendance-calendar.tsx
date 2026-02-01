@@ -291,7 +291,7 @@ export function AttendanceCalendar({
         setCurrentYear((y) => (y === null ? null : y + 1));
         return 0;
       }
-      return (p ?? 11) + 1;
+      return (p ?? 0) + 1;
     });
   };
   const goToToday = () => { 
