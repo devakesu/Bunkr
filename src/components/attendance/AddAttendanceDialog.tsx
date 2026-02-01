@@ -124,12 +124,12 @@ export function AddAttendanceDialog({
 
   // Initialize dates when dialog opens to avoid hydration mismatch
   useEffect(() => {
-    if (open && !date) {
+    if (open) {
       const now = new Date();
       setDate(now);
       setCurrentMonth(now);
     }
-  }, [open, date]);
+  }, [open]);
 
   const getDateKey = (d: Date) => normalizeDate(d);
 
