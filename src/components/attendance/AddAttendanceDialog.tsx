@@ -112,7 +112,7 @@ export function AddAttendanceDialog({
 }: AddAttendanceDialogProps) {
 
   // --- STATE ---
-  const [date, setDate] = useState<Date | undefined>(undefined);
+  const [date, setDate] = useState<Date>(new Date());
   const [session, setSession] = useState<string>("");
   const [courseId, setCourseId] = useState<string>("");
   const [statusType, setStatusType] = useState<"Present" | "Absent" | "Duty Leave">("Present");
@@ -120,16 +120,7 @@ export function AddAttendanceDialog({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   // Custom Calendar State
-  const [currentMonth, setCurrentMonth] = useState<Date | undefined>(undefined);
-
-  // Initialize dates when dialog opens to avoid hydration mismatch
-  useEffect(() => {
-    if (open) {
-      const now = new Date();
-      setDate(now);
-      setCurrentMonth(now);
-    }
-  }, [open]);
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
 
   const getDateKey = (d: Date) => normalizeDate(d);
 
@@ -162,7 +153,7 @@ export function AddAttendanceDialog({
 
   // 2. VALIDATE CURRENT DATE ON OPEN
   useEffect(() => {
-    if (open && date && semesterBounds.min && semesterBounds.max) {
+    if (open && semesterBounds.min && semesterBounds.max) {
       if (isBefore(date, semesterBounds.min)) {
         const newDate = semesterBounds.min;
         setDate(newDate);
@@ -177,7 +168,7 @@ export function AddAttendanceDialog({
 
   // --- 3. SMART DEFAULTS (Occupancy Check) ---
   useEffect(() => {
-    if (open && date && attendanceData) {
+    if (open && attendanceData) {
       const occupiedSessions = new Set<string>();
       const dateKey = getDateKey(date);
 
@@ -219,7 +210,7 @@ export function AddAttendanceDialog({
 
   // --- 4. PREFILL COURSE ---
   useEffect(() => {
-    if (session && date && attendanceData?.studentAttendanceData) {
+    if (session && attendanceData?.studentAttendanceData) {
       const dayOfWeek = date.getDay();
       const frequencyMap: Record<string, number> = {};
       const target = normalizeSession(session);
@@ -266,7 +257,7 @@ export function AddAttendanceDialog({
 
   // --- 5. VALIDATION (Is Session Blocked?) ---
   const isSessionBlocked = useMemo(() => {
-      if (!session || !date) return false;
+      if (!session) return false;
       
       const targetSession = normalizeSession(session);
       const dateKey = getDateKey(date);
@@ -313,7 +304,7 @@ export function AddAttendanceDialog({
   }, [date, session, attendanceData, trackingData]);
 
   const handleSubmit = async () => {
-    if (!user?.id || !courseId || !session || !date) {
+    if (!user?.id || !courseId || !session) {
       toast.error("Please fill all fields");
       return;
     }
@@ -401,13 +392,12 @@ export function AddAttendanceDialog({
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal bg-accent/20 border-accent/30 hover:bg-accent/30",
-                      !date && "text-muted-foreground"
+                      "w-full justify-start text-left font-normal bg-accent/20 border-accent/30 hover:bg-accent/30"
                     )}
-                    aria-label={date ? `Selected date: ${format(date, 'MMMM d, yyyy')}. Click to change date` : 'Pick a date'}
+                    aria-label={`Selected date: ${format(date, 'MMMM d, yyyy')}. Click to change date`}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" aria-hidden="true" />
-                    {date ? format(date, "PPP") : <span>Pick a date</span>}
+                    {format(date, "PPP")}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[280px] p-3 pointer-events-auto z-[50]" align="start">
@@ -415,36 +405,35 @@ export function AddAttendanceDialog({
                   {/* Custom Aesthetic Calendar */}
                   <div className="flex flex-col gap-2">
                     {/* Header */}
-                    {currentMonth && (
-                      <>
-                        <div className="flex items-center justify-between mb-2">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} aria-label="Previous month">
-                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                          </Button>
-                          <div className="text-sm font-semibold">
-                            {format(currentMonth, "MMMM yyyy")}
+                    <>
+                      <div className="flex items-center justify-between mb-2">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} aria-label="Previous month">
+                          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                        <div className="text-sm font-semibold">
+                          {format(currentMonth, "MMMM yyyy")}
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} aria-label="Next month">
+                          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </div>
+
+                      {/* Days Header */}
+                      <div className="grid grid-cols-7 text-center mb-1">
+                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((dayLabel) => (
+                          <div key={dayLabel} className="text-[0.8rem] text-muted-foreground font-medium py-1">
+                            {dayLabel}
                           </div>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} aria-label="Next month">
-                            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                          </Button>
-                        </div>
+                        ))}
+                      </div>
 
-                        {/* Days Header */}
-                        <div className="grid grid-cols-7 text-center mb-1">
-                          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((dayLabel) => (
-                            <div key={dayLabel} className="text-[0.8rem] text-muted-foreground font-medium py-1">
-                              {dayLabel}
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Days Grid */}
-                        <div className="grid grid-cols-7 gap-y-1">
-                          {Array.from({ length: startDay }).map((_, i) => (
-                            <div key={`empty-${i}`} />
-                          ))}
-                          {daysInMonth.map((day) => {
-                            const isSelected = date ? isSameDay(day, date) : false;
+                      {/* Days Grid */}
+                      <div className="grid grid-cols-7 gap-y-1">
+                        {Array.from({ length: startDay }).map((_, i) => (
+                          <div key={`empty-${i}`} />
+                        ))}
+                        {daysInMonth.map((day) => {
+                          const isSelected = isSameDay(day, date);
                         const isTodayDate = isToday(day);
                         
                         // CHECK IF DATE IS VALID
@@ -478,7 +467,6 @@ export function AddAttendanceDialog({
                       })}
                         </div>
                       </>
-                    )}
                   </div>
 
                 </PopoverContent>

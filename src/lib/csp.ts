@@ -127,16 +127,28 @@ export const getCspHeader = (nonce?: string) => {
   // script-src-elem: Controls <script> elements specifically
   // Separate from script-src to allow host-based allowlisting even with 'strict-dynamic'
   // Cloudflare injects scripts via /cdn-cgi/ path for email obfuscation and security features
+  const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
   const scriptSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
-    : [
-        "'self'",
-        `'nonce-${nonce}'`,
-        "https://www.googletagmanager.com",
-        "https://challenges.cloudflare.com",
-        "https://static.cloudflareinsights.com",
-        `https://${process.env.NEXT_PUBLIC_APP_DOMAIN || 'localhost'}/cdn-cgi/` // Cloudflare CDN scripts
-      ];
+    : (() => {
+        const parts = [
+          "'self'",
+          `'nonce-${nonce}'`,
+          "https://www.googletagmanager.com",
+          "https://challenges.cloudflare.com",
+          "https://static.cloudflareinsights.com",
+        ];
+
+        if (appDomain) {
+          parts.push(`https://${appDomain}/cdn-cgi/`); // Cloudflare CDN scripts
+        } else {
+          logger.warn(
+            "[CSP] NEXT_PUBLIC_APP_DOMAIN is not set; skipping Cloudflare /cdn-cgi/ script allowlist entry in script-src-elem."
+          );
+        }
+
+        return parts;
+      })();
   
   // style-src-attr: Controls inline style attributes (e.g., <div style="color: red;">)
   // Recharts and Sonner use inline style attributes for positioning/animations
