@@ -4,7 +4,7 @@ import { AlertTriangle, Mail, RefreshCcw, Home, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { getAppDomain } from "@/lib/utils";
-import { handleLogout } from "@/lib/security/auth";
+import { handleLogout, isAuthSessionMissingError } from "@/lib/security/auth";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -35,14 +35,20 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
         } = await supabase.auth.getUser();
 
         if (authError) {
-          console.error("Auth check failed:", authError);
+          // Only log unexpected auth errors, not normal logged-out states
+          if (!isAuthSessionMissingError(authError)) {
+            console.error("Auth check failed:", authError);
+          }
           setIsLoggedIn(false);
           return;
         }
 
         setIsLoggedIn(!!user);
       } catch (error) {
-        console.error("Auth check failed:", error);
+        // Only log unexpected errors, not normal logged-out states
+        if (!isAuthSessionMissingError(error)) {
+          console.error("Auth check failed:", error);
+        }
         setIsLoggedIn(false);
       }
     };
