@@ -122,12 +122,14 @@ export function AddAttendanceDialog({
   // Custom Calendar State
   const [currentMonth, setCurrentMonth] = useState<Date | undefined>(undefined);
 
-  // Initialize dates on mount to avoid hydration mismatch
+  // Initialize dates when dialog opens to avoid hydration mismatch
   useEffect(() => {
-    const now = new Date();
-    setDate(now);
-    setCurrentMonth(now);
-  }, []);
+    if (open) {
+      const now = new Date();
+      setDate(now);
+      setCurrentMonth(now);
+    }
+  }, [open]);
 
   const getDateKey = (d: Date) => normalizeDate(d);
 

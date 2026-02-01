@@ -86,7 +86,7 @@ const getNormalizedSession = (s: string | number) => parseInt(normalizeSession(s
 export function AttendanceCalendar({
   attendanceData,
 }: AttendanceCalendarProps) {
-  const [currentYear, setCurrentYear] = useState<number>(0);
+  const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [currentMonth, setCurrentMonth] = useState<number>(0);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<string>("all");
@@ -96,10 +96,18 @@ export function AttendanceCalendar({
 
   // Initialize dates on mount to avoid hydration mismatch
   useEffect(() => {
-    const now = new Date();
-    setCurrentYear(now.getFullYear());
-    setCurrentMonth(now.getMonth());
-    setSelectedDate(now);
+    const dateSelected = sessionStorage.getItem("selected_date");
+    if (dateSelected) {
+      const parsedDate = new Date(dateSelected);
+      setSelectedDate(parsedDate);
+      setCurrentMonth(parsedDate.getMonth());
+      setCurrentYear(parsedDate.getFullYear());
+    } else {
+      const now = new Date();
+      setCurrentYear(now.getFullYear());
+      setCurrentMonth(now.getMonth());
+      setSelectedDate(now);
+    }
   }, []);
 
   const { data: semester } = useFetchSemester();
@@ -123,16 +131,6 @@ export function AttendanceCalendar({
     };
 
     getAuthId();
-  }, []);
-
-  useEffect(() => {
-    const dateSelected = sessionStorage.getItem("selected_date");
-    if (dateSelected) {
-      const parsedDate = new Date(dateSelected);
-      setSelectedDate(parsedDate);
-      setCurrentMonth(parsedDate.getMonth());
-      setCurrentYear(parsedDate.getFullYear());
-    }
   }, []);
 
   const formatDateForDB = (date: Date): string => {
@@ -257,9 +255,30 @@ export function AttendanceCalendar({
     return events;
   }, [attendanceData, coursesData]);
 
-  const handlePreviousMonth = () => { setCurrentMonth((p) => p === 0 ? 11 : p - 1); if(currentMonth === 0) setCurrentYear(y => y-1); };
-  const handleNextMonth = () => { setCurrentMonth((p) => p === 11 ? 0 : p + 1); if(currentMonth === 11) setCurrentYear(y => y+1); };
-  const goToToday = () => { const t = new Date(); setCurrentYear(t.getFullYear()); setCurrentMonth(t.getMonth()); setSelectedDate(t); };
+  const handlePreviousMonth = () => { 
+    setCurrentMonth((p) => {
+      if (p === 0) {
+        setCurrentYear(y => y !== null ? y - 1 : null);
+        return 11;
+      }
+      return p - 1;
+    });
+  };
+  const handleNextMonth = () => { 
+    setCurrentMonth((p) => {
+      if (p === 11) {
+        setCurrentYear(y => y !== null ? y + 1 : null);
+        return 0;
+      }
+      return p + 1;
+    });
+  };
+  const goToToday = () => { 
+    const t = new Date(); 
+    setCurrentYear(t.getFullYear()); 
+    setCurrentMonth(t.getMonth()); 
+    setSelectedDate(t); 
+  };
   
   const getDaysInMonth = useCallback((year: number, month: number) => new Date(year, month + 1, 0).getDate(), []);
   const getFirstDayOfMonth = useCallback((year: number, month: number) => new Date(year, month, 1).getDay(), []);
@@ -427,7 +446,7 @@ export function AttendanceCalendar({
   const yearOptions = useMemo(() => Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => 2018 + i), []);
   
   const calendarCells = useMemo(() => {
-    if (!selectedDate) return [];
+    if (!selectedDate || currentYear === null) return [];
     
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDayOfMonth = getFirstDayOfMonth(currentYear, currentMonth);
@@ -476,7 +495,7 @@ export function AttendanceCalendar({
   }, [currentYear, currentMonth, selectedDate, getDaysInMonth, getFirstDayOfMonth, getEventStatus, isSameDay, isToday, monthNames]);
 
   // Show loading state while dates are initializing
-  if (currentYear === 0 || currentMonth === 0 || !selectedDate) {
+  if (currentYear === null || !selectedDate) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-[400px]">
