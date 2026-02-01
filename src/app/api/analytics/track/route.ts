@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Validate and sanitize userProperties
-    let sanitizedUserProperties: Record<string, any> | undefined;
+    let sanitizedUserProperties: Record<string, { value: string }> | undefined;
     if (userProperties !== undefined && userProperties !== null) {
       if (typeof userProperties !== 'object' || Array.isArray(userProperties)) {
         return NextResponse.json(

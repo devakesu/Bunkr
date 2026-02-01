@@ -26,7 +26,7 @@ interface GA4PageView {
 export async function trackGA4Event(
   clientId: string,
   events: GA4Event[],
-  userProperties?: Record<string, any>
+  userProperties?: Record<string, { value: string }>
 ) {
   if (!GA_MEASUREMENT_ID || !GA_API_SECRET) {
     logger.warn("[GA4] Measurement ID or API Secret not configured");
