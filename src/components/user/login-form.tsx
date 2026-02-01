@@ -114,9 +114,9 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
 
   useEffect(() => {
     setIsMounted(true);
-    setIsLoadingPage(true);
     
     const checkUser = async () => {
+      setIsLoadingPage(true);
       const supabase = createClient();
       try {
         const { data: { user }, error } = await supabase.auth.getUser();

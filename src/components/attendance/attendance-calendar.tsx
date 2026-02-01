@@ -96,10 +96,18 @@ export function AttendanceCalendar({
 
   // Initialize dates on mount to avoid hydration mismatch
   useEffect(() => {
-    const now = new Date();
-    setCurrentYear(now.getFullYear());
-    setCurrentMonth(now.getMonth());
-    setSelectedDate(now);
+    const dateSelected = sessionStorage.getItem("selected_date");
+    if (dateSelected) {
+      const parsedDate = new Date(dateSelected);
+      setSelectedDate(parsedDate);
+      setCurrentMonth(parsedDate.getMonth());
+      setCurrentYear(parsedDate.getFullYear());
+    } else {
+      const now = new Date();
+      setCurrentYear(now.getFullYear());
+      setCurrentMonth(now.getMonth());
+      setSelectedDate(now);
+    }
   }, []);
 
   const { data: semester } = useFetchSemester();
@@ -123,16 +131,6 @@ export function AttendanceCalendar({
     };
 
     getAuthId();
-  }, []);
-
-  useEffect(() => {
-    const dateSelected = sessionStorage.getItem("selected_date");
-    if (dateSelected) {
-      const parsedDate = new Date(dateSelected);
-      setSelectedDate(parsedDate);
-      setCurrentMonth(parsedDate.getMonth());
-      setCurrentYear(parsedDate.getFullYear());
-    }
   }, []);
 
   const formatDateForDB = (date: Date): string => {
@@ -476,7 +474,7 @@ export function AttendanceCalendar({
   }, [currentYear, currentMonth, selectedDate, getDaysInMonth, getFirstDayOfMonth, getEventStatus, isSameDay, isToday, monthNames]);
 
   // Show loading state while dates are initializing
-  if (currentYear === 0 || currentMonth === 0 || !selectedDate) {
+  if (currentYear === 0 || !selectedDate) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-[400px]">
