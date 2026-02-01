@@ -79,17 +79,14 @@ describe("Analytics Library", () => {
   });
 
   describe("trackGA4Event integration", () => {
-    it("should be tested via API route tests", () => {
-      // The trackGA4Event and trackPageView functions are server-side only
-      // and are tested comprehensively in src/app/api/analytics/track/__tests__/route.test.ts
-      // This test serves as documentation that server-side analytics functions
-      // have dedicated integration tests that verify:
-      // 1. Correct handling when GA_MEASUREMENT_ID or GA_API_SECRET is missing
-      // 2. Skipping events in non-production environments
-      // 3. Correct payload structure sent to GA4 Measurement Protocol  
-      // 4. Error handling when fetch fails
+    it.skip("should be tested via API route tests at src/app/api/analytics/track/__tests__/route.test.ts", () => {
+      // This marks that trackGA4Event and trackPageView are tested elsewhere
+      // The API route tests verify:
+      // 1. GA_MEASUREMENT_ID and GA_API_SECRET handling
+      // 2. Environment-specific behavior  
+      // 3. GA4 Measurement Protocol payload structure
+      // 4. Error handling
       // 5. User properties formatting
-      expect(true).toBe(true);
     });
   });
 });

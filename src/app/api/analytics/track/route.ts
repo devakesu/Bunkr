@@ -9,7 +9,8 @@ import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
-    // Rate limiting via syncRateLimiter (default 10 requests per 10 seconds per IP, configurable via RATE_LIMIT_REQUESTS and RATE_LIMIT_WINDOW)
+    // Rate limiting: default 10 requests per 10 seconds per IP
+    // (configurable via RATE_LIMIT_REQUESTS and RATE_LIMIT_WINDOW)
     const ip = getClientIp(req.headers);
     
     if (!ip) {
