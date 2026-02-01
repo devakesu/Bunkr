@@ -434,7 +434,7 @@ export function AddAttendanceDialog({
                         ))}
                         {daysInMonth.map((day) => {
                           const isSelected = isSameDay(day, date);
-                        const isTodayDate = isToday(day);
+                          const isTodayDate = isToday(day);
                         
                         // CHECK IF DATE IS VALID
                         let isDisabled = false;
