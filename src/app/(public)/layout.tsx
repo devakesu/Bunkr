@@ -58,6 +58,7 @@ export default function PublicLayout({
       <div className="flex min-h-screen flex-col">
 
         <motion.div
+          suppressHydrationWarning
           variants={{
             visible: { y: 0 },
             hidden: { y: "-100%" },

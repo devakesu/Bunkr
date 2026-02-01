@@ -125,8 +125,11 @@ export const getCspHeader = (nonce?: string) => {
       ];
   
   // script-src-elem: Controls <script> elements specifically
-  // Separate from script-src to allow host-based allowlisting even with 'strict-dynamic'
-  // Cloudflare injects scripts via /cdn-cgi/ path for email obfuscation and security features
+  // Separate from script-src, which uses nonce + 'strict-dynamic' for dynamically loaded scripts
+  // Here we intentionally avoid 'strict-dynamic' and instead rely on explicit host allowlisting
+  // so that third-party scripts from Cloudflare and Google Tag Manager can load. In CSP3-compliant
+  // browsers, combining 'strict-dynamic' with host-based sources would cause those host-based
+  // sources to be ignored. Also includes hashes for specific inline scripts from libraries.
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
   const scriptSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
@@ -134,10 +137,11 @@ export const getCspHeader = (nonce?: string) => {
         const parts = [
           "'self'",
           `'nonce-${nonce}'`,
-          "'strict-dynamic'",
           "https://www.googletagmanager.com",
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
+          "'sha256-aykwLBSIQE3HbCxrV+j5fzrFve3r7js1+OVpJc9Hkx8='", // Hash for the small inline bootstrap script injected by Google Tag Manager
+          "'sha256-NjaNM7T1oI9v9mcyAidFrAD3HulFtQDsq/40Qq0+3Fw='", // Hash for the inline challenge/telemetry bootstrap script injected by Cloudflare (challenges/insights)
         ];
 
         if (appDomain) {
