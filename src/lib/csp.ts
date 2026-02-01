@@ -125,8 +125,8 @@ export const getCspHeader = (nonce?: string) => {
       ];
   
   // script-src-elem: Controls <script> elements specifically
-  // Separate from script-src to allow host-based allowlisting even with 'strict-dynamic'
-  // NOTE: 'strict-dynamic' is NOT included here to allow host-based sources like Cloudflare CDN
+  // Separate from script-src, which uses nonce + 'strict-dynamic' for dynamically loaded scripts
+  // script-src-elem cannot use 'strict-dynamic', so we explicitly allow host-based sources like Cloudflare CDN
   // Cloudflare injects scripts via /cdn-cgi/ path for email obfuscation and security features
   // Also includes hashes for specific inline scripts from libraries
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
