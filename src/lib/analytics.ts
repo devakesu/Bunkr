@@ -106,8 +106,7 @@ export function getOrCreateClientId(): string {
   const clientId = `${Date.now()}.${Math.random().toString(36).substring(2, 11)}`;
   
   // Add Secure attribute in production to ensure cookie is only sent over HTTPS
-  const isProd =
-    typeof process !== "undefined" && process.env && process.env.NODE_ENV === "production";
+  const isProd = process.env.NODE_ENV === "production";
   const secureAttr = isProd ? "; Secure" : "";
   document.cookie = `${cookieName}=${clientId}; path=/; max-age=63072000; SameSite=Lax${secureAttr}`; // 2 years
   

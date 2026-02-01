@@ -9,7 +9,7 @@ import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
-    // Rate limiting per IP using syncRateLimiter
+    // Rate limiting: default 60 events/min per IP, configurable via environment variables
     const ip = getClientIp(req.headers);
     
     if (!ip) {
