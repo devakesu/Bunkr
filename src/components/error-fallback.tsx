@@ -1,9 +1,13 @@
 "use client";
 
-import { AlertTriangle, Mail, RefreshCcw, Home } from "lucide-react";
+import { AlertTriangle, Mail, RefreshCcw, Home, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { getAppDomain } from "@/lib/utils";
+import { handleLogout, isAuthSessionMissingError } from "@/lib/security/auth";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 
 interface ErrorFallbackProps {
   error: Error;
@@ -19,6 +23,38 @@ interface ErrorFallbackProps {
 export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard" }: ErrorFallbackProps) {
   const router = useRouter();
   const isDevelopment = process.env.NODE_ENV === "development";
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) {
+          // Only log unexpected auth errors, not normal logged-out states
+          if (!isAuthSessionMissingError(authError)) {
+            logger.error("Auth check failed:", authError);
+          }
+          setIsLoggedIn(false);
+          return;
+        }
+
+        setIsLoggedIn(!!user);
+      } catch (error) {
+        // Only log unexpected errors, not normal logged-out states
+        if (!isAuthSessionMissingError(error)) {
+          logger.error("Auth check failed:", error);
+        }
+        setIsLoggedIn(false);
+      }
+    };
+    checkAuth();
+  }, []);
 
   const handleGoHome = () => {
     router.push(homeUrl);
@@ -30,6 +66,17 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
     } else {
       // Fallback to page refresh if reset function is not provided
       window.location.reload();
+    }
+  };
+
+  const handleLogoutClick = async () => {
+    setIsLoggingOut(true);
+    try {
+      await handleLogout();
+    } catch (error) {
+      // handleLogout already handles errors, but just in case
+      logger.error("Logout error:", error);
+      window.location.href = "/";
     }
   };
 
@@ -112,6 +159,19 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
             <Mail className="w-4 h-4" aria-hidden="true" />
             Report Error
           </Button>
+
+          {isLoggedIn && (
+            <Button
+              onClick={handleLogoutClick}
+              size="lg"
+              variant="destructive"
+              disabled={isLoggingOut}
+              className="gap-2 min-w-[180px]"
+            >
+              <LogOut className="w-4 h-4" aria-hidden="true" />
+              {isLoggingOut ? "Logging out..." : "Logout"}
+            </Button>
+          )}
         </div>
 
         {/* Help Text */}
