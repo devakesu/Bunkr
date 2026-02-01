@@ -150,7 +150,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 
-  // 2. Rate Limit Check
+  // 2. Origin/Host Validation
+  // Note: Rate limiting is performed later in this handler after client IP extraction.
   // SKIP origin validation in development mode for easier local testing
   if (process.env.NODE_ENV !== "development") {
     const origin = headerList.get("origin");
