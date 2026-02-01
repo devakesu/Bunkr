@@ -290,7 +290,7 @@ body:has(#nprogress) #nprogress {
 
 /* Error toast - Red themed */
 [data-sonner-toast][data-type="error"] {
-  background-color: hsl(var(--background)) !important;
+  background-color: var(--background) !important;
   border-color: hsl(0 84% 60%) !important;
   border-width: 2px !important;
 }
@@ -305,7 +305,7 @@ body:has(#nprogress) #nprogress {
 
 /* Warning toast - Yellow/Orange themed */
 [data-sonner-toast][data-type="warning"] {
-  background-color: hsl(var(--background)) !important;
+  background-color: var(--background) !important;
   border-color: hsl(38 92% 50%) !important;
   border-width: 2px !important;
 }
@@ -320,7 +320,7 @@ body:has(#nprogress) #nprogress {
 
 /* Info toast - Blue themed */
 [data-sonner-toast][data-type="info"] {
-  background-color: hsl(var(--background)) !important;
+  background-color: var(--background) !important;
   border-color: hsl(217 91% 60%) !important;
   border-width: 2px !important;
 }
