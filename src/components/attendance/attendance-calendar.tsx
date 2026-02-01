@@ -256,12 +256,22 @@ export function AttendanceCalendar({
   }, [attendanceData, coursesData]);
 
   const handlePreviousMonth = () => { 
-    setCurrentMonth((p) => p === 0 ? 11 : p - 1); 
-    if(currentMonth === 0 && currentYear !== null) setCurrentYear(y => y !== null ? y - 1 : y); 
+    setCurrentMonth((p) => {
+      const newMonth = p === 0 ? 11 : p - 1;
+      if (p === 0 && currentYear !== null) {
+        setCurrentYear(y => y !== null ? y - 1 : null);
+      }
+      return newMonth;
+    });
   };
   const handleNextMonth = () => { 
-    setCurrentMonth((p) => p === 11 ? 0 : p + 1); 
-    if(currentMonth === 11 && currentYear !== null) setCurrentYear(y => y !== null ? y + 1 : y); 
+    setCurrentMonth((p) => {
+      const newMonth = p === 11 ? 0 : p + 1;
+      if (p === 11 && currentYear !== null) {
+        setCurrentYear(y => y !== null ? y + 1 : null);
+      }
+      return newMonth;
+    });
   };
   const goToToday = () => { 
     const t = new Date(); 
