@@ -7,6 +7,7 @@ import { getAppDomain } from "@/lib/utils";
 import { handleLogout, isAuthSessionMissingError } from "@/lib/security/auth";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 
 interface ErrorFallbackProps {
   error: Error;
@@ -37,7 +38,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
         if (authError) {
           // Only log unexpected auth errors, not normal logged-out states
           if (!isAuthSessionMissingError(authError)) {
-            console.error("Auth check failed:", authError);
+            logger.error("Auth check failed:", authError);
           }
           setIsLoggedIn(false);
           return;
@@ -47,7 +48,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
       } catch (error) {
         // Only log unexpected errors, not normal logged-out states
         if (!isAuthSessionMissingError(error)) {
-          console.error("Auth check failed:", error);
+          logger.error("Auth check failed:", error);
         }
         setIsLoggedIn(false);
       }
@@ -74,7 +75,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
       await handleLogout();
     } catch (error) {
       // handleLogout already handles errors, but just in case
-      console.error("Logout error:", error);
+      logger.error("Logout error:", error);
       window.location.href = "/";
     }
   };
