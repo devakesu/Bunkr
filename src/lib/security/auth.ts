@@ -37,9 +37,9 @@ export const isAuthSessionMissingError = (error: unknown): boolean => {
  * 
  * Process:
  * 1. Sign out from Supabase (server-side session)
- * 2. Clear browser storage (localStorage, sessionStorage)
- * 3. Clear authentication and terms cookies via API (with CSRF protection)
- * 4. Redirect to home page
+ * 2. Clear authentication and terms cookies via API (with CSRF protection)
+ * 3. Redirect to home page
+ * 4. Clear browser storage (localStorage, sessionStorage) in finally block
  * 
  * Error Handling:
  * - Logs errors to Sentry

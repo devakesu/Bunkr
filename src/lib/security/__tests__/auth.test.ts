@@ -200,7 +200,7 @@ describe('handleLogout', () => {
     expect(mockSessionStorage.clear).toHaveBeenCalled();
   });
 
-  it('should obtain CSRF token and call logout API endpoint when no token provided', async () => {
+  it('should obtain CSRF token from getCsrfToken() and call logout API endpoint', async () => {
     await handleLogout();
     expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
       method: 'POST',
