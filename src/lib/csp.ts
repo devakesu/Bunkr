@@ -134,6 +134,7 @@ export const getCspHeader = (nonce?: string) => {
         const parts = [
           "'self'",
           `'nonce-${nonce}'`,
+          "'strict-dynamic'",
           "https://www.googletagmanager.com",
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
