@@ -28,17 +28,22 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Quick check: look for ezygo_access_token cookie
-        const hasEzygoToken = document.cookie.includes('ezygo_access_token=');
-        
-        if (hasEzygoToken) {
-          // If cookie exists, verify with Supabase
-          const supabase = createClient();
-          const { data: { user } } = await supabase.auth.getUser();
-          setIsLoggedIn(!!user);
+        const supabase = createClient();
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) {
+          console.error("Auth check failed:", authError);
+          setIsLoggedIn(false);
+          return;
         }
+
+        setIsLoggedIn(!!user);
       } catch (error) {
         console.error("Auth check failed:", error);
+        setIsLoggedIn(false);
       }
     };
     checkAuth();
