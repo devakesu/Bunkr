@@ -245,7 +245,7 @@ body:has(#nprogress) #nprogress {
   filter: none;
 }
 
-/* Toast customizations to work with CSP and prevent tracking prevention issues */
+/* Toast customizations to work with tracking prevention issues */
 [data-sonner-toast] {
   /* Ensure toasts have proper styling even when localStorage is blocked */
   background-color: var(--background) !important;
@@ -254,7 +254,7 @@ body:has(#nprogress) #nprogress {
 }
 
 [data-sonner-toast][data-styled="true"] {
-  /* Override inline styles with !important to avoid CSP issues */
+  /* Use !important to override Sonner's inline styles */
   padding: 16px !important;
   border-radius: var(--radius-lg) !important;
 }

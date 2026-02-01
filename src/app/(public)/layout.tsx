@@ -2,7 +2,7 @@
 
 import { PublicNavbar } from "@/components/layout/public-navbar";
 import { Footer } from "@/components/layout/footer";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/toaster";
 import { useState, useRef, useEffect } from "react";
 import { motion, useScroll } from "framer-motion";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -71,18 +71,7 @@ export default function PublicLayout({
         </main>
         
         <Footer />
-        <Toaster 
-          richColors 
-          position="bottom-right" 
-          toastOptions={{
-            unstyled: false,
-            classNames: {
-              toast: 'toast-custom',
-              title: 'toast-title',
-              description: 'toast-description',
-            },
-          }}
-        />
+        <Toaster />
       </div>
     </ErrorBoundary>
   );

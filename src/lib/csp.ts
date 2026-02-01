@@ -77,7 +77,7 @@ export const getCspHeader = (nonce?: string) => {
   // Use granular style directives for better XSS protection
   // style-src-elem: Controls <style> elements and <link> with rel="stylesheet"
   // We allow nonce'd styles plus Sonner's specific injected CSS via hash
-  // Hash calculated from Sonner v2.0.3 injected CSS (see __insertCSS in node_modules/sonner/dist/index.js)
+  // Hash calculated from Sonner v2.0.7 injected CSS (see __insertCSS in node_modules/sonner/dist/index.js)
   const styleSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
     : ["'self'", `'nonce-${nonce}'`, "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='"];
@@ -91,7 +91,7 @@ export const getCspHeader = (nonce?: string) => {
   // Include both nonce and Sonner hash for backwards compatibility
   const styleSrcParts = isDev
     ? ["'self'", "'unsafe-inline'"]
-    : ["'self'", `'nonce-${nonce}'`, "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='", "'unsafe-inline'"];
+    : ["'self'", `'nonce-${nonce}'`, "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='"];
 
   return `
     default-src 'self';
