@@ -244,3 +244,51 @@ body:has(#nprogress):not(:has(.login-page)) > * {
 body:has(#nprogress) #nprogress {
   filter: none;
 }
+
+/* Toast customizations to work with tracking prevention issues */
+[data-sonner-toast] {
+  /* Ensure toasts have proper styling even when localStorage is blocked */
+  background-color: var(--background) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+[data-sonner-toast][data-styled="true"] {
+  /* Use !important to override Sonner's inline styles */
+  padding: 16px !important;
+  border-radius: var(--radius-lg) !important;
+}
+
+[data-sonner-toast] [data-title] {
+  color: var(--foreground) !important;
+  font-weight: 500 !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: var(--muted-foreground) !important;
+}
+
+[data-sonner-toast] [data-icon] {
+  display: flex !important;
+  align-items: center !important;
+}
+
+[data-sonner-toast][data-type="success"] {
+  background-color: oklch(0.20 0.05 145) !important;
+  border-color: oklch(0.65 0.20 145) !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+  background-color: oklch(0.20 0.05 30) !important;
+  border-color: oklch(0.60 0.20 30) !important;
+}
+
+[data-sonner-toast][data-type="warning"] {
+  background-color: oklch(0.20 0.05 85) !important;
+  border-color: oklch(0.70 0.18 85) !important;
+}
+
+[data-sonner-toast][data-type="info"] {
+  background-color: oklch(0.20 0.05 240) !important;
+  border-color: oklch(0.60 0.18 240) !important;
+}

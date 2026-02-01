@@ -1,6 +1,6 @@
 "use client";
 
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/toaster";
 import { AcceptTermsForm } from "@/components/legal/AcceptTermsForm";
 import { useCSRFToken } from "@/hooks/use-csrf-token";
 
@@ -10,7 +10,7 @@ export default function AcceptTermsPage() {
 
   return (
     <>
-      <Toaster richColors position="bottom-right" />
+      <Toaster />
       <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
         {/* Animated gradient mesh background */}
         <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
