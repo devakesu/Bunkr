@@ -273,10 +273,10 @@ export function AttendanceCalendar({
 
     setCurrentMonth((p) => {
       if (p === 0) {
-        setCurrentYear((y) => (y === null ? null : y - 1));
+        setCurrentYear((y) => y! - 1);
         return 11;
       }
-      return (p ?? 0) - 1;
+      return p! - 1;
     });
   };
   const handleNextMonth = () => { 
@@ -288,10 +288,10 @@ export function AttendanceCalendar({
 
     setCurrentMonth((p) => {
       if (p === 11) {
-        setCurrentYear((y) => (y === null ? null : y + 1));
+        setCurrentYear((y) => y! + 1);
         return 0;
       }
-      return (p ?? 0) + 1;
+      return p! + 1;
     });
   };
   const goToToday = () => { 
