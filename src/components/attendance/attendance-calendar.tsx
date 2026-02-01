@@ -265,23 +265,33 @@ export function AttendanceCalendar({
   }, [attendanceData, coursesData]);
 
   const handlePreviousMonth = () => { 
+    // If the calendar is still initializing, provide feedback instead of appearing unresponsive
+    if (currentMonth === null || currentYear === null) {
+      toast.info("Calendar is still loading. Please wait...");
+      return;
+    }
+
     setCurrentMonth((p) => {
-      if (p === null) return p; // Guard against null
       if (p === 0) {
-        setCurrentYear(y => y === null ? null : y - 1);
+        setCurrentYear((y) => (y === null ? null : y - 1));
         return 11;
       }
-      return p - 1;
+      return (p ?? 0) - 1;
     });
   };
   const handleNextMonth = () => { 
+    // If the calendar is still initializing, provide feedback instead of appearing unresponsive
+    if (currentMonth === null || currentYear === null) {
+      toast.info("Calendar is still loading. Please wait...");
+      return;
+    }
+
     setCurrentMonth((p) => {
-      if (p === null) return p; // Guard against null
       if (p === 11) {
-        setCurrentYear(y => y === null ? null : y + 1);
+        setCurrentYear((y) => (y === null ? null : y + 1));
         return 0;
       }
-      return p + 1;
+      return (p ?? 11) + 1;
     });
   };
   const goToToday = () => { 
