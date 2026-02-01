@@ -531,6 +531,8 @@ export function AttendanceCalendar({
     );
   }
 
+  // After the null check above, we know currentMonth and currentYear are not null
+  // Using non-null assertions here is safe because the early return prevents execution if they're null
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col">
