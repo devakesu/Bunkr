@@ -71,7 +71,18 @@ export default function PublicLayout({
         </main>
         
         <Footer />
-        <Toaster richColors position="bottom-right" />
+        <Toaster 
+          richColors 
+          position="bottom-right" 
+          toastOptions={{
+            unstyled: false,
+            classNames: {
+              toast: 'toast-custom',
+              title: 'toast-title',
+              description: 'toast-description',
+            },
+          }}
+        />
       </div>
     </ErrorBoundary>
   );

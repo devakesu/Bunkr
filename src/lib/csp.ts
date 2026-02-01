@@ -24,6 +24,8 @@ export const getCspHeader = (nonce?: string) => {
       default-src 'self';
       script-src 'self' 'unsafe-inline' blob: https://www.googletagmanager.com https://challenges.cloudflare.com https://static.cloudflareinsights.com;
       style-src 'self' 'unsafe-inline';
+      style-src-elem 'self' 'unsafe-inline';
+      style-src-attr 'unsafe-inline';
       img-src 'self' blob: data: ${supabaseOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.google.co.in https://*.doubleclick.net;
       font-src 'self' data:;
       object-src 'none';
@@ -72,25 +74,24 @@ export const getCspHeader = (nonce?: string) => {
         "https://static.cloudflareinsights.com",
       ];
 
-  // Use granular style directives instead of global unsafe-inline for better XSS protection
+  // Use granular style directives for better XSS protection
+  // style-src-elem: Controls <style> elements and <link> with rel="stylesheet"
+  // We allow nonce'd styles plus Sonner's specific injected CSS via hash
+  // Hash calculated from Sonner v2.0.3 injected CSS (see __insertCSS in node_modules/sonner/dist/index.js)
   const styleSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
-    : ["'self'", `'nonce-${nonce}'`];
+    : ["'self'", `'nonce-${nonce}'`, "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='"];
   
-  // style-src-attr allows inline style attributes (e.g., style="color: red;") used by some libraries like Recharts
-  // In development: allow all inline styles for easier debugging
-  // In production: omit directive entirely so inline style attributes are blocked (falls back to style-src which doesn't include 'unsafe-inline')
-  // Note: This may break some third-party libraries that rely on inline styles without CSP support
-  // If needed, consider using CSP3 unsafe-hashes or refactoring library usage
-  const styleSrcAttrDirective = isDev ? `style-src-attr 'unsafe-inline';` : '';
+  // style-src-attr: Controls inline style attributes (e.g., <div style="color: red;">)
+  // Recharts and Sonner use inline style attributes for positioning/animations
+  // This is a security tradeoff but safer than allowing arbitrary <style> injection
+  const styleSrcAttrDirective = `style-src-attr 'unsafe-inline';`;
   
-  // Fallback style-src for CSP Level 2 browsers that don't support style-src-elem/style-src-attr
-  // In production, we only include nonce to maintain security for Level 2 browsers
-  // Level 2 browsers will need to upgrade or accept degraded functionality
-  // Level 3 browsers will properly use style-src-elem (nonce) and style-src-attr (restricted)
+  // Fallback style-src for CSP Level 2 browsers (no style-src-elem/style-src-attr support)
+  // Include both nonce and Sonner hash for backwards compatibility
   const styleSrcParts = isDev
     ? ["'self'", "'unsafe-inline'"]
-    : ["'self'", `'nonce-${nonce}'`];
+    : ["'self'", `'nonce-${nonce}'`, "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='", "'unsafe-inline'"];
 
   return `
     default-src 'self';
