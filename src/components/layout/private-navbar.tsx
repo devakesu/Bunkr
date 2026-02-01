@@ -115,9 +115,7 @@ export const Navbar = () => {
   };
 
   const onLogoutClick = async () => {
-    const { getCsrfToken } = await import("@/lib/axios");
-    const token = getCsrfToken();
-    await handleLogout(token);
+    await handleLogout();
   };
 
   const currentTarget = settings?.target_percentage ?? 75;
