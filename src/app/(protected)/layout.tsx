@@ -6,7 +6,7 @@ import { Loading } from "@/components/loading";
 import { useInstitutions } from "@/hooks/users/institutions";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/toaster";
 import { motion, useScroll } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -152,18 +152,7 @@ export default function ProtectedLayout({
             </main>
             
             <Footer />
-            <Toaster 
-              richColors 
-              position="bottom-right" 
-              toastOptions={{
-                unstyled: false,
-                classNames: {
-                  toast: 'toast-custom',
-                  title: 'toast-title',
-                  description: 'toast-description',
-                },
-              }}
-            />
+            <Toaster />
           </>
         )}
       </div>
