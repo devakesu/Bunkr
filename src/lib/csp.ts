@@ -140,8 +140,8 @@ export const getCspHeader = (nonce?: string) => {
           "https://www.googletagmanager.com",
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
-          "'sha256-aykwLBSIQE3HbCxrV+j5fzrFve3r7js1+OVpJc9Hkx8='", // Inline script hash #1
-          "'sha256-NjaNM7T1oI9v9mcyAidFrAD3HulFtQDsq/40Qq0+3Fw='", // Inline script hash #2
+          "'sha256-aykwLBSIQE3HbCxrV+j5fzrFve3r7js1+OVpJc9Hkx8='", // Hash for the small inline bootstrap script injected by Google Tag Manager
+          "'sha256-NjaNM7T1oI9v9mcyAidFrAD3HulFtQDsq/40Qq0+3Fw='", // Hash for the inline challenge/telemetry bootstrap script injected by Cloudflare (challenges/insights)
         ];
 
         if (appDomain) {
