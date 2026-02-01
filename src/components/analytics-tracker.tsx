@@ -144,12 +144,19 @@ export function AnalyticsTracker() {
       const video = e.target as HTMLVideoElement;
       if (!video || video.tagName !== "VIDEO") return;
 
+      // Validate video duration to prevent NaN or Infinity
+      const hasValidDuration = Number.isFinite(video.duration) && video.duration > 0;
+      const videoDuration = hasValidDuration ? Math.round(video.duration) : 0;
+      const videoPercent = hasValidDuration
+        ? Math.round((video.currentTime / video.duration) * 100)
+        : 0;
+
       const videoData = {
         video_title: video.title || video.currentSrc?.split("/").pop() || "unknown",
         video_url: video.currentSrc,
-        video_duration: Math.round(video.duration),
+        video_duration: videoDuration,
         video_current_time: Math.round(video.currentTime),
-        video_percent: Math.round((video.currentTime / video.duration) * 100),
+        video_percent: videoPercent,
       };
 
       switch (e.type) {
@@ -157,7 +164,7 @@ export function AnalyticsTracker() {
           trackEvent("video_start", videoData);
           break;
         case "pause":
-          if (video.currentTime < video.duration) {
+          if (hasValidDuration && video.currentTime < video.duration) {
             trackEvent("video_progress", videoData);
           }
           break;

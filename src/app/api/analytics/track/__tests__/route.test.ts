@@ -46,7 +46,7 @@ describe("Analytics API Route", () => {
   describe("Request Validation", () => {
     it("should accept valid analytics request", async () => {
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",  // Valid format: timestamp.random
         events: [
           {
             name: "page_view",
@@ -71,12 +71,25 @@ describe("Analytics API Route", () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toContain("Invalid request body");
+      expect(data.error).toContain("Invalid clientId");
+    });
+
+    it("should reject request with invalid clientId format", async () => {
+      const req = createMockRequest({
+        clientId: "invalid-format",  // Should be timestamp.random format
+        events: [{ name: "page_view" }],
+      });
+
+      const response = await POST(req);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain("Invalid clientId format");
     });
 
     it("should reject request without events", async () => {
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",
       });
 
       const response = await POST(req);
@@ -88,7 +101,7 @@ describe("Analytics API Route", () => {
 
     it("should reject request with non-array events", async () => {
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",
         events: "not-an-array",
       });
 
@@ -103,7 +116,7 @@ describe("Analytics API Route", () => {
   describe("Event Validation", () => {
     it("should reject events with invalid name format", async () => {
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",
         events: [
           {
             name: "Invalid Event Name!", // Contains spaces and special chars
@@ -121,7 +134,7 @@ describe("Analytics API Route", () => {
 
     it("should accept valid event names", async () => {
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",
         events: [
           { name: "page_view" },
           { name: "button_click" },
@@ -136,7 +149,7 @@ describe("Analytics API Route", () => {
     it("should truncate long event names", async () => {
       const longName = "a".repeat(100); // Exceeds 40 char limit
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",
         events: [{ name: longName }],
       });
 
@@ -147,7 +160,7 @@ describe("Analytics API Route", () => {
     it("should reject too many events per request", async () => {
       const events = Array(30).fill({ name: "test_event" }); // Exceeds 25 limit
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",
         events,
       });
 
@@ -163,7 +176,7 @@ describe("Analytics API Route", () => {
     it("should sanitize string parameters", async () => {
       const longString = "a".repeat(200); // Exceeds 100 char limit
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",
         events: [
           {
             name: "test_event",
@@ -180,7 +193,7 @@ describe("Analytics API Route", () => {
 
     it("should allow number and boolean parameters", async () => {
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",
         events: [
           {
             name: "test_event",
@@ -199,7 +212,7 @@ describe("Analytics API Route", () => {
 
     it("should filter out invalid parameter types", async () => {
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",
         events: [
           {
             name: "test_event",
@@ -208,6 +221,26 @@ describe("Analytics API Route", () => {
               valid_number: 123,
               invalid_object: { nested: "object" },
               invalid_array: [1, 2, 3],
+            },
+          },
+        ],
+      });
+
+      const response = await POST(req);
+      expect(response.status).toBe(200);
+    });
+    
+    it("should filter out NaN and Infinity values", async () => {
+      const req = createMockRequest({
+        clientId: "1234567890.abcdefghi",
+        events: [
+          {
+            name: "test_event",
+            params: {
+              valid_number: 123,
+              nan_value: NaN,
+              infinity_value: Infinity,
+              negative_infinity: -Infinity,
             },
           },
         ],
@@ -230,7 +263,7 @@ describe("Analytics API Route", () => {
       });
 
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",
         events: [{ name: "test_event" }],
       });
 
@@ -248,7 +281,7 @@ describe("Analytics API Route", () => {
       vi.mocked(getClientIp).mockReturnValueOnce(null);
 
       const req = createMockRequest({
-        clientId: "test-client-id",
+        clientId: "1234567890.abcdefghi",
         events: [{ name: "test_event" }],
       });
 
