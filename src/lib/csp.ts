@@ -76,11 +76,24 @@ export const getCspHeader = (nonce?: string) => {
 
   // Use granular style directives for better XSS protection
   // style-src-elem: Controls <style> elements and <link> with rel="stylesheet"
-  // We allow nonce'd styles plus Sonner's specific injected CSS via hash
-  // Hash calculated from Sonner v2.0.7 injected CSS (see __insertCSS in node_modules/sonner/dist/index.js)
+  // We allow nonce'd styles plus specific hashes for library-injected CSS
+  // Hashes for legitimate inline styles:
+  // - sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY= : Sonner v2.0.7 toast CSS
+  // - sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU= : Empty string (used by some libraries)
+  // - sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk= : Library inline styles
+  // - sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg= : Library inline styles
+  // - sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs= : Library inline styles
   const styleSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
-    : ["'self'", `'nonce-${nonce}'`, "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='"];
+    : [
+        "'self'", 
+        `'nonce-${nonce}'`, 
+        "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='",
+        "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='",
+        "'sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk='",
+        "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='",
+        "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='"
+      ];
   
   // style-src-attr: Controls inline style attributes (e.g., <div style="color: red;">)
   // Recharts and Sonner use inline style attributes for positioning/animations
@@ -88,10 +101,18 @@ export const getCspHeader = (nonce?: string) => {
   const styleSrcAttrDirective = `style-src-attr 'unsafe-inline';`;
   
   // Fallback style-src for CSP Level 2 browsers (no style-src-elem/style-src-attr support)
-  // Include both nonce and Sonner hash for backwards compatibility
+  // Include nonce and all hashes for backwards compatibility
   const styleSrcParts = isDev
     ? ["'self'", "'unsafe-inline'"]
-    : ["'self'", `'nonce-${nonce}'`, "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='"];
+    : [
+        "'self'", 
+        `'nonce-${nonce}'`, 
+        "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='",
+        "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='",
+        "'sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk='",
+        "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='",
+        "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='"
+      ];
 
   return `
     default-src 'self';
