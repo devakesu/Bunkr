@@ -257,20 +257,22 @@ export function AttendanceCalendar({
 
   const handlePreviousMonth = () => { 
     setCurrentMonth((p) => {
+      if (p === null) return p; // Guard against null
       if (p === 0) {
-        setCurrentYear(y => y! - 1);
+        setCurrentYear(y => y === null ? null : y - 1);
         return 11;
       }
-      return p! - 1;
+      return p - 1;
     });
   };
   const handleNextMonth = () => { 
     setCurrentMonth((p) => {
+      if (p === null) return p; // Guard against null
       if (p === 11) {
-        setCurrentYear(y => y! + 1);
+        setCurrentYear(y => y === null ? null : y + 1);
         return 0;
       }
-      return p! + 1;
+      return p + 1;
     });
   };
   const goToToday = () => { 
