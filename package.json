@@ -28,10 +28,10 @@
     "tar": "^7.5.6",
     "fast-xml-parser": "^5.3.4",
     "js-yaml": "^4.1.1",
-    "inflight": "npm:@aashutoshrathi/inflight@^1.0.1",
-    "glob": "^11.0.0",
-    "node-domexception": "npm:domexception@^4.0.0"
+    "glob": "^11.0.0"
   },
+  "dependencies": {
+    "@hookform/resolvers": "^5.0.1",
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
     "@radix-ui/react-alert-dialog": "^1.1.14",
