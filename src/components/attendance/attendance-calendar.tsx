@@ -96,14 +96,22 @@ export function AttendanceCalendar({
 
   // Initialize dates on mount to avoid hydration mismatch
   useEffect(() => {
-    if (typeof sessionStorage === 'undefined') return;
-    const dateSelected = sessionStorage.getItem("selected_date");
-    if (dateSelected) {
-      const parsedDate = new Date(dateSelected);
-      setSelectedDate(parsedDate);
-      setCurrentMonth(parsedDate.getMonth());
-      setCurrentYear(parsedDate.getFullYear());
-    } else {
+    try {
+      const dateSelected = sessionStorage.getItem("selected_date");
+      if (dateSelected) {
+        const parsedDate = new Date(dateSelected);
+        setSelectedDate(parsedDate);
+        setCurrentMonth(parsedDate.getMonth());
+        setCurrentYear(parsedDate.getFullYear());
+      } else {
+        const now = new Date();
+        setCurrentYear(now.getFullYear());
+        setCurrentMonth(now.getMonth());
+        setSelectedDate(now);
+      }
+    } catch (error) {
+      // Fallback if sessionStorage is unavailable or throws
+      Sentry.captureException(error);
       const now = new Date();
       setCurrentYear(now.getFullYear());
       setCurrentMonth(now.getMonth());
