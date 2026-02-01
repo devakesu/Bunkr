@@ -79,7 +79,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPage, setIsLoadingPage] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordResetForm, setShowPasswordResetForm] = useState(false);
   const [loginMethod, setLoginMethod] = useState<
@@ -114,7 +113,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
 
   useEffect(() => {
     let isMounted = true;
-    setIsMounted(true);
     
     const checkUser = async () => {
       setIsLoadingPage(true);
@@ -238,8 +236,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     },
   };
 
-  // Show loading only after mount to avoid hydration mismatch
-  if (!isMounted || isLoadingPage) return <Loading />;
+  // Show loading only when the page is in a loading state
+  if (isLoadingPage) return <Loading />;
 
   if (showPasswordResetForm) {
     return (
