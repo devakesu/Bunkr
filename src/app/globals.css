@@ -273,22 +273,62 @@ body:has(#nprogress) #nprogress {
   align-items: center !important;
 }
 
+/* Success toast - Green themed */
 [data-sonner-toast][data-type="success"] {
-  background-color: oklch(0.20 0.05 145) !important;
-  border-color: oklch(0.65 0.20 145) !important;
+  background-color: hsl(var(--background)) !important;
+  border-color: hsl(142 76% 36%) !important;
+  border-width: 2px !important;
 }
 
+[data-sonner-toast][data-type="success"] [data-icon] {
+  color: hsl(142 76% 36%) !important;
+}
+
+[data-sonner-toast][data-type="success"] [data-title] {
+  color: hsl(142 76% 45%) !important;
+}
+
+/* Error toast - Red themed */
 [data-sonner-toast][data-type="error"] {
-  background-color: oklch(0.20 0.05 30) !important;
-  border-color: oklch(0.60 0.20 30) !important;
+  background-color: hsl(var(--background)) !important;
+  border-color: hsl(0 84% 60%) !important;
+  border-width: 2px !important;
 }
 
+[data-sonner-toast][data-type="error"] [data-icon] {
+  color: hsl(0 84% 60%) !important;
+}
+
+[data-sonner-toast][data-type="error"] [data-title] {
+  color: hsl(0 84% 60%) !important;
+}
+
+/* Warning toast - Yellow/Orange themed */
 [data-sonner-toast][data-type="warning"] {
-  background-color: oklch(0.20 0.05 85) !important;
-  border-color: oklch(0.70 0.18 85) !important;
+  background-color: hsl(var(--background)) !important;
+  border-color: hsl(38 92% 50%) !important;
+  border-width: 2px !important;
 }
 
+[data-sonner-toast][data-type="warning"] [data-icon] {
+  color: hsl(38 92% 50%) !important;
+}
+
+[data-sonner-toast][data-type="warning"] [data-title] {
+  color: hsl(38 92% 50%) !important;
+}
+
+/* Info toast - Blue themed */
 [data-sonner-toast][data-type="info"] {
-  background-color: oklch(0.20 0.05 240) !important;
-  border-color: oklch(0.60 0.18 240) !important;
+  background-color: hsl(var(--background)) !important;
+  border-color: hsl(217 91% 60%) !important;
+  border-width: 2px !important;
+}
+
+[data-sonner-toast][data-type="info"] [data-icon] {
+  color: hsl(217 91% 60%) !important;
+}
+
+[data-sonner-toast][data-type="info"] [data-title] {
+  color: hsl(217 91% 60%) !important;
 }

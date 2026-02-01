@@ -1,9 +1,12 @@
 "use client";
 
-import { AlertTriangle, Mail, RefreshCcw, Home } from "lucide-react";
+import { AlertTriangle, Mail, RefreshCcw, Home, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { getAppDomain } from "@/lib/utils";
+import { handleLogout } from "@/lib/security/auth";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 interface ErrorFallbackProps {
   error: Error;
@@ -19,6 +22,27 @@ interface ErrorFallbackProps {
 export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard" }: ErrorFallbackProps) {
   const router = useRouter();
   const isDevelopment = process.env.NODE_ENV === "development";
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // Quick check: look for ezygo_access_token cookie
+        const hasEzygoToken = document.cookie.includes('ezygo_access_token=');
+        
+        if (hasEzygoToken) {
+          // If cookie exists, verify with Supabase
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          setIsLoggedIn(!!user);
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error);
+      }
+    };
+    checkAuth();
+  }, []);
 
   const handleGoHome = () => {
     router.push(homeUrl);
@@ -30,6 +54,17 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
     } else {
       // Fallback to page refresh if reset function is not provided
       window.location.reload();
+    }
+  };
+
+  const handleLogoutClick = async () => {
+    setIsLoggingOut(true);
+    try {
+      await handleLogout();
+    } catch (error) {
+      // handleLogout already handles errors, but just in case
+      console.error("Logout error:", error);
+      window.location.href = "/";
     }
   };
 
@@ -112,6 +147,19 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
             <Mail className="w-4 h-4" aria-hidden="true" />
             Report Error
           </Button>
+
+          {isLoggedIn && (
+            <Button
+              onClick={handleLogoutClick}
+              size="lg"
+              variant="destructive"
+              disabled={isLoggingOut}
+              className="gap-2 min-w-[180px]"
+            >
+              <LogOut className="w-4 h-4" aria-hidden="true" />
+              {isLoggingOut ? "Logging out..." : "Logout"}
+            </Button>
+          )}
         </div>
 
         {/* Help Text */}

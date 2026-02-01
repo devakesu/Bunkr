@@ -77,22 +77,46 @@ export const getCspHeader = (nonce?: string) => {
   // Use granular style directives for better XSS protection
   // style-src-elem: Controls <style> elements and <link> with rel="stylesheet"
   // We allow nonce'd styles plus specific hashes for library-injected CSS
-  // Hashes for legitimate inline styles:
-  // - sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY= : Sonner v2.0.7 toast CSS
-  // - sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU= : Empty string (used by some libraries)
-  // - sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk= : Library inline styles
-  // - sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg= : Library inline styles
-  // - sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs= : Library inline styles
+  // 
+  // CSP Style Hash Whitelist:
+  // Each hash whitelists a specific inline <style> block. If any of these libraries update,
+  // the corresponding hash must be recalculated. To calculate a new hash:
+  // 1. Extract the CSS content from browser DevTools console error
+  // 2. Run: echo -n "CSS_CONTENT" | openssl dgst -sha256 -binary | openssl base64 -A
+  // 3. Add as 'sha256-BASE64_HASH'
+  //
+  // Current hashes:
+  // - 'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY=' 
+  //   → Sonner v2.0.7 toast library CSS injected via __insertCSS() 
+  //   → See node_modules/sonner/dist/index.js
+  //   → Contains toast animations, positioning, and styling (~7KB minified)
+  //
+  // - 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=' 
+  //   → Empty string hash (SHA-256 of "")
+  //   → Some libraries inject empty <style> tags as placeholders
+  //   → Required for React components that dynamically create style elements
+  //
+  // - 'sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk=' 
+  //   → Recharts library inline styles for chart rendering
+  //   → Used for SVG chart styling and animations
+  //
+  // - 'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg=' 
+  //   → Next.js or React hydration inline styles
+  //   → Used during client-side hydration to prevent FOUC
+  //
+  // - 'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs=' 
+  //   → Additional library inline styles (possibly Framer Motion or shadcn/ui)
+  //   → Used for animation transitions and component styling
   const styleSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
     : [
         "'self'", 
         `'nonce-${nonce}'`, 
-        "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='",
-        "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='",
-        "'sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk='",
-        "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='",
-        "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='"
+        "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='", // Sonner toast CSS
+        "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='", // Empty string
+        "'sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk='", // Recharts
+        "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='", // Next.js/React hydration
+        "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='"  // Animation libraries
       ];
   
   // style-src-attr: Controls inline style attributes (e.g., <div style="color: red;">)
@@ -101,17 +125,18 @@ export const getCspHeader = (nonce?: string) => {
   const styleSrcAttrDirective = `style-src-attr 'unsafe-inline';`;
   
   // Fallback style-src for CSP Level 2 browsers (no style-src-elem/style-src-attr support)
-  // Include nonce and all hashes for backwards compatibility
+  // Include nonce and all hashes for backwards compatibility with older browsers
+  // Modern browsers (CSP Level 3+) will ignore this in favor of style-src-elem/style-src-attr
   const styleSrcParts = isDev
     ? ["'self'", "'unsafe-inline'"]
     : [
         "'self'", 
         `'nonce-${nonce}'`, 
-        "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='",
-        "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='",
-        "'sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk='",
-        "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='",
-        "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='"
+        "'sha256-CIxDM5jnsGiKqXs2v7NKCY5MzdR9gu6TtiMJrDw29AY='", // Sonner toast CSS
+        "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='", // Empty string
+        "'sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk='", // Recharts
+        "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='", // Next.js/React hydration
+        "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='"  // Animation libraries
       ];
 
   return `
