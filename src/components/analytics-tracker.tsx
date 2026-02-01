@@ -63,25 +63,37 @@ export function AnalyticsTracker() {
   }, [pathname, searchParams]);
 
   useEffect(() => {
-    // Enhanced measurement: Scroll depth tracking
+    // Enhanced measurement: Scroll depth tracking with throttling
+    let scrollTicking = false;
+
     const handleScroll = () => {
-      const maxScrollable = document.documentElement.scrollHeight - window.innerHeight;
-      
-      // If there is no scrollable content, skip scroll depth tracking
-      if (maxScrollable <= 0) {
+      if (scrollTicking) {
         return;
       }
 
-      const scrollPercent = Math.round((window.scrollY / maxScrollable) * 100);
+      scrollTicking = true;
 
-      const thresholds = [25, 50, 75, 90];
-      for (const threshold of thresholds) {
-        if (scrollPercent >= threshold && !scrollTracked.current.has(threshold)) {
-          scrollTracked.current.add(threshold);
-          trackEvent("scroll", { percent_scrolled: threshold });
-          break; // Only track one threshold per scroll event
+      window.requestAnimationFrame(() => {
+        scrollTicking = false;
+
+        const maxScrollable = document.documentElement.scrollHeight - window.innerHeight;
+        
+        // If there is no scrollable content, skip scroll depth tracking
+        if (maxScrollable <= 0) {
+          return;
         }
-      }
+
+        const scrollPercent = Math.round((window.scrollY / maxScrollable) * 100);
+
+        const thresholds = [25, 50, 75, 90];
+        for (const threshold of thresholds) {
+          if (scrollPercent >= threshold && !scrollTracked.current.has(threshold)) {
+            scrollTracked.current.add(threshold);
+            trackEvent("scroll", { percent_scrolled: threshold });
+            break; // Only track one threshold per scroll event
+          }
+        }
+      });
     };
 
     // Enhanced measurement: Outbound link clicks
@@ -90,7 +102,15 @@ export function AnalyticsTracker() {
       const link = target.closest("a");
       
       if (link && link.href) {
-        const url = new URL(link.href, window.location.href);
+        let url: URL;
+        try {
+          url = new URL(link.href, window.location.href);
+        } catch (error) {
+          // Malformed URL - skip tracking for this click to avoid breaking analytics
+          console.warn("[Analytics] Ignoring click with invalid URL:", link.href, error);
+          return;
+        }
+        
         const isOutbound = url.hostname !== window.location.hostname;
         const isDownload = link.hasAttribute("download") || 
                           /\.(pdf|zip|doc|docx|xls|xlsx|ppt|pptx|txt|csv)$/i.test(url.pathname);

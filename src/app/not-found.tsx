@@ -2,9 +2,6 @@ import { PublicNavbar } from "@/components/layout/public-navbar";
 import { Footer } from "@/components/layout/footer";
 import { NotFoundContent } from "@/components/not-found-content";
 
-// Force dynamic rendering since we use client components
-export const dynamic = 'force-dynamic';
-
 /**
  * Custom 404 Not Found Page
  * Displayed when a user navigates to a non-existent route
