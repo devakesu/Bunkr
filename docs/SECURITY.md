@@ -80,6 +80,95 @@ Prevents Cross-Site Request Forgery attacks by validating that requests originat
 
 ---
 
+## Content Security Policy (CSP)
+
+### Purpose
+Prevents Cross-Site Scripting (XSS) attacks by controlling which resources can be loaded and executed in the browser.
+
+### Implementation Files
+- **Library**: `src/lib/csp.ts` - CSP header generation with nonces and hashes
+- **Middleware**: `src/proxy.ts` - CSP header injection for all requests
+- **Layout**: `src/app/layout.tsx` - Nonce attributes on scripts/styles
+
+### CSP Architecture
+
+GhostClass implements **CSP Level 3** with nonce-based execution and hash whitelisting:
+
+1. **Nonce-Based Scripts** (`script-src`, `script-src-elem`)
+   - Unique nonce generated per request in middleware
+   - All Next.js scripts include the nonce attribute
+   - `'strict-dynamic'` allows nonce'd scripts to load other scripts
+   - Host-based fallback for older browsers
+
+2. **Hash-Based Styles** (`style-src-elem`)
+   - Static hashes for library-injected CSS (Sonner, Recharts, Framer Motion)
+   - Nonce for dynamically generated styles
+   - Prevents inline style injection attacks
+
+3. **Cloudflare Zaraz Integration**
+   - Zaraz automatically injects its own nonce for inline scripts
+   - Pattern detection: When CSP contains `'nonce-*'` + `'unsafe-inline'`, Zaraz appends its nonce
+   - CSP3 browsers ignore `'unsafe-inline'` when nonces present (defense-in-depth)
+   - See [Zaraz CSP documentation](https://blog.cloudflare.com/zaraz-supports-csp/)
+
+### Configuration
+
+**Development Mode:**
+```typescript
+// Relaxed CSP for hot reload and debugging
+script-src: 'self' 'unsafe-inline' 'unsafe-eval'
+style-src: 'self' 'unsafe-inline'
+```
+
+**Production Mode:**
+```typescript
+// Strict nonce + hash-based CSP
+script-src: 'self' 'nonce-RANDOM' 'strict-dynamic'
+script-src-elem: 'self' 'nonce-RANDOM' 'unsafe-inline' [host sources]
+style-src-elem: 'self' 'nonce-RANDOM' [hashes for libraries]
+```
+
+### Adding New Style Hashes
+
+When adding libraries that inject inline styles:
+
+1. **Identify CSP violation** in browser console:
+   ```
+   Refused to apply inline style because it violates CSP directive
+   Note: sha256-ABC123...
+   ```
+
+2. **Calculate hash manually** (alternative):
+   ```bash
+   echo -n "CSS_CONTENT" | openssl dgst -sha256 -binary | openssl base64 -A
+   ```
+
+3. **Add to whitelist** in [src/lib/csp.ts](src/lib/csp.ts):
+   ```typescript
+   const styleSrcElemParts = [
+     // ... existing hashes
+     "'sha256-YOUR_HASH_HERE='", // Library name and purpose
+   ];
+   ```
+
+### Troubleshooting
+
+**Symptom**: Scripts/styles blocked by CSP
+- Check browser console for CSP violation reports
+- Verify nonce is present on all `<script>` and `<style>` tags
+- Ensure middleware is generating unique nonces per request
+
+**Symptom**: Cloudflare scripts blocked
+- Verify `'unsafe-inline'` appears AFTER nonce in `script-src-elem`
+- Check that Cloudflare Zaraz is enabled in dashboard
+- Review [Zaraz CSP integration docs](https://blog.cloudflare.com/zaraz-supports-csp/)
+
+**Symptom**: Third-party scripts fail to load
+- Add host to `script-src-elem` (not `script-src` with `strict-dynamic`)
+- Verify script doesn't inject additional inline scripts
+
+---
+
 ## Request Signing
 
 ### Purpose

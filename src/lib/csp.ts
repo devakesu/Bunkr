@@ -1,4 +1,16 @@
 // Content Security Policy
+//
+// CLOUDFLARE ZARAZ CSP INTEGRATION:
+// Cloudflare Zaraz automatically modifies CSP headers to inject its own nonce for inline scripts.
+// According to Cloudflare documentation (https://blog.cloudflare.com/zaraz-supports-csp/):
+// - Zaraz adds its nonce ONLY IF: 'unsafe-inline' is NOT present, OR 'unsafe-inline' appears WITH nonces/hashes
+// - If 'unsafe-inline' exists alone (no nonces), Zaraz will NOT modify the CSP header
+// - When both nonce and 'unsafe-inline' exist, Zaraz appends its nonce, and CSP3 browsers ignore 'unsafe-inline'
+//
+// Our configuration uses nonce + 'unsafe-inline' in script-src-elem to:
+// 1. Allow Zaraz to append its nonce (detected by presence of our nonce)
+// 2. Provide fallback for non-CSP3 browsers (they use 'unsafe-inline')
+// 3. Maintain strict security in modern browsers (nonce takes precedence, 'unsafe-inline' ignored)
 import { logger } from "@/lib/logger";
 
 export const getCspHeader = (nonce?: string) => {
@@ -130,6 +142,17 @@ export const getCspHeader = (nonce?: string) => {
   // so that third-party scripts from Cloudflare and Google Tag Manager can load. In CSP3-compliant
   // browsers, combining 'strict-dynamic' with host-based sources would cause those host-based
   // sources to be ignored. Also includes hashes for specific inline scripts from libraries.
+  //
+  // INLINE SCRIPT HASHES:
+  // When third-party services (GTM, Cloudflare) inject inline scripts without nonces,
+  // we must whitelist their specific content hashes. These hashes were obtained from CSP
+  // violation reports and verified against the actual script content.
+  //
+  // To verify or update a hash:
+  // 1. Check the CSP violation in browser console
+  // 2. Copy the suggested hash from the error message
+  // 3. Optionally verify: echo -n "SCRIPT_CONTENT" | openssl dgst -sha256 -binary | openssl base64
+  //
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
   const scriptSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
@@ -137,11 +160,21 @@ export const getCspHeader = (nonce?: string) => {
         const parts = [
           "'self'",
           `'nonce-${nonce}'`,
+          "'unsafe-inline'", // Must appear AFTER nonce to trigger Cloudflare Zaraz nonce injection (per Zaraz CSP docs)
+                             // When nonce + 'unsafe-inline' coexist, Zaraz appends its nonce; nonce takes precedence in CSP3
           "https://www.googletagmanager.com",
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
-          "'sha256-aykwLBSIQE3HbCxrV+j5fzrFve3r7js1+OVpJc9Hkx8='", // Hash for the small inline bootstrap script injected by Google Tag Manager
-          "'sha256-NjaNM7T1oI9v9mcyAidFrAD3HulFtQDsq/40Qq0+3Fw='", // Hash for the inline challenge/telemetry bootstrap script injected by Cloudflare (challenges/insights)
+          // Google Tag Manager inline bootstrap script
+          // Injected by: GTM container initialization (src/app/layout.tsx)
+          // Content: Initializes dataLayer and gtag function for GA4 tracking
+          "'sha256-aykwLBSIQE3HbCxrV+j5fzrFve3r7js1+OVpJc9Hkx8='",
+          // Cloudflare security/telemetry inline script
+          // Injected by: Cloudflare's email protection or bot management features
+          // Content: Bootstrap code for Cloudflare Insights or Turnstile challenges
+          "'sha256-NjaNM7T1oI9v9mcyAidFrAD3HulFtQDsq/40Qq0+3Fw='",
+          // Additional analytics/tracking inline script
+          "'sha256-BN8BJX6X9Ph3MdqVqJDQw+25g7ZUjdu0W+f6TsfVt+I='",
         ];
 
         if (appDomain) {

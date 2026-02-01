@@ -432,9 +432,10 @@ GhostClass implements multiple layers of security:
 
 - **AES-256-GCM Encryption** - All sensitive tokens are encrypted at rest
 - **CSRF Protection** - Custom token-based CSRF protection on critical endpoints
+- **Content Security Policy (CSP)** - CSP Level 3 with nonce-based script execution and hash whitelisting; integrates with Cloudflare Zaraz
 - **Rate Limiting** - Upstash Redis-based rate limiting to prevent abuse
 - **Row Level Security** - Supabase RLS policies ensure users only access their data
-- **Secure Headers** - CSP with nonces, HSTS, X-Frame-Options, and other security headers
+- **Secure Headers** - HSTS, X-Frame-Options, X-Content-Type-Options, and Referrer-Policy
 - **Input Validation** - Zod schemas validate all user input
 - **HttpOnly Cookies** - Sensitive data stored in secure, httpOnly cookies
 - **Origin Validation** - Strict origin checking in production (disabled in dev)
