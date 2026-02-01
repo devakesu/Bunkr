@@ -53,6 +53,8 @@ export function AnalyticsTracker() {
         formInteractions.current.clear();
       } catch (error) {
         // Silently fail - don't break app if analytics fails
+        // Note: Using console.warn instead of logger utility as this is a client component
+        // and the logger utility is primarily designed for server-side use
         console.warn("[Analytics] Failed to track page view:", error);
       }
     };
@@ -63,9 +65,14 @@ export function AnalyticsTracker() {
   useEffect(() => {
     // Enhanced measurement: Scroll depth tracking
     const handleScroll = () => {
-      const scrollPercent = Math.round(
-        (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100
-      );
+      const maxScrollable = document.documentElement.scrollHeight - window.innerHeight;
+      
+      // If there is no scrollable content, skip scroll depth tracking
+      if (maxScrollable <= 0) {
+        return;
+      }
+
+      const scrollPercent = Math.round((window.scrollY / maxScrollable) * 100);
 
       const thresholds = [25, 50, 75, 90];
       for (const threshold of thresholds) {
@@ -207,6 +214,8 @@ export async function trackEvent(
       }),
     });
   } catch (error) {
+    // Note: Using console.warn instead of logger utility as this is a client component
+    // and the logger utility is primarily designed for server-side use
     console.warn("[Analytics] Failed to track event:", error);
   }
 }

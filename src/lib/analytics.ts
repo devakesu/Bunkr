@@ -3,7 +3,7 @@
 
 import { logger } from "@/lib/logger";
 
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_ID;
 const GA_API_SECRET = process.env.GA_API_SECRET; // Server-only secret
 
 interface GA4Event {
@@ -104,7 +104,11 @@ export function getOrCreateClientId(): string {
 
   // Generate new client ID: timestamp.random
   const clientId = `${Date.now()}.${Math.random().toString(36).substring(2, 11)}`;
-  document.cookie = `${cookieName}=${clientId}; path=/; max-age=63072000; SameSite=Lax`; // 2 years
+  
+  // Add Secure attribute in production to ensure cookie is only sent over HTTPS
+  const isProd = process.env.NODE_ENV === "production";
+  const secureAttr = isProd ? "; Secure" : "";
+  document.cookie = `${cookieName}=${clientId}; path=/; max-age=63072000; SameSite=Lax${secureAttr}`; // 2 years
   
   return clientId;
 }

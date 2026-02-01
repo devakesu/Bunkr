@@ -4,11 +4,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { trackGA4Event } from "@/lib/analytics";
 import { syncRateLimiter } from "@/lib/ratelimit";
+import { getClientIp } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
-    // Rate limiting: 100 events per minute per IP
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    // Rate limiting: default 60 events/min per IP, configurable via environment variables
+    const ip = getClientIp(req.headers);
+    
+    if (!ip) {
+      return NextResponse.json(
+        { error: "Unable to determine client IP" },
+        { status: 400 }
+      );
+    }
+    
     const rateLimitResult = await syncRateLimiter.limit(ip);
     
     if (!rateLimitResult.success) {
@@ -28,12 +38,57 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate event structure and sanitize
+    const maxEventNameLength = 40; // GA4 limit
+    const maxParamKeyLength = 40;  // GA4 limit
+    const maxParamValueLength = 100; // GA4 limit
+    const maxEventsPerRequest = 25; // GA4 limit
+    
+    if (events.length > maxEventsPerRequest) {
+      return NextResponse.json(
+        { error: `Too many events. Maximum ${maxEventsPerRequest} events per request` },
+        { status: 400 }
+      );
+    }
+    
+    const sanitizedEvents = events.map((event: any) => {
+      if (!event.name || typeof event.name !== 'string') {
+        throw new Error('Invalid event name');
+      }
+      
+      // Validate event name format (lowercase, underscores, numbers)
+      const eventName = event.name.slice(0, maxEventNameLength);
+      if (!/^[a-z0-9_]+$/.test(eventName)) {
+        throw new Error(`Invalid event name format: ${eventName}`);
+      }
+      
+      // Sanitize event parameters
+      const sanitizedParams: Record<string, any> = {};
+      if (event.params && typeof event.params === 'object') {
+        for (const [key, value] of Object.entries(event.params)) {
+          const sanitizedKey = key.slice(0, maxParamKeyLength);
+          
+          // Only allow string, number, boolean values
+          if (typeof value === 'string') {
+            sanitizedParams[sanitizedKey] = value.slice(0, maxParamValueLength);
+          } else if (typeof value === 'number' || typeof value === 'boolean') {
+            sanitizedParams[sanitizedKey] = value;
+          }
+        }
+      }
+      
+      return {
+        name: eventName,
+        params: sanitizedParams,
+      };
+    });
+
     // Send to GA4
-    await trackGA4Event(clientId, events, userProperties);
+    await trackGA4Event(clientId, sanitizedEvents, userProperties);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[Analytics API] Error:", error);
+    logger.error("[Analytics API] Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
