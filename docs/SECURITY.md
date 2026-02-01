@@ -589,6 +589,33 @@ The following package overrides are in place as defense-in-depth measures to ens
    - **Type:** Transitive dependency override (brought in by other packages)
    - **Tracking:** Any future vulnerabilities will be tracked in GitHub issues with the `tar` label
 
+4. **inflight: npm:@aashutoshrathi/inflight@^1.0.1**
+   - **Reason:** The original `inflight` package is deprecated and unmaintained. This override replaces it with a maintained fork
+   - **CVE / Advisory:** No specific CVE, but the original package is no longer receiving security updates
+   - **Severity:** Low (proactive replacement of deprecated package)
+   - **Impact:** Drop-in replacement with identical API, non-breaking change
+   - **Validation:** Changes have been validated by running the full test suite and `npm audit` shows no vulnerabilities
+   - **Type:** Transitive dependency override (brought in by older packages via glob v7/v10)
+   - **Tracking:** Any future vulnerabilities will be tracked in GitHub issues with the `inflight` label
+
+5. **glob: ^11.0.0**
+   - **Reason:** Upgrades all instances of glob to the latest major version (v11) to ensure security fixes and remove deprecated dependencies
+   - **CVE / Advisory:** No specific CVE, but older glob versions (v7, v10) depend on deprecated packages like `inflight`
+   - **Severity:** Low (proactive upgrade to maintained version)
+   - **Impact:** Major version upgrade with API compatibility for most consumers; validated across our dependency tree
+   - **Validation:** Changes have been validated by running the full test suite and `npm audit` shows no vulnerabilities
+   - **Type:** Transitive dependency override (brought in by various build tools and packages)
+   - **Tracking:** Any future vulnerabilities will be tracked in GitHub issues with the `glob` label
+
+6. **node-domexception: npm:domexception@^4.0.0**
+   - **Reason:** The `node-domexception` package is deprecated. This override replaces it with the standard `domexception` package
+   - **CVE / Advisory:** No specific CVE, but the original package is deprecated and recommends using the platform's native DOMException
+   - **Severity:** Low (proactive replacement of deprecated package)
+   - **Impact:** Drop-in replacement providing standard DOMException implementation
+   - **Validation:** Changes have been validated by running the full test suite and `npm audit` shows no vulnerabilities
+   - **Type:** Transitive dependency override (brought in by packages requiring DOMException polyfill)
+   - **Tracking:** Any future vulnerabilities will be tracked in GitHub issues with the `node-domexception` label
+
 **Verification:** Run `npm audit` to verify no known vulnerabilities exist in the current dependency tree.
 
 #### Maintenance Process
