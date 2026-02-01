@@ -9,7 +9,8 @@ import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
-    // Rate limiting: default 60 events/min per IP, configurable via environment variables
+    // Rate limiting: default 10 requests per 10 seconds per IP
+    // (configurable via RATE_LIMIT_REQUESTS and RATE_LIMIT_WINDOW)
     const ip = getClientIp(req.headers);
     
     if (!ip) {
@@ -31,7 +32,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { clientId, events, userProperties } = body;
 
-    if (!clientId || !events || !Array.isArray(events)) {
+    // Validate clientId format and type
+    if (!clientId || typeof clientId !== 'string') {
+      return NextResponse.json(
+        { error: "Invalid clientId" },
+        { status: 400 }
+      );
+    }
+    
+    // Validate clientId format (timestamp.random pattern) and length
+    if (clientId.length > 100 || !/^\d+\.[a-z0-9]+$/.test(clientId)) {
+      return NextResponse.json(
+        { error: "Invalid clientId format" },
+        { status: 400 }
+      );
+    }
+
+    if (!events || !Array.isArray(events)) {
       return NextResponse.json(
         { error: "Invalid request body" },
         { status: 400 }
@@ -68,10 +85,12 @@ export async function POST(req: NextRequest) {
         for (const [key, value] of Object.entries(event.params)) {
           const sanitizedKey = key.slice(0, maxParamKeyLength);
           
-          // Only allow string, number, boolean values
+          // Only allow string, finite number, boolean values
           if (typeof value === 'string') {
             sanitizedParams[sanitizedKey] = value.slice(0, maxParamValueLength);
-          } else if (typeof value === 'number' || typeof value === 'boolean') {
+          } else if (typeof value === 'number' && Number.isFinite(value)) {
+            sanitizedParams[sanitizedKey] = value;
+          } else if (typeof value === 'boolean') {
             sanitizedParams[sanitizedKey] = value;
           }
         }
