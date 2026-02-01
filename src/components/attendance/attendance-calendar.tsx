@@ -531,10 +531,8 @@ export function AttendanceCalendar({
     );
   }
 
-  // Type narrowing: after the null check, we know these are not null
-  const safeCurrentMonth = currentMonth as number;
-  const safeCurrentYear = currentYear as number;
-
+  // After the null check above, we know currentMonth and currentYear are not null
+  // Using non-null assertions here is safe because the early return prevents execution if they're null
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col">
@@ -553,25 +551,25 @@ export function AttendanceCalendar({
                 <SelectItem value="otherLeave">Other Leave</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={safeCurrentMonth.toString()} onValueChange={(value) => setCurrentMonth(parseInt(value, 10))}>
+            <Select value={currentMonth!.toString()} onValueChange={(value) => setCurrentMonth(parseInt(value, 10))}>
               <SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Select month">
-                <SelectValue>{monthNames[safeCurrentMonth]}</SelectValue>
+                <SelectValue>{monthNames[currentMonth!]}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">
                 {monthNames.map((month, index) => (
-                  <SelectItem key={month} value={index.toString()} className={safeCurrentMonth === index ? "bg-white/5 mt-0.5" : "capitalize"}>
+                  <SelectItem key={month} value={index.toString()} className={currentMonth === index ? "bg-white/5 mt-0.5" : "capitalize"}>
                     {month}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select value={safeCurrentYear.toString()} onValueChange={(value) => { const newYear = parseInt(value, 10); if (newYear >= 2018) setCurrentYear(newYear); }}>
+            <Select value={currentYear!.toString()} onValueChange={(value) => { const newYear = parseInt(value, 10); if (newYear >= 2018) setCurrentYear(newYear); }}>
               <SelectTrigger className="w-[90px] h-9 bg-background/60 border-border/60 text-sm custom-dropdown" aria-label="Select year">
-                <SelectValue>{safeCurrentYear}</SelectValue>
+                <SelectValue>{currentYear}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 max-h-70 backdrop-blur-md custom-dropdown">
                 {yearOptions.map((year) => (
-                  <SelectItem key={year} value={year.toString()} className={safeCurrentYear === year ? "bg-white/5 mt-0.5" : "mt-0.5"}>
+                  <SelectItem key={year} value={year.toString()} className={currentYear === year ? "bg-white/5 mt-0.5" : "mt-0.5"}>
                     {year}
                   </SelectItem>
                 ))}
