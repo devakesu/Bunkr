@@ -151,15 +151,15 @@ export async function POST(req: Request) {
   }
 
   // 2. Rate Limit Check
-  const origin = headerList.get("origin");
-  const host = headerList.get("host");
-  if (!origin || !host) {
-    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-  }
-
-  // Validate that NEXT_PUBLIC_APP_DOMAIN is configured for origin validation
   // SKIP origin validation in development mode for easier local testing
   if (process.env.NODE_ENV !== "development") {
+    const origin = headerList.get("origin");
+    const host = headerList.get("host");
+    if (!origin || !host) {
+      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+    }
+
+    // Validate that NEXT_PUBLIC_APP_DOMAIN is configured for origin validation
     const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
     if (!appDomain?.trim()) {
       logger.error("NEXT_PUBLIC_APP_DOMAIN is not configured - origin validation cannot proceed");
