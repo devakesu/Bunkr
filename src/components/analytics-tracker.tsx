@@ -53,6 +53,8 @@ export function AnalyticsTracker() {
         formInteractions.current.clear();
       } catch (error) {
         // Silently fail - don't break app if analytics fails
+        // Note: Using console.warn instead of logger utility as this is a client component
+        // and the logger utility is primarily designed for server-side use
         console.warn("[Analytics] Failed to track page view:", error);
       }
     };
@@ -212,6 +214,8 @@ export async function trackEvent(
       }),
     });
   } catch (error) {
+    // Note: Using console.warn instead of logger utility as this is a client component
+    // and the logger utility is primarily designed for server-side use
     console.warn("[Analytics] Failed to track event:", error);
   }
 }
