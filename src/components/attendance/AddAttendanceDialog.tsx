@@ -210,7 +210,7 @@ export function AddAttendanceDialog({
 
   // --- 4. PREFILL COURSE ---
   useEffect(() => {
-    if (session && attendanceData?.studentAttendanceData) {
+    if (session && date && attendanceData?.studentAttendanceData) {
       const dayOfWeek = date.getDay();
       const frequencyMap: Record<string, number> = {};
       const target = normalizeSession(session);

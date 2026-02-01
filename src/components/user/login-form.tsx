@@ -113,6 +113,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   };
 
   useEffect(() => {
+    let isMounted = true;
     setIsMounted(true);
     
     const checkUser = async () => {
@@ -124,7 +125,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         if (error && !isAuthSessionMissingError(error)) {
           throw error;
         }
-        if (user) {
+        if (user && isMounted) {
           router.push("/dashboard");
           return;
         }
@@ -133,10 +134,16 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           logger.error("Unexpected error checking user session:", err);
         }
       } finally {
-        setIsLoadingPage(false);
+        if (isMounted) {
+          setIsLoadingPage(false);
+        }
       }
     };
     checkUser();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

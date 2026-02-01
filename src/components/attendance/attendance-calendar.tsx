@@ -96,6 +96,7 @@ export function AttendanceCalendar({
 
   // Initialize dates on mount to avoid hydration mismatch
   useEffect(() => {
+    if (typeof sessionStorage === 'undefined') return;
     const dateSelected = sessionStorage.getItem("selected_date");
     if (dateSelected) {
       const parsedDate = new Date(dateSelected);
