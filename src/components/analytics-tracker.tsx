@@ -107,6 +107,8 @@ export function AnalyticsTracker() {
           url = new URL(link.href, window.location.href);
         } catch (error) {
           // Malformed URL - skip tracking for this click to avoid breaking analytics
+          // Note: Using console.warn instead of logger utility as this is a client component
+          // and the logger utility is primarily designed for server-side use
           console.warn("[Analytics] Ignoring click with invalid URL:", link.href, error);
           return;
         }

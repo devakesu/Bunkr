@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
           sanitizedUserProperties[sanitizedKey] = { value: value.slice(0, maxUserPropertyValueLength) };
         } else if (typeof value === 'object' && value !== null && 'value' in value && typeof value.value === 'string') {
           // Already in GA4 format
-          sanitizedUserProperties[sanitizedKey] = { value: String(value.value).slice(0, maxUserPropertyValueLength) };
+          sanitizedUserProperties[sanitizedKey] = { value: value.value.slice(0, maxUserPropertyValueLength) };
         }
       }
     }
