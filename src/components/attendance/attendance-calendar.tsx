@@ -87,7 +87,7 @@ export function AttendanceCalendar({
   attendanceData,
 }: AttendanceCalendarProps) {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<number>(0);
+  const [currentMonth, setCurrentMonth] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<string>("all");
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
@@ -258,19 +258,19 @@ export function AttendanceCalendar({
   const handlePreviousMonth = () => { 
     setCurrentMonth((p) => {
       if (p === 0) {
-        setCurrentYear(y => y !== null ? y - 1 : null);
+        setCurrentYear(y => y! - 1);
         return 11;
       }
-      return p - 1;
+      return p! - 1;
     });
   };
   const handleNextMonth = () => { 
     setCurrentMonth((p) => {
       if (p === 11) {
-        setCurrentYear(y => y !== null ? y + 1 : null);
+        setCurrentYear(y => y! + 1);
         return 0;
       }
-      return p + 1;
+      return p! + 1;
     });
   };
   const goToToday = () => { 
@@ -446,7 +446,7 @@ export function AttendanceCalendar({
   const yearOptions = useMemo(() => Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => 2018 + i), []);
   
   const calendarCells = useMemo(() => {
-    if (!selectedDate || currentYear === null) return [];
+    if (!selectedDate || currentYear === null || currentMonth === null) return [];
     
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDayOfMonth = getFirstDayOfMonth(currentYear, currentMonth);
@@ -495,7 +495,7 @@ export function AttendanceCalendar({
   }, [currentYear, currentMonth, selectedDate, getDaysInMonth, getFirstDayOfMonth, getEventStatus, isSameDay, isToday, monthNames]);
 
   // Show loading state while dates are initializing
-  if (currentYear === null || !selectedDate) {
+  if (currentYear === null || currentMonth === null || !selectedDate) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-[400px]">
@@ -528,9 +528,9 @@ export function AttendanceCalendar({
                 <SelectItem value="otherLeave">Other Leave</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={currentMonth.toString()} onValueChange={(value) => setCurrentMonth(parseInt(value, 10))}>
+            <Select value={currentMonth!.toString()} onValueChange={(value) => setCurrentMonth(parseInt(value, 10))}>
               <SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Select month">
-                <SelectValue>{monthNames[currentMonth]}</SelectValue>
+                <SelectValue>{monthNames[currentMonth!]}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">
                 {monthNames.map((month, index) => (
@@ -540,7 +540,7 @@ export function AttendanceCalendar({
                 ))}
               </SelectContent>
             </Select>
-            <Select value={currentYear.toString()} onValueChange={(value) => { const newYear = parseInt(value, 10); if (newYear >= 2018) setCurrentYear(newYear); }}>
+            <Select value={currentYear!.toString()} onValueChange={(value) => { const newYear = parseInt(value, 10); if (newYear >= 2018) setCurrentYear(newYear); }}>
               <SelectTrigger className="w-[90px] h-9 bg-background/60 border-border/60 text-sm custom-dropdown" aria-label="Select year">
                 <SelectValue>{currentYear}</SelectValue>
               </SelectTrigger>
