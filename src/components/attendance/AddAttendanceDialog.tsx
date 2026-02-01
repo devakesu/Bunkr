@@ -365,11 +365,11 @@ export function AddAttendanceDialog({
   };
 
   // --- CUSTOM CALENDAR LOGIC ---
-  const daysInMonth = currentMonth ? eachDayOfInterval({
+  const daysInMonth = eachDayOfInterval({
     start: startOfMonth(currentMonth),
     end: endOfMonth(currentMonth),
-  }) : [];
-  const startDay = currentMonth ? getDay(startOfMonth(currentMonth)) : 0;
+  });
+  const startDay = getDay(startOfMonth(currentMonth));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
