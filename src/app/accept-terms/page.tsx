@@ -11,8 +11,22 @@ export default function AcceptTermsPage() {
   return (
     <>
       <Toaster richColors position="bottom-right" />
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <div className="w-full max-w-2xl">
+      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+        {/* Animated gradient mesh background */}
+        <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+          {/* Animated gradient orbs */}
+          <div className="absolute top-20 left-20 w-96 h-96 bg-purple-500 rounded-full filter blur-[120px] opacity-50 animate-pulse"></div>
+          <div className="absolute top-40 right-20 w-96 h-96 bg-pink-500 rounded-full filter blur-[120px] opacity-40 animate-pulse [animation-delay:1s]"></div>
+          <div className="absolute bottom-20 left-40 w-96 h-96 bg-blue-500 rounded-full filter blur-[120px] opacity-40 animate-pulse [animation-delay:2s]"></div>
+          <div className="absolute bottom-40 right-40 w-96 h-96 bg-violet-500 rounded-full filter blur-[120px] opacity-35 animate-pulse [animation-delay:3s]"></div>
+          
+          {/* Dot grid pattern */}
+          <div 
+            className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle,_rgba(255,255,255,0.8)_1px,_transparent_1px)] [background-size:50px_50px]"
+          ></div>
+        </div>
+        
+        <div className="w-full max-w-2xl relative z-10">
           <AcceptTermsForm />
         </div>
       </div>

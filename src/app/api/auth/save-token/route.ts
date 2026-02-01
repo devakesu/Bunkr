@@ -14,6 +14,8 @@ import { redact, getClientIp } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { validateCsrfToken } from "@/lib/security/csrf";
 import { setAuthCookie } from "@/lib/security/auth-cookie";
+import { TERMS_VERSION } from "@/app/config/legal";
+import { setTermsVersionCookie } from "@/app/actions/user";
 
 export const dynamic = 'force-dynamic';
 
@@ -88,7 +90,7 @@ async function acquireAuthLock(userId: string): Promise<string | null> {
     
     return result === 'OK' ? lockValue : null;
   } catch (error) {
-    console.error('Failed to acquire auth lock:', error);
+    logger.error('Failed to acquire auth lock:', error);
     Sentry.captureException(error, {
       tags: { type: 'redis_lock_error', location: 'acquire_auth_lock' },
       extra: { userId: redact("id", userId) },
@@ -119,10 +121,10 @@ async function releaseAuthLock(userId: string, lockValue: string): Promise<void>
     
     // Log if lock was already released or taken by another process
     if (result === 0) {
-      console.warn(`Lock for user ${redact("id", userId)} was already released or expired`);
+      logger.warn(`Lock for user ${redact("id", userId)} was already released or expired`);
     }
   } catch (error) {
-    console.error('Failed to release auth lock:', error);
+    logger.error('Failed to release auth lock:', error);
     Sentry.captureException(error, {
       tags: { type: 'redis_lock_error', location: 'release_auth_lock' },
       extra: { userId: redact("id", userId) },
@@ -148,62 +150,67 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 
-  // 2. Rate Limit Check
-  const origin = headerList.get("origin");
-  const host = headerList.get("host");
-  if (!origin || !host) {
-    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-  }
-
-  // Validate that NEXT_PUBLIC_APP_DOMAIN is configured for origin validation
-  const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
-  if (!appDomain?.trim()) {
-    logger.error("NEXT_PUBLIC_APP_DOMAIN is not configured - origin validation cannot proceed");
-    return NextResponse.json(
-      { error: "Server configuration error: security validation unavailable" },
-      { status: 500 }
-    );
-  }
-
-  try {
-    const originHostname = new URL(origin).hostname.toLowerCase();
-    const headerHostname = new URL(`http://${host}`).hostname.toLowerCase();
-    
-    // Ensure the request is same-origin with the Host header
-    if (originHostname !== headerHostname) {
+  // 2. Origin/Host Validation
+  // Note: Rate limiting is performed later in this handler after client IP extraction.
+  // SKIP origin validation in development mode for easier local testing
+  if (process.env.NODE_ENV !== "development") {
+    const origin = headerList.get("origin");
+    const host = headerList.get("host");
+    if (!origin || !host) {
       return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
     }
 
-    // Enforce that the origin matches the configured app domain
-    // SECURITY: NEXT_PUBLIC_APP_DOMAIN must be hostname only (no protocol)
-    // Format enforced in .example.env: "example.com" NOT "https://example.com"
-    // 
-    // However, developers might include ports in development (e.g., "localhost:3000").
-    // Extract hostname to handle this edge case consistently with backend proxy route.
-    const appDomainNormalized = appDomain.trim();
-
-    if (appDomainNormalized.includes("://")) {
-      logger.error("Invalid NEXT_PUBLIC_APP_DOMAIN configuration: value must not include protocol", {
-        appDomain: redact("id", appDomainNormalized),
-      });
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    // Validate that NEXT_PUBLIC_APP_DOMAIN is configured for origin validation
+    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+    if (!appDomain?.trim()) {
+      logger.error("NEXT_PUBLIC_APP_DOMAIN is not configured - origin validation cannot proceed");
+      return NextResponse.json(
+        { error: "Server configuration error: security validation unavailable" },
+        { status: 500 }
+      );
     }
 
-    let appDomainHostname: string;
     try {
-      // Parse as URL to extract hostname (strips port if present)
-      appDomainHostname = new URL(`https://${appDomainNormalized}`).hostname.toLowerCase();
-    } catch {
-      // Fallback: assume it's already a hostname; strip any port if present
-      appDomainHostname = appDomainNormalized.split(":")[0].toLowerCase();
-    }
+      const originHostname = new URL(origin).hostname.toLowerCase();
+      const headerHostname = new URL(`http://${host}`).hostname.toLowerCase();
+      
+      // Ensure the request is same-origin with the Host header
+      if (originHostname !== headerHostname) {
+        return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+      }
 
-    if (originHostname !== appDomainHostname) {
+      // Enforce that the origin matches the configured app domain
+      // SECURITY: NEXT_PUBLIC_APP_DOMAIN must be hostname only (no protocol)
+      // Format enforced in .example.env: "example.com" NOT "https://example.com"
+      // 
+      // However, developers might include ports in development (e.g., "localhost:3000").
+      // Extract hostname to handle this edge case consistently with backend proxy route.
+      const appDomainNormalized = appDomain.trim();
+
+      if (appDomainNormalized.includes("://")) {
+        logger.error("Invalid NEXT_PUBLIC_APP_DOMAIN configuration: value must not include protocol", {
+          appDomain: redact("id", appDomainNormalized),
+        });
+        return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+      }
+
+      let appDomainHostname: string;
+      try {
+        // Parse as URL to extract hostname (strips port if present)
+        appDomainHostname = new URL(`https://${appDomainNormalized}`).hostname.toLowerCase();
+      } catch {
+        // Fallback: assume it's already a hostname; strip any port if present
+        appDomainHostname = appDomainNormalized.split(":")[0].toLowerCase();
+      }
+
+      if (originHostname !== appDomainHostname) {
+        return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+      }
+    } catch {
       return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
     }
-  } catch {
-    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   }
+  
   const ip = getClientIp(headerList);
   if (!ip) {
     const relevantHeaders: Record<string, string | null> = {
@@ -275,7 +282,7 @@ export async function POST(req: Request) {
       }
       
       if (ezygoRes.status !== 200) {
-        console.error("Unexpected Ezygo response status:", ezygoRes.status);
+        logger.error("Unexpected Ezygo response status:", ezygoRes.status);
         Sentry.captureException(new Error(`EzyGo Unexpected Status: ${ezygoRes.status}`), {
              tags: { type: "ezygo_api_error", location: "save_token" },
         });
@@ -287,7 +294,7 @@ export async function POST(req: Request) {
 
       const userValidation = EzygoUserSchema.safeParse(ezygoRes.data);
       if (!userValidation.success) {
-        console.error("Invalid Ezygo response:", userValidation.error);
+        logger.error("Invalid Ezygo response:", userValidation.error);
         Sentry.captureException(userValidation.error, {
             tags: { type: "ezygo_schema_mismatch", location: "save_token" },
             extra: { userId: redact("id", ezygoRes.data.userId) }
@@ -310,7 +317,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
       }
       
-      console.error("Ezygo verification error:", err);
+      logger.error("Ezygo verification error:", err);
       Sentry.captureException(err, { tags: { type: "ezygo_network_error", location: "save_token" }, extra: { userId: redact("id", verifieduserId) } });
       
       return NextResponse.json({ message: "Authentication service error" }, { status: 502 });
@@ -330,7 +337,7 @@ export async function POST(req: Request) {
     const ghostDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
     if (!ghostDomain) {
       const configError = new Error("NEXT_PUBLIC_APP_DOMAIN is not configured");
-      console.error(configError.message);
+      logger.error(configError.message);
       Sentry.captureException(configError, {
         tags: { type: "config_error", location: "save_token" },
       });
@@ -358,7 +365,7 @@ export async function POST(req: Request) {
       lockValue = await acquireAuthLock(lockUserId);
     } catch (error) {
       // Redis error - fail fast
-      console.error('Redis lock service unavailable:', error);
+      logger.error('Redis lock service unavailable:', error);
       return NextResponse.json(
         { message: "Authentication service temporarily unavailable" },
         { status: 503 }
@@ -395,7 +402,7 @@ export async function POST(req: Request) {
 
         if (!targetAuthId) {
           // --- CASE 1: ORPHAN USER (Exists in Auth, missing in DB) ---
-          console.warn(`Orphan Auth User detected for ${redact("id", verifieduserId)}. Initiating exhaustive cleanup...`);
+          logger.warn(`Orphan Auth User detected for ${redact("id", verifieduserId)}. Initiating exhaustive cleanup...`);
           let orphanUserId: string | null = null;
           let page = 1;
           const PER_PAGE = 1000;
@@ -409,7 +416,7 @@ export async function POST(req: Request) {
             });
 
             if (listError) {
-               console.error("Failed to list users during cleanup:", listError);
+               logger.error("Failed to list users during cleanup:", listError);
                throw listError;
             }
 
@@ -449,7 +456,7 @@ export async function POST(req: Request) {
 
           } else {
              const errorMsg = `Critical: 'User already registered' error, but email ${email} not found in Auth scan.`;
-             console.error(errorMsg);
+             logger.error(errorMsg);
              
              // CAPTURE CRITICAL SYNC ERROR
              Sentry.captureException(new Error(errorMsg), {
@@ -513,6 +520,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Encryption failed" }, { status: 500 });
     }
 
+    // First, check if user has already accepted terms in the database
+    const { data: existingUser, error: termsReadError } = await supabaseAdmin
+      .from("users")
+      .select("terms_version, terms_accepted_at")
+      .eq("id", verifieduserId)
+      .maybeSingle();
+
+    if (termsReadError) {
+      logger.error("Failed to read existing terms acceptance during auth save-token flow:", termsReadError);
+      Sentry.captureException(termsReadError, {
+        tags: { type: "terms_precheck_read_failure", location: "save_token" },
+        extra: { userId: redact("id", String(verifieduserId)) },
+      });
+      // Continue without setting the terms cookie; behavior remains the same,
+      // but the failure is now visible for debugging and monitoring.
+    }
+
     const { error: dbError } = await supabaseAdmin
       .from("users")
       .upsert({ 
@@ -527,10 +551,16 @@ export async function POST(req: Request) {
     if (dbError) throw dbError;
     await setAuthCookie(token);
 
+    // If user has already accepted the current terms version in DB, set the cookie
+    // This prevents redirect to /accept-terms when the user has already accepted
+    if (existingUser?.terms_version === TERMS_VERSION && existingUser?.terms_accepted_at) {
+      await setTermsVersionCookie(TERMS_VERSION);
+    }
+
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error("Auth Bridge Failed:", error);
+    logger.error("Auth Bridge Failed:", error);
     
     // Capture Main Failure
     Sentry.captureException(error, {
@@ -552,7 +582,7 @@ export async function POST(req: Request) {
       try {
         await releaseAuthLock(lockUserId, lockValue);
       } catch (releaseError) {
-        console.error("Failed to release auth lock in finally block:", releaseError);
+        logger.error("Failed to release auth lock in finally block:", releaseError);
         Sentry.captureException(releaseError, {
           tags: { type: "auth_lock_release_failure", location: "save_token_finally" },
           extra: { lockUserId: redact("id", lockUserId) },

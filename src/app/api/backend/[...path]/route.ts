@@ -236,7 +236,8 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
 
   // Origin validation for ALL state-changing calls (including public paths like login)
   // This prevents unauthorized sites from making requests, even to public endpoints
-  if (isWrite) {
+  // SKIP in development mode for easier local testing with localhost, tunnels, etc.
+  if (isWrite && process.env.NODE_ENV !== "development") {
     // Validate that NEXT_PUBLIC_APP_DOMAIN is configured
     const allowedHosts = getAllowedHosts();
     if (!allowedHosts) {

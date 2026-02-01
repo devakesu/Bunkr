@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 import {
   Card,
   CardContent,
@@ -171,7 +172,7 @@ export default function DashboardClient() {
         await Promise.all([refetchCourses(), refetchAttendance()]);
 
     } catch (error) {
-        console.error("Settings Update Failed:", error);
+        logger.error("Settings Update Failed:", error);
         
         Sentry.captureException(error, {
             tags: { type: "update_settings_failed", location: "DashboardClient/handleConfirmChange" },
@@ -225,7 +226,7 @@ export default function DashboardClient() {
             // Only refetch data once we confirm the setting is saved
             await Promise.all([refetchCourses(), refetchAttendance()]); 
           } catch (error) {
-            console.error("Failed to set default semester", error);
+            logger.error("Failed to set default semester", error);
             Sentry.captureException(error, {
                 tags: { type: "auto_init_semester", location: "DashboardClient/useEffect/SemesterInitialization" },
                 extra: { 
@@ -256,7 +257,7 @@ export default function DashboardClient() {
             await setAcademicYearMutation.mutateAsync({ default_academic_year: defaultYear });
             await Promise.all([refetchCourses(), refetchAttendance()]);
           } catch (error) {
-             console.error("Failed to set default year", error);
+             logger.error("Failed to set default year", error);
              Sentry.captureException(error, {
                 tags: { type: "auto_init_year", location: "DashboardClient/useEffect/AcademicYearInitialization" },
                 extra: { 
@@ -335,7 +336,7 @@ export default function DashboardClient() {
         } catch (error: any) {
             if (error.name === 'AbortError') return;
 
-            console.error("Background sync failed", error);
+            logger.error("Background sync failed", error);
             
             Sentry.captureException(error, {
                 tags: { type: "background_sync", location: "DashboardClient/useEffect/performSync" },

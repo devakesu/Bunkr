@@ -2,7 +2,7 @@
 // src/lib/security/auth.ts
 import { createClient } from "@/lib/supabase/client";
 import * as Sentry from "@sentry/nextjs";
-import { deleteCookie } from "cookies-next";
+import { logger } from "@/lib/logger";
 
 /**
  * Checks if an error is related to a missing authentication session.
@@ -37,46 +37,122 @@ export const isAuthSessionMissingError = (error: unknown): boolean => {
  * 
  * Process:
  * 1. Sign out from Supabase (server-side session)
- * 2. Clear browser storage (localStorage, sessionStorage)
- * 3. Clear authentication and terms cookies via API
- * 4. Redirect to home page
+ * 2. Clear authentication and terms cookies via API (with CSRF protection)
+ * 3. Redirect to home page
+ * 4. Clear browser storage (localStorage, sessionStorage) in finally block
  * 
  * Error Handling:
  * - Logs errors to Sentry
  * - Forces redirect even on failure to prevent user from being stuck
- * - Best-effort cleanup continues even if individual steps fail
+ * - Client storage cleanup (localStorage/sessionStorage) always happens via finally block
+ * - Best-effort cleanup of server cookies continues even if Supabase signOut fails
+ * 
+ * @param csrfToken - Optional CSRF token for API logout. If not provided, will attempt to retrieve from storage.
  * 
  * @example
  * ```ts
- * await handleLogout();
+ * import { getCsrfToken } from "@/lib/axios";
+ * 
+ * const csrfToken = getCsrfToken();
+ * await handleLogout(csrfToken);
  * // User is redirected to home page with all auth state cleared
  * ```
  */
-export const handleLogout = async () => {
+export const handleLogout = async (csrfToken?: string | null) => {
   const supabase = createClient();
+  // Initialize token with csrfToken to maintain fallback behavior even if dynamic import fails
+  let token: string | null = csrfToken ?? null;
   
   try {
+    // Only import and get CSRF token if not provided to avoid unnecessary module loads
+    if (!csrfToken) {
+      const { getCsrfToken: getToken } = await import("@/lib/axios");
+      token = getToken();
+    }
+    
     // 1. Sign out from Supabase (Server-side session)
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
 
-    // 2. Clear Local Storage (Client-side cache)
-    if (typeof window !== "undefined") {
-        localStorage.clear();
-        sessionStorage.clear();
-    }
-
-    // 3. Clear Cookies
-    await fetch("/api/logout", { method: "POST" }); // Clear auth token
-    deleteCookie("terms_version", { path: '/' }); // Clear legal acceptance
+    // 2. Clear Cookies with CSRF protection
+    let csrfTokenToUse = token;
     
-    // 4. Redirect
+    // If no CSRF token is available, obtain one before logging out
+    if (!csrfTokenToUse) {
+      try {
+        const csrfResponse = await fetch("/api/csrf", {
+          credentials: "same-origin",
+          cache: "no-store"
+        });
+        if (csrfResponse.ok) {
+          const csrfData = await csrfResponse.json();
+          csrfTokenToUse = csrfData.token;
+          logger.info("Obtained CSRF token for logout");
+        } else {
+          logger.error("Failed to obtain CSRF token for logout:", csrfResponse.statusText);
+        }
+      } catch (csrfError) {
+        logger.error("Error obtaining CSRF token for logout:", csrfError);
+      }
+    }
+    
+    // Attempt to call logout API to clear server-side cookies
+    if (csrfTokenToUse) {
+      try {
+        const logoutResponse = await fetch("/api/logout", { 
+          method: "POST",
+          headers: {
+            "x-csrf-token": csrfTokenToUse
+          }
+        });
+        
+        // Retry once on 403 with a fresh CSRF token
+        // 403 typically indicates a stale CSRF token (mismatch between header and cookie)
+        // which justifies retrying with a freshly fetched token
+        if (logoutResponse.status === 403) {
+          logger.warn("Logout received 403 - retrying with fresh CSRF token");
+          try {
+            const csrfResponse = await fetch("/api/csrf", {
+              credentials: "same-origin",
+              cache: "no-store"
+            });
+            if (csrfResponse.ok) {
+              const csrfData = await csrfResponse.json();
+              const freshToken = csrfData.token;
+              
+              const retryResponse = await fetch("/api/logout", {
+                method: "POST",
+                headers: {
+                  "x-csrf-token": freshToken
+                }
+              });
+              
+              if (!retryResponse.ok) {
+                logger.error("Logout API retry failed:", retryResponse.status, retryResponse.statusText);
+              }
+            } else {
+              logger.error("Failed to obtain fresh CSRF token for retry:", csrfResponse.statusText);
+            }
+          } catch (retryError) {
+            logger.error("Error retrying logout with fresh CSRF token:", retryError);
+          }
+        } else if (!logoutResponse.ok) {
+          logger.error("Logout API call failed:", logoutResponse.status, logoutResponse.statusText);
+        }
+      } catch (logoutError) {
+        logger.error("Error calling logout API:", logoutError);
+      }
+    } else {
+      logger.warn("Unable to obtain CSRF token - skipping /api/logout call. Server-side cookies (ezygo_access_token, terms_version, CSRF cookie) will not be cleared and may remain set, requiring explicit re-authentication on next visit.");
+    }
+    
+    // 3. Redirect
     if (typeof window !== "undefined") {
       window.location.href = "/";
     }
 
   } catch (error) {
-    console.error("Logout failed:", error);
+    logger.error("Logout failed:", error);
     
     // Capture the error but don't trap the user
     Sentry.captureException(error, { 
@@ -85,10 +161,45 @@ export const handleLogout = async () => {
 
     // Force redirect anyway so user isn't stuck on a broken page
     if (typeof window !== "undefined") {
-      // Best-effort cleanup of known app cookies; HttpOnly cookies cannot be cleared client-side
-      await fetch("/api/logout", { method: "POST" });
-      deleteCookie("terms_version", { path: '/' });
+      // Best-effort cleanup of known app cookies
+      let fallbackToken = token;
+      
+      // Try to obtain CSRF token if we don't have one
+      if (!fallbackToken) {
+        try {
+          const csrfResponse = await fetch("/api/csrf", {
+            credentials: "same-origin",
+            cache: "no-store"
+          });
+          if (csrfResponse.ok) {
+            const csrfData = await csrfResponse.json();
+            fallbackToken = csrfData.token;
+          }
+        } catch (_csrfError) {
+          // Ignore CSRF fetch errors in error handler
+        }
+      }
+      
+      if (fallbackToken) {
+        try {
+          await fetch("/api/logout", { 
+            method: "POST",
+            headers: {
+              "x-csrf-token": fallbackToken
+            }
+          });
+        } catch (_logoutError) {
+          // Ignore logout errors in error handler
+        }
+      }
       window.location.href = "/";
+    }
+  } finally {
+    // Always clear browser storage regardless of success or failure
+    // This ensures client state is cleared even if Supabase signOut fails
+    if (typeof window !== "undefined") {
+        localStorage.clear();
+        sessionStorage.clear();
     }
   }
 };

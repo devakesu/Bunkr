@@ -114,6 +114,10 @@ export const Navbar = () => {
     await queryClient.invalidateQueries({ queryKey: ["track_data"] });
   };
 
+  const onLogoutClick = async () => {
+    await handleLogout();
+  };
+
   const currentTarget = settings?.target_percentage ?? 75;
   const currentBunkCalc = settings?.bunk_calculator_enabled ?? true;
 
@@ -287,7 +291,11 @@ export const Navbar = () => {
                 aria-label="Open user menu"
               >
                 <Avatar className="h-9 w-9 outline-2 relative">
-                  {profile?.avatar_url ? (
+                  {!profile ? (
+                    <div className="flex h-full w-full items-center justify-center rounded-full bg-muted animate-pulse">
+                      <div className="h-5 w-5 rounded-full bg-muted-foreground/20"></div>
+                    </div>
+                  ) : profile?.avatar_url ? (
                     <Image
                       src={profile.avatar_url}
                       alt={`${user?.username || 'User'} profile picture`}
@@ -298,7 +306,7 @@ export const Navbar = () => {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center rounded-full bg-muted">
-                      <Image src={UserPlaceholder} alt="Default avatar" width={36} height={36} className="object-contain" priority/>
+                      <Image src={UserPlaceholder} alt="Default avatar" width={36} height={36} className="object-contain" priority />
                     </div>
                   )}
                 </Avatar>
@@ -383,7 +391,7 @@ export const Navbar = () => {
               </div>
 
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer" variant="destructive">
+              <DropdownMenuItem onClick={onLogoutClick} className="cursor-pointer" variant="destructive">
                 <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
                 <span>Log out</span>
               </DropdownMenuItem>

@@ -82,9 +82,10 @@ src/
 │   │   ├── tracking/   # Manual attendance tracking interface
 │   │   └── notifications/ # Notification center
 │   ├── (public)/       # Public routes (home, contact, legal pages)
+│   ├── accept-terms/   # Terms acceptance page (authenticated)
 │   ├── actions/        # Server actions (contact, user operations)
 │   ├── api/            # API routes
-│   │   ├── auth/       # NextAuth configuration
+│   │   ├── auth/       # Authentication endpoints
 │   │   ├── backend/    # Backend proxy endpoints
 │   │   ├── cron/       # Scheduled jobs (sync, cleanup)
 │   │   └── health/     # Health check endpoint
@@ -110,7 +111,7 @@ src/
 │   ├── logic/          # Business logic
 │   │   └── bunk.ts     # Attendance calculation algorithm
 │   ├── supabase/       # Supabase client configuration
-│   ├── email.ts        # Email service (Resend)
+│   ├── email.ts        # Email service (Brevo/SendPulse)
 │   ├── crypto.ts       # AES-256-GCM encryption
 │   ├── ratelimit.ts    # Upstash Redis rate limiting
 │   └── utils.ts        # Utility functions
@@ -290,6 +291,39 @@ The application will be available at:
 
 <br />
 
+## ⚡ Performance Optimizations
+
+GhostClass is optimized for maximum performance:
+
+**Code Splitting & Loading Strategy**
+- Next.js App Router automatic route-based code splitting for pages and layouts
+- Lazy loaded Recharts components (XAxis, YAxis, Tooltip, ResponsiveContainer)
+- Lazy loaded Framer Motion with `domAnimation` features only
+
+**Caching Strategy**
+- React Query with smart cache timing:
+  - Profile data: 5min stale time, 30min garbage collection
+  - General queries: 3min stale time, 10min garbage collection
+  - Refetch on window focus disabled
+  - Auto-refetch interval: 15 minutes
+- Static assets: 1-year cache headers for fonts and `_next/static`
+- Next.js Image optimization with AVIF/WebP formats
+
+**Bundle Optimization**
+- Tree-shaking for `lucide-react`, `date-fns`, `framer-motion`
+- Console logging preserved in production (keeps log/error/warn)
+- Font optimization with `display: swap` (prevents FOIT)
+- Priority loading for critical images (logo, avatar)
+- Blur placeholders for instant image feedback
+
+**Development Experience**
+- Turbopack enabled by default (Next.js 15+)
+- Origin validation skipped in dev mode
+- Fast Refresh with React 19
+- No NProgress blur on login page
+
+<br />
+
 ## 🧪 Testing
 
 GhostClass uses **Vitest** for unit/component tests and **Playwright** for E2E tests.
@@ -400,9 +434,12 @@ GhostClass implements multiple layers of security:
 - **CSRF Protection** - Custom token-based CSRF protection on critical endpoints
 - **Rate Limiting** - Upstash Redis-based rate limiting to prevent abuse
 - **Row Level Security** - Supabase RLS policies ensure users only access their data
-- **Secure Headers** - CSP, HSTS, and other security headers configured
+- **Secure Headers** - CSP with nonces, HSTS, X-Frame-Options, and other security headers
 - **Input Validation** - Zod schemas validate all user input
 - **HttpOnly Cookies** - Sensitive data stored in secure, httpOnly cookies
+- **Origin Validation** - Strict origin checking in production (disabled in dev)
+- **Terms Acceptance Flow** - Enforced legal agreement with version tracking
+- **Cloudflare Turnstile** - Bot protection on public endpoints
 
 For detailed security implementation, see [SECURITY.md](docs/SECURITY.md).
 
@@ -457,9 +494,11 @@ docker run -p 3000:3000 --env-file .env ghostclass
 3. ✅ Set up Sentry project for error tracking
 4. ✅ Configure Cloudflare Turnstile
 5. ✅ Set up Redis instance for rate limiting
-6. ✅ Configure email service (Resend)
+6. ✅ Configure email service (Brevo or SendPulse)
 7. ✅ Enable HTTPS with valid SSL certificate
 8. ✅ Set up cron jobs for attendance sync
+9. ✅ Configure legal terms version and effective date
+10. ✅ Set encryption key for secure token storage
 
 <br />
 

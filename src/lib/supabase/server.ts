@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 
 /**
  * Creates a Supabase server client with cookie-based session management.
@@ -49,7 +50,7 @@ export async function createClient() {
             // The 'setAll' method was called from a Server Component.
             // This can be ignored if you have middleware refreshing the session.
             if (process.env.NODE_ENV === 'development') {
-                console.warn(`Supabase cookie set ignored (Server Component context) - This is usually normal. Error: ${error instanceof Error ? error.message : String(error)}`);
+                logger.warn(`Supabase cookie set ignored (Server Component context) - This is usually normal. Error: ${error instanceof Error ? error.message : String(error)}`);
             }
           }
         },

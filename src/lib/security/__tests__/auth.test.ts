@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Create mock functions
 const mockSignOut = vi.fn();
-const mockDeleteCookie = vi.fn();
 const mockCaptureException = vi.fn();
 
 // Mock modules at the top level with factory functions
@@ -14,12 +13,14 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 
-vi.mock('cookies-next', () => ({
-  deleteCookie: (...args: any[]) => mockDeleteCookie(...args),
-}));
-
 vi.mock('@sentry/nextjs', () => ({
   captureException: (...args: any[]) => mockCaptureException(...args),
+}));
+
+// Mock the getCsrfToken function
+const mockGetCsrfToken = vi.fn();
+vi.mock('@/lib/axios', () => ({
+  getCsrfToken: () => mockGetCsrfToken(),
 }));
 
 import { isAuthSessionMissingError, handleLogout } from '../auth';
@@ -89,12 +90,24 @@ describe('handleLogout', () => {
     // Reset all mocks
     mockSignOut.mockReset();
     mockSignOut.mockResolvedValue({ error: null });
-    mockDeleteCookie.mockClear();
     mockCaptureException.mockClear();
+    mockGetCsrfToken.mockClear();
+    
+    // Default: return a valid CSRF token
+    mockGetCsrfToken.mockReturnValue('test-csrf-token');
 
     // Mock fetch - capture original and replace with mock
+    // Default mock returns success for both /api/csrf and /api/logout
     originalFetch = global.fetch;
-    global.fetch = vi.fn().mockResolvedValue({ ok: true }) as any;
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/csrf') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ token: 'mock-csrf-token' })
+        });
+      }
+      return Promise.resolve({ ok: true });
+    }) as any;
 
     // Mock window and storage
     mockLocalStorage = {
@@ -187,14 +200,26 @@ describe('handleLogout', () => {
     expect(mockSessionStorage.clear).toHaveBeenCalled();
   });
 
-  it('should call logout API endpoint', async () => {
+  it('should obtain CSRF token from getCsrfToken() and call logout API endpoint', async () => {
     await handleLogout();
-    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { method: 'POST' });
+    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
+      method: 'POST',
+      headers: {
+        'x-csrf-token': 'test-csrf-token'
+      }
+    });
   });
 
-  it('should delete terms_version cookie', async () => {
+  it('should trigger server-side cookie clearing via /api/logout', async () => {
     await handleLogout();
-    expect(mockDeleteCookie).toHaveBeenCalledWith('terms_version', { path: '/' });
+    // Note: terms_version cookie deletion is now handled server-side via /api/logout
+    // Client-side deletion was removed as it's httpOnly
+    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
+      method: 'POST',
+      headers: {
+        'x-csrf-token': 'test-csrf-token'
+      }
+    });
   });
 
   it('should redirect to home page after successful logout', async () => {
@@ -208,22 +233,17 @@ describe('handleLogout', () => {
     await handleLogout();
 
     // Should still attempt cleanup
-    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { method: 'POST' });
-    expect(mockDeleteCookie).toHaveBeenCalledWith('terms_version', { path: '/' });
+    expect(global.fetch).toHaveBeenCalledWith('/api/logout', { 
+      method: 'POST',
+      headers: {
+        'x-csrf-token': 'test-csrf-token'
+      }
+    });
     expect(global.window.location.href).toBe('/');
     expect(mockCaptureException).toHaveBeenCalled();
   });
 
-  it('should not clear storage when signOut throws before reaching cleanup', async () => {
-    mockSignOut.mockRejectedValue(new Error('Network error'));
-    
-    await handleLogout();
 
-    // Storage clearing code is in try block after signOut, so if signOut throws
-    // it never reaches the storage clearing code
-    expect(mockLocalStorage.clear).not.toHaveBeenCalled();
-    expect(mockSessionStorage.clear).not.toHaveBeenCalled();
-  });
 
   it('should log error to Sentry when logout fails', async () => {
     const testError = new Error('Test error');
@@ -260,5 +280,48 @@ describe('handleLogout', () => {
     // Should redirect even on error
     await handleLogout();
     expect(global.window.location.href).toBe('/');
+  });
+  
+  it('should handle CSRF token fetch failure gracefully', async () => {
+    // Mock getCsrfToken to return null (no initial token)
+    mockGetCsrfToken.mockReturnValue(null);
+    
+    // Mock CSRF fetch to fail
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/csrf') {
+        return Promise.resolve({
+          ok: false,
+          statusText: 'Internal Server Error'
+        });
+      }
+      return Promise.resolve({ ok: true });
+    }) as any;
+    
+    await handleLogout();
+    
+    // Should still redirect despite CSRF failure
+    expect(global.window.location.href).toBe('/');
+    // Should NOT call /api/logout without token
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/logout', expect.anything());
+  });
+  
+  it('should handle CSRF token fetch exception gracefully', async () => {
+    // Mock getCsrfToken to return null (no initial token)
+    mockGetCsrfToken.mockReturnValue(null);
+    
+    // Mock CSRF fetch to throw
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/csrf') {
+        return Promise.reject(new Error('Network error'));
+      }
+      return Promise.resolve({ ok: true });
+    }) as any;
+    
+    await handleLogout();
+    
+    // Should still redirect despite CSRF failure
+    expect(global.window.location.href).toBe('/');
+    // Should NOT call /api/logout without token
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/logout', expect.anything());
   });
 });

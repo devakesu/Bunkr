@@ -34,6 +34,10 @@ export function Loading() {
     return () => clearTimeout(timer);
   }, []);
 
+  const handleLogoutClick = async () => {
+    await handleLogout();
+  };
+
   return (
     <div 
       className="flex flex-col items-center justify-center min-h-screen w-full gap-8 p-8"
@@ -68,7 +72,7 @@ export function Loading() {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
             className="gap-2"
             aria-label="Sign out and return to login page"
           >

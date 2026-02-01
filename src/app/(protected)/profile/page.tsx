@@ -1,6 +1,5 @@
 import { Metadata } from "next";
-import ProfileClient from "./ProfileClient"; 
-
+import ProfileClient from "./ProfileClient";
 export const metadata: Metadata = {
   title: "Profile",
   robots: {

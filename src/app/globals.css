@@ -232,11 +232,11 @@ body {
   transition: backdrop-filter 0.2s ease;
 }
 
-body:has(#nprogress) {
+body:has(#nprogress):not(:has(.login-page)) {
   backdrop-filter: blur(4px);
 }
 
-body:has(#nprogress) > * {
+body:has(#nprogress):not(:has(.login-page)) > * {
   filter: blur(3px);
   transition: filter 0.2s ease;
 }

@@ -81,7 +81,7 @@ export async function GET(req: Request) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (!appUrl) {
     const error = new Error("NEXT_PUBLIC_APP_URL is not set");
-    console.error(error);
+    logger.error(error);
     Sentry.captureException(error, { tags: { type: "config_error", location: "cron/sync" } });
     return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
@@ -150,7 +150,7 @@ export async function GET(req: Request) {
         else query = query.order("last_synced_at", { ascending: true, nullsFirst: true }).limit(BATCH_SIZE);
         const { data, error } = await query;
         if (error) {
-          console.error("Failed to fetch users for sync:", error);
+          logger.error("Failed to fetch users for sync:", error);
           Sentry.captureException(error, { tags: { type: "db_query_error", location: "api/cron/sync", auth: "cron" } });
           return NextResponse.json({ error: "Failed to fetch users for sync" }, { status: 500 });
         }
@@ -161,7 +161,7 @@ export async function GET(req: Request) {
         if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         const { data, error } = await supabaseAdmin.from("users").select("username, email, ezygo_token, ezygo_iv, auth_id").eq("auth_id", user.id).not("ezygo_token", "is", null);
         if (error) {
-          console.error("Failed to fetch users for sync:", error);
+          logger.error("Failed to fetch users for sync:", error);
           Sentry.captureException(error, { tags: { type: "db_query_error", location: "api/cron/sync", auth: "user" } });
           return NextResponse.json({ error: "Failed to fetch users for sync" }, { status: 500 });
         }
@@ -354,7 +354,7 @@ export async function GET(req: Request) {
                 return userStats;
 
             } catch (err: any) {
-                console.error(`Sync failed for ${user.username}:`, err.message);
+                logger.error(`Sync failed for ${user.username}:`, err.message);
                 userStats.errors++;
 
                 // CAPTURE INDIVIDUAL USER FAILURES
@@ -430,7 +430,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: successFlag, ...finalResults }, { status: statusCode });
   } catch (error: any) {
-    console.error("Cron Error:", error);
+    logger.error("Cron Error:", error);
     
     // CAPTURE GLOBAL CRON CRASH
     Sentry.captureException(error, {

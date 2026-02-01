@@ -4,6 +4,7 @@ import { User } from "@/types";
 import { useFetchAcademicYear, useFetchSemester } from "../users/settings";
 import * as Sentry from "@sentry/nextjs";
 import { redact } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 export function useTrackingCount(user: User | null | undefined) {
   const supabase = createClient();
@@ -29,7 +30,7 @@ export function useTrackingCount(user: User | null | undefined) {
         .eq("year", academicYearData);
 
       if (error) {
-        console.error("Error fetching count:", error);
+        logger.error("Error fetching count:", error);
         
         Sentry.captureException(error, { 
             tags: { type: "tracking_count_fetch_error", location: "useTrackingCount/queryFn" },

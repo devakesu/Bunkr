@@ -92,7 +92,7 @@ async function getSendPulseToken() {
     });
     return res.data.access_token;
   } catch (error) {
-    console.error("Failed to get SendPulse token", error);
+    logger.error("Failed to get SendPulse token", error);
     throw new Error("SendPulse Auth Failed");
   }
 }

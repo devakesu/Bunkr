@@ -59,6 +59,24 @@ export async function acceptTermsAction(version: string) {
 
   if (error) throw new Error(error.message);
   
+  // Set the cookie using shared utility
+  await setTermsVersionCookie(version);
+  
+  // Revalidate multiple paths to ensure Next.js cache is updated before redirect
+  // This helps prevent race conditions where middleware might not see the cookie immediately
+  revalidatePath("/dashboard");
+  revalidatePath("/accept-terms");
+  revalidatePath("/", "layout"); // Revalidate the root layout to ensure middleware gets fresh data
+}
+
+/**
+ * Sets the terms_version cookie.
+ * Shared utility for setting the cookie after terms acceptance or during login
+ * when terms have already been accepted in the database.
+ * 
+ * @param version - The terms version to set in the cookie
+ */
+export async function setTermsVersionCookie(version: string): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set({
     name: "terms_version",
@@ -69,12 +87,6 @@ export async function acceptTermsAction(version: string) {
     secure: process.env.NODE_ENV === "production",
     httpOnly: true, // Secure cookie - checked server-side in proxy.ts
   });
-  
-  // Revalidate multiple paths to ensure Next.js cache is updated before redirect
-  // This helps prevent race conditions where middleware might not see the cookie immediately
-  revalidatePath("/dashboard");
-  revalidatePath("/accept-terms");
-  revalidatePath("/", "layout"); // Revalidate the root layout to ensure middleware gets fresh data
 }
 
 /**

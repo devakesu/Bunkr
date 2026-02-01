@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { Trash2, AlertTriangle, Loader2 } from "lucide-react";
@@ -20,37 +19,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useQueryClient } from "@tanstack/react-query";
+import { handleLogout } from "@/lib/security/auth";
 
 export function DeleteAccount() {
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmation, setConfirmation] = useState("");
-  const router = useRouter();
   const supabase = createClient();
   const queryClient = useQueryClient();
   
   const handleDelete = async () => {
-    const clearCookie = (name: string) => {
-      document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
-    };
     if (confirmation !== "DELETE") return;
     
     setIsDeleting(true);
     try {
+      // Delete account data from database
       const { error } = await supabase.rpc('delete_user_account');
 
       if (error) throw error;
+      
       toast.success("Account deleted successfully");
 
+      // Clear React Query cache
       queryClient.clear();
       
-      await supabase.auth.signOut();
-      localStorage.clear();
-      clearCookie("terms_version");
-      clearCookie("ezygo_access_token");
-
-      router.push("/");
-      router.refresh();
+      // Use centralized logout logic (handles auth, storage, cookies, redirect)
+      // handleLogout will lazy-load CSRF token handling when needed
+      await handleLogout();
       
     } catch (error: any) {
       toast.error(error.message || "Failed to delete account");
