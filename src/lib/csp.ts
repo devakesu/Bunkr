@@ -126,9 +126,10 @@ export const getCspHeader = (nonce?: string) => {
   
   // script-src-elem: Controls <script> elements specifically
   // Separate from script-src, which uses nonce + 'strict-dynamic' for dynamically loaded scripts
-  // script-src-elem cannot use 'strict-dynamic', so we explicitly allow host-based sources like Cloudflare CDN
-  // Cloudflare injects scripts via /cdn-cgi/ path for email obfuscation and security features
-  // Also includes hashes for specific inline scripts from libraries
+  // Here we intentionally avoid 'strict-dynamic' and instead rely on explicit host allowlisting
+  // so that third-party scripts from Cloudflare and Google Tag Manager can load. In CSP3-compliant
+  // browsers, combining 'strict-dynamic' with host-based sources would cause those host-based
+  // sources to be ignored. Also includes hashes for specific inline scripts from libraries.
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
   const scriptSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
