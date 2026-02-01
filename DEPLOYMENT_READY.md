@@ -48,7 +48,7 @@ grep -r "google-analytics\|googletagmanager" src/lib/csp.ts
 #### Implementation:
 - ✅ Server-side GA4 Measurement Protocol
 - ✅ Client component with event tracking
-- ✅ Rate limiting (100 events/min per IP)
+- ✅ Rate limiting (default 60 events/min per IP, configurable via environment variables)
 - ✅ 6 auto-tracked event types:
   1. Page views (all routes)
   2. Scroll depth (25%, 50%, 75%, 90%)

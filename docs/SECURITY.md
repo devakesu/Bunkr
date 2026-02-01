@@ -176,7 +176,7 @@ To avoid CSP issues with Google Analytics, we use **GA4 Measurement Protocol** f
 - ✅ Better privacy (server-side tracking)
 - ✅ Ad-blocker resistant
 - ✅ Full GA4 feature parity
-- ✅ Rate-limited API endpoint (100 events/min per IP)
+- ✅ Rate-limited API endpoint (default 60 events/min per IP, configurable via environment variables)
 
 **Implementation:**
 - Client: `<AnalyticsTracker />` component tracks events automatically

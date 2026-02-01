@@ -63,9 +63,14 @@ export function AnalyticsTracker() {
   useEffect(() => {
     // Enhanced measurement: Scroll depth tracking
     const handleScroll = () => {
-      const scrollPercent = Math.round(
-        (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100
-      );
+      const maxScrollable = document.documentElement.scrollHeight - window.innerHeight;
+      
+      // If there is no scrollable content, skip scroll depth tracking
+      if (maxScrollable <= 0) {
+        return;
+      }
+
+      const scrollPercent = Math.round((window.scrollY / maxScrollable) * 100);
 
       const thresholds = [25, 50, 75, 90];
       for (const threshold of thresholds) {
