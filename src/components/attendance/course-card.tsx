@@ -97,7 +97,7 @@ export function CourseCard({ course }: CourseCardProps) {
     // 1. Official Data (From API) - Use course prop as fallback for initial render
     const realPresent = courseDetails?.present ?? course.present ?? 0;
     const realTotal = courseDetails?.total ?? course.total ?? 0;
-    const realAbsent = courseDetails?.absent ?? 0;
+    const realAbsent = courseDetails?.absent ?? Math.max(realTotal - realPresent, 0);
     const officialPercentage = realTotal > 0 ? (realPresent / realTotal) * 100 : 0;
     
     // 2. Filter Tracking Data (Local Calculation Backup)
