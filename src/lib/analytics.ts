@@ -26,7 +26,7 @@ interface GA4PageView {
 export async function trackGA4Event(
   clientId: string,
   events: GA4Event[],
-  userProperties?: Record<string, any>
+  userProperties?: Record<string, { value: string }>
 ) {
   if (!GA_MEASUREMENT_ID || !GA_API_SECRET) {
     logger.warn("[GA4] Measurement ID or API Secret not configured");
@@ -45,6 +45,12 @@ export async function trackGA4Event(
       user_properties: userProperties,
     };
 
+    // Note: GA_API_SECRET is included in the URL query string as per GA4 Measurement Protocol specification.
+    // While this means the secret may be logged by proxies, load balancers, or monitoring tools,
+    // this is the documented approach for the GA4 Measurement Protocol API.
+    // The API secret provides minimal security value as it's intended for spam prevention, not authentication.
+    // For improved security in production environments, ensure logging/monitoring solutions are configured
+    // to not log full URLs for this endpoint, or consider using a reverse proxy to strip query parameters.
     const response = await fetch(
       `https://www.google-analytics.com/mp/collect?measurement_id=${GA_MEASUREMENT_ID}&api_secret=${GA_API_SECRET}`,
       {

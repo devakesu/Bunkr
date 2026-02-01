@@ -102,8 +102,35 @@ export async function POST(req: NextRequest) {
       };
     });
 
+    // Validate and sanitize userProperties
+    let sanitizedUserProperties: Record<string, { value: string }> | undefined;
+    if (userProperties !== undefined && userProperties !== null) {
+      if (typeof userProperties !== 'object' || Array.isArray(userProperties)) {
+        return NextResponse.json(
+          { error: "Invalid userProperties format" },
+          { status: 400 }
+        );
+      }
+      
+      sanitizedUserProperties = {};
+      const maxUserPropertyKeyLength = 24; // GA4 limit
+      const maxUserPropertyValueLength = 36; // GA4 limit
+      
+      for (const [key, value] of Object.entries(userProperties)) {
+        const sanitizedKey = key.slice(0, maxUserPropertyKeyLength);
+        
+        // Only allow string values for user properties (GA4 requirement)
+        if (typeof value === 'string') {
+          sanitizedUserProperties[sanitizedKey] = { value: value.slice(0, maxUserPropertyValueLength) };
+        } else if (typeof value === 'object' && value !== null && 'value' in value && typeof value.value === 'string') {
+          // Already in GA4 format
+          sanitizedUserProperties[sanitizedKey] = { value: value.value.slice(0, maxUserPropertyValueLength) };
+        }
+      }
+    }
+
     // Send to GA4
-    await trackGA4Event(clientId, sanitizedEvents, userProperties);
+    await trackGA4Event(clientId, sanitizedEvents, sanitizedUserProperties);
 
     return NextResponse.json({ success: true });
   } catch (error) {
