@@ -14,11 +14,19 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   const [isHidden, setIsHidden] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const { scrollY } = useScroll();
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
   
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional for hydration fix
+    setIsMounted(true);
+  }, []);
+  
+  useEffect(() => {
+    if (!isMounted) return;
+    
     const unsubscribe = scrollY.on("change", (latest) => {
       if (!ticking.current) {
         window.requestAnimationFrame(() => {
@@ -44,7 +52,7 @@ export default function PublicLayout({
     return () => {
       unsubscribe();
     };
-  }, [scrollY, isHidden]);
+  }, [scrollY, isHidden, isMounted]);
   return (
     <ErrorBoundary>
       <div className="flex min-h-screen flex-col">

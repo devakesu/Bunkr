@@ -86,13 +86,38 @@ const getNormalizedSession = (s: string | number) => parseInt(normalizeSession(s
 export function AttendanceCalendar({
   attendanceData,
 }: AttendanceCalendarProps) {
-  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
-  const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [currentYear, setCurrentYear] = useState<number | null>(null);
+  const [currentMonth, setCurrentMonth] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<string>("all");
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<string | null>(null);
   const clickedButtons = useRef<Set<string>>(new Set());
+
+  // Initialize dates on mount to avoid hydration mismatch
+  useEffect(() => {
+    try {
+      const dateSelected = sessionStorage.getItem("selected_date");
+      if (dateSelected) {
+        const parsedDate = new Date(dateSelected);
+        setSelectedDate(parsedDate);
+        setCurrentMonth(parsedDate.getMonth());
+        setCurrentYear(parsedDate.getFullYear());
+      } else {
+        const now = new Date();
+        setCurrentYear(now.getFullYear());
+        setCurrentMonth(now.getMonth());
+        setSelectedDate(now);
+      }
+    } catch (error) {
+      // Fallback if sessionStorage is unavailable or throws
+      Sentry.captureException(error);
+      const now = new Date();
+      setCurrentYear(now.getFullYear());
+      setCurrentMonth(now.getMonth());
+      setSelectedDate(now);
+    }
+  }, []);
 
   const { data: semester } = useFetchSemester();
   const { data: year } = useFetchAcademicYear();
@@ -115,16 +140,6 @@ export function AttendanceCalendar({
     };
 
     getAuthId();
-  }, []);
-
-  useEffect(() => {
-    const dateSelected = sessionStorage.getItem("selected_date");
-    if (dateSelected) {
-      const parsedDate = new Date(dateSelected);
-      setSelectedDate(parsedDate);
-      setCurrentMonth(parsedDate.getMonth());
-      setCurrentYear(parsedDate.getFullYear());
-    }
   }, []);
 
   const formatDateForDB = (date: Date): string => {
@@ -249,9 +264,44 @@ export function AttendanceCalendar({
     return events;
   }, [attendanceData, coursesData]);
 
-  const handlePreviousMonth = () => { setCurrentMonth((p) => p === 0 ? 11 : p - 1); if(currentMonth === 0) setCurrentYear(y => y-1); };
-  const handleNextMonth = () => { setCurrentMonth((p) => p === 11 ? 0 : p + 1); if(currentMonth === 11) setCurrentYear(y => y+1); };
-  const goToToday = () => { const t = new Date(); setCurrentYear(t.getFullYear()); setCurrentMonth(t.getMonth()); setSelectedDate(t); };
+  const handlePreviousMonth = () => { 
+    // If the calendar is still initializing, provide feedback instead of appearing unresponsive
+    if (currentMonth === null || currentYear === null) {
+      toast.info("Calendar is still loading. Please wait...");
+      return;
+    }
+
+    setCurrentMonth((p) => {
+      if (p === null) return p;
+      if (p === 0) {
+        setCurrentYear((y) => (y === null ? y : y - 1));
+        return 11;
+      }
+      return p - 1;
+    });
+  };
+  const handleNextMonth = () => { 
+    // If the calendar is still initializing, provide feedback instead of appearing unresponsive
+    if (currentMonth === null || currentYear === null) {
+      toast.info("Calendar is still loading. Please wait...");
+      return;
+    }
+
+    setCurrentMonth((p) => {
+      if (p === null) return p;
+      if (p === 11) {
+        setCurrentYear((y) => (y === null ? y : y + 1));
+        return 0;
+      }
+      return p + 1;
+    });
+  };
+  const goToToday = () => { 
+    const t = new Date(); 
+    setCurrentYear(t.getFullYear()); 
+    setCurrentMonth(t.getMonth()); 
+    setSelectedDate(t); 
+  };
   
   const getDaysInMonth = useCallback((year: number, month: number) => new Date(year, month + 1, 0).getDate(), []);
   const getFirstDayOfMonth = useCallback((year: number, month: number) => new Date(year, month, 1).getDay(), []);
@@ -299,6 +349,8 @@ export function AttendanceCalendar({
 
   // --- 2. MERGE LOGIC ---
   const selectedDateEvents = useMemo(() => {
+    if (!selectedDate) return [];
+    
     const dbDateStr = formatDateForDB(selectedDate);
     const dayOfficialsRaw = rawEvents.filter((event) => isSameDay(event.date, selectedDate));
     
@@ -417,6 +469,8 @@ export function AttendanceCalendar({
   const yearOptions = useMemo(() => Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => 2018 + i), []);
   
   const calendarCells = useMemo(() => {
+    if (!selectedDate || currentYear === null || currentMonth === null) return [];
+    
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDayOfMonth = getFirstDayOfMonth(currentYear, currentMonth);
     const leadingEmptyCells = Array(firstDayOfMonth).fill(null).map((_, index) => <div key={`empty-leading-${index}`} className="h-10 w-full" />);
@@ -463,6 +517,24 @@ export function AttendanceCalendar({
     return [...leadingEmptyCells, ...dayCells];
   }, [currentYear, currentMonth, selectedDate, getDaysInMonth, getFirstDayOfMonth, getEventStatus, isSameDay, isToday, monthNames]);
 
+  // Show loading state while dates are initializing
+  if (currentYear === null || currentMonth === null || !selectedDate) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-[400px]">
+          <div className="text-muted-foreground">Loading calendar...</div>
+        </Card>
+        <Card className="border border-border/40 custom-container">
+          <CardContent className="p-6">
+            <div className="text-muted-foreground">Loading details...</div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // After the null check above, we know currentMonth and currentYear are not null
+  // Using non-null assertions here is safe because the early return prevents execution if they're null
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col">
@@ -481,9 +553,9 @@ export function AttendanceCalendar({
                 <SelectItem value="otherLeave">Other Leave</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={currentMonth.toString()} onValueChange={(value) => setCurrentMonth(parseInt(value, 10))}>
+            <Select value={currentMonth!.toString()} onValueChange={(value) => setCurrentMonth(parseInt(value, 10))}>
               <SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Select month">
-                <SelectValue>{monthNames[currentMonth]}</SelectValue>
+                <SelectValue>{monthNames[currentMonth!]}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">
                 {monthNames.map((month, index) => (
@@ -493,7 +565,7 @@ export function AttendanceCalendar({
                 ))}
               </SelectContent>
             </Select>
-            <Select value={currentYear.toString()} onValueChange={(value) => { const newYear = parseInt(value, 10); if (newYear >= 2018) setCurrentYear(newYear); }}>
+            <Select value={currentYear!.toString()} onValueChange={(value) => { const newYear = parseInt(value, 10); if (newYear >= 2018) setCurrentYear(newYear); }}>
               <SelectTrigger className="w-[90px] h-9 bg-background/60 border-border/60 text-sm custom-dropdown" aria-label="Select year">
                 <SelectValue>{currentYear}</SelectValue>
               </SelectTrigger>

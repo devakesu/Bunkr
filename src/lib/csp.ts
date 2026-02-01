@@ -107,6 +107,10 @@ export const getCspHeader = (nonce?: string) => {
   // - 'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs=' 
   //   → Additional library inline styles (possibly Framer Motion or shadcn/ui)
   //   → Used for animation transitions and component styling
+  //
+  // - 'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='
+  //   → Login page or authentication component inline styles
+  //   → Used for form animations or transitions
   const styleSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
     : [
@@ -116,8 +120,36 @@ export const getCspHeader = (nonce?: string) => {
         "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='", // Empty string
         "'sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk='", // Recharts
         "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='", // Next.js/React hydration
-        "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='"  // Animation libraries
+        "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='", // Animation libraries
+        "'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='"  // Login/auth inline styles
       ];
+  
+  // script-src-elem: Controls <script> elements specifically
+  // Separate from script-src to allow host-based allowlisting even with 'strict-dynamic'
+  // Cloudflare injects scripts via /cdn-cgi/ path for email obfuscation and security features
+  const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+  const scriptSrcElemParts = isDev
+    ? ["'self'", "'unsafe-inline'"]
+    : (() => {
+        const parts = [
+          "'self'",
+          `'nonce-${nonce}'`,
+          "'strict-dynamic'",
+          "https://www.googletagmanager.com",
+          "https://challenges.cloudflare.com",
+          "https://static.cloudflareinsights.com",
+        ];
+
+        if (appDomain) {
+          parts.push(`https://${appDomain}/cdn-cgi/`); // Cloudflare CDN scripts
+        } else {
+          logger.warn(
+            "[CSP] NEXT_PUBLIC_APP_DOMAIN is not set; skipping Cloudflare /cdn-cgi/ script allowlist entry in script-src-elem."
+          );
+        }
+
+        return parts;
+      })();
   
   // style-src-attr: Controls inline style attributes (e.g., <div style="color: red;">)
   // Recharts and Sonner use inline style attributes for positioning/animations
@@ -136,12 +168,14 @@ export const getCspHeader = (nonce?: string) => {
         "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='", // Empty string
         "'sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk='", // Recharts
         "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='", // Next.js/React hydration
-        "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='"  // Animation libraries
+        "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='", // Animation libraries
+        "'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='"  // Login/auth inline styles
       ];
 
   return `
     default-src 'self';
     script-src ${scriptSrcParts.join(" ")};
+    script-src-elem ${scriptSrcElemParts.join(" ")};
     style-src ${styleSrcParts.join(" ")};
     style-src-elem ${styleSrcElemParts.join(" ")};${styleSrcAttrDirective ? `\n    ${styleSrcAttrDirective}` : ''}
     img-src 'self' blob: data: ${supabaseOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.google.co.in https://*.doubleclick.net;

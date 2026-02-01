@@ -589,6 +589,15 @@ The following package overrides are in place as defense-in-depth measures to ens
    - **Type:** Transitive dependency override (brought in by other packages)
    - **Tracking:** Any future vulnerabilities will be tracked in GitHub issues with the `tar` label
 
+4. **glob: ^11.0.0**
+   - **Reason:** Upgrades all instances of glob to the latest major version (v11) to ensure security fixes and remove deprecated dependencies
+   - **CVE / Advisory:** No specific CVE, but older glob versions (v7, v10) depend on deprecated packages like `inflight`
+   - **Severity:** Low (proactive upgrade to maintained version)
+   - **Impact:** Major version upgrade with API compatibility for most consumers; validated across our dependency tree. This upgrade successfully removes deprecated dependencies including `inflight`, `once`, `wrappy`, `fs.realpath`, and `path-is-absolute` from the dependency tree.
+   - **Validation:** Changes have been validated by running the full test suite and `npm audit` shows no vulnerabilities
+   - **Type:** Transitive dependency override (brought in by various build tools and packages)
+   - **Tracking:** Any future vulnerabilities will be tracked in GitHub issues with the `glob` label
+
 **Verification:** Run `npm audit` to verify no known vulnerabilities exist in the current dependency tree.
 
 #### Maintenance Process

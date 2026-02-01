@@ -78,7 +78,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingPage, setIsLoadingPage] = useState(true);
+  const [isLoadingPage, setIsLoadingPage] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordResetForm, setShowPasswordResetForm] = useState(false);
   const [loginMethod, setLoginMethod] = useState<
@@ -115,6 +115,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     let isMounted = true;
     
     const checkUser = async () => {
+      setIsLoadingPage(true);
       const supabase = createClient();
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
@@ -235,6 +236,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     },
   };
 
+  // Show loading only when the page is in a loading state
   if (isLoadingPage) return <Loading />;
 
   if (showPasswordResetForm) {

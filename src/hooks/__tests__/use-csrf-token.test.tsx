@@ -275,9 +275,7 @@ describe('useCSRFToken', () => {
     // - First call: null (no existing token)
     // - Second call (after wait): null (other component failed)
     // - Third call: still null before retry
-    let getCsrfCallCount = 0
     vi.mocked(axiosModule.getCsrfToken).mockImplementation(() => {
-      getCsrfCallCount++
       return null
     })
 
