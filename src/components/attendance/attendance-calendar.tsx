@@ -86,13 +86,21 @@ const getNormalizedSession = (s: string | number) => parseInt(normalizeSession(s
 export function AttendanceCalendar({
   attendanceData,
 }: AttendanceCalendarProps) {
-  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
-  const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [currentYear, setCurrentYear] = useState<number>(0);
+  const [currentMonth, setCurrentMonth] = useState<number>(0);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<string>("all");
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<string | null>(null);
   const clickedButtons = useRef<Set<string>>(new Set());
+
+  // Initialize dates on mount to avoid hydration mismatch
+  useEffect(() => {
+    const now = new Date();
+    setCurrentYear(now.getFullYear());
+    setCurrentMonth(now.getMonth());
+    setSelectedDate(now);
+  }, []);
 
   const { data: semester } = useFetchSemester();
   const { data: year } = useFetchAcademicYear();
@@ -299,6 +307,8 @@ export function AttendanceCalendar({
 
   // --- 2. MERGE LOGIC ---
   const selectedDateEvents = useMemo(() => {
+    if (!selectedDate) return [];
+    
     const dbDateStr = formatDateForDB(selectedDate);
     const dayOfficialsRaw = rawEvents.filter((event) => isSameDay(event.date, selectedDate));
     
@@ -417,6 +427,8 @@ export function AttendanceCalendar({
   const yearOptions = useMemo(() => Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => 2018 + i), []);
   
   const calendarCells = useMemo(() => {
+    if (!selectedDate) return [];
+    
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDayOfMonth = getFirstDayOfMonth(currentYear, currentMonth);
     const leadingEmptyCells = Array(firstDayOfMonth).fill(null).map((_, index) => <div key={`empty-leading-${index}`} className="h-10 w-full" />);
@@ -462,6 +474,22 @@ export function AttendanceCalendar({
     });
     return [...leadingEmptyCells, ...dayCells];
   }, [currentYear, currentMonth, selectedDate, getDaysInMonth, getFirstDayOfMonth, getEventStatus, isSameDay, isToday, monthNames]);
+
+  // Show loading state while dates are initializing
+  if (currentYear === 0 || currentMonth === 0 || !selectedDate) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-[400px]">
+          <div className="text-muted-foreground">Loading calendar...</div>
+        </Card>
+        <Card className="border border-border/40 custom-container">
+          <CardContent className="p-6">
+            <div className="text-muted-foreground">Loading details...</div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

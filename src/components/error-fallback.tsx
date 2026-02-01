@@ -25,6 +25,12 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
   const isDevelopment = process.env.NODE_ENV === "development";
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional for hydration fix
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -160,7 +166,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
             Report Error
           </Button>
 
-          {isLoggedIn && (
+          {isMounted && isLoggedIn && (
             <Button
               onClick={handleLogoutClick}
               size="lg"

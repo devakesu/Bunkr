@@ -112,7 +112,7 @@ export function AddAttendanceDialog({
 }: AddAttendanceDialogProps) {
 
   // --- STATE ---
-  const [date, setDate] = useState<Date>(new Date());
+  const [date, setDate] = useState<Date | undefined>(undefined);
   const [session, setSession] = useState<string>("");
   const [courseId, setCourseId] = useState<string>("");
   const [statusType, setStatusType] = useState<"Present" | "Absent" | "Duty Leave">("Present");
@@ -120,7 +120,14 @@ export function AddAttendanceDialog({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   // Custom Calendar State
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [currentMonth, setCurrentMonth] = useState<Date | undefined>(undefined);
+
+  // Initialize dates on mount to avoid hydration mismatch
+  useEffect(() => {
+    const now = new Date();
+    setDate(now);
+    setCurrentMonth(now);
+  }, []);
 
   const getDateKey = (d: Date) => normalizeDate(d);
 
@@ -153,7 +160,7 @@ export function AddAttendanceDialog({
 
   // 2. VALIDATE CURRENT DATE ON OPEN
   useEffect(() => {
-    if (open && semesterBounds.min && semesterBounds.max) {
+    if (open && date && semesterBounds.min && semesterBounds.max) {
       if (isBefore(date, semesterBounds.min)) {
         const newDate = semesterBounds.min;
         setDate(newDate);
@@ -168,7 +175,7 @@ export function AddAttendanceDialog({
 
   // --- 3. SMART DEFAULTS (Occupancy Check) ---
   useEffect(() => {
-    if (open && attendanceData) {
+    if (open && date && attendanceData) {
       const occupiedSessions = new Set<string>();
       const dateKey = getDateKey(date);
 
@@ -257,7 +264,7 @@ export function AddAttendanceDialog({
 
   // --- 5. VALIDATION (Is Session Blocked?) ---
   const isSessionBlocked = useMemo(() => {
-      if (!session) return false;
+      if (!session || !date) return false;
       
       const targetSession = normalizeSession(session);
       const dateKey = getDateKey(date);
@@ -304,7 +311,7 @@ export function AddAttendanceDialog({
   }, [date, session, attendanceData, trackingData]);
 
   const handleSubmit = async () => {
-    if (!user?.id || !courseId || !session) {
+    if (!user?.id || !courseId || !session || !date) {
       toast.error("Please fill all fields");
       return;
     }
@@ -365,11 +372,11 @@ export function AddAttendanceDialog({
   };
 
   // --- CUSTOM CALENDAR LOGIC ---
-  const daysInMonth = eachDayOfInterval({
+  const daysInMonth = currentMonth ? eachDayOfInterval({
     start: startOfMonth(currentMonth),
     end: endOfMonth(currentMonth),
-  });
-  const startDay = getDay(startOfMonth(currentMonth));
+  }) : [];
+  const startDay = currentMonth ? getDay(startOfMonth(currentMonth)) : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -406,34 +413,36 @@ export function AddAttendanceDialog({
                   {/* Custom Aesthetic Calendar */}
                   <div className="flex flex-col gap-2">
                     {/* Header */}
-                    <div className="flex items-center justify-between mb-2">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} aria-label="Previous month">
-                        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                      <div className="text-sm font-semibold">
-                        {format(currentMonth, "MMMM yyyy")}
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} aria-label="Next month">
-                        <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                    </div>
-
-                    {/* Days Header */}
-                    <div className="grid grid-cols-7 text-center mb-1">
-                      {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((dayLabel) => (
-                        <div key={dayLabel} className="text-[0.8rem] text-muted-foreground font-medium py-1">
-                          {dayLabel}
+                    {currentMonth && (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} aria-label="Previous month">
+                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <div className="text-sm font-semibold">
+                            {format(currentMonth, "MMMM yyyy")}
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} aria-label="Next month">
+                            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                          </Button>
                         </div>
-                      ))}
-                    </div>
 
-                    {/* Days Grid */}
-                    <div className="grid grid-cols-7 gap-y-1">
-                      {Array.from({ length: startDay }).map((_, i) => (
-                        <div key={`empty-${i}`} />
-                      ))}
-                      {daysInMonth.map((day) => {
-                        const isSelected = isSameDay(day, date);
+                        {/* Days Header */}
+                        <div className="grid grid-cols-7 text-center mb-1">
+                          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((dayLabel) => (
+                            <div key={dayLabel} className="text-[0.8rem] text-muted-foreground font-medium py-1">
+                              {dayLabel}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Days Grid */}
+                        <div className="grid grid-cols-7 gap-y-1">
+                          {Array.from({ length: startDay }).map((_, i) => (
+                            <div key={`empty-${i}`} />
+                          ))}
+                          {daysInMonth.map((day) => {
+                            const isSelected = date ? isSameDay(day, date) : false;
                         const isTodayDate = isToday(day);
                         
                         // CHECK IF DATE IS VALID
@@ -465,7 +474,9 @@ export function AddAttendanceDialog({
                           </div>
                         );
                       })}
-                    </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                 </PopoverContent>

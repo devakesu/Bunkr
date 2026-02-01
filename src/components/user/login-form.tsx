@@ -78,7 +78,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingPage, setIsLoadingPage] = useState(true);
+  const [isLoadingPage, setIsLoadingPage] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordResetForm, setShowPasswordResetForm] = useState(false);
   const [loginMethod, setLoginMethod] = useState<
@@ -112,7 +113,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   };
 
   useEffect(() => {
-    let isMounted = true;
+    setIsMounted(true);
+    setIsLoadingPage(true);
     
     const checkUser = async () => {
       const supabase = createClient();
@@ -122,7 +124,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         if (error && !isAuthSessionMissingError(error)) {
           throw error;
         }
-        if (user && isMounted) {
+        if (user) {
           router.push("/dashboard");
           return;
         }
@@ -131,16 +133,10 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           logger.error("Unexpected error checking user session:", err);
         }
       } finally {
-        if (isMounted) {
-          setIsLoadingPage(false);
-        }
+        setIsLoadingPage(false);
       }
     };
     checkUser();
-    
-    return () => {
-      isMounted = false;
-    };
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -235,7 +231,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     },
   };
 
-  if (isLoadingPage) return <Loading />;
+  // Show loading only after mount to avoid hydration mismatch
+  if (!isMounted || isLoadingPage) return <Loading />;
 
   if (showPasswordResetForm) {
     return (
