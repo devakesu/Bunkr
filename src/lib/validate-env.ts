@@ -173,9 +173,10 @@ export function validateEnvironment() {
       errors.push('❌ GA_API_SECRET is required when NEXT_PUBLIC_GA_ID is set\n' +
                   '   Get from: Google Analytics → Admin → Data Streams → Measurement Protocol API secrets\n' +
                   '   Used for: Server-side event tracking via GA4 Measurement Protocol');
-    } else if (!/^[A-Za-z0-9_-]{10,128}$/.test(gaApiSecret)) {
+    } else if (!/^[A-Za-z0-9][A-Za-z0-9_-]{8,126}[A-Za-z0-9]$/.test(gaApiSecret)) {
       errors.push('❌ GA_API_SECRET appears invalid\n' +
                   '   It should be an alphanumeric string (optionally including _ and -) between 10 and 128 characters.\n' +
+                  '   Must start and end with alphanumeric characters.\n' +
                   '   Get from: Google Analytics → Admin → Data Streams → Measurement Protocol API secrets');
     }
   }
