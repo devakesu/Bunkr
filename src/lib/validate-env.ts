@@ -164,9 +164,21 @@ export function validateEnvironment() {
     }
   }
 
-  // Google Analytics
+  // Google Analytics (Server-side Measurement Protocol)
   if (!process.env.NEXT_PUBLIC_GA_ID) {
     warnings.push('ℹ️  NEXT_PUBLIC_GA_ID not set - analytics disabled (optional)');
+  } else {
+    const gaApiSecret = process.env.GA_API_SECRET?.trim() ?? '';
+    if (gaApiSecret === '') {
+      errors.push('❌ GA_API_SECRET is required when NEXT_PUBLIC_GA_ID is set\n' +
+                  '   Get from: Google Analytics → Admin → Data Streams → Measurement Protocol API secrets\n' +
+                  '   Used for: Server-side event tracking via GA4 Measurement Protocol');
+    } else if (!/^[A-Za-z0-9][A-Za-z0-9_-]{8,126}[A-Za-z0-9]$/.test(gaApiSecret)) {
+      errors.push('❌ GA_API_SECRET appears invalid\n' +
+                  '   It should be an alphanumeric string (optionally including _ and -) between 10 and 128 characters.\n' +
+                  '   Must start and end with alphanumeric characters.\n' +
+                  '   Get from: Google Analytics → Admin → Data Streams → Measurement Protocol API secrets');
+    }
   }
 
   // Attendance Target Minimum

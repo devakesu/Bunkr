@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import ReactQueryProvider from "@/providers/react-query";
 import { Manrope, DM_Mono } from "next/font/google";
 import localFont from "next/font/local";
-import Script from "next/script";
 import NextTopLoader from "nextjs-toploader";
-import { headers } from "next/headers";
 import "./globals.css";
 import { GlobalInit } from "@/lib/global-init";
+import { AnalyticsTracker } from "@/components/analytics-tracker";
 
 const metadataBaseUrl = (() => {
   try {
@@ -69,8 +68,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const headerList = await headers();
-  const nonce = headerList.get("x-nonce");
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
   const hasGoogleAnalytics = !!gaId && gaId !== 'undefined' && gaId.startsWith('G-');
   
@@ -95,22 +92,12 @@ export default async function RootLayout({
         >
           Skip to main content
         </a>
-        {/* --- GOOGLE ANALYTICS --- */}
+        {/* --- GOOGLE ANALYTICS (Server-side via Measurement Protocol) --- */}
         {hasGoogleAnalytics && (
           <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
-              strategy="afterInteractive"
-              nonce={nonce ?? undefined}
-            />
-            <Script id="google-analytics" strategy="afterInteractive" nonce={nonce ?? undefined}>
-              {`
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${gaId}', { anonymize_ip: true });
-              `}
-            </Script>
+            {/* Client-side tracker component - sends events to /api/analytics/track */}
+            {/* No gtag.js script needed - bypasses CSP inline script restrictions */}
+            <AnalyticsTracker />
           </>
         )}
 

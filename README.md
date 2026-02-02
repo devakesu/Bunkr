@@ -58,7 +58,7 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 - **CSRF Protection** - Custom token-based protection
 - **Upstash Redis** - Rate limiting with `@upstash/ratelimit`
 - **Sentry** - Error tracking and performance monitoring
-- **Vercel Analytics** - Privacy-friendly analytics
+- **GA4 Measurement Protocol** - Server-side analytics (CSP-compatible)
 - **Cloudflare Turnstile** - Bot protection
 
 **DevOps & Deployment**

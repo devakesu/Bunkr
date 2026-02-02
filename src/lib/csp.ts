@@ -34,11 +34,11 @@ export const getCspHeader = (nonce?: string) => {
     // This uses 'unsafe-inline' which is less secure than nonce-based CSP
     return `
       default-src 'self';
-      script-src 'self' 'unsafe-inline' blob: https://www.googletagmanager.com https://challenges.cloudflare.com https://static.cloudflareinsights.com;
+      script-src 'self' 'unsafe-inline' blob: https://challenges.cloudflare.com https://static.cloudflareinsights.com;
       style-src 'self' 'unsafe-inline';
       style-src-elem 'self' 'unsafe-inline';
       style-src-attr 'unsafe-inline';
-      img-src 'self' blob: data: ${supabaseOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.google.co.in https://*.doubleclick.net;
+      img-src 'self' blob: data: ${supabaseOrigin};
       font-src 'self' data:;
       object-src 'none';
       base-uri 'self';
@@ -50,12 +50,6 @@ export const getCspHeader = (nonce?: string) => {
         ${supabaseOrigin}
         https://production.api.ezygo.app
         https://*.ingest.sentry.io 
-        https://*.google-analytics.com 
-        https://*.analytics.google.com 
-        https://analytics.google.com
-        https://*.googletagmanager.com
-        https://stats.g.doubleclick.net
-        https://www.google-analytics.com
         https://challenges.cloudflare.com
         https://cloudflareinsights.com
         https://static.cloudflareinsights.com;
@@ -69,7 +63,6 @@ export const getCspHeader = (nonce?: string) => {
         "blob:",
         "'unsafe-inline'",
         "'unsafe-eval'",
-        "https://www.googletagmanager.com",
         "https://challenges.cloudflare.com",
         "https://static.cloudflareinsights.com",
       ]
@@ -81,7 +74,6 @@ export const getCspHeader = (nonce?: string) => {
         // Note: With 'strict-dynamic', explicitly listed host sources below are ignored
         // by modern browsers (CSP Level 3) and only apply to older browsers as fallback.
         // For modern browsers, external scripts must be loaded dynamically by nonce'd scripts.
-        "https://www.googletagmanager.com",
         "https://challenges.cloudflare.com",
         "https://static.cloudflareinsights.com",
       ];
@@ -141,18 +133,23 @@ export const getCspHeader = (nonce?: string) => {
   // Here we intentionally avoid 'strict-dynamic' and instead rely on explicit host allowlisting
   // so that third-party scripts from Cloudflare and Google Tag Manager can load. In CSP3-compliant
   // browsers, combining 'strict-dynamic' with host-based sources would cause those host-based
-  // sources to be ignored. Also includes hashes for specific inline scripts from libraries.
+  // sources to be ignored.
   //
-  // INLINE SCRIPT HASHES:
-  // When third-party services (GTM, Cloudflare) inject inline scripts without nonces,
-  // we must whitelist their specific content hashes. These hashes were obtained from CSP
-  // violation reports and verified against the actual script content.
+  // IMPORTANT: 'unsafe-inline' is present as fallback for dynamic inline scripts injected by
+  // Cloudflare Zaraz. In CSP3 browsers, 'unsafe-inline' is IGNORED when nonces are present,
+  // maintaining strict security. It only applies to older browsers.
   //
-  // To verify or update a hash:
-  // 1. Check the CSP violation in browser console
-  // 2. Copy the suggested hash from the error message
-  // 3. Optionally verify: echo -n "SCRIPT_CONTENT" | openssl dgst -sha256 -binary | openssl base64
+  // NOTE: We use server-side GA4 Measurement Protocol API (/api/analytics/track) instead of
+  // client-side gtag.js, eliminating the need for Google Analytics script domains. This approach:
+  // - Avoids CSP violations from GTM's dynamic inline script injection
+  // - Provides better privacy (no client-side tracking scripts)
+  // - Is ad-blocker resistant (server-side requests)
+  // - Maintains full GA4 feature parity via Measurement Protocol
   //
+  // SECURITY TRADE-OFF:
+  // - CSP3 browsers (modern): Strict nonce-only enforcement, 'unsafe-inline' ignored
+  // - Non-CSP3 browsers (legacy): Allow inline scripts via 'unsafe-inline' for Cloudflare
+  // - All browsers: External scripts from whitelisted hosts only
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
   const scriptSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
@@ -162,19 +159,8 @@ export const getCspHeader = (nonce?: string) => {
           `'nonce-${nonce}'`,
           "'unsafe-inline'", // Must appear AFTER nonce to trigger Cloudflare Zaraz nonce injection (per Zaraz CSP docs)
                              // When nonce + 'unsafe-inline' coexist, Zaraz appends its nonce; nonce takes precedence in CSP3
-          "https://www.googletagmanager.com",
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
-          // Google Tag Manager inline bootstrap script
-          // Injected by: GTM container initialization (src/app/layout.tsx)
-          // Content: Initializes dataLayer and gtag function for GA4 tracking
-          "'sha256-aykwLBSIQE3HbCxrV+j5fzrFve3r7js1+OVpJc9Hkx8='",
-          // Cloudflare security/telemetry inline script
-          // Injected by: Cloudflare's email protection or bot management features
-          // Content: Bootstrap code for Cloudflare Insights or Turnstile challenges
-          "'sha256-NjaNM7T1oI9v9mcyAidFrAD3HulFtQDsq/40Qq0+3Fw='",
-          // Additional analytics/tracking inline script
-          "'sha256-BN8BJX6X9Ph3MdqVqJDQw+25g7ZUjdu0W+f6TsfVt+I='",
         ];
 
         if (appDomain) {
@@ -215,7 +201,7 @@ export const getCspHeader = (nonce?: string) => {
     script-src-elem ${scriptSrcElemParts.join(" ")};
     style-src ${styleSrcParts.join(" ")};
     style-src-elem ${styleSrcElemParts.join(" ")};${styleSrcAttrDirective ? `\n    ${styleSrcAttrDirective}` : ''}
-    img-src 'self' blob: data: ${supabaseOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://*.google.com https://*.google.co.in https://*.doubleclick.net;
+    img-src 'self' blob: data: ${supabaseOrigin};
     font-src 'self' data:;
     object-src 'none';
     base-uri 'self';
@@ -227,12 +213,6 @@ export const getCspHeader = (nonce?: string) => {
       ${supabaseOrigin}
       https://production.api.ezygo.app
       https://*.ingest.sentry.io 
-      https://*.google-analytics.com 
-      https://*.analytics.google.com 
-      https://analytics.google.com
-      https://*.googletagmanager.com
-      https://stats.g.doubleclick.net
-      https://www.google-analytics.com
       https://challenges.cloudflare.com
       https://cloudflareinsights.com
       https://static.cloudflareinsights.com
