@@ -67,8 +67,8 @@ export function useUserSettings() {
       return data as UserSettings | null;
     },
     staleTime: 30 * 1000, // 30 seconds - reduces API load while keeping data reasonably fresh
-    gcTime: 0,
-    refetchOnWindowFocus: true, 
+    gcTime: 5 * 60 * 1000, // 5 minutes - keep cache for reasonable time to avoid unnecessary refetches
+    refetchOnWindowFocus: true, // Refetch when tab regains focus to sync cross-device changes
   });
   
   // 2. Mutation to update settings
@@ -95,8 +95,9 @@ export function useUserSettings() {
           localStorage.setItem("showBunkCalc", newData.bunk_calculator_enabled.toString());
           window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newData.bunk_calculator_enabled }));
       }
-        if (newData.target_percentage !== undefined) {
-          localStorage.setItem("targetPercentage", normalizeTarget(newData.target_percentage).toString());
+      if (newData.target_percentage !== undefined) {
+          const normalizedTarget = normalizeTarget(newData.target_percentage);
+          localStorage.setItem("targetPercentage", normalizedTarget.toString());
       }
     },
     onError: (err) => {
@@ -114,6 +115,7 @@ export function useUserSettings() {
     if (isLoading) return;
 
     // Case A: DB has data -> Sync to LocalStorage (Source of Truth = DB)
+    // Always prioritize database values over localStorage
     if (settings) {
       const localBunk = localStorage.getItem("showBunkCalc");
       const dbBunk = (settings.bunk_calculator_enabled ?? true).toString();
@@ -126,23 +128,29 @@ export function useUserSettings() {
       const localTarget = localStorage.getItem("targetPercentage");
       const dbTarget = normalizeTarget(settings.target_percentage).toString();
       
+      // Always sync DB → localStorage to ensure consistency across devices/browsers
       if (localTarget !== dbTarget) {
         localStorage.setItem("targetPercentage", dbTarget);
       }
     } 
-    // Case B: DB is empty (New User) -> Migrate LocalStorage to DB
+    // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
+    // This only happens for truly new users who have never saved settings to the database
     else if (settings === null) {
       const localBunk = localStorage.getItem("showBunkCalc");
       const localTarget = localStorage.getItem("targetPercentage");
 
-      // Only migrate if we actually have legacy local data
-      if (localBunk !== null || localTarget !== null) {
-        logger.dev("Migrating local settings to cloud...");
-        mutateSettings({
-          bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
-          target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
-        });
-      }
+      // Initialize DB with either localStorage values or system defaults
+      // This ensures every user has a DB record for cross-device sync
+      logger.dev(
+        localBunk !== null || localTarget !== null
+          ? "Migrating local settings to cloud..."
+          : "Initializing default settings for new user..."
+      );
+      
+      mutateSettings({
+        bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
+        target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
+      });
     }
     // mutateSettings is stable - it's the mutate function from useMutation and doesn't change between renders
     // eslint-disable-next-line react-hooks/exhaustive-deps

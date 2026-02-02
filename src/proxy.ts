@@ -24,9 +24,11 @@ export async function proxy(request: NextRequest) {
   // 1. Get CSP Header
   const cspHeader = getCspHeader(nonce);
 
-  // 2. Initialize Response
+  // 2. Initialize Response with nonce in headers for Next.js to use
   let response = NextResponse.next({
-    request: { headers: requestHeaders },
+    request: { 
+      headers: requestHeaders 
+    },
   });
 
   // 3. Apply CSP to the initial response
@@ -50,7 +52,7 @@ export async function proxy(request: NextRequest) {
             response.cookies.set(name, value, options)
           );
 
-          // ⚠️ CRITICAL: Re-apply CSP to the new response
+          // ⚠️ CRITICAL: Re-apply CSP and nonce to the new response
           response.headers.set('Content-Security-Policy', cspHeader);
           response.headers.set("x-nonce", nonce);
         },
