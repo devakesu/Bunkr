@@ -21,9 +21,22 @@ export const getCspHeader = (nonce?: string) => {
   const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : "";
   
   // Supabase WebSocket URL for Realtime features
-  const supabaseWsUrl = process.env.NEXT_PUBLIC_SUPABASE_URL 
-    ? process.env.NEXT_PUBLIC_SUPABASE_URL.replace('https://', 'wss://').replace('http://', 'ws://')
-    : "";
+  const supabaseWsUrl = (() => {
+    const urlString = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!urlString) return "";
+
+    try {
+      const url = new URL(urlString);
+      if (url.protocol === "https:") {
+        url.protocol = "wss:";
+      } else if (url.protocol === "http:") {
+        url.protocol = "ws:";
+      }
+      return url.toString();
+    } catch {
+      return "";
+    }
+  })();
 
   // In production, nonce is mandatory for strict CSP enforcement
   if (!isDev && !nonce) {
@@ -162,10 +175,11 @@ export const getCspHeader = (nonce?: string) => {
     : (() => {
         const parts = [
           "'self'",
-          "'unsafe-inline'", // Required for Next.js inline scripts and Cloudflare Zaraz
+          nonce ? `'nonce-${nonce}'` : undefined, // Expose nonce for CSP3-aware consumers (e.g., Cloudflare Zaraz)
+          "'unsafe-inline'", // Required for Next.js inline scripts and Cloudflare Zaraz hydration behavior
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
-        ];
+        ].filter(Boolean) as string[];
 
         if (appDomain) {
           parts.push(`https://${appDomain}/cdn-cgi/`); // Cloudflare CDN scripts
@@ -223,7 +237,7 @@ export const getCspHeader = (nonce?: string) => {
       https://static.cloudflareinsights.com
       ${process.env.NODE_ENV !== 'production' ? 'ws://localhost:3000 ws://127.0.0.1:3000' : ''}
       ${process.env.NODE_ENV !== 'production' ? 'http://localhost:3000 http://127.0.0.1:3000' : ''}
-      ${process.env.NODE_ENV !== 'production' ? 'https://localhost:3000 https://127.0.0.1:3000' : ''};
+      ${process.env.NODE_ENV !== 'production' ? 'https://localhost:3000 https://127.0.0.1:3000;' : ';'}
     ${process.env.NODE_ENV === 'production' ? 'upgrade-insecure-requests;' : ''}
   `.replace(/\s{2,}/g, ' ').trim();
 };

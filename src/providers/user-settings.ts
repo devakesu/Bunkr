@@ -98,8 +98,6 @@ export function useUserSettings() {
       if (newData.target_percentage !== undefined) {
           const normalizedTarget = normalizeTarget(newData.target_percentage);
           localStorage.setItem("targetPercentage", normalizedTarget.toString());
-          // Dispatch event to notify components of the change (matches useEffect behavior)
-          window.dispatchEvent(new CustomEvent("targetPercentageChanged", { detail: normalizedTarget }));
       }
     },
     onError: (err) => {
@@ -133,8 +131,6 @@ export function useUserSettings() {
       // Always sync DB → localStorage to ensure consistency across devices/browsers
       if (localTarget !== dbTarget) {
         localStorage.setItem("targetPercentage", dbTarget);
-        // Dispatch event to notify components of the change
-        window.dispatchEvent(new CustomEvent("targetPercentageChanged", { detail: Number(dbTarget) }));
       }
     } 
     // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
@@ -145,13 +141,11 @@ export function useUserSettings() {
 
       // Initialize DB with either localStorage values or system defaults
       // This ensures every user has a DB record for cross-device sync
-      const shouldInitialize = localBunk !== null || localTarget !== null;
-      
-      if (shouldInitialize) {
-        logger.dev("Migrating local settings to cloud...");
-      } else {
-        logger.dev("Initializing default settings for new user...");
-      }
+      logger.dev(
+        localBunk !== null || localTarget !== null
+          ? "Migrating local settings to cloud..."
+          : "Initializing default settings for new user..."
+      );
       
       mutateSettings({
         bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
