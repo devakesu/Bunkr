@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import ReactQueryProvider from "@/providers/react-query";
 import { Manrope, DM_Mono } from "next/font/google";
 import localFont from "next/font/local";
@@ -94,11 +95,11 @@ export default async function RootLayout({
         </a>
         {/* --- GOOGLE ANALYTICS (Server-side via Measurement Protocol) --- */}
         {hasGoogleAnalytics && (
-          <>
+          <Suspense fallback={null}>
             {/* Client-side tracker component - sends events to /api/analytics/track */}
             {/* No gtag.js script needed - bypasses CSP inline script restrictions */}
             <AnalyticsTracker />
-          </>
+          </Suspense>
         )}
 
         <ReactQueryProvider>
