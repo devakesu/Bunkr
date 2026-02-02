@@ -237,7 +237,7 @@ export const getCspHeader = (nonce?: string) => {
       https://static.cloudflareinsights.com
       ${process.env.NODE_ENV !== 'production' ? 'ws://localhost:3000 ws://127.0.0.1:3000' : ''}
       ${process.env.NODE_ENV !== 'production' ? 'http://localhost:3000 http://127.0.0.1:3000' : ''}
-      ${process.env.NODE_ENV !== 'production' ? 'https://localhost:3000 https://127.0.0.1:3000;' : ';'}
+      ${process.env.NODE_ENV !== 'production' ? 'https://localhost:3000 https://127.0.0.1:3000' : ''};
     ${process.env.NODE_ENV === 'production' ? 'upgrade-insecure-requests;' : ''}
   `.replace(/\s{2,}/g, ' ').trim();
 };
