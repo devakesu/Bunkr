@@ -51,19 +51,27 @@ export async function trackGA4Event(
     // The API secret provides minimal security value as it's intended for spam prevention, not authentication.
     // For improved security in production environments, ensure logging/monitoring solutions are configured
     // to not log full URLs for this endpoint, or consider using a reverse proxy to strip query parameters.
-    const response = await fetch(
-      `https://www.google-analytics.com/mp/collect?measurement_id=${GA_MEASUREMENT_ID}&api_secret=${GA_API_SECRET}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
-    );
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-    if (!response.ok) {
-      logger.error("[GA4] Failed to send event:", response.statusText);
+    try {
+      const response = await fetch(
+        `https://www.google-analytics.com/mp/collect?measurement_id=${GA_MEASUREMENT_ID}&api_secret=${GA_API_SECRET}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        }
+      );
+
+      if (!response.ok) {
+        logger.error("[GA4] Failed to send event:", response.statusText);
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
   } catch (error) {
     logger.error("[GA4] Error sending event:", error);
@@ -112,6 +120,10 @@ export function getOrCreateClientId(): string {
   const clientId = `${Date.now()}.${Math.random().toString(36).substring(2, 11)}`;
   
   // Add Secure attribute in production to ensure cookie is only sent over HTTPS
+  // Note: HttpOnly is intentionally omitted because this analytics client ID
+  // must be readable from client-side code (via document.cookie). This means
+  // the cookie is accessible to JavaScript and could be exposed via XSS, but
+  // it does not contain authentication or other sensitive data.
   const isProd = process.env.NODE_ENV === "production";
   const secureAttr = isProd ? "; Secure" : "";
   document.cookie = `${cookieName}=${clientId}; path=/; max-age=63072000; SameSite=Lax${secureAttr}`; // 2 years

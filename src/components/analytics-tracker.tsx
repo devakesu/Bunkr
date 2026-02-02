@@ -29,23 +29,31 @@ export function AnalyticsTracker() {
         const clientId = getOrCreateClientId();
         const url = `${window.location.origin}${pathname}${searchParams?.toString() ? `?${searchParams}` : ""}`;
 
-        await fetch("/api/analytics/track", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientId,
-            events: [
-              {
-                name: "page_view",
-                params: {
-                  page_location: url,
-                  page_title: document.title,
-                  page_referrer: document.referrer,
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+        try {
+          await fetch("/api/analytics/track", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              clientId,
+              events: [
+                {
+                  name: "page_view",
+                  params: {
+                    page_location: url,
+                    page_title: document.title,
+                    page_referrer: document.referrer,
+                  },
                 },
-              },
-            ],
-          }),
-        });
+              ],
+            }),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         // Reset scroll tracking on page change
         scrollTracked.current.clear();
@@ -125,8 +133,8 @@ export function AnalyticsTracker() {
           });
         } else if (isDownload) {
           trackEvent("file_download", {
-            file_name: url.pathname.split("/").pop(),
-            file_extension: url.pathname.split(".").pop(),
+            file_name: url.pathname.split("/").pop() ?? "unknown",
+            file_extension: url.pathname.split(".").pop() ?? "unknown",
             link_url: url.href,
           });
         }
@@ -174,7 +182,7 @@ export function AnalyticsTracker() {
         : 0;
 
       const videoData = {
-        video_title: video.title || video.currentSrc?.split("/").pop() || "unknown",
+        video_title: video.title || (video.currentSrc?.split("/").pop() ?? "unknown"),
         video_url: video.currentSrc,
         video_duration: videoDuration,
         video_current_time: Math.round(video.currentTime),
@@ -234,14 +242,22 @@ export async function trackEvent(
   try {
     const clientId = getOrCreateClientId();
 
-    await fetch("/api/analytics/track", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId,
-        events: [{ name: eventName, params: eventParams }],
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+    try {
+      await fetch("/api/analytics/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          events: [{ name: eventName, params: eventParams }],
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
   } catch (error) {
     // Note: Using console.warn instead of logger utility as this is a client component
     // and the logger utility is primarily designed for server-side use
