@@ -1,21 +1,29 @@
 // Content Security Policy
 //
-// CLOUDFLARE ZARAZ CSP INTEGRATION:
-// Cloudflare Zaraz automatically modifies CSP headers to inject its own nonce for inline scripts.
-// According to Cloudflare documentation (https://blog.cloudflare.com/zaraz-supports-csp/):
-// - Zaraz adds its nonce ONLY IF: 'unsafe-inline' is NOT present, OR 'unsafe-inline' appears WITH nonces/hashes
-// - If 'unsafe-inline' exists alone (no nonces), Zaraz will NOT modify the CSP header
-// - When both nonce and 'unsafe-inline' exist, Zaraz appends its nonce, and CSP3 browsers ignore 'unsafe-inline'
+// NEXT.JS INLINE SCRIPT HANDLING:
+// Next.js App Router generates inline scripts for hydration and client-side navigation.
+// Without the deprecated middleware pattern, we cannot automatically inject nonces into these scripts.
+// Therefore, we use 'unsafe-inline' in script-src-elem to allow Next.js's internal scripts.
 //
-// Our configuration uses nonce + 'unsafe-inline' in script-src-elem to:
-// 1. Allow Zaraz to append its nonce (detected by presence of our nonce)
-// 2. Provide fallback for non-CSP3 browsers (they use 'unsafe-inline')
-// 3. Maintain strict security in modern browsers (nonce takes precedence, 'unsafe-inline' ignored)
+// CLOUDFLARE ZARAZ CSP INTEGRATION:
+// Cloudflare Zaraz can inject inline scripts for analytics and tracking.
+// Our 'unsafe-inline' directive in script-src-elem allows Zaraz scripts to execute.
+//
+// SECURITY POSTURE:
+// - script-src: Uses nonce + 'strict-dynamic' for dynamically loaded external scripts (strict)
+// - script-src-elem: Uses 'unsafe-inline' for inline scripts (allows Next.js hydration)
+// - External scripts: Restricted to explicitly whitelisted hosts only
+// - This maintains reasonable security while allowing Next.js and Cloudflare to function
 import { logger } from "@/lib/logger";
 
 export const getCspHeader = (nonce?: string) => {
   const isDev = process.env.NODE_ENV !== "production";
   const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : "";
+  
+  // Supabase WebSocket URL for Realtime features
+  const supabaseWsUrl = process.env.NEXT_PUBLIC_SUPABASE_URL 
+    ? process.env.NEXT_PUBLIC_SUPABASE_URL.replace('https://', 'wss://').replace('http://', 'ws://')
+    : "";
 
   // In production, nonce is mandatory for strict CSP enforcement
   if (!isDev && !nonce) {
@@ -135,9 +143,12 @@ export const getCspHeader = (nonce?: string) => {
   // browsers, combining 'strict-dynamic' with host-based sources would cause those host-based
   // sources to be ignored.
   //
-  // IMPORTANT: 'unsafe-inline' is present as fallback for dynamic inline scripts injected by
-  // Cloudflare Zaraz. In CSP3 browsers, 'unsafe-inline' is IGNORED when nonces are present,
-  // maintaining strict security. It only applies to older browsers.
+  // IMPORTANT: Without Next.js middleware, we cannot automatically inject nonces into Next.js's
+  // internal hydration scripts. Therefore, we use 'unsafe-inline' to allow Next.js inline scripts
+  // and Cloudflare Zaraz scripts. This is a security trade-off:
+  // - Allows Next.js hydration and client-side navigation to work
+  // - Allows Cloudflare Zaraz to inject its tracking scripts
+  // - External scripts are still restricted to whitelisted hosts
   //
   // NOTE: We use server-side GA4 Measurement Protocol API (/api/analytics/track) instead of
   // client-side gtag.js, eliminating the need for Google Analytics script domains. This approach:
@@ -145,20 +156,13 @@ export const getCspHeader = (nonce?: string) => {
   // - Provides better privacy (no client-side tracking scripts)
   // - Is ad-blocker resistant (server-side requests)
   // - Maintains full GA4 feature parity via Measurement Protocol
-  //
-  // SECURITY TRADE-OFF:
-  // - CSP3 browsers (modern): Strict nonce-only enforcement, 'unsafe-inline' ignored
-  // - Non-CSP3 browsers (legacy): Allow inline scripts via 'unsafe-inline' for Cloudflare
-  // - All browsers: External scripts from whitelisted hosts only
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
   const scriptSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
     : (() => {
         const parts = [
           "'self'",
-          `'nonce-${nonce}'`,
-          "'unsafe-inline'", // Must appear AFTER nonce to trigger Cloudflare Zaraz nonce injection (per Zaraz CSP docs)
-                             // When nonce + 'unsafe-inline' coexist, Zaraz appends its nonce; nonce takes precedence in CSP3
+          "'unsafe-inline'", // Required for Next.js inline scripts and Cloudflare Zaraz
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
         ];
@@ -211,14 +215,15 @@ export const getCspHeader = (nonce?: string) => {
     worker-src 'self' blob:;
     connect-src 'self' 
       ${supabaseOrigin}
+      ${supabaseWsUrl}
       https://production.api.ezygo.app
       https://*.ingest.sentry.io 
       https://challenges.cloudflare.com
       https://cloudflareinsights.com
       https://static.cloudflareinsights.com
-      ${process.env.NODE_ENV !== 'production' ? 'ws://localhost:3000' : ''}
-      ${process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : ''}
-      ${process.env.NODE_ENV !== 'production' ? 'https://localhost:3000' : ';'}
+      ${process.env.NODE_ENV !== 'production' ? 'ws://localhost:3000 ws://127.0.0.1:3000' : ''}
+      ${process.env.NODE_ENV !== 'production' ? 'http://localhost:3000 http://127.0.0.1:3000' : ''}
+      ${process.env.NODE_ENV !== 'production' ? 'https://localhost:3000 https://127.0.0.1:3000' : ''};
     ${process.env.NODE_ENV === 'production' ? 'upgrade-insecure-requests;' : ''}
   `.replace(/\s{2,}/g, ' ').trim();
 };

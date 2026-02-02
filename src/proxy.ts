@@ -24,14 +24,18 @@ export async function proxy(request: NextRequest) {
   // 1. Get CSP Header
   const cspHeader = getCspHeader(nonce);
 
-  // 2. Initialize Response
+  // 2. Initialize Response with nonce in headers for Next.js to use
   let response = NextResponse.next({
-    request: { headers: requestHeaders },
+    request: { 
+      headers: requestHeaders 
+    },
   });
 
   // 3. Apply CSP to the initial response
   response.headers.set('Content-Security-Policy', cspHeader);
   response.headers.set("x-nonce", nonce);
+  // Set nonce for Next.js automatic script/style injection
+  response.headers.set("x-middleware-request-x-nonce", nonce);
 
   // 4. Initialize Supabase
   const supabase = createServerClient(
@@ -50,9 +54,10 @@ export async function proxy(request: NextRequest) {
             response.cookies.set(name, value, options)
           );
 
-          // ⚠️ CRITICAL: Re-apply CSP to the new response
+          // ⚠️ CRITICAL: Re-apply CSP and nonce to the new response
           response.headers.set('Content-Security-Policy', cspHeader);
           response.headers.set("x-nonce", nonce);
+          response.headers.set("x-middleware-request-x-nonce", nonce);
         },
       },
     }
@@ -110,6 +115,7 @@ export async function proxy(request: NextRequest) {
       const logoutRes = NextResponse.redirect(logoutUrl);
       logoutRes.headers.set('Content-Security-Policy', cspHeader);
       logoutRes.headers.set("x-nonce", nonce);
+      logoutRes.headers.set("x-middleware-request-x-nonce", nonce);
       // Clear the redirect count cookie
       logoutRes.cookies.delete('terms_redirect_count');
       return logoutRes;
@@ -119,6 +125,7 @@ export async function proxy(request: NextRequest) {
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
     redirectRes.headers.set("x-nonce", nonce);
+    redirectRes.headers.set("x-middleware-request-x-nonce", nonce);
     // Increment redirect count in httpOnly cookie (secure, non-manipulable)
     redirectRes.cookies.set('terms_redirect_count', String(redirectCount + 1), {
       httpOnly: true,
@@ -139,6 +146,7 @@ export async function proxy(request: NextRequest) {
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
     redirectRes.headers.set("x-nonce", nonce);
+    redirectRes.headers.set("x-middleware-request-x-nonce", nonce);
     // Clear the redirect count cookie after successful terms acceptance
     redirectRes.cookies.delete('terms_redirect_count');
     return redirectRes;
@@ -153,6 +161,7 @@ export async function proxy(request: NextRequest) {
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
     redirectRes.headers.set("x-nonce", nonce);
+    redirectRes.headers.set("x-middleware-request-x-nonce", nonce);
     return redirectRes;
   }
 

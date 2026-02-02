@@ -37,13 +37,8 @@ export default function GlobalError({
     window.location.href = "/";
   };
 
-  return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Error - GhostClass</title>
-        <style dangerouslySetInnerHTML={{__html: `
+  // Inline styles to avoid CSP issues in error boundary
+  const styles = `
           * {
             margin: 0;
             padding: 0;
@@ -148,7 +143,15 @@ export default function GlobalError({
               min-width: 140px;
             }
           }
-        `}} />
+        `;
+
+  return (
+    <html lang="en">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Error - GhostClass</title>
+        <style dangerouslySetInnerHTML={{__html: styles}} />
       </head>
       <body>
         <div className="container">
