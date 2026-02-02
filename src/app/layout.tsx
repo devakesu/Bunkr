@@ -116,7 +116,7 @@ export default async function RootLayout({
             zIndex={99999}
           />
           <GlobalInit />
-          <main id="main-content" tabIndex={-1}>
+          <main id="main-content" tabIndex={-1} className="flex min-h-screen flex-col bg-background">
             {children}
           </main>
         </ReactQueryProvider>

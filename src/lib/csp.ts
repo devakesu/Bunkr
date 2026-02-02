@@ -17,7 +17,9 @@
 import { logger } from "@/lib/logger";
 
 export const getCspHeader = (nonce?: string) => {
-  const isDev = process.env.NODE_ENV !== "production";
+  const forceStrictCspValue = process.env.FORCE_STRICT_CSP ?? process.env.NEXT_PUBLIC_FORCE_STRICT_CSP;
+  const forceStrictCsp = /^(true|1|yes)$/i.test(forceStrictCspValue ?? "");
+  const isDev = process.env.NODE_ENV !== "production" && !forceStrictCsp;
   const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : "";
   
   // Supabase WebSocket URL for Realtime features
@@ -175,11 +177,10 @@ export const getCspHeader = (nonce?: string) => {
     : (() => {
         const parts = [
           "'self'",
-          nonce ? `'nonce-${nonce}'` : undefined, // Expose nonce for CSP3-aware consumers (e.g., Cloudflare Zaraz)
-          "'unsafe-inline'", // Required for Next.js inline scripts and Cloudflare Zaraz hydration behavior
+          "'unsafe-inline'", // Required for Next.js inline scripts and Cloudflare Zaraz
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
-        ].filter(Boolean) as string[];
+        ];
 
         if (appDomain) {
           parts.push(`https://${appDomain}/cdn-cgi/`); // Cloudflare CDN scripts
