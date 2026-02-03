@@ -584,18 +584,24 @@ export async function POST(req: Request) {
         );
 
         // Generate a strong random canonical password and store its encrypted form.
+        // Using 32 bytes (44 base64 chars) for strong entropy, matching the security level
+        // of the initial canonical password generation for new users.
         const legacyCanonicalPassword = crypto.randomBytes(32).toString("base64");
 
         // Reuse existing encryption helper; it is used elsewhere to populate auth_password/auth_password_iv.
         const { content: encryptedData, iv } = encrypt(legacyCanonicalPassword);
 
-        const { error: updatePasswordError } = await supabaseAdmin
+        // Use a conditional update to prevent race conditions: only update if auth_password is still NULL.
+        // If another request already bootstrapped a password, we'll read that instead.
+        const { data: updateResult, error: updatePasswordError } = await supabaseAdmin
           .from("users")
           .update({
             auth_password: encryptedData,
             auth_password_iv: iv,
           })
-          .eq("id", verifieduserId);
+          .eq("id", verifieduserId)
+          .is("auth_password", null)
+          .select("auth_password, auth_password_iv");
 
         if (updatePasswordError) {
           logger.error(
@@ -612,8 +618,51 @@ export async function POST(req: Request) {
           );
         }
 
-        // Use the newly bootstrapped canonical password for the rest of the flow.
-        passwordToUse = legacyCanonicalPassword;
+        // If updateResult is empty, another request already set a password. Read it.
+        if (!updateResult || updateResult.length === 0) {
+          logger.info(
+            "Another request already bootstrapped canonical password for this user; reading it",
+            { userId: redact("id", verifieduserId) }
+          );
+
+          const { data: refetchedData, error: refetchError } = await supabaseAdmin
+            .from("users")
+            .select("auth_password, auth_password_iv")
+            .eq("id", verifieduserId)
+            .single();
+
+          if (refetchError || !refetchedData?.auth_password || !refetchedData?.auth_password_iv) {
+            logger.error(
+              "Failed to refetch bootstrapped password after race condition:",
+              refetchError
+            );
+            Sentry.captureException(refetchError ?? new Error("Missing password after race"), {
+              tags: { type: "password_refetch_failure", location: "save_token" },
+              extra: { userId: redact("id", verifieduserId) },
+            });
+            return NextResponse.json(
+              { message: "Session establishment failed. Please try logging in again." },
+              { status: 500 }
+            );
+          }
+
+          try {
+            passwordToUse = decrypt(refetchedData.auth_password_iv, refetchedData.auth_password);
+          } catch (decryptError) {
+            logger.error("Failed to decrypt refetched password:", decryptError);
+            Sentry.captureException(decryptError, {
+              tags: { type: "password_decryption_failure", location: "save_token" },
+              extra: { userId: redact("id", verifieduserId), context: "race_refetch" },
+            });
+            return NextResponse.json(
+              { message: "Session establishment failed. Please try logging in again." },
+              { status: 500 }
+            );
+          }
+        } else {
+          // We successfully set the password; use it.
+          passwordToUse = legacyCanonicalPassword;
+        }
       } else {
         try {
           // Decrypt the canonical password
