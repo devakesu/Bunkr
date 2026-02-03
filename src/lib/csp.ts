@@ -17,7 +17,22 @@
 import { logger } from "@/lib/logger";
 
 export const getCspHeader = (nonce?: string) => {
-  const isDev = process.env.NODE_ENV !== "production";
+  // FORCE_STRICT_CSP / NEXT_PUBLIC_FORCE_STRICT_CSP
+  // ------------------------------------------------
+  // By default, we relax CSP in development to make Next.js and tooling easier to work with.
+  // Setting FORCE_STRICT_CSP=true (or 1 / yes) in the environment forces production-like,
+  // strict CSP behavior even when NODE_ENV !== "production". This is useful for:
+  //   - Testing strict CSP locally
+  //   - Reproducing production-only CSP issues in development
+  //
+  // For client-side access (e.g. when reading from process.env.NEXT_PUBLIC_* in the browser),
+  // the same behavior can be enabled with NEXT_PUBLIC_FORCE_STRICT_CSP=true.
+  //
+  // The isDev flag below intentionally treats "forced strict CSP" as non-development,
+  // so that all CSP decisions match production behavior whenever forceStrictCsp is enabled.
+  const forceStrictCspValue = process.env.FORCE_STRICT_CSP ?? process.env.NEXT_PUBLIC_FORCE_STRICT_CSP;
+  const forceStrictCsp = /^(true|1|yes)$/i.test(forceStrictCspValue ?? "");
+  const isDev = process.env.NODE_ENV !== "production" && !forceStrictCsp;
   const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : "";
   
   // Supabase WebSocket URL for Realtime features
@@ -175,11 +190,10 @@ export const getCspHeader = (nonce?: string) => {
     : (() => {
         const parts = [
           "'self'",
-          nonce ? `'nonce-${nonce}'` : undefined, // Expose nonce for CSP3-aware consumers (e.g., Cloudflare Zaraz)
-          "'unsafe-inline'", // Required for Next.js inline scripts and Cloudflare Zaraz hydration behavior
+          "'unsafe-inline'", // Required for Next.js inline scripts and Cloudflare Zaraz
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
-        ].filter(Boolean) as string[];
+        ];
 
         if (appDomain) {
           parts.push(`https://${appDomain}/cdn-cgi/`); // Cloudflare CDN scripts
@@ -189,7 +203,7 @@ export const getCspHeader = (nonce?: string) => {
           );
         }
 
-        return parts;
+        return parts.filter(Boolean) as string[];
       })();
   
   // style-src-attr: Controls inline style attributes (e.g., <div style="color: red;">)
