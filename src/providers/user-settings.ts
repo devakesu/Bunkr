@@ -96,7 +96,7 @@ export function useUserSettings() {
       
       // Optimistically update the cache with normalized values
       const optimisticData = {
-        ...previousSettings,
+        ...(previousSettings || {}),
         ...newSettings,
         target_percentage: newSettings.target_percentage ? normalizeTarget(newSettings.target_percentage) : previousSettings?.target_percentage
       } as UserSettings;

@@ -181,12 +181,11 @@ export const getCspHeader = (nonce?: string) => {
   // - Allows Cloudflare Zaraz to inject its tracking scripts
   // - External scripts are still restricted to whitelisted hosts
   //
-  // NOTE: We use server-side GA4 Measurement Protocol API (/api/analytics/track) instead of
-  // client-side gtag.js, eliminating the need for Google Analytics script domains. This approach:
-  // - Avoids CSP violations from GTM's dynamic inline script injection
-  // - Provides better privacy (no client-side tracking scripts)
-  // - Is ad-blocker resistant (server-side requests)
-  // - Maintains full GA4 feature parity via Measurement Protocol
+  // NOTE: This app uses a hybrid analytics approach:
+  // - Server-side GA4 Measurement Protocol API (/api/analytics/track) for backend events
+  // - Client-side Google Analytics (gtag.js via Cloudflare Zaraz) for frontend user interactions
+  // The connect-src directive below includes google-analytics.com and doubleclick.net to allow
+  // the browser to make outbound analytics requests to Google's endpoints.
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
   const scriptSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]

@@ -534,42 +534,101 @@ export async function POST(req: Request) {
       }
 
       if (!userData?.auth_password || !userData?.auth_password_iv) {
-        const missingFieldsError = new Error("Missing canonical password for multi-device login");
-        logger.error("Failed to retrieve stored password for multi-device login: missing auth_password/auth_password_iv", {
-          userId: redact("id", verifieduserId),
-          hasUserData: !!userData,
-          hasAuthPassword: !!userData?.auth_password,
-          hasAuthPasswordIv: !!userData?.auth_password_iv,
-        });
-        Sentry.captureException(missingFieldsError, {
-          tags: { type: "password_retrieval_failure", location: "save_token" },
-          extra: {
+        // If there is no userData row at all, this is still an unrecoverable error.
+        if (!userData) {
+          const missingFieldsError = new Error("Missing canonical password for multi-device login");
+          logger.error(
+            "Failed to retrieve stored password for multi-device login: missing userData/auth_password/auth_password_iv",
+            {
+              userId: redact("id", verifieduserId),
+              hasUserData: false,
+            },
+          );
+          Sentry.captureException(missingFieldsError, {
+            tags: { type: "password_retrieval_failure", location: "save_token" },
+            extra: {
+              userId: redact("id", verifieduserId),
+              hasUserData: false,
+              source: "missing_fields_no_user_row",
+            },
+          });
+          return NextResponse.json(
+            { message: "Session establishment failed. Please try logging in again." },
+            { status: 500 }
+          );
+        }
+
+        // Bootstrap canonical password for legacy users who have a user row but no stored password.
+        logger.warn(
+          "Bootstrapping canonical password for legacy user missing auth_password/auth_password_iv",
+          {
             userId: redact("id", verifieduserId),
-            hasUserData: !!userData,
-            hasAuthPassword: !!userData?.auth_password,
-            hasAuthPasswordIv: !!userData?.auth_password_iv,
-            source: "missing_fields",
+            hasUserData: true,
+            hasAuthPassword: !!userData.auth_password,
+            hasAuthPasswordIv: !!userData.auth_password_iv,
           },
-        });
-        return NextResponse.json(
-          { message: "Session establishment failed. Please try logging in again." },
-          { status: 500 }
         );
-      }
-      
-      try {
-        // Decrypt the canonical password
-        passwordToUse = decrypt(userData.auth_password_iv, userData.auth_password);
-      } catch (decryptError) {
-        logger.error("Failed to decrypt password for multi-device login:", decryptError);
-        Sentry.captureException(decryptError, {
-          tags: { type: "password_decryption_failure", location: "save_token" },
-          extra: { userId: redact("id", verifieduserId) },
-        });
-        return NextResponse.json(
-          { message: "Session establishment failed. Please try logging in again." },
-          { status: 500 }
+
+        Sentry.captureMessage(
+          "Bootstrapping canonical password for legacy user (missing auth_password/auth_password_iv)",
+          {
+            level: "warning",
+            tags: { type: "password_bootstrap", location: "save_token" },
+            extra: {
+              userId: redact("id", verifieduserId),
+              hasUserData: true,
+              hasAuthPassword: !!userData.auth_password,
+              hasAuthPasswordIv: !!userData.auth_password_iv,
+            },
+          },
         );
+
+        // Generate a strong random canonical password and store its encrypted form.
+        const legacyCanonicalPassword = crypto.randomBytes(32).toString("base64");
+
+        // Reuse existing encryption helper; it is used elsewhere to populate auth_password/auth_password_iv.
+        const { content: encryptedData, iv } = encrypt(legacyCanonicalPassword);
+
+        const { error: updatePasswordError } = await supabaseAdmin
+          .from("users")
+          .update({
+            auth_password: encryptedData,
+            auth_password_iv: iv,
+          })
+          .eq("id", verifieduserId);
+
+        if (updatePasswordError) {
+          logger.error(
+            "Failed to bootstrap canonical password for legacy user (Supabase update error):",
+            updatePasswordError,
+          );
+          Sentry.captureException(updatePasswordError, {
+            tags: { type: "password_bootstrap_failure", location: "save_token" },
+            extra: { userId: redact("id", verifieduserId), source: "supabase_update" },
+          });
+          return NextResponse.json(
+            { message: "Session establishment failed. Please try logging in again." },
+            { status: 500 }
+          );
+        }
+
+        // Use the newly bootstrapped canonical password for the rest of the flow.
+        passwordToUse = legacyCanonicalPassword;
+      } else {
+        try {
+          // Decrypt the canonical password
+          passwordToUse = decrypt(userData.auth_password_iv, userData.auth_password);
+        } catch (decryptError) {
+          logger.error("Failed to decrypt password for multi-device login:", decryptError);
+          Sentry.captureException(decryptError, {
+            tags: { type: "password_decryption_failure", location: "save_token" },
+            extra: { userId: redact("id", verifieduserId) },
+          });
+          return NextResponse.json(
+            { message: "Session establishment failed. Please try logging in again." },
+            { status: 500 }
+          );
+        }
       }
     }
 
