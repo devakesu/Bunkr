@@ -17,6 +17,19 @@
 import { logger } from "@/lib/logger";
 
 export const getCspHeader = (nonce?: string) => {
+  // FORCE_STRICT_CSP / NEXT_PUBLIC_FORCE_STRICT_CSP
+  // ------------------------------------------------
+  // By default, we relax CSP in development to make Next.js and tooling easier to work with.
+  // Setting FORCE_STRICT_CSP=true (or 1 / yes) in the environment forces production-like,
+  // strict CSP behavior even when NODE_ENV !== "production". This is useful for:
+  //   - Testing strict CSP locally
+  //   - Reproducing production-only CSP issues in development
+  //
+  // For client-side access (e.g. when reading from process.env.NEXT_PUBLIC_* in the browser),
+  // the same behavior can be enabled with NEXT_PUBLIC_FORCE_STRICT_CSP=true.
+  //
+  // The isDev flag below intentionally treats "forced strict CSP" as non-development,
+  // so that all CSP decisions match production behavior whenever forceStrictCsp is enabled.
   const forceStrictCspValue = process.env.FORCE_STRICT_CSP ?? process.env.NEXT_PUBLIC_FORCE_STRICT_CSP;
   const forceStrictCsp = /^(true|1|yes)$/i.test(forceStrictCspValue ?? "");
   const isDev = process.env.NODE_ENV !== "production" && !forceStrictCsp;
