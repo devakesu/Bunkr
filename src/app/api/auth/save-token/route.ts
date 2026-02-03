@@ -660,7 +660,28 @@ export async function POST(req: Request) {
             );
           }
         } else {
-          // We successfully set the password; use it.
+          // We successfully set the canonical password in the users table; also update Supabase Auth.
+          const { data: _authUpdateData, error: authUpdateError } =
+            await supabaseAdmin.auth.admin.updateUserById(verifieduserId, {
+              password: legacyCanonicalPassword,
+            });
+
+          if (authUpdateError) {
+            logger.error(
+              "Failed to update Supabase Auth password during legacy bootstrap:",
+              authUpdateError,
+            );
+            Sentry.captureException(authUpdateError, {
+              tags: { type: "auth_password_update_failure", location: "save_token" },
+              extra: { userId: redact("id", verifieduserId) },
+            });
+            return NextResponse.json(
+              { message: "Session establishment failed. Please try logging in again." },
+              { status: 500 },
+            );
+          }
+
+          // We successfully set and synchronized the password; use it.
           passwordToUse = legacyCanonicalPassword;
         }
       } else {
