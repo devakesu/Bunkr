@@ -15,7 +15,7 @@ describe("Content Security Policy", () => {
     } else {
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     }
-    
+
     // Restore all stubbed env vars
     vi.unstubAllEnvs();
   });
