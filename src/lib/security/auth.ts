@@ -42,7 +42,7 @@ export const isAuthSessionMissingError = (error: unknown): boolean => {
  * - Logging out on one device does not affect active sessions on other devices
  * 
  * Process:
- * 1. Sign out from Supabase (client-side session only)
+ * 1. Sign out from Supabase (revokes the session for this device on the server)
  * 2. Clear authentication and terms cookies via API (with CSRF protection)
  * 3. Redirect to home page
  * 4. Clear browser storage (localStorage, sessionStorage) in finally block
