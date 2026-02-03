@@ -662,7 +662,7 @@ export async function POST(req: Request) {
         } else {
           // We successfully set the canonical password in the users table; also update Supabase Auth.
           const { data: _authUpdateData, error: authUpdateError } =
-            await supabaseAdmin.auth.admin.updateUserById(verifieduserId, {
+            await supabaseAdmin.auth.admin.updateUserById(userId, {
               password: legacyCanonicalPassword,
             });
 
