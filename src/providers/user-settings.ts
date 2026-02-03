@@ -86,24 +86,52 @@ export function useUserSettings() {
       if (error) throw error;
       return data;
     },
+    // Optimistic update: update cache before server responds
+    onMutate: async (newSettings) => {
+      // Cancel any pending queries for userSettings
+      await queryClient.cancelQueries({ queryKey: ["userSettings"] });
+      
+      // Snapshot the previous data for rollback
+      const previousSettings = queryClient.getQueryData<UserSettings>(["userSettings"]);
+      
+      // Optimistically update the cache with normalized values
+      const optimisticData = {
+        ...previousSettings,
+        ...newSettings,
+        target_percentage: newSettings.target_percentage ? normalizeTarget(newSettings.target_percentage) : previousSettings?.target_percentage
+      } as UserSettings;
+      
+      queryClient.setQueryData(["userSettings"], optimisticData);
+      
+      // Sync to localStorage immediately for instant UI feedback
+      if (newSettings.bunk_calculator_enabled !== undefined) {
+        localStorage.setItem("showBunkCalc", newSettings.bunk_calculator_enabled.toString());
+        window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
+      }
+      if (newSettings.target_percentage !== undefined) {
+        const normalizedTarget = normalizeTarget(newSettings.target_percentage);
+        localStorage.setItem("targetPercentage", normalizedTarget.toString());
+      }
+      
+      return { previousSettings };
+    },
     onSuccess: (newData) => {
-      // Instant UI update via Cache
+      // Update cache with actual server response (ensures normalized values)
       queryClient.setQueryData(["userSettings"], newData);
       
-      // Sync to Local Storage & Events immediately
-      if (newData.bunk_calculator_enabled !== undefined) {
-          localStorage.setItem("showBunkCalc", newData.bunk_calculator_enabled.toString());
-          window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newData.bunk_calculator_enabled }));
-      }
-      if (newData.target_percentage !== undefined) {
-          const normalizedTarget = normalizeTarget(newData.target_percentage);
-          localStorage.setItem("targetPercentage", normalizedTarget.toString());
-      }
+      // DO NOT write to localStorage here - already done in onMutate
+      // This prevents redundant writes and event dispatches that cause glitches
+      // Server response only validates the optimistic update was correct
     },
-    onError: (err) => {
+    onError: (err, _variables, context) => {
+      // Rollback to previous data on error
+      if (context?.previousSettings) {
+        queryClient.setQueryData(["userSettings"], context.previousSettings);
+      }
+      
       if (err.message !== "No user") {
-          toast.error("Failed to save settings");
-          Sentry.captureException(err, { tags: { type: "settings_update_error", location: "useUserSettings" } });
+        toast.error("Failed to save settings");
+        Sentry.captureException(err, { tags: { type: "settings_update_error", location: "useUserSettings" } });
       }
     }
   });
@@ -111,15 +139,21 @@ export function useUserSettings() {
   const { mutate: mutateSettings } = updateSettingsMutation;
 
   // 3. Centralized Sync Logic
+  // IMPORTANT: This effect handles three cases:
+  // - Case A: DB has settings -> Sync down to localStorage (DB is source of truth)
+  // - Case B: DB is empty (new user) -> Create DB record from localStorage or defaults
+  // - Case C: Mutation in progress -> Skip to avoid race conditions
   useEffect(() => {
-    if (isLoading) return;
+    // Don't run while loading or while mutation is in progress (isPending)
+    if (isLoading || updateSettingsMutation.isPending) return;
 
-    // Case A: DB has data -> Sync to LocalStorage (Source of Truth = DB)
-    // Always prioritize database values over localStorage
+    // Case A: DB has data -> Sync to LocalStorage ONLY if different (Source of Truth = DB)
+    // This handles cross-device sync (e.g., changed settings on another device)
     if (settings) {
       const localBunk = localStorage.getItem("showBunkCalc");
       const dbBunk = (settings.bunk_calculator_enabled ?? true).toString();
       
+      // Only sync if localStorage differs from DB (cross-device change)
       if (localBunk !== dbBunk) {
         localStorage.setItem("showBunkCalc", dbBunk);
         window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: settings.bunk_calculator_enabled ?? true }));
@@ -128,7 +162,7 @@ export function useUserSettings() {
       const localTarget = localStorage.getItem("targetPercentage");
       const dbTarget = normalizeTarget(settings.target_percentage).toString();
       
-      // Always sync DB → localStorage to ensure consistency across devices/browsers
+      // Only sync if localStorage differs from DB
       if (localTarget !== dbTarget) {
         localStorage.setItem("targetPercentage", dbTarget);
       }
@@ -154,7 +188,7 @@ export function useUserSettings() {
     }
     // mutateSettings is stable - it's the mutate function from useMutation and doesn't change between renders
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings, isLoading]);
+  }, [settings, isLoading, updateSettingsMutation.isPending]);
 
   return {
     settings,

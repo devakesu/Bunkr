@@ -3,7 +3,7 @@ import { LoginForm } from "@/components/user/login-form";
 
 export default async function LoginPage() {
   return (
-    <>
+    <div className="login-page flex flex-col min-h-full">
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8">
         <div className="w-full max-w-sm">
@@ -13,6 +13,6 @@ export default async function LoginPage() {
 
       {/* Footer */}
       <Footer className="mt-0 py-4 border-t-0 bg-transparent" />
-    </>
+    </div>
   );
 }

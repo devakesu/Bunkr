@@ -1,7 +1,124 @@
 # Security Enhancements - Implementation Guide
 
 ## Overview
-This document describes the CSRF token protection and request signing implementations added to GhostClass.
+This document describes the security implementations in GhostClass, including CSRF token protection, multi-device authentication, request signing, and encryption patterns.
+
+## Multi-Device Authentication
+
+### Purpose
+Enables users to login from multiple devices simultaneously without invalidating existing sessions. Uses canonical password pattern with encrypted storage for secure, persistent authentication across devices.
+
+### Implementation Files
+- **API Route**: `src/app/api/auth/save-token/route.ts` - Authentication handler
+- **Library**: `src/lib/crypto.ts` - AES-256-GCM encryption utilities
+- **Database Migration**: `supabase/migrations/20260203_add_auth_password_column.sql` - Schema update
+
+### How It Works
+
+**Canonical Password Pattern:**
+
+1. **First Login (New User)**
+   ```typescript
+   // Generate canonical password (one-time only)
+   const canonicalPassword = crypto.randomBytes(32).toString('hex');
+   
+   // Create Supabase Auth user with canonical password
+   await supabaseAdmin.auth.admin.createUser({
+     email,
+     password: canonicalPassword,
+     email_confirm: true,
+   });
+   
+   // Encrypt and store password in database
+   const { iv, content } = encrypt(canonicalPassword);
+   await supabaseAdmin.from("users").upsert({
+     auth_password: content,
+     auth_password_iv: iv,
+   });
+   ```
+
+2. **Subsequent Logins (Existing User)**
+   ```typescript
+   // Retrieve encrypted password from database
+   const { data } = await supabaseAdmin
+     .from("users")
+     .select("auth_password, auth_password_iv")
+     .eq("id", userId)
+     .single();
+   
+   // Decrypt canonical password
+   const canonicalPassword = decrypt(data.auth_password_iv, data.auth_password);
+   
+   // Sign in with decrypted password (does NOT update password)
+   await supabase.auth.signInWithPassword({
+     email,
+     password: canonicalPassword,
+   });
+   ```
+
+### Database Schema
+
+```sql
+-- Users table additions
+ALTER TABLE users ADD COLUMN auth_password TEXT;
+ALTER TABLE users ADD COLUMN auth_password_iv TEXT;
+
+-- Integrity constraints
+ALTER TABLE users ADD CONSTRAINT check_auth_password_consistency 
+CHECK ((auth_password IS NULL AND auth_password_iv IS NULL) 
+    OR (auth_password IS NOT NULL AND auth_password_iv IS NOT NULL));
+
+ALTER TABLE users ADD CONSTRAINT check_auth_password_not_empty 
+CHECK (auth_password IS NULL OR auth_password != '');
+
+ALTER TABLE users ADD CONSTRAINT check_auth_password_iv_not_empty 
+CHECK (auth_password_iv IS NULL OR auth_password_iv != '');
+```
+
+### Security Features
+
+**Encryption:**
+- Algorithm: AES-256-GCM (authenticated encryption)
+- Key derivation: Uses `ENCRYPTION_KEY` environment variable
+- IV storage: Separate column (`auth_password_iv`) for decryption
+- Same pattern as EzyGo token encryption for consistency
+
+**Session Isolation:**
+- Each device maintains independent session cookies
+- Logout on one device does NOT invalidate other sessions
+- Password never changes after first login (prevents session invalidation)
+- Device sessions tracked separately in Redis (future enhancement)
+
+**Error Handling:**
+- Encryption failures logged to Sentry with `password_encryption_failure` tag
+- Decryption failures logged with `password_decryption_failure` tag
+- Retrieval failures logged with `password_retrieval_failure` tag
+- Generic error messages to users (no sensitive info disclosure)
+
+**Best Practices:**
+- ✅ Canonical password generated once, never regenerated
+- ✅ Passwords encrypted before storage, never stored in plaintext
+- ✅ IV stored separately for proper AES-GCM decryption
+- ✅ Database constraints enforce data integrity
+- ✅ Comprehensive error monitoring with Sentry
+- ✅ Constant-time operations prevent timing attacks
+
+### Why Canonical Password Pattern?
+
+**Previous Issue:**
+Each login regenerated an ephemeral password and updated the Supabase user's password. This invalidated all previous sessions when a user logged in from a new device.
+
+**Solution:**
+Canonical password pattern generates one password on first login and reuses it for all subsequent logins. This allows multiple concurrent sessions from different devices without invalidation.
+
+**Trade-offs:**
+- ✅ Multi-device support without session conflicts
+- ✅ Better user experience (no unexpected logouts)
+- ✅ Reduced password churn (fewer database updates)
+- ⚠️ Requires secure encryption and key management
+- ⚠️ Password persists in database (encrypted) vs ephemeral in memory
+
+---
 
 ## CSRF Token Protection
 

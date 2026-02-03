@@ -83,6 +83,13 @@ paths:
         - Encrypts and stores the token securely in the database
         - Establishes a session cookie for subsequent authenticated requests
         
+        **Multi-Device Support:**
+        - Uses canonical password pattern for persistent authentication
+        - On first login: Generates and encrypts a canonical password for the user
+        - On subsequent logins: Retrieves and decrypts the stored password
+        - Enables concurrent sessions from multiple devices without invalidation
+        - Logout on one device does not affect sessions on other devices
+        
         **Authentication:** No authentication required (this endpoint creates authentication)
         
         **Rate Limiting:** Configured via AUTH_RATE_LIMIT_REQUESTS and AUTH_RATE_LIMIT_WINDOW environment variables
@@ -90,11 +97,13 @@ paths:
         **Side Effects:**
         - Creates a new user account in Supabase Auth if not exists
         - Stores encrypted token in the database
+        - Stores encrypted canonical password on first login (auth_password, auth_password_iv)
         - Sets session cookies in the response
         
         **Use Cases:**
         - Initial user authentication from EzyGo
         - Token refresh when existing token expires
+        - Multi-device login (desktop, mobile, tablet simultaneously)
       
       operationId: saveAuthToken
       
