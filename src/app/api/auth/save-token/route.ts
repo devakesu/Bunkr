@@ -356,10 +356,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Invalid email format" }, { status: 500 });
     }
 
-    // Device-aware session management:
-    // Instead of regenerating passwords (which invalidates other devices),
-    // we use a single canonical password per user and track device sessions in Redis.
-    // This allows multiple concurrent logins from different devices.
+    // Canonical password + Redis auth lock:
+    // Instead of regenerating passwords (which would invalidate other devices),
+    // we use a single canonical password per user and a Redis-based per-user auth lock
+    // to coordinate concurrent login attempts without persisting per-device sessions here.
     let userId: string | undefined;
     let isFirstLogin = false;
 
