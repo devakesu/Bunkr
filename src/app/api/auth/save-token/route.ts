@@ -521,11 +521,35 @@ export async function POST(req: Request) {
         .eq("id", verifieduserId)
         .single();
 
-      if (userDataError || !userData?.auth_password || !userData?.auth_password_iv) {
-        logger.error("Failed to retrieve stored password for multi-device login:", userDataError);
+      if (userDataError) {
+        logger.error("Failed to retrieve stored password for multi-device login (Supabase error):", userDataError);
         Sentry.captureException(userDataError, {
           tags: { type: "password_retrieval_failure", location: "save_token" },
-          extra: { userId: redact("id", verifieduserId) },
+          extra: { userId: redact("id", verifieduserId), source: "supabase" },
+        });
+        return NextResponse.json(
+          { message: "Session establishment failed. Please try logging in again." },
+          { status: 500 }
+        );
+      }
+
+      if (!userData?.auth_password || !userData?.auth_password_iv) {
+        const missingFieldsError = new Error("Missing canonical password for multi-device login");
+        logger.error("Failed to retrieve stored password for multi-device login: missing auth_password/auth_password_iv", {
+          userId: redact("id", verifieduserId),
+          hasUserData: !!userData,
+          hasAuthPassword: !!userData?.auth_password,
+          hasAuthPasswordIv: !!userData?.auth_password_iv,
+        });
+        Sentry.captureException(missingFieldsError, {
+          tags: { type: "password_retrieval_failure", location: "save_token" },
+          extra: {
+            userId: redact("id", verifieduserId),
+            hasUserData: !!userData,
+            hasAuthPassword: !!userData?.auth_password,
+            hasAuthPasswordIv: !!userData?.auth_password_iv,
+            source: "missing_fields",
+          },
         });
         return NextResponse.json(
           { message: "Session establishment failed. Please try logging in again." },

@@ -137,11 +137,13 @@ describe("Content Security Policy", () => {
     expect(header).not.toMatch(/\s{2,}/);
   });
 
-  it("should NOT include Google Analytics domains (using server-side Measurement Protocol)", () => {
+  it("should include Google Analytics domains in connect-src (for server-side Measurement Protocol)", () => {
     const header = getCspHeader();
-    expect(header).not.toContain("google-analytics.com");
+    // Google Analytics domains should be in connect-src for server-side tracking
+    expect(header).toContain("google-analytics.com");
+    expect(header).toContain("doubleclick.net");
+    // Google Tag Manager should NOT be included (we don't use client-side GTM)
     expect(header).not.toContain("googletagmanager.com");
-    expect(header).not.toContain("doubleclick.net");
   });
 
   it("should include Cloudflare domains", () => {
