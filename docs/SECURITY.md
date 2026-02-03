@@ -101,7 +101,6 @@ CHECK (auth_password_iv IS NULL OR auth_password_iv != '');
 - ✅ IV stored separately for proper AES-GCM decryption
 - ✅ Database constraints enforce data integrity
 - ✅ Comprehensive error monitoring with Sentry
-- ✅ Constant-time operations prevent timing attacks
 
 ### Why Canonical Password Pattern?
 
