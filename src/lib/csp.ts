@@ -203,7 +203,7 @@ export const getCspHeader = (nonce?: string) => {
           );
         }
 
-        return parts;
+        return parts.filter(Boolean) as string[];
       })();
   
   // style-src-attr: Controls inline style attributes (e.g., <div style="color: red;">)
