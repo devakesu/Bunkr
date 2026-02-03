@@ -88,10 +88,7 @@ export const getCspHeader = (nonce?: string) => {
         https://*.ingest.sentry.io 
         https://challenges.cloudflare.com
         https://cloudflareinsights.com
-        https://static.cloudflareinsights.com
-        https://stats.g.doubleclick.net
-        https://www.google-analytics.com
-        https://analytics.google.com;
+        https://static.cloudflareinsights.com;
       upgrade-insecure-requests;
     `.replace(/\s{2,}/g, ' ').trim();
   }
@@ -252,9 +249,6 @@ export const getCspHeader = (nonce?: string) => {
       https://challenges.cloudflare.com
       https://cloudflareinsights.com
       https://static.cloudflareinsights.com
-      https://stats.g.doubleclick.net
-      https://www.google-analytics.com
-      https://analytics.google.com
       ${process.env.NODE_ENV !== 'production' ? 'ws://localhost:3000 ws://127.0.0.1:3000' : ''}
       ${process.env.NODE_ENV !== 'production' ? 'http://localhost:3000 http://127.0.0.1:3000' : ''}
       ${process.env.NODE_ENV !== 'production' ? 'https://localhost:3000 https://127.0.0.1:3000' : ''};
