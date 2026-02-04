@@ -17,6 +17,7 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 - **Visual Receipts** 📊: Performance charts and a detailed calendar history so you can see your attendance glow-up in real-time.
 - **Anti-Ghosting Tracker** 👻: A personalized list to watch wrongly marked absences like a hawk until they get updated.
 - **Ezygo Integration** 🔄 - Use your existing ezygo credentials - no new accounts needed
+- **Multi-Device Support** 🔐 - Login from multiple devices simultaneously without losing sessions
 - **Real-time Updates** ⚡ - Get instant updates on your attendance status and skip calculations
 - **Track Status Changes** 📝 – Get notified when your attendance is updated
 - **Mobile Friendly** 📱 - Access your attendance data on any device, anywhere
@@ -430,7 +431,8 @@ it('should display attendance percentage', () => {
 
 GhostClass implements multiple layers of security:
 
-- **AES-256-GCM Encryption** - All sensitive tokens are encrypted at rest
+- **AES-256-GCM Encryption** - All sensitive tokens and authentication credentials encrypted at rest
+- **Multi-Device Session Security** - Canonical password pattern enables concurrent logins without session invalidation
 - **CSRF Protection** - Custom token-based CSRF protection on critical endpoints
 - **Content Security Policy (CSP)** - CSP Level 3 with nonce-based script execution and hash whitelisting; integrates with Cloudflare Zaraz
 - **Rate Limiting** - Upstash Redis-based rate limiting to prevent abuse

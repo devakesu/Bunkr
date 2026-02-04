@@ -35,8 +35,14 @@ export const isAuthSessionMissingError = (error: unknown): boolean => {
  * Performs comprehensive logout with cleanup of all authentication state.
  * Handles Supabase session, local storage, cookies, and redirects to home.
  * 
+ * Multi-Device Support:
+ * - Only clears the current device's cookies (ezygo_access_token, CSRF, terms_version)
+ * - Does NOT invalidate other devices' sessions (no password changes)
+ * - Each device can maintain independent sessions from the same user account
+ * - Logging out on one device does not affect active sessions on other devices
+ * 
  * Process:
- * 1. Sign out from Supabase (server-side session)
+ * 1. Sign out from Supabase (revokes the session for this device on the server)
  * 2. Clear authentication and terms cookies via API (with CSRF protection)
  * 3. Redirect to home page
  * 4. Clear browser storage (localStorage, sessionStorage) in finally block
@@ -56,6 +62,7 @@ export const isAuthSessionMissingError = (error: unknown): boolean => {
  * const csrfToken = getCsrfToken();
  * await handleLogout(csrfToken);
  * // User is redirected to home page with all auth state cleared
+ * // Other devices remain logged in (multi-device support)
  * ```
  */
 export const handleLogout = async (csrfToken?: string | null) => {

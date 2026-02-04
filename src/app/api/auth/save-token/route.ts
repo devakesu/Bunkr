@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/nextjs";
 import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { encrypt } from "@/lib/crypto";
+import { encrypt, decrypt } from "@/lib/crypto";
 import { authRateLimiter } from "@/lib/ratelimit";
 import { headers } from "next/headers";
 import { cookies } from "next/headers";
@@ -356,11 +356,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Invalid email format" }, { status: 500 });
     }
 
-    // Generate a fresh random password for this session
-    const ephemeralPassword = crypto.randomBytes(32).toString('hex');
+    // Canonical password + Redis auth lock:
+    // Instead of regenerating passwords (which would invalidate other devices),
+    // we use a single canonical password per user and a Redis-based per-user auth lock
+    // to coordinate concurrent login attempts without persisting per-device sessions here.
     let userId: string | undefined;
+    let isFirstLogin = false;
 
-    // Acquire lock to prevent concurrent password updates
+    // Acquire lock to prevent concurrent operations
     try {
       lockValue = await acquireAuthLock(lockUserId);
     } catch (error) {
@@ -380,16 +383,19 @@ export async function POST(req: Request) {
       );
     }
 
-    // A. Try to Create User First
+    // A. Try to Create User First (new account)
+    // Generate a canonical password (only used once on first login)
+    const canonicalPassword = crypto.randomBytes(32).toString('hex');
+    
     const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: ephemeralPassword,
+      password: canonicalPassword,
       email_confirm: true,
       user_metadata: { ezygo_id: verifieduserId },
     });
 
     if (createError) {
-      // B. If User Exists -> Update Password
+      // B. If User Exists -> Reuse existing password (do NOT update)
       if (createError.message?.toLowerCase().includes("already registered") || createError.status === 422) {
         // Let's use the 'users' table to resolve the Auth UUID
         const { data: existingMap } = await supabaseAdmin
@@ -443,16 +449,17 @@ export async function POST(req: Request) {
             
             logger.dev(`Deleted orphan user ${orphanUserId}. Retrying creation...`);
 
-            // Retry Creation (Fresh Start)
+            // Retry Creation (Fresh Start) with canonical password
             const { data: retryData, error: retryError } = await supabaseAdmin.auth.admin.createUser({
               email,
-              password: ephemeralPassword,
+              password: canonicalPassword,
               email_confirm: true,
               user_metadata: { ezygo_id: verifieduserId },
             });
 
             if (retryError) throw retryError;
             userId = retryData.user.id;
+            isFirstLogin = true;
 
           } else {
              const errorMsg = `Critical: 'User already registered' error, but email ${email} not found in Auth scan.`;
@@ -469,12 +476,9 @@ export async function POST(req: Request) {
 
         } else {
           // --- CASE 2: NORMAL USER (Exists in both) ---
-          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-            targetAuthId,
-            { password: ephemeralPassword }
-          );
-
-          if (updateError) throw updateError;
+          // IMPORTANT: Do NOT update password on subsequent logins!
+          // This preserves existing sessions from other devices by keeping
+          // the canonical password (and auth lock) stable across logins.
           userId = targetAuthId;
         }
         
@@ -483,9 +487,12 @@ export async function POST(req: Request) {
       }
     } else {
       userId = createData.user.id;
+      isFirstLogin = true;
     }
 
-    // 4. Sign In
+    // 4. Device-based Sign In
+    // Strategy: Store canonical auth password in users table (encrypted),
+    // allowing all devices to use the same password without it changing on each login.
     const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -502,9 +509,202 @@ export async function POST(req: Request) {
       }
     );
 
+    // On first login: use the newly generated canonical password
+    // On subsequent logins: retrieve the stored canonical password from database
+    let passwordToUse = canonicalPassword;
+    
+    if (!isFirstLogin) {
+      // Retrieve the encrypted canonical password from the users table
+      const { data: userData, error: userDataError } = await supabaseAdmin
+        .from("users")
+        .select("auth_password, auth_password_iv")
+        .eq("id", verifieduserId)
+        .single();
+
+      if (userDataError) {
+        logger.error("Failed to retrieve stored password for multi-device login (Supabase error):", userDataError);
+        Sentry.captureException(userDataError, {
+          tags: { type: "password_retrieval_failure", location: "save_token" },
+          extra: { userId: redact("id", verifieduserId), source: "supabase" },
+        });
+        return NextResponse.json(
+          { message: "Session establishment failed. Please try logging in again." },
+          { status: 500 }
+        );
+      }
+
+      if (!userData?.auth_password || !userData?.auth_password_iv) {
+        // If there is no userData row at all, this is still an unrecoverable error.
+        if (!userData) {
+          const missingFieldsError = new Error("Missing canonical password for multi-device login");
+          logger.error(
+            "Failed to retrieve stored password for multi-device login: missing userData/auth_password/auth_password_iv",
+            {
+              userId: redact("id", verifieduserId),
+              hasUserData: false,
+            },
+          );
+          Sentry.captureException(missingFieldsError, {
+            tags: { type: "password_retrieval_failure", location: "save_token" },
+            extra: {
+              userId: redact("id", verifieduserId),
+              hasUserData: false,
+              source: "missing_fields_no_user_row",
+            },
+          });
+          return NextResponse.json(
+            { message: "Session establishment failed. Please try logging in again." },
+            { status: 500 }
+          );
+        }
+
+        // Bootstrap canonical password for legacy users who have a user row but no stored password.
+        logger.warn(
+          "Bootstrapping canonical password for legacy user missing auth_password/auth_password_iv",
+          {
+            userId: redact("id", verifieduserId),
+            hasUserData: true,
+            hasAuthPassword: !!userData.auth_password,
+            hasAuthPasswordIv: !!userData.auth_password_iv,
+          },
+        );
+
+        Sentry.captureMessage(
+          "Bootstrapping canonical password for legacy user (missing auth_password/auth_password_iv)",
+          {
+            level: "warning",
+            tags: { type: "password_bootstrap", location: "save_token" },
+            extra: {
+              userId: redact("id", verifieduserId),
+              hasUserData: true,
+              hasAuthPassword: !!userData.auth_password,
+              hasAuthPasswordIv: !!userData.auth_password_iv,
+            },
+          },
+        );
+
+        // Generate a strong random canonical password and store its encrypted form.
+        // Using 32 bytes (44 base64 chars) for strong entropy, matching the security level
+        // of the initial canonical password generation for new users.
+        const legacyCanonicalPassword = crypto.randomBytes(32).toString("base64");
+
+        // Reuse existing encryption helper; it is used elsewhere to populate auth_password/auth_password_iv.
+        const { content: encryptedData, iv } = encrypt(legacyCanonicalPassword);
+
+        // Use a conditional update to prevent race conditions: only update if auth_password is still NULL.
+        // If another request already bootstrapped a password, we'll read that instead.
+        const { data: updateResult, error: updatePasswordError } = await supabaseAdmin
+          .from("users")
+          .update({
+            auth_password: encryptedData,
+            auth_password_iv: iv,
+          })
+          .eq("id", verifieduserId)
+          .is("auth_password", null)
+          .select("auth_password, auth_password_iv");
+
+        if (updatePasswordError) {
+          logger.error(
+            "Failed to bootstrap canonical password for legacy user (Supabase update error):",
+            updatePasswordError,
+          );
+          Sentry.captureException(updatePasswordError, {
+            tags: { type: "password_bootstrap_failure", location: "save_token" },
+            extra: { userId: redact("id", verifieduserId), source: "supabase_update" },
+          });
+          return NextResponse.json(
+            { message: "Session establishment failed. Please try logging in again." },
+            { status: 500 }
+          );
+        }
+
+        // If updateResult is empty, another request already set a password. Read it.
+        if (!updateResult || updateResult.length === 0) {
+          logger.info(
+            "Another request already bootstrapped canonical password for this user; reading it",
+            { userId: redact("id", verifieduserId) }
+          );
+
+          const { data: refetchedData, error: refetchError } = await supabaseAdmin
+            .from("users")
+            .select("auth_password, auth_password_iv")
+            .eq("id", verifieduserId)
+            .single();
+
+          if (refetchError || !refetchedData?.auth_password || !refetchedData?.auth_password_iv) {
+            logger.error(
+              "Failed to refetch bootstrapped password after race condition:",
+              refetchError
+            );
+            Sentry.captureException(refetchError ?? new Error("Missing password after race"), {
+              tags: { type: "password_refetch_failure", location: "save_token" },
+              extra: { userId: redact("id", verifieduserId) },
+            });
+            return NextResponse.json(
+              { message: "Session establishment failed. Please try logging in again." },
+              { status: 500 }
+            );
+          }
+
+          try {
+            passwordToUse = decrypt(refetchedData.auth_password_iv, refetchedData.auth_password);
+          } catch (decryptError) {
+            logger.error("Failed to decrypt refetched password:", decryptError);
+            Sentry.captureException(decryptError, {
+              tags: { type: "password_decryption_failure", location: "save_token" },
+              extra: { userId: redact("id", verifieduserId), context: "race_refetch" },
+            });
+            return NextResponse.json(
+              { message: "Session establishment failed. Please try logging in again." },
+              { status: 500 }
+            );
+          }
+        } else {
+          // We successfully set the canonical password in the users table; also update Supabase Auth.
+          const { data: _authUpdateData, error: authUpdateError } =
+            await supabaseAdmin.auth.admin.updateUserById(userId, {
+              password: legacyCanonicalPassword,
+            });
+
+          if (authUpdateError) {
+            logger.error(
+              "Failed to update Supabase Auth password during legacy bootstrap:",
+              authUpdateError,
+            );
+            Sentry.captureException(authUpdateError, {
+              tags: { type: "auth_password_update_failure", location: "save_token" },
+              extra: { userId: redact("id", verifieduserId) },
+            });
+            return NextResponse.json(
+              { message: "Session establishment failed. Please try logging in again." },
+              { status: 500 },
+            );
+          }
+
+          // We successfully set and synchronized the password; use it.
+          passwordToUse = legacyCanonicalPassword;
+        }
+      } else {
+        try {
+          // Decrypt the canonical password
+          passwordToUse = decrypt(userData.auth_password_iv, userData.auth_password);
+        } catch (decryptError) {
+          logger.error("Failed to decrypt password for multi-device login:", decryptError);
+          Sentry.captureException(decryptError, {
+            tags: { type: "password_decryption_failure", location: "save_token" },
+            extra: { userId: redact("id", verifieduserId) },
+          });
+          return NextResponse.json(
+            { message: "Session establishment failed. Please try logging in again." },
+            { status: 500 }
+          );
+        }
+      }
+    }
+
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
-      password: ephemeralPassword,
+      password: passwordToUse,
     });
 
     if (signInError) throw signInError;
@@ -537,6 +737,24 @@ export async function POST(req: Request) {
       // but the failure is now visible for debugging and monitoring.
     }
 
+    // Encrypt the canonical password on first login
+    let encryptedPassword: { iv: string; content: string } | null = null;
+    if (isFirstLogin) {
+      try {
+        encryptedPassword = encrypt(canonicalPassword);
+      } catch (encryptError) {
+        logger.error("Failed to encrypt canonical password:", encryptError);
+        Sentry.captureException(encryptError, {
+          tags: { type: "password_encryption_failure", location: "save_token" },
+          extra: { userId: redact("id", verifieduserId) },
+        });
+        return NextResponse.json(
+          { message: "Failed to establish secure session" },
+          { status: 500 }
+        );
+      }
+    }
+
     const { error: dbError } = await supabaseAdmin
       .from("users")
       .upsert({ 
@@ -545,6 +763,12 @@ export async function POST(req: Request) {
         ezygo_token: content,
         ezygo_iv: iv,
         auth_id: userId,
+        // Store encrypted canonical password on first login; subsequent logins don't update it
+        // This allows all devices to use the same password without invalidating other sessions
+        ...(isFirstLogin && encryptedPassword && { 
+          auth_password: encryptedPassword.content,
+          auth_password_iv: encryptedPassword.iv
+        }),
         updated_at: new Date().toISOString()
       }, { onConflict: "id" });
 
