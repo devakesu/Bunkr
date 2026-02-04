@@ -68,8 +68,8 @@ export const Navbar = () => {
   const handleBunkCalcToggle = (checked: boolean) => {
     updateBunkCalc(checked);
     
-    // Event dispatch is handled by the provider's onMutate/onSuccess
-    // No need to dispatch here to avoid double-firing
+    // Event dispatch is handled by the provider's mutation onMutate handler only
+    // No need to dispatch here (or in onSuccess) to avoid double-firing
 
     if (checked) {
       toast.success("Bunk Calculator Enabled");
