@@ -675,7 +675,7 @@ export async function POST(req: Request) {
 
           const { data: _authUpdateData, error: authUpdateError } =
             await supabaseAdmin.auth.admin.updateUserById(userId, {
-              password: legacyCanonicalPassword as string,
+              password: legacyCanonicalPassword,
             });
 
           if (authUpdateError) {
