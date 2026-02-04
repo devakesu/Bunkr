@@ -36,11 +36,11 @@ export const useCourseDetails = (courseId: string) => {
       return res.data;
     },
     enabled: !!courseId,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: 60 * 1000,
-    retry: 1,
+    staleTime: 2 * 60 * 1000, // 2 minutes - balance between real-time and performance
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false, // Prevent N+1 on tab switch
+    refetchOnReconnect: true, // Keep real-time on reconnect
+    refetchInterval: 5 * 60 * 1000, // Poll every 5 minutes instead of 1 minute
+    retry: 2,
   });
 };

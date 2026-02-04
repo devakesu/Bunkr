@@ -94,6 +94,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
 
   // Initialize CSRF token
   useCSRFToken();
+  const supabase = createClient();
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const password = e.target.value;
@@ -116,7 +117,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     
     const checkUser = async () => {
       setIsLoadingPage(true);
-      const supabase = createClient();
+  
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         // Ignore auth session missing errors - they're expected when not logged in
@@ -142,7 +143,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     return () => {
       isMounted = false;
     };
-  }, [router]);
+  }, [router, supabase]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -168,14 +169,32 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       // 2. Securely Save Token (Bridge to GhostClass) - requires CSRF token
       const csrfToken = getCsrfToken();
       
-      await axios.post("/api/auth/save-token", 
+      const saveTokenResponse = await axios.post("/api/auth/save-token", 
         { token }, 
         { 
           headers: csrfToken ? { [CSRF_HEADER]: csrfToken } : {}
         }
       );
 
-      // 3. Success
+      // 3. Pre-populate settings from save-token response for immediate availability
+      // This eliminates the 5-10 second delay showing defaults on fresh login
+      const settings = saveTokenResponse.data?.settings;
+      if (settings) {
+        const bunkValue = (settings.bunk_calculator_enabled ?? true).toString();
+        const targetValue = (settings.target_percentage ?? 75).toString();
+        
+        // Use sessionStorage for reliable cross-navigation transfer
+        sessionStorage.setItem("prefetchedSettings", JSON.stringify({
+          bunk_calculator_enabled: settings.bunk_calculator_enabled ?? true,
+          target_percentage: settings.target_percentage ?? 75
+        }));
+        
+        // Also update localStorage for persistence across sessions
+        localStorage.setItem("showBunkCalc", bunkValue);
+        localStorage.setItem("targetPercentage", targetValue);
+      }
+
+      // 4. Success - navigate to dashboard
       router.push("/dashboard");
 
     } catch (error) {
@@ -250,11 +269,12 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
 
   return (
     <motion.div
-      className={cn("flex flex-col gap-3", className)}
+      className={cn("flex flex-col gap-3 login-page", className)}
       {...props}
       initial="hidden"
       animate="visible"
       variants={containerVariants}
+      suppressHydrationWarning
     >
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-2">
@@ -263,6 +283,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           <motion.div
             className="flex flex-col items-center gap-1.5 -mt-8 sm:-mt-10" 
             variants={logoVariants}
+            suppressHydrationWarning
           >
             <div className="flex justify-center items-center flex-col">
               <div className="relative w-[340px] h-[120px] sm:w-[520px] sm:h-[180px] overflow-hidden"> 

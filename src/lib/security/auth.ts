@@ -78,7 +78,12 @@ export const handleLogout = async (csrfToken?: string | null) => {
     }
     
     // 1. Sign out from Supabase (Server-side session)
-    const { error } = await supabase.auth.signOut();
+    // CRITICAL: Use shouldSignOutFromAllDevices: false to only logout current device
+    // If this is true (default), it invalidates all sessions for the user across all devices
+    // which breaks multi-device support
+    const { error } = await supabase.auth.signOut({
+      scope: 'local' // Only sign out the current session, not all sessions
+    });
     if (error) throw error;
 
     // 2. Clear Cookies with CSRF protection

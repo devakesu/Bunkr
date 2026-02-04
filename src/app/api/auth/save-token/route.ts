@@ -793,7 +793,22 @@ export async function POST(req: Request) {
       await setTermsVersionCookie(TERMS_VERSION);
     }
 
-    return NextResponse.json({ success: true });
+    // Fetch user settings to return to client for immediate localStorage population
+    // This eliminates the 5-10 second delay showing defaults on fresh login
+    let userSettings = null;
+    try {
+      const { data: settings } = await supabaseAdmin
+        .from("user_settings")
+        .select("bunk_calculator_enabled, target_percentage")
+        .eq("user_id", userId)
+        .maybeSingle();
+      userSettings = settings;
+    } catch (settingsError) {
+      // Non-critical: settings will load via normal flow if this fails
+      logger.warn("Failed to prefetch settings (non-critical):", settingsError);
+    }
+
+    return NextResponse.json({ success: true, settings: userSettings });
 
   } catch (error: any) {
     logger.error("Auth Bridge Failed:", error);

@@ -64,7 +64,7 @@ const dmMono = DM_Mono({
 });
 
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -76,6 +76,8 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/logo.png" />
         <meta name="application-name" content="GhostClass" />
         <meta name="google" content="notranslate" />
         <meta name="format-detection" content="telephone=no" />

@@ -117,8 +117,17 @@ export const Navbar = () => {
     await handleLogout();
   };
 
-  const currentTarget = settings?.target_percentage ?? 75;
-  const currentBunkCalc = settings?.bunk_calculator_enabled ?? true;
+  // During loading, read from localStorage to show user's last known value instead of defaults
+  const currentTarget = settings?.target_percentage ?? (() => {
+    if (typeof window === 'undefined') return 75;
+    const stored = localStorage.getItem('targetPercentage');
+    return stored ? parseInt(stored, 10) : 75;
+  })();
+  const currentBunkCalc = settings?.bunk_calculator_enabled ?? (() => {
+    if (typeof window === 'undefined') return true;
+    const stored = localStorage.getItem('showBunkCalc');
+    return stored ? stored === 'true' : true;
+  })();
 
   return (
     <header className="top-0 z-10 flex h-20 items-center justify-between gap-4 border-b-2 bg-background px-4 md:px-6 text-white mr-0.5 border-white/5">

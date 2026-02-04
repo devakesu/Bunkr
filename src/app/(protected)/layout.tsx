@@ -119,10 +119,10 @@ export default function ProtectedLayout({
 
   return (
     <ErrorBoundary>
-      <div className="flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col" suppressHydrationWarning>
         {/* Show loading state while checking auth or if institutions are loading/error */}
         {showLoading && (
-          <div className="h-screen flex items-center justify-center">
+          <div className="h-screen flex items-center justify-center" suppressHydrationWarning>
             <Loading />
           </div>
         )}
@@ -141,6 +141,7 @@ export default function ProtectedLayout({
                 "fixed top-0 left-0 right-0 z-50",
                 isHidden ? "pointer-events-none" : "pointer-events-auto"
               )}
+              inert={isHidden ? true : undefined}
             >
               <Navbar />
             </motion.div>

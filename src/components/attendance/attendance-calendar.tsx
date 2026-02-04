@@ -271,14 +271,12 @@ export function AttendanceCalendar({
       return;
     }
 
-    setCurrentMonth((p) => {
-      if (p === null) return p;
-      if (p === 0) {
-        setCurrentYear((y) => (y === null ? y : y - 1));
-        return 11;
-      }
-      return p - 1;
-    });
+    if (currentMonth === 0) {
+      setCurrentYear(currentYear - 1);
+      setCurrentMonth(11);
+    } else {
+      setCurrentMonth(currentMonth - 1);
+    }
   };
   const handleNextMonth = () => { 
     // If the calendar is still initializing, provide feedback instead of appearing unresponsive
@@ -287,14 +285,12 @@ export function AttendanceCalendar({
       return;
     }
 
-    setCurrentMonth((p) => {
-      if (p === null) return p;
-      if (p === 11) {
-        setCurrentYear((y) => (y === null ? y : y + 1));
-        return 0;
-      }
-      return p + 1;
-    });
+    if (currentMonth === 11) {
+      setCurrentYear(currentYear + 1);
+      setCurrentMonth(0);
+    } else {
+      setCurrentMonth(currentMonth + 1);
+    }
   };
   const goToToday = () => { 
     const t = new Date(); 

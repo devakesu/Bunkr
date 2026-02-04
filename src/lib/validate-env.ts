@@ -186,7 +186,7 @@ export function validateEnvironment() {
   if (attendanceTargetMin) {
     const minValue = parseInt(attendanceTargetMin, 10);
     if (isNaN(minValue) || minValue < 1 || minValue > 100) {
-      errors.push('❌ NEXT_PUBLIC_ATTENDANCE_TARGET_MIN must be a number between 1 and 100 (default: 50)');
+      errors.push('❌ NEXT_PUBLIC_ATTENDANCE_TARGET_MIN must be a number between 1 and 100 (default: 75)');
     }
   }
 

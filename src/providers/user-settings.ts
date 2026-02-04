@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { UserSettings } from "@/types/user-settings";
 import * as Sentry from "@sentry/nextjs";
@@ -15,12 +15,12 @@ import { logger } from "@/lib/logger";
 // 3. Provides a stable reference without requiring React hooks infrastructure
 // If this function needed access to component state/props, useCallback would be more appropriate.
 //
-// Minimum target defaults to 50% but can be configured via NEXT_PUBLIC_ATTENDANCE_TARGET_MIN environment variable
+// Minimum target defaults to 75% but can be configured via NEXT_PUBLIC_ATTENDANCE_TARGET_MIN environment variable
 // to support institutions with different minimum attendance requirements.
 // Values below the configured minimum are unrealistic and could cause issues in attendance calculations.
 //
 // DATABASE MIGRATION CONSIDERATION: If NEXT_PUBLIC_ATTENDANCE_TARGET_MIN is changed to a higher value
-// (e.g., from 50 to 75), users with stored target_percentage values below the new minimum will have
+// (e.g., from 75 to 85), users with stored target_percentage values below the new minimum will have
 // their targets silently adjusted upward on the next read. This is intentional behavior to enforce
 // the institutional minimum, but consider:
 // 1. Announcing the change to users before deployment
@@ -30,10 +30,10 @@ import { logger } from "@/lib/logger";
 // Parse the environment variable once at module load time for performance
 const MIN_TARGET = (() => {
   const envValue = process.env.NEXT_PUBLIC_ATTENDANCE_TARGET_MIN;
-  if (!envValue) return 50;
+  if (!envValue) return 75;
   const parsed = parseInt(envValue, 10);
-  // Clamp to valid range, falling back to 50 if invalid
-  return !isNaN(parsed) ? Math.min(100, Math.max(1, parsed)) : 50;
+  // Clamp to valid range, falling back to 75 if invalid
+  return !isNaN(parsed) ? Math.min(100, Math.max(1, parsed)) : 75;
 })();
 
 const normalizeTarget = (value?: number | null) => {
@@ -44,9 +44,37 @@ const normalizeTarget = (value?: number | null) => {
 export function useUserSettings() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+  
+  // Track mutation window to prevent focus refetch from overwriting optimistic updates
+  // When user toggles a setting, we set this to true during onMutate
+  // and clear it after onSuccess/onError to prevent stale data from overwriting changes
+  const isMutatingRef = useRef(false);
+  
+  // Track if we've completed the initial fetch to prevent re-initialization on refetches
+  // This is critical to prevent settings from resetting to defaults when query is invalidated
+  const hasCompletedInitialFetchRef = useRef(false);
+
+  // Monitor session changes to trigger settings fetch on login
+  // This ensures settings are loaded immediately when user authenticates,
+  // not just when navigating to protected routes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // When user signs in or session refreshes, invalidate settings cache
+      // to trigger immediate re-fetch with the new auth session
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        queryClient.invalidateQueries({ queryKey: ["userSettings"] });
+      }
+      // When user signs out, clear settings from cache
+      else if (event === "SIGNED_OUT") {
+        queryClient.removeQueries({ queryKey: ["userSettings"] });
+      }
+    });
+
+    return () => subscription?.unsubscribe();
+  }, [queryClient, supabase.auth]);
 
   // 1. Fetch from DB
-  const { data: settings, isLoading } = useQuery({
+  const { data: settings, isLoading, isFetching } = useQuery({
     queryKey: ["userSettings"],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -56,7 +84,7 @@ export function useUserSettings() {
         .from("user_settings")
         .select("bunk_calculator_enabled, target_percentage")
         .eq("user_id", session.user.id)
-        .maybeSingle(); // Returns null if row missing (cleaner than .single() + error catching)
+        .maybeSingle();
 
       if (error) {
         logger.error("Error fetching settings:", error);
@@ -66,9 +94,44 @@ export function useUserSettings() {
 
       return data as UserSettings | null;
     },
+    // Populate initial data from prefetched settings or localStorage
+    // This prevents flashing default values while DB is fetching
+    initialData: () => {
+      if (typeof window === 'undefined') return undefined;
+      
+      // Priority 1: Check sessionStorage for prefetched settings (fresh login)
+      const prefetched = sessionStorage.getItem("prefetchedSettings");
+      if (prefetched) {
+        try {
+          const parsed = JSON.parse(prefetched) as UserSettings;
+          sessionStorage.removeItem("prefetchedSettings");
+          return parsed;
+        } catch (error) {
+          logger.error("Failed to parse prefetched settings", error);
+        }
+      }
+      
+      // Priority 2: Fall back to localStorage for existing users
+      const localBunk = localStorage.getItem("showBunkCalc");
+      const localTarget = localStorage.getItem("targetPercentage");
+      
+      if (localBunk !== null || localTarget !== null) {
+        return {
+          bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
+          target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
+        } as UserSettings;
+      }
+      return undefined;
+    },
     staleTime: 30 * 1000, // 30 seconds - reduces API load while keeping data reasonably fresh
     gcTime: 5 * 60 * 1000, // 5 minutes - keep cache for reasonable time to avoid unnecessary refetches
-    refetchOnWindowFocus: true, // Refetch when tab regains focus to sync cross-device changes
+    refetchOnWindowFocus: !isMutatingRef.current, // Only refetch on focus if not currently mutating
+    retry: (failureCount, error) => {
+      // Retry on network errors, but not on auth errors
+      // This allows initial fetch attempts while auth is pending to fail gracefully
+      // and automatically retry once session is established
+      return failureCount < 3 && error?.message !== "No user";
+    }
   });
   
   // 2. Mutation to update settings
@@ -88,6 +151,9 @@ export function useUserSettings() {
     },
     // Optimistic update: update cache before server responds
     onMutate: async (newSettings) => {
+      // Mark that we're in a mutation window - prevents focus refetch from pulling stale data
+      isMutatingRef.current = true;
+      
       // Cancel any pending queries for userSettings
       await queryClient.cancelQueries({ queryKey: ["userSettings"] });
       
@@ -122,6 +188,9 @@ export function useUserSettings() {
       // DO NOT write to localStorage here - already done in onMutate
       // This prevents redundant writes and event dispatches that cause glitches
       // Server response only validates the optimistic update was correct
+      
+      // Clear mutation window flag - safe to refetch on focus now
+      isMutatingRef.current = false;
     },
     onError: (err, _variables, context) => {
       // Rollback to previous data on error
@@ -133,23 +202,32 @@ export function useUserSettings() {
         toast.error("Failed to save settings");
         Sentry.captureException(err, { tags: { type: "settings_update_error", location: "useUserSettings" } });
       }
+      
+      // Clear mutation window flag - safe to refetch on focus now
+      isMutatingRef.current = false;
     }
   });
 
   const { mutate: mutateSettings } = updateSettingsMutation;
 
   // 3. Centralized Sync Logic
-  // IMPORTANT: This effect handles three cases:
+  // IMPORTANT: This effect handles two cases:
   // - Case A: DB has settings -> Sync down to localStorage (DB is source of truth)
-  // - Case B: DB is empty (new user) -> Create DB record from localStorage or defaults
-  // - Case C: Mutation in progress -> Skip to avoid race conditions
+  // - Case B: DB query completed and is empty (new user) -> Create DB record from localStorage or defaults
   useEffect(() => {
-    // Don't run while loading or while mutation is in progress (isPending)
-    if (isLoading || updateSettingsMutation.isPending) return;
+    // Skip on server-side render
+    if (typeof window === 'undefined') return;
+    
+    // Skip while mutation is pending, or while query is loading/fetching
+    // We need complete data from DB before deciding whether to initialize
+    if (updateSettingsMutation.isPending || isLoading || isFetching) return;
 
     // Case A: DB has data -> Sync to LocalStorage ONLY if different (Source of Truth = DB)
     // This handles cross-device sync (e.g., changed settings on another device)
     if (settings) {
+      // Mark that we've completed a successful fetch
+      hasCompletedInitialFetchRef.current = true;
+      
       const localBunk = localStorage.getItem("showBunkCalc");
       const dbBunk = (settings.bunk_calculator_enabled ?? true).toString();
       
@@ -168,31 +246,32 @@ export function useUserSettings() {
       }
     } 
     // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
-    // This only happens for truly new users who have never saved settings to the database
-    else if (settings === null) {
+    // CRITICAL: Only run this for truly new users (first fetch ever)
+    // If we've already fetched before, skip initialization to prevent resetting on refetch
+    else if (settings === null && !hasCompletedInitialFetchRef.current) {
       const localBunk = localStorage.getItem("showBunkCalc");
       const localTarget = localStorage.getItem("targetPercentage");
-
-      // Initialize DB with either localStorage values or system defaults
-      // This ensures every user has a DB record for cross-device sync
-      logger.dev(
-        localBunk !== null || localTarget !== null
-          ? "Migrating local settings to cloud..."
-          : "Initializing default settings for new user..."
-      );
+      const hasPrefetchedSettings = sessionStorage.getItem("prefetchedSettings") !== null;
       
+      // Skip initialization if settings exist or were prefetched
+      if ((localBunk !== null && localTarget !== null) || hasPrefetchedSettings) {
+        return;
+      }
+      
+      hasCompletedInitialFetchRef.current = true;
+
       mutateSettings({
-        bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
-        target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
+        bunk_calculator_enabled: true,
+        target_percentage: 75
       });
     }
     // mutateSettings is stable - it's the mutate function from useMutation and doesn't change between renders
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings, isLoading, updateSettingsMutation.isPending]);
+  }, [settings, isLoading, isFetching, updateSettingsMutation.isPending]);
 
   return {
     settings,
-    isLoading,
+    isLoading: isLoading || isFetching,
     updateBunkCalc: (enabled: boolean) => mutateSettings({ bunk_calculator_enabled: enabled }),
     updateTarget: (target: number) => mutateSettings({ target_percentage: normalizeTarget(target) })
   };

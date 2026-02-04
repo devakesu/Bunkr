@@ -25,13 +25,21 @@ export function AttendanceSettingsProvider({
   children,
 }: AttendanceSettingsProviderProps) {
   const { settings, updateTarget, isLoading } = useUserSettings();
-  const targetPercentage = settings?.target_percentage ?? 75;
+  const targetPercentage = settings?.target_percentage ?? (() => {
+    if (typeof window === "undefined") return 75;
+    const stored = localStorage.getItem("targetPercentage");
+    return stored ? parseInt(stored, 10) : 75;
+  })();
+
+  const setTargetPercentage = (percentage: number) => {
+    updateTarget(percentage);
+  };
 
   return (
     <AttendanceSettingsContext.Provider
       value={{
         targetPercentage,
-        setTargetPercentage: updateTarget,
+        setTargetPercentage,
         isLoading
       }}
     >
