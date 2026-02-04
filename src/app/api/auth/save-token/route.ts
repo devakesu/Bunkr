@@ -477,8 +477,8 @@ export async function POST(req: Request) {
         } else {
           // --- CASE 2: NORMAL USER (Exists in both) ---
           // IMPORTANT: Do NOT update password on subsequent logins!
-          // This preserves existing sessions from other devices.
-          // Device sessions are tracked separately in Redis.
+          // This preserves existing sessions from other devices by keeping
+          // the canonical password (and auth lock) stable across logins.
           userId = targetAuthId;
         }
         
