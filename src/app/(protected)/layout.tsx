@@ -141,7 +141,7 @@ export default function ProtectedLayout({
                 "fixed top-0 left-0 right-0 z-50",
                 isHidden ? "pointer-events-none" : "pointer-events-auto"
               )}
-              inert={isHidden ? true : undefined}
+              inert={isHidden}
             >
               <Navbar />
             </motion.div>

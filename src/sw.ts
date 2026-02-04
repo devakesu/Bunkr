@@ -46,10 +46,11 @@ const serwist = new Serwist({
       }),
     },
     {
-      matcher: ({ url }) => url.pathname.startsWith("/api/"),
+      matcher: ({ request, url }) =>
+        request.method === "GET" && url.pathname.startsWith("/api/"),
       handler: new NetworkFirst({
         cacheName: "api",
-        networkTimeoutSeconds: 10,
+        networkTimeoutSeconds: 3,
       }),
     },
   ],

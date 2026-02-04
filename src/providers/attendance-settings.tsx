@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   ReactNode,
+  useMemo,
 } from "react";
 import { useUserSettings } from "@/providers/user-settings";
 
@@ -25,11 +26,15 @@ export function AttendanceSettingsProvider({
   children,
 }: AttendanceSettingsProviderProps) {
   const { settings, updateTarget, isLoading } = useUserSettings();
-  const targetPercentage = settings?.target_percentage ?? (() => {
+  
+  const targetPercentage = useMemo(() => {
+    if (settings?.target_percentage !== undefined) {
+      return settings.target_percentage;
+    }
     if (typeof window === "undefined") return 75;
     const stored = localStorage.getItem("targetPercentage");
     return stored ? parseInt(stored, 10) : 75;
-  })();
+  }, [settings?.target_percentage]);
 
   const setTargetPercentage = (percentage: number) => {
     updateTarget(percentage);

@@ -125,7 +125,7 @@ export function useUserSettings() {
     },
     staleTime: 30 * 1000, // 30 seconds - reduces API load while keeping data reasonably fresh
     gcTime: 5 * 60 * 1000, // 5 minutes - keep cache for reasonable time to avoid unnecessary refetches
-    refetchOnWindowFocus: !isMutatingRef.current, // Only refetch on focus if not currently mutating
+    refetchOnWindowFocus: () => !isMutatingRef.current, // Only refetch on focus if not currently mutating
     retry: (failureCount, error) => {
       // Retry on network errors, but not on auth errors
       // This allows initial fetch attempts while auth is pending to fail gracefully
@@ -253,16 +253,17 @@ export function useUserSettings() {
       const localTarget = localStorage.getItem("targetPercentage");
       const hasPrefetchedSettings = sessionStorage.getItem("prefetchedSettings") !== null;
       
-      // Skip initialization if settings exist or were prefetched
-      if ((localBunk !== null && localTarget !== null) || hasPrefetchedSettings) {
+      // Skip initialization if prefetched settings exist (already synced to DB)
+      if (hasPrefetchedSettings) {
         return;
       }
       
       hasCompletedInitialFetchRef.current = true;
 
+      // Create DB record using localStorage values if they exist, otherwise use defaults
       mutateSettings({
-        bunk_calculator_enabled: true,
-        target_percentage: 75
+        bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
+        target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
       });
     }
     // mutateSettings is stable - it's the mutate function from useMutation and doesn't change between renders
