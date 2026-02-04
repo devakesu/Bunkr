@@ -143,7 +143,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     return () => {
       isMounted = false;
     };
-  }, [router, supabase]);
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

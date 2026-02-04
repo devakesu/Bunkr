@@ -38,7 +38,6 @@ export const useCourseDetails = (courseId: string) => {
     enabled: !!courseId,
     staleTime: 2 * 60 * 1000, // 2 minutes - balance between real-time and performance
     gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false, // Prevent N+1 on tab switch
     refetchOnReconnect: true, // Keep real-time on reconnect
     refetchInterval: 5 * 60 * 1000, // Poll every 5 minutes instead of 1 minute
     retry: 2,
