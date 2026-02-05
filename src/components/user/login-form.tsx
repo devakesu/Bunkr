@@ -187,19 +187,26 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       // 3. Pre-populate settings from save-token response for immediate availability
       // This eliminates the 5-10 second delay showing defaults on fresh login
       const settings = saveTokenResponse.data?.settings;
+      
+      // Get user ID first - this is critical and must succeed before storing settings
+      // If this fails, we should not navigate to the dashboard
+      const { data: { user }, error: getUserError } = await supabase.auth.getUser();
+      if (getUserError || !user) {
+        // This is a critical error - user cannot be retrieved after successful login
+        // Log and throw to prevent navigation with inconsistent state
+        const errorMsg = "User session not available after successful login";
+        logger.error(errorMsg, {
+          context: "LoginForm/handleSubmit",
+          error: getUserError,
+        });
+        throw new Error(errorMsg);
+      }
+      
       if (settings) {
         const bunkValue = (settings.bunk_calculator_enabled ?? true).toString();
         const targetValue = (settings.target_percentage ?? 75).toString();
         
         try {
-          // Get user ID to prevent cross-user data leakage in shared device scenarios
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) {
-            // Treat this as a hard error so that we do not navigate to the dashboard
-            // with an inconsistent state (token saved but no user-scoped settings).
-            throw new Error("User session not available after successful login");
-          }
-
           // Store settings with user ID to ensure they belong to the current user
           // Use sessionStorage for reliable cross-navigation transfer
           sessionStorage.setItem(`prefetchedSettings_${user.id}`, JSON.stringify({
@@ -211,7 +218,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           localStorage.setItem(`showBunkCalc_${user.id}`, bunkValue);
           localStorage.setItem(`targetPercentage_${user.id}`, targetValue);
         } catch (storageError) {
-          // Log storage errors at dev level as they're rare and non-critical
+          // Storage errors are non-critical - log but continue
           // Storage can fail in private browsing mode or when storage is disabled
           logger.dev("Failed to write returned settings to storage after login", {
             context: "LoginForm/handleSubmit",
@@ -228,19 +235,11 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         };
 
         try {
-          // Get user ID to prevent cross-user data leakage in shared device scenarios
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) {
-            // Treat this as a hard error so that we do not navigate to the dashboard
-            // with an inconsistent state (token saved but no user-scoped settings).
-            throw new Error("User session not available after successful login");
-          }
-
           sessionStorage.setItem(`prefetchedSettings_${user.id}`, JSON.stringify(defaultSettings));
           localStorage.setItem(`showBunkCalc_${user.id}`, defaultSettings.bunk_calculator_enabled.toString());
           localStorage.setItem(`targetPercentage_${user.id}`, defaultSettings.target_percentage.toString());
         } catch (storageError) {
-          // Log storage errors at dev level as they're rare and non-critical
+          // Storage errors are non-critical - log but continue
           logger.dev("Failed to write default settings to storage after login", {
             context: "LoginForm/handleSubmit",
             error: storageError instanceof Error ? storageError.message : String(storageError),
