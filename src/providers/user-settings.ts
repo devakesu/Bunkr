@@ -53,6 +53,10 @@ export function useUserSettings() {
   // Track if we've completed the initial fetch to prevent re-initialization on refetches
   // This is critical to prevent settings from resetting to defaults when query is invalidated
   const hasCompletedInitialFetchRef = useRef(false);
+  
+  // Track if we've attempted initialization to prevent redundant mutation calls
+  // This prevents duplicate initialization during rapid refetches before mutation completes
+  const hasAttemptedInitializationRef = useRef(false);
 
   // Monitor session changes to trigger settings fetch on login
   // This ensures settings are loaded immediately when user authenticates,
@@ -266,7 +270,7 @@ export function useUserSettings() {
       }
     } 
     // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
-    // CRITICAL: Run initialization whenever settings is null and we're not currently mutating
+    // CRITICAL: Run initialization whenever settings is null, but only once per session
     // This handles both initial fetch and subsequent refetches that still return null
     else if (settings === null) {
       const localBunk = localStorage.getItem("showBunkCalc");
@@ -276,13 +280,29 @@ export function useUserSettings() {
       // This happens when user just logged in and settings were fetched from /api/auth/save-token
       const hasPrefetchedSettings = sessionStorage.getItem("prefetchedSettings") !== null;
       
-      // Skip initialization if:
-      // 1. Prefetched settings exist (they'll be synced on next query success), OR
-      // 2. Initial fetch hasn't completed yet (avoid premature initialization), OR
-      // 3. A mutation is already in progress (avoid duplicate initialization)
-      if (hasPrefetchedSettings || !hasCompletedInitialFetchRef.current || updateSettingsMutation.isPending) {
+      // Helper function to determine if initialization should be skipped
+      const shouldSkipInitialization = () => {
+        // Skip if prefetched settings exist (they'll be synced on next query success)
+        if (hasPrefetchedSettings) return true;
+        
+        // Skip if initial fetch hasn't completed yet (avoid premature initialization)
+        if (!hasCompletedInitialFetchRef.current) return true;
+        
+        // Skip if we've already attempted initialization (prevent redundant mutations)
+        if (hasAttemptedInitializationRef.current) return true;
+        
+        // Skip if a mutation is already in progress (avoid duplicate initialization)
+        if (updateSettingsMutation.isPending) return true;
+        
+        return false;
+      };
+      
+      if (shouldSkipInitialization()) {
         return;
       }
+
+      // Mark that we've attempted initialization to prevent duplicate calls
+      hasAttemptedInitializationRef.current = true;
 
       // Create DB record using localStorage values if they exist, otherwise use defaults
       // This will run on any refetch that returns null after the initial fetch has completed
