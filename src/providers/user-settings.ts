@@ -240,12 +240,15 @@ export function useUserSettings() {
     // We need complete data from DB before deciding whether to initialize
     if (updateSettingsMutation.isPending || isLoading || isFetching) return;
 
+    // Mark that we've completed the initial fetch (whether settings exist or not)
+    // This prevents premature initialization attempts before the query has finished
+    if (!hasCompletedInitialFetchRef.current) {
+      hasCompletedInitialFetchRef.current = true;
+    }
+
     // Case A: DB has data -> Sync to LocalStorage ONLY if different (Source of Truth = DB)
     // This handles cross-device sync (e.g., changed settings on another device)
     if (settings) {
-      // Mark that we've completed a successful fetch
-      hasCompletedInitialFetchRef.current = true;
-      
       // Clean up prefetched settings after first successful DB fetch
       // This prevents stale prefetched data from being reused on subsequent initialData calls
       if (sessionStorage.getItem("prefetchedSettings") !== null) {
@@ -270,8 +273,7 @@ export function useUserSettings() {
       }
     } 
     // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
-    // CRITICAL: Run initialization whenever settings is null, but only once per session
-    // This handles both initial fetch and subsequent refetches that still return null
+    // This runs once per session when DB returns null after initial fetch completes
     else if (settings === null) {
       const localBunk = localStorage.getItem("showBunkCalc");
       const localTarget = localStorage.getItem("targetPercentage");
@@ -285,10 +287,8 @@ export function useUserSettings() {
         // Skip if prefetched settings exist (they'll be synced on next query success)
         if (hasPrefetchedSettings) return true;
         
-        // Skip if initial fetch hasn't completed yet (avoid premature initialization)
-        if (!hasCompletedInitialFetchRef.current) return true;
-        
         // Skip if we've already attempted initialization (prevent redundant mutations)
+        // This ensures we only try once per session, even if refetches still return null
         if (hasAttemptedInitializationRef.current) return true;
         
         // Skip if a mutation is already in progress (avoid duplicate initialization)
@@ -302,11 +302,11 @@ export function useUserSettings() {
       }
 
       // Mark that we've attempted initialization to prevent duplicate calls
+      // Even if the mutation fails, we won't retry automatically - user can refresh
       hasAttemptedInitializationRef.current = true;
 
       // Create DB record using localStorage values if they exist, otherwise use defaults
-      // This will run on any refetch that returns null after the initial fetch has completed
-      // ensuring new users always get their settings initialized even if the first attempt failed
+      // This runs only once per session when settings is null after initial fetch
       mutateSettings({
         bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
         target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
