@@ -463,11 +463,15 @@ export function AttendanceCalendar({
   const calendarCells = useMemo(() => {
     if (!selectedDate || currentDate.year === null || currentDate.month === null) return [];
     
-    const daysInMonth = getDaysInMonth(currentDate.year, currentDate.month);
-    const firstDayOfMonth = getFirstDayOfMonth(currentDate.year, currentDate.month);
+    // Extract non-null values for use in closures below
+    const year = currentDate.year;
+    const month = currentDate.month;
+    
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDayOfMonth = getFirstDayOfMonth(year, month);
     const leadingEmptyCells = Array(firstDayOfMonth).fill(null).map((_, index) => <div key={`empty-leading-${index}`} className="h-10 w-full" />);
     const dayCells = Array(daysInMonth).fill(null).map((_, index) => {
-        const date = new Date(currentDate.year!, currentDate.month!, index + 1);
+        const date = new Date(year, month, index + 1);
         const status = getEventStatus(date);
         const hasEvents = status !== null; 
         const isSelected = isSameDay(date, selectedDate);
@@ -524,8 +528,8 @@ export function AttendanceCalendar({
     );
   }
 
-  // After the null check above, we know currentMonth and currentYear are not null
-  // Using non-null assertions here is safe because the early return prevents execution if they're null
+  // After the null check above, we know currentDate.year and currentDate.month are not null
+  // Non-null assertions in this block are safe due to the guard condition at line 516
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col">
