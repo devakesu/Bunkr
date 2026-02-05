@@ -222,7 +222,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         }
 
         // For new users, this is expected behavior, so log at info level instead of warning
-        // Only capture in Sentry if this happens repeatedly for the same user (which would be unusual)
         logger.info("No settings returned from /api/auth/save-token; applied default settings for new user.", {
           context: "LoginForm/handleSubmit",
         });
