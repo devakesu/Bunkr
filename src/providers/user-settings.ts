@@ -269,7 +269,10 @@ export function useUserSettings() {
       }
     };
 
-    getUserId().then(async userId => {
+    // Async function to perform sync operations
+    (async () => {
+      const userId = await getUserId();
+      
       // Check if component is still mounted before proceeding
       if (!isMounted) return;
       
@@ -378,7 +381,7 @@ export function useUserSettings() {
           target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
         });
       }
-    });
+    })();
 
     // Cleanup function to prevent state updates after unmount
     return () => {
