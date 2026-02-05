@@ -272,7 +272,7 @@ export async function POST(req: Request) {
         `${process.env.NEXT_PUBLIC_BACKEND_URL}user`,
         {
           headers: { Authorization: `Bearer ${token}` },
-          timeout: 5000,
+          timeout: 15000, // Increased from 5s to 15s to handle slow backends and network latency
           validateStatus: (status) => status < 500,
         }
       );
@@ -310,14 +310,20 @@ export async function POST(req: Request) {
       lockUserId = verifieduserId;
 
     } catch (err: any) {
-      if (err.code === 'ECONNABORTED') {
-        return NextResponse.json({ message: "Authentication service timeout" }, { status: 504 });
+      // Handle timeout errors (ECONNABORTED, ENOTFOUND, ETIMEDOUT, EHOSTUNREACH, etc.)
+      if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || err.code === 'ENOTFOUND' || err.code === 'EHOSTUNREACH') {
+        logger.warn(`EzyGo API timeout/connection error (code: ${err.code})`);
+        Sentry.captureException(err, {
+          tags: { type: "ezygo_timeout", location: "save_token" },
+          level: "warning",
+        });
+        return NextResponse.json({ message: "Authentication service unavailable. Please try again." }, { status: 504 });
       }
       if (err.response?.status === 401) {
         return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
       }
       
-      logger.error("Ezygo verification error:", err);
+      logger.error("Ezygo verification error:", err.message);
       Sentry.captureException(err, { tags: { type: "ezygo_network_error", location: "save_token" }, extra: { userId: redact("id", verifieduserId) } });
       
       return NextResponse.json({ message: "Authentication service error" }, { status: 502 });

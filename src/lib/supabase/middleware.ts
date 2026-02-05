@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getCspHeader } from "../csp";
+import { logger } from "../logger";
 
 export async function updateSession(request: NextRequest, nonce?: string) {
   // 1. Get CSP Header
@@ -37,7 +38,23 @@ export async function updateSession(request: NextRequest, nonce?: string) {
     }
   );
 
-  await supabase.auth.getUser();
+  try {
+    await supabase.auth.getUser();
+  } catch (error) {
+    // If token refresh fails (e.g., missing refresh token), clear invalid session cookies
+    // This prevents subsequent requests from attempting to refresh an invalid token
+    const authCookies = request.cookies.getAll()
+      .filter(({ name }) => name.startsWith('sb-') || name.includes('auth'))
+      .map(({ name }) => name);
+    
+    authCookies.forEach(name => {
+      response.cookies.delete(name);
+    });
+
+    logger.warn("Session refresh failed in middleware, clearing invalid session cookies", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   return response;
 }

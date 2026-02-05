@@ -25,6 +25,16 @@ export function ServiceWorkerRegister() {
       return;
     }
 
+    // In development, only register if explicitly enabled (ENABLE_SW_IN_DEV=true)
+    // In production, service worker is always enabled and generated at build time
+    const isDev = typeof process !== "undefined" && process.env.NODE_ENV === "development";
+    if (isDev && typeof process !== "undefined" && process.env.ENABLE_SW_IN_DEV !== "true") {
+      logger.dev("Service worker is disabled in development. Enable with ENABLE_SW_IN_DEV=true", {
+        context: "ServiceWorkerRegister",
+      });
+      return;
+    }
+
     // Prevent duplicate registration if one is already in progress
     if (registrationInProgressRef.current) {
       return;
