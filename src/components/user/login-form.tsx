@@ -23,6 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 import { logger } from "@/lib/logger";
 import { isAuthSessionMissingError } from "@/lib/security/auth";
+import { DEFAULT_TARGET_PERCENTAGE } from "@/providers/user-settings";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
@@ -226,7 +227,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
             rawTarget >= 1 &&
             rawTarget <= 100
               ? rawTarget
-              : 75;
+              : DEFAULT_TARGET_PERCENTAGE;
           
           const bunkValue = bunkEnabled.toString();
           const targetValue = targetPercentage.toString();
