@@ -139,8 +139,10 @@ export function useUserSettings() {
       // Retry on network errors, but not on auth errors
       // This allows initial fetch attempts while auth is pending to fail gracefully
       // and automatically retry once session is established
-      // Note: While using error message string matching is not ideal, Supabase doesn't provide
-      // specific error codes for "no user" scenarios. This is the most reliable method available.
+      // LIMITATION: Using error message string matching is not ideal as error messages can change
+      // between Supabase versions or be localized. However, Supabase doesn't provide specific error
+      // codes for "no user" scenarios, so string matching is the most reliable method currently available.
+      // If Supabase adds error codes in the future, this should be updated to use those instead.
       const isNoUserError = error instanceof Error && error.message === "No user";
       return failureCount < 3 && !isNoUserError;
     }

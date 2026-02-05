@@ -124,8 +124,13 @@ export const Navbar = () => {
       return settings.target_percentage;
     }
     if (typeof window === 'undefined') return 75;
-    const stored = localStorage.getItem('targetPercentage');
-    return stored ? parseInt(stored, 10) : 75;
+    try {
+      const stored = localStorage.getItem('targetPercentage');
+      return stored ? parseInt(stored, 10) : 75;
+    } catch {
+      // localStorage can fail in private browsing mode or when storage is disabled
+      return 75;
+    }
   }, [settings?.target_percentage]);
   
   const currentBunkCalc = useMemo(() => {
@@ -136,8 +141,13 @@ export const Navbar = () => {
       return settings.bunk_calculator_enabled;
     }
     if (typeof window === 'undefined') return true;
-    const stored = localStorage.getItem('showBunkCalc');
-    return stored ? stored === 'true' : true;
+    try {
+      const stored = localStorage.getItem('showBunkCalc');
+      return stored ? stored === 'true' : true;
+    } catch {
+      // localStorage can fail in private browsing mode or when storage is disabled
+      return true;
+    }
   }, [settings]);
 
   return (

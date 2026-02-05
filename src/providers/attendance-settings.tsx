@@ -32,8 +32,13 @@ export function AttendanceSettingsProvider({
       return settings.target_percentage;
     }
     if (typeof window === "undefined") return 75;
-    const stored = localStorage.getItem("targetPercentage");
-    return stored ? parseInt(stored, 10) : 75;
+    try {
+      const stored = localStorage.getItem("targetPercentage");
+      return stored ? parseInt(stored, 10) : 75;
+    } catch {
+      // localStorage can fail in private browsing mode or when storage is disabled
+      return 75;
+    }
   }, [settings?.target_percentage]);
 
   const setTargetPercentage = (percentage: number) => {
