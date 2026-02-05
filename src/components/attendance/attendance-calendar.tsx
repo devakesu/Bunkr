@@ -306,13 +306,21 @@ export function AttendanceCalendar({
   };
   
   const handleMonthChange = (value: string) => {
-    setCurrentDate(prev => ({ ...prev, month: parseInt(value, 10) }));
+    setCurrentDate(prev => {
+      // Validate that previous state is not null for consistency
+      if (prev.month === null || prev.year === null) return prev;
+      return { ...prev, month: parseInt(value, 10) };
+    });
   };
   
   const handleYearChange = (value: string) => {
     const newYear = parseInt(value, 10);
     if (newYear >= 2018) {
-      setCurrentDate(prev => ({ ...prev, year: newYear }));
+      setCurrentDate(prev => {
+        // Validate that previous state is not null for consistency
+        if (prev.month === null || prev.year === null) return prev;
+        return { ...prev, year: newYear };
+      });
     }
   };
   
