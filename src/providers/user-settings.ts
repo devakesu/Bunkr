@@ -291,9 +291,6 @@ export function useUserSettings() {
         // This ensures we only try once per session, even if refetches still return null
         if (hasAttemptedInitializationRef.current) return true;
         
-        // Skip if a mutation is already in progress (avoid duplicate initialization)
-        if (updateSettingsMutation.isPending) return true;
-        
         return false;
       };
       
