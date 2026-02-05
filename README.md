@@ -321,7 +321,7 @@ GhostClass is optimized for maximum performance:
 - Intelligent caching strategies:
   - Static assets: CacheFirst with 30-day expiration
   - Images: CacheFirst with 1-year expiration
-  - API requests: NetworkFirst with 3-second timeout fallback
+  - API requests: NetworkFirst (no explicit timeout; serves cache if network request fails)
 
 **Testing PWA Features Locally**
 By default, service workers are disabled in development to avoid caching issues. To test PWA functionality (offline mode, caching, install prompts) during development:

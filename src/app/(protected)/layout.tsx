@@ -145,13 +145,11 @@ export default function ProtectedLayout({
               // Browser support: Chrome 102+, Safari 15.5+, Firefox 112+ (March 2023+)
               // Feature detection ensures graceful degradation on older browsers
               // Only apply inert when the feature is supported and element should be hidden
-              inert={
-                isHidden &&
+              {...((isHidden &&
                 typeof HTMLElement !== "undefined" &&
                 "inert" in HTMLElement.prototype
-                  ? true
-                  : undefined
-              }
+                  ? { inert: "" }
+                  : {}) as any)}
             >
               <Navbar />
             </motion.div>

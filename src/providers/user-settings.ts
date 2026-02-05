@@ -57,12 +57,21 @@ export function useUserSettings() {
   // Track if we've attempted initialization to prevent redundant mutation calls
   // This prevents duplicate initialization during rapid refetches before mutation completes
   const hasAttemptedInitializationRef = useRef(false);
+  
+  // Track current user ID to enable cleanup on sign out
+  // The session parameter in SIGNED_OUT event is already cleared, so we need to track it separately
+  const currentUserIdRef = useRef<string | null>(null);
 
   // Monitor session changes to trigger settings fetch on login
   // This ensures settings are loaded immediately when user authenticates,
   // not just when navigating to protected routes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Update current user ID ref when session changes
+      if (session?.user?.id) {
+        currentUserIdRef.current = session.user.id;
+      }
+      
       // When user signs in or session refreshes, invalidate settings cache
       // to trigger immediate re-fetch with the new auth session
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
@@ -78,8 +87,8 @@ export function useUserSettings() {
         // Clear user-specific storage to prevent data leakage between users
         try {
           if (typeof window !== "undefined") {
-            // Get user ID from the session before it's cleared (session param may still have it)
-            const userId = session?.user?.id;
+            // Use the stored user ID from ref since session is already cleared at this point
+            const userId = currentUserIdRef.current;
             
             // Clear user-scoped keys for the user who just signed out
             if (userId) {
@@ -87,6 +96,9 @@ export function useUserSettings() {
               localStorage.removeItem(`showBunkCalc_${userId}`);
               localStorage.removeItem(`targetPercentage_${userId}`);
             }
+            
+            // Clear the ref after cleanup
+            currentUserIdRef.current = null;
           }
         } catch (error) {
           // Ignore storage clearing errors (e.g., restricted environment)
