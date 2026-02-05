@@ -51,12 +51,13 @@ const serwist = new Serwist({
       }),
     },
     {
-      // API caching strategy: NetworkFirst for cacheable GET /api requests.
+      // API caching strategy: NetworkFirst for explicitly safe-to-cache GET /api requests.
       // - Mutation endpoints (POST/PUT/PATCH/DELETE) are excluded by the GET check
       //   and will always go through the network without caching.
-      // - Certain time-sensitive endpoints are explicitly excluded to avoid stale data.
+      // - Use an allowlist approach to only cache static/public API endpoints that are
+      //   guaranteed safe to cache, avoiding stale data for dynamic/user-specific endpoints.
       // - No explicit network timeout is used here to avoid serving stale cache for
-      //   legitimately long-running operations (e.g., reports, bulk operations).
+      //   legitimately long-running operations.
       matcher: ({ request, url }) => {
         if (request.method !== "GET") {
           return false;
@@ -64,16 +65,14 @@ const serwist = new Serwist({
         if (!url.pathname.startsWith("/api/")) {
           return false;
         }
-        // Exclude known time-sensitive or user-specific endpoints from caching
-        const uncachedPrefixes = [
-          "/api/user-settings",
-          "/api/attendance",
-          "/api/realtime",
-        ];
-        if (uncachedPrefixes.some((path) => url.pathname.startsWith(path))) {
-          return false;
+        // Only cache API responses for explicitly allowlisted, safe-to-cache prefixes
+        // to avoid serving stale data for user-specific or real-time endpoints.
+        const cacheablePrefixes = ["/api/public/", "/api/static/"];
+        if (cacheablePrefixes.some((path) => url.pathname.startsWith(path))) {
+          return true;
         }
-        return true;
+        // All other /api/ endpoints are treated as non-cacheable by this strategy.
+        return false;
       },
       handler: new NetworkFirst({
         cacheName: "api",

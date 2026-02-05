@@ -202,27 +202,51 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       }
       
       if (settings) {
-        const bunkValue = (settings.bunk_calculator_enabled ?? true).toString();
-        const targetValue = (settings.target_percentage ?? 75).toString();
-        
-        try {
-          // Store settings with user ID to ensure they belong to the current user
-          // Use sessionStorage for reliable cross-navigation transfer
-          sessionStorage.setItem("prefetchedSettings", JSON.stringify({
-            bunk_calculator_enabled: settings.bunk_calculator_enabled ?? true,
-            target_percentage: settings.target_percentage ?? 75
-          }));
-          
-          // Also update localStorage for persistence across sessions
-          localStorage.setItem(`showBunkCalc_${user.id}`, bunkValue);
-          localStorage.setItem(`targetPercentage_${user.id}`, targetValue);
-        } catch (storageError) {
-          // Storage errors are non-critical - log but continue
-          // Storage can fail in private browsing mode or when storage is disabled
-          logger.dev("Failed to write returned settings to storage after login", {
+        // Validate user ID matches between login response and Supabase session
+        // This prevents storing settings under an incorrect user ID
+        const expectedUserId = saveTokenResponse.data?.user?.id ?? saveTokenResponse.data?.user_id;
+        if (expectedUserId && user.id !== expectedUserId) {
+          logger.error("User ID mismatch between login response and Supabase session", {
             context: "LoginForm/handleSubmit",
-            error: storageError instanceof Error ? storageError.message : String(storageError),
+            expectedUserId,
+            actualUserId: user.id,
           });
+          // Skip storing settings to avoid data corruption
+        } else {
+          // Validate and normalize settings values before using them to prevent
+          // prototype pollution or injection attacks
+          const bunkEnabled =
+            typeof settings.bunk_calculator_enabled === "boolean"
+              ? settings.bunk_calculator_enabled
+              : true;
+          const targetPercentage =
+            typeof settings.target_percentage === "number" &&
+            Number.isFinite(settings.target_percentage)
+              ? settings.target_percentage
+              : 75;
+          
+          const bunkValue = bunkEnabled.toString();
+          const targetValue = targetPercentage.toString();
+          
+          try {
+            // Store settings with user ID to ensure they belong to the current user
+            // Use sessionStorage for reliable cross-navigation transfer
+            sessionStorage.setItem("prefetchedSettings", JSON.stringify({
+              bunk_calculator_enabled: bunkEnabled,
+              target_percentage: targetPercentage
+            }));
+            
+            // Also update localStorage for persistence across sessions
+            localStorage.setItem(`showBunkCalc_${user.id}`, bunkValue);
+            localStorage.setItem(`targetPercentage_${user.id}`, targetValue);
+          } catch (storageError) {
+            // Storage errors are non-critical - log but continue
+            // Storage can fail in private browsing mode or when storage is disabled
+            logger.dev("Failed to write returned settings to storage after login", {
+              context: "LoginForm/handleSubmit",
+              error: storageError instanceof Error ? storageError.message : String(storageError),
+            });
+          }
         }
       } else {
         // Fallback: apply default settings when none are returned from save-token
