@@ -8,6 +8,10 @@ import { UserSettings } from "@/types/user-settings";
 import * as Sentry from "@sentry/nextjs";
 import { logger } from "@/lib/logger";
 
+// Default attendance target percentage used throughout the application
+// This constant ensures consistency across different parts of the codebase
+export const DEFAULT_TARGET_PERCENTAGE = 75;
+
 // normalizeTarget is defined at module-level (outside the hook) to avoid recreation on every render.
 // This is preferred over useCallback because:
 // 1. The function has no dependencies (pure function with no closure over component state/props)
@@ -20,7 +24,7 @@ import { logger } from "@/lib/logger";
 // Values below the configured minimum are unrealistic and could cause issues in attendance calculations.
 //
 // DATABASE MIGRATION CONSIDERATION: If NEXT_PUBLIC_ATTENDANCE_TARGET_MIN is changed to a higher value
-// (e.g., from 75 to 85), users with stored target_percentage values below the new minimum will have
+// (e.g., from 75 to 80), users with stored target_percentage values below the new minimum will have
 // their targets silently adjusted upward on the next read. This is intentional behavior to enforce
 // the institutional minimum, but consider:
 // 1. Announcing the change to users before deployment
@@ -30,14 +34,14 @@ import { logger } from "@/lib/logger";
 // Parse the environment variable once at module load time for performance
 const MIN_TARGET = (() => {
   const envValue = process.env.NEXT_PUBLIC_ATTENDANCE_TARGET_MIN;
-  if (!envValue) return 75;
+  if (!envValue) return DEFAULT_TARGET_PERCENTAGE;
   const parsed = parseInt(envValue, 10);
-  // Clamp to valid range, falling back to 75 if invalid
-  return !isNaN(parsed) ? Math.min(100, Math.max(1, parsed)) : 75;
+  // Clamp to valid range, falling back to default if invalid
+  return !isNaN(parsed) ? Math.min(100, Math.max(1, parsed)) : DEFAULT_TARGET_PERCENTAGE;
 })();
 
 const normalizeTarget = (value?: number | null) => {
-  if (typeof value !== "number" || !Number.isFinite(value)) return 75;
+  if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_TARGET_PERCENTAGE;
   return Math.min(100, Math.max(MIN_TARGET, Math.round(value)));
 };
 
@@ -323,6 +327,8 @@ export function useUserSettings() {
         
         // Only sync if localStorage differs from DB (cross-device change)
         if (localBunk !== dbBunk) {
+          // Check if component is still mounted before performing side effects
+          if (!isMounted) return;
           localStorage.setItem(localBunkKey, dbBunk);
           window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: settings.bunk_calculator_enabled ?? true }));
         }
@@ -333,6 +339,8 @@ export function useUserSettings() {
         
         // Only sync if localStorage differs from DB
         if (localTarget !== dbTarget) {
+          // Check if component is still mounted before performing side effects
+          if (!isMounted) return;
           localStorage.setItem(localTargetKey, dbTarget);
         }
       } 
@@ -344,6 +352,17 @@ export function useUserSettings() {
         // Check user-scoped keys first, then fall back to legacy keys for migration
         const localBunk = localStorage.getItem(localBunkKey) ?? localStorage.getItem("showBunkCalc");
         const localTarget = localStorage.getItem(localTargetKey) ?? localStorage.getItem("targetPercentage");
+        
+        // Clean up legacy keys if they exist and were used for migration
+        // This prevents storage bloat over time
+        const legacyBunkKey = "showBunkCalc";
+        const legacyTargetKey = "targetPercentage";
+        if (localStorage.getItem(legacyBunkKey) !== null) {
+          localStorage.removeItem(legacyBunkKey);
+        }
+        if (localStorage.getItem(legacyTargetKey) !== null) {
+          localStorage.removeItem(legacyTargetKey);
+        }
         
         // Check if we have prefetched settings that should be synced to DB
         // This happens when user just logged in and settings were fetched from /api/auth/save-token
@@ -366,21 +385,21 @@ export function useUserSettings() {
           return;
         }
 
-        // Mark that we've attempted initialization to prevent duplicate calls
-        // Even if the mutation fails, we won't retry automatically - user can refresh
-        hasAttemptedInitializationRef.current = true;
-
         // Validate session is still active before calling mutateSettings
         // This prevents race condition where user logs out while this promise is pending
         if (!(await validateActiveSession(userId, isMounted))) {
           return;
         }
 
+        // Mark that we've attempted initialization to prevent duplicate calls
+        // Even if the mutation fails, we won't retry automatically - user can refresh
+        hasAttemptedInitializationRef.current = true;
+
         // Create DB record using localStorage values if they exist, otherwise use defaults
         // This runs only once per session when settings is null after initial fetch
         mutateSettings({
           bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
-          target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
+          target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : DEFAULT_TARGET_PERCENTAGE
         });
       }
     })();

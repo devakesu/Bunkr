@@ -322,7 +322,7 @@ GhostClass is optimized for maximum performance:
   - Static assets: StaleWhileRevalidate for CSS/JS/workers
   - Images: CacheFirst with 30-day expiration (trusted sources only)
   - API requests: NetworkFirst (no explicit timeout; serves cache if network request fails)
-  - Note: /api/user-settings and /api/attendance are excluded from caching to ensure fresh user data
+  - Note: Only /api/public/* and /api/static/* API endpoints are cached; all other API endpoints, including /api/user-settings and /api/attendance, always use the network to ensure fresh user data
 
 **Testing PWA Features Locally**
 By default, service workers are disabled in development to avoid caching issues. To test PWA functionality (offline mode, caching, install prompts) during development:

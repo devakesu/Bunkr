@@ -23,6 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 import { logger } from "@/lib/logger";
 import { isAuthSessionMissingError } from "@/lib/security/auth";
+import { DEFAULT_TARGET_PERCENTAGE } from "@/providers/user-settings";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
@@ -187,21 +188,18 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       // This eliminates the 5-10 second delay showing defaults on fresh login
       const settings = saveTokenResponse.data?.settings;
       
-      // Get user ID first - this is critical and must succeed before storing settings
-      // If this fails, we should not navigate to the dashboard
+      // Get user ID first - this is important before storing user-bound settings
+      // If this fails, we will skip settings prefetch but still allow navigation
       const { data: { user }, error: getUserError } = await supabase.auth.getUser();
       if (getUserError || !user) {
-        // This is a critical error - user cannot be retrieved after successful login
-        // Log and throw to prevent navigation with inconsistent state
-        const errorMsg = "User session not available after successful login";
+        // User cannot be retrieved after successful login; log and continue without
+        // user-bound settings prefetch. The dashboard will fetch settings from DB.
+        const errorMsg = "User session not available after successful login; skipping settings prefetch";
         logger.error(errorMsg, {
           context: "LoginForm/handleSubmit",
           error: getUserError,
         });
-        throw new Error(errorMsg);
-      }
-      
-      if (settings) {
+      } else if (settings) {
         // Validate user ID matches between login response and Supabase session
         // This prevents storing settings under an incorrect user ID
         // NOTE: The fallback to user_id handles different API response formats
@@ -221,11 +219,15 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
             typeof settings.bunk_calculator_enabled === "boolean"
               ? settings.bunk_calculator_enabled
               : true;
+          const rawTarget = settings.target_percentage;
           const targetPercentage =
-            typeof settings.target_percentage === "number" &&
-            Number.isFinite(settings.target_percentage)
-              ? settings.target_percentage
-              : 75;
+            typeof rawTarget === "number" &&
+            Number.isFinite(rawTarget) &&
+            Number.isInteger(rawTarget) &&
+            rawTarget >= 1 &&
+            rawTarget <= 100
+              ? rawTarget
+              : DEFAULT_TARGET_PERCENTAGE;
           
           const bunkValue = bunkEnabled.toString();
           const targetValue = targetPercentage.toString();

@@ -16,7 +16,7 @@ import { AttendanceSettingsProvider } from "./attendance-settings";
  * - Stale time: 3 minutes
  * - Garbage collection: 10 minutes
  * - Retry: 2 attempts
- * - Window focus refetch: Enabled (critical for cross-device sync)
+ * - Window focus refetch: Disabled globally, but can be enabled per-query for cross-device sync
  * - Auto refetch interval: 15 minutes
  * 
  * @param children - Child components to wrap
