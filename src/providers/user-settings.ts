@@ -138,19 +138,6 @@ export function useUserSettings() {
 
       return data as UserSettings | null;
     },
-    // Populate initial data from prefetched settings or localStorage
-    // This prevents flashing default values while DB is fetching.
-    // SECURITY: Avoid reading non-user-scoped storage here to prevent cross-user
-    // leakage when multiple users share the same browser session. Always let the
-    // query fetch user-scoped data from the backend instead.
-    initialData: () => {
-      if (typeof window === 'undefined') return undefined;
-      
-      // Return undefined to let the query fetch fresh data from the backend.
-      // This is safer than reading from non-user-scoped storage which could
-      // leak data between users in the same browser session.
-      return undefined;
-    },
     staleTime: 30 * 1000, // 30 seconds - reduces API load while keeping data reasonably fresh
     gcTime: 5 * 60 * 1000, // 5 minutes - keep cache for reasonable time to avoid unnecessary refetches
     // Enable window focus refetch for cross-device sync, but block during mutations
@@ -262,15 +249,13 @@ export function useUserSettings() {
     // Track if effect is still mounted to prevent state updates after unmount
     let isMounted = true;
 
-    // Get user ID for scoped storage keys
-    const getUserId = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        return session?.user?.id;
-      } catch (error) {
-        logger.dev("Failed to get user ID for storage sync", { error });
-        return undefined;
+    // Get user ID for scoped storage keys from the auth-tracked ref instead of making a new async call
+    const getUserId = () => {
+      const userId = currentUserIdRef.current;
+      if (!userId) {
+        logger.dev("No current user ID available for storage sync");
       }
+      return userId;
     };
 
     // Helper to validate session is still active before performing operations
@@ -287,7 +272,7 @@ export function useUserSettings() {
 
     // Async IIFE to perform storage synchronization operations
     (async () => {
-      const userId = await getUserId();
+      const userId = getUserId();
       
       // Check if component is still mounted before proceeding
       if (!isMounted) return;
@@ -354,14 +339,21 @@ export function useUserSettings() {
         const localTarget = localStorage.getItem(localTargetKey) ?? localStorage.getItem("targetPercentage");
         
         // Clean up legacy keys if they exist and were used for migration
-        // This prevents storage bloat over time
-        const legacyBunkKey = "showBunkCalc";
-        const legacyTargetKey = "targetPercentage";
-        if (localStorage.getItem(legacyBunkKey) !== null) {
-          localStorage.removeItem(legacyBunkKey);
-        }
-        if (localStorage.getItem(legacyTargetKey) !== null) {
-          localStorage.removeItem(legacyTargetKey);
+        // Use a session-scoped flag to avoid redundant localStorage operations
+        const legacyCleanupFlagKey = "legacyKeysCleaned";
+        const hasCleanedLegacyKeysThisSession =
+          sessionStorage.getItem(legacyCleanupFlagKey) === "true";
+
+        if (!hasCleanedLegacyKeysThisSession) {
+          const legacyBunkKey = "showBunkCalc";
+          const legacyTargetKey = "targetPercentage";
+          if (localStorage.getItem(legacyBunkKey) !== null) {
+            localStorage.removeItem(legacyBunkKey);
+          }
+          if (localStorage.getItem(legacyTargetKey) !== null) {
+            localStorage.removeItem(legacyTargetKey);
+          }
+          sessionStorage.setItem(legacyCleanupFlagKey, "true");
         }
         
         // Check if we have prefetched settings that should be synced to DB

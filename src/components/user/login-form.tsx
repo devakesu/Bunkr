@@ -252,7 +252,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
             });
           }
         }
-      } else {
+      } else if (user) {
         // Fallback: apply default settings when none are returned from save-token
         // This is expected for brand new users who haven't set up their preferences yet
         // We apply sensible defaults and let the settings provider create the DB record
