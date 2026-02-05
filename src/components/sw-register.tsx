@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { logger } from "@/lib/logger";
 
 /**
@@ -14,13 +14,23 @@ import { logger } from "@/lib/logger";
  * service worker is registered on all pages.
  */
 export function ServiceWorkerRegister() {
+  // Track if registration is in progress to prevent duplicate intervals
+  // across component remounts (e.g., during SPA navigation)
+  const registrationInProgressRef = useRef(false);
+  const updateIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
     // Only register service worker in browser environment
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
       return;
     }
 
-    let updateIntervalId: NodeJS.Timeout | null = null;
+    // Prevent duplicate registration if one is already in progress
+    if (registrationInProgressRef.current) {
+      return;
+    }
+
+    registrationInProgressRef.current = true;
     let isMounted = true;
 
     // Wait for page to load before registering to avoid impacting initial page load performance
@@ -64,15 +74,18 @@ export function ServiceWorkerRegister() {
         });
 
         // Check for updates periodically (every hour)
-        updateIntervalId = setInterval(() => {
-          if (!isMounted) return;
-          registration.update().catch((error) => {
-            logger.dev("Service worker update check failed", {
-              context: "ServiceWorkerRegister",
-              error,
+        // Only create interval if one doesn't already exist
+        if (!updateIntervalIdRef.current) {
+          updateIntervalIdRef.current = setInterval(() => {
+            if (!isMounted) return;
+            registration.update().catch((error) => {
+              logger.dev("Service worker update check failed", {
+                context: "ServiceWorkerRegister",
+                error,
+              });
             });
-          });
-        }, 60 * 60 * 1000);
+          }, 60 * 60 * 1000);
+        }
       } catch (error) {
         logger.error("Service worker registration failed", {
           context: "ServiceWorkerRegister",
@@ -86,9 +99,11 @@ export function ServiceWorkerRegister() {
     // Cleanup function
     return () => {
       isMounted = false;
+      registrationInProgressRef.current = false;
       window.removeEventListener("load", handleLoad);
-      if (updateIntervalId) {
-        clearInterval(updateIntervalId);
+      if (updateIntervalIdRef.current) {
+        clearInterval(updateIntervalIdRef.current);
+        updateIntervalIdRef.current = null;
       }
     };
   }, []);

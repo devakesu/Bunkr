@@ -101,6 +101,13 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   // It doesn't contain any user-specific state - auth state is managed separately via
   // Supabase's internal session management. Memoizing prevents unnecessary client recreation
   // on each render, which could cause performance issues and potential memory leaks.
+  //
+  // WARNING FOR FUTURE DEVELOPERS:
+  // This memoization creates a hidden assumption: createClient() must ALWAYS return a stateless,
+  // user-agnostic client. If createClient() were ever changed to return a user-specific client
+  // (e.g., based on auth state), this memoization would break and cause bugs. In such a case,
+  // either remove the memoization entirely or use a ref (useRef) instead to make it clearer
+  // this is meant to be a stable reference that doesn't depend on component state.
   const supabase = useMemo(() => createClient(), []);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -201,8 +208,18 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         });
       } else if (settings) {
         // Validate user ID matches between login response and Supabase session
-        // This prevents storing settings under an incorrect user ID
-        // NOTE: The fallback to user_id handles different API response formats
+        // This prevents storing settings under an incorrect user ID.
+        //
+        // API RESPONSE SCHEMAS:
+        // - Current schema (preferred):   { user: { id: string, ... }, settings: ... }
+        // - Legacy schema (back-compat):  { user_id: string, settings: ... }
+        //
+        // We first try the current nested user.id shape and only fall back to the
+        // legacy top-level user_id field to support older backend responses while
+        // the authentication/bridge services are being fully migrated.
+        //
+        // Once all callers and services have been updated to return the current
+        // schema, the user_id fallback can be safely removed to simplify this code.
         const responseUserId = saveTokenResponse.data?.user?.id ?? saveTokenResponse.data?.user_id;
         if (responseUserId && user.id !== responseUserId) {
           logger.error("User ID mismatch between login response and Supabase session", {
@@ -220,14 +237,18 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
               ? settings.bunk_calculator_enabled
               : true;
           const rawTarget = settings.target_percentage;
-          const targetPercentage =
-            typeof rawTarget === "number" &&
-            Number.isFinite(rawTarget) &&
-            Number.isInteger(rawTarget) &&
-            rawTarget >= 1 &&
-            rawTarget <= 100
-              ? rawTarget
-              : DEFAULT_TARGET_PERCENTAGE;
+          
+          // Normalize target percentage using the same logic as normalizeTarget in user-settings.ts
+          // This handles decimal percentages (e.g., 75.5) by rounding, and ensures values are
+          // within valid range [1-100]. If the value is invalid, falls back to DEFAULT_TARGET_PERCENTAGE.
+          let targetPercentage = DEFAULT_TARGET_PERCENTAGE;
+          
+          if (typeof rawTarget === "number" && Number.isFinite(rawTarget)) {
+            const normalizedTarget = Math.round(rawTarget);
+            if (normalizedTarget >= 1 && normalizedTarget <= 100) {
+              targetPercentage = normalizedTarget;
+            }
+          }
           
           const bunkValue = bunkEnabled.toString();
           const targetValue = targetPercentage.toString();

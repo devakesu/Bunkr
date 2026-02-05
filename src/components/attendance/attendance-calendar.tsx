@@ -270,11 +270,16 @@ export function AttendanceCalendar({
       return;
     }
 
-    if (currentDate.month === 0) {
-      setCurrentDate({ year: currentDate.year - 1, month: 11 });
-    } else {
-      setCurrentDate({ year: currentDate.year, month: currentDate.month - 1 });
-    }
+    setCurrentDate(prev => {
+      // Double-check values are not null for TypeScript
+      if (prev.month === null || prev.year === null) return prev;
+      
+      if (prev.month === 0) {
+        return { year: prev.year - 1, month: 11 };
+      } else {
+        return { year: prev.year, month: prev.month - 1 };
+      }
+    });
   };
   const handleNextMonth = () => { 
     // If the calendar is still initializing, provide feedback instead of appearing unresponsive
@@ -283,16 +288,32 @@ export function AttendanceCalendar({
       return;
     }
 
-    if (currentDate.month === 11) {
-      setCurrentDate({ year: currentDate.year + 1, month: 0 });
-    } else {
-      setCurrentDate({ year: currentDate.year, month: currentDate.month + 1 });
-    }
+    setCurrentDate(prev => {
+      // Double-check values are not null for TypeScript
+      if (prev.month === null || prev.year === null) return prev;
+      
+      if (prev.month === 11) {
+        return { year: prev.year + 1, month: 0 };
+      } else {
+        return { year: prev.year, month: prev.month + 1 };
+      }
+    });
   };
   const goToToday = () => { 
     const t = new Date(); 
     setCurrentDate({ year: t.getFullYear(), month: t.getMonth() }); 
     setSelectedDate(t); 
+  };
+  
+  const handleMonthChange = (value: string) => {
+    setCurrentDate(prev => ({ ...prev, month: parseInt(value, 10) }));
+  };
+  
+  const handleYearChange = (value: string) => {
+    const newYear = parseInt(value, 10);
+    if (newYear >= 2018) {
+      setCurrentDate(prev => ({ ...prev, year: newYear }));
+    }
   };
   
   const getDaysInMonth = useCallback((year: number, month: number) => new Date(year, month + 1, 0).getDate(), []);
@@ -548,7 +569,7 @@ export function AttendanceCalendar({
                 <SelectItem value="otherLeave">Other Leave</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={currentDate.month!.toString()} onValueChange={(value) => setCurrentDate({ ...currentDate, month: parseInt(value, 10) })}>
+            <Select value={currentDate.month!.toString()} onValueChange={handleMonthChange}>
               <SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Select month">
                 <SelectValue>{monthNames[currentDate.month!]}</SelectValue>
               </SelectTrigger>
@@ -560,7 +581,7 @@ export function AttendanceCalendar({
                 ))}
               </SelectContent>
             </Select>
-            <Select value={currentDate.year!.toString()} onValueChange={(value) => { const newYear = parseInt(value, 10); if (newYear >= 2018) setCurrentDate({ ...currentDate, year: newYear }); }}>
+            <Select value={currentDate.year!.toString()} onValueChange={handleYearChange}>
               <SelectTrigger className="w-[90px] h-9 bg-background/60 border-border/60 text-sm custom-dropdown" aria-label="Select year">
                 <SelectValue>{currentDate.year}</SelectValue>
               </SelectTrigger>
