@@ -269,6 +269,18 @@ export function useUserSettings() {
       }
     };
 
+    // Helper to validate session is still active before performing operations
+    // Returns true if session is valid and component is still mounted
+    const validateActiveSession = async (userId: string, isMounted: boolean): Promise<boolean> => {
+      if (!isMounted) return false;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        return !!(session && session.user.id === userId && isMounted);
+      } catch {
+        return false;
+      }
+    };
+
     // Async IIFE to perform storage synchronization operations
     (async () => {
       const userId = await getUserId();
@@ -301,12 +313,7 @@ export function useUserSettings() {
         
         // Validate session is still active before performing localStorage operations
         // This prevents race condition where user logs out while this promise is pending
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session || session.user.id !== userId || !isMounted) {
-            return;
-          }
-        } catch {
+        if (!(await validateActiveSession(userId, isMounted))) {
           return;
         }
         
@@ -365,12 +372,7 @@ export function useUserSettings() {
 
         // Validate session is still active before calling mutateSettings
         // This prevents race condition where user logs out while this promise is pending
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session || session.user.id !== userId || !isMounted) {
-            return;
-          }
-        } catch {
+        if (!(await validateActiveSession(userId, isMounted))) {
           return;
         }
 
