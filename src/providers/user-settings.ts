@@ -20,7 +20,7 @@ import { logger } from "@/lib/logger";
 // Values below the configured minimum are unrealistic and could cause issues in attendance calculations.
 //
 // DATABASE MIGRATION CONSIDERATION: If NEXT_PUBLIC_ATTENDANCE_TARGET_MIN is changed to a higher value
-// (e.g., from 75 to 85), users with stored target_percentage values below the new minimum will have
+// (e.g., raising the minimum above the current default of 75 to 80), users with stored target_percentage values below the new minimum will have
 // their targets silently adjusted upward on the next read. This is intentional behavior to enforce
 // the institutional minimum, but consider:
 // 1. Announcing the change to users before deployment
@@ -323,6 +323,8 @@ export function useUserSettings() {
         
         // Only sync if localStorage differs from DB (cross-device change)
         if (localBunk !== dbBunk) {
+          // Check if component is still mounted before performing side effects
+          if (!isMounted) return;
           localStorage.setItem(localBunkKey, dbBunk);
           window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: settings.bunk_calculator_enabled ?? true }));
         }
@@ -333,6 +335,8 @@ export function useUserSettings() {
         
         // Only sync if localStorage differs from DB
         if (localTarget !== dbTarget) {
+          // Check if component is still mounted before performing side effects
+          if (!isMounted) return;
           localStorage.setItem(localTargetKey, dbTarget);
         }
       } 
@@ -344,6 +348,17 @@ export function useUserSettings() {
         // Check user-scoped keys first, then fall back to legacy keys for migration
         const localBunk = localStorage.getItem(localBunkKey) ?? localStorage.getItem("showBunkCalc");
         const localTarget = localStorage.getItem(localTargetKey) ?? localStorage.getItem("targetPercentage");
+        
+        // Clean up legacy keys if they exist and were used for migration
+        // This prevents storage bloat over time
+        const legacyBunkKey = "showBunkCalc";
+        const legacyTargetKey = "targetPercentage";
+        if (localStorage.getItem(legacyBunkKey) !== null) {
+          localStorage.removeItem(legacyBunkKey);
+        }
+        if (localStorage.getItem(legacyTargetKey) !== null) {
+          localStorage.removeItem(legacyTargetKey);
+        }
         
         // Check if we have prefetched settings that should be synced to DB
         // This happens when user just logged in and settings were fetched from /api/auth/save-token
@@ -366,15 +381,15 @@ export function useUserSettings() {
           return;
         }
 
-        // Mark that we've attempted initialization to prevent duplicate calls
-        // Even if the mutation fails, we won't retry automatically - user can refresh
-        hasAttemptedInitializationRef.current = true;
-
         // Validate session is still active before calling mutateSettings
         // This prevents race condition where user logs out while this promise is pending
         if (!(await validateActiveSession(userId, isMounted))) {
           return;
         }
+
+        // Mark that we've attempted initialization to prevent duplicate calls
+        // Even if the mutation fails, we won't retry automatically - user can refresh
+        hasAttemptedInitializationRef.current = true;
 
         // Create DB record using localStorage values if they exist, otherwise use defaults
         // This runs only once per session when settings is null after initial fetch
