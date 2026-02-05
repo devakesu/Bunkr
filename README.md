@@ -292,6 +292,25 @@ The application will be available at:
 
 <br />
 
+## ⚙️ Configuration
+
+### Attendance Target Minimum
+
+The default minimum attendance target has been updated from **50%** to **75%** to align with common institutional requirements. This affects:
+
+- New user onboarding: Default target percentage set to 75%
+- Validation: Minimum target enforced at 75% (configurable via `NEXT_PUBLIC_ATTENDANCE_TARGET_MIN`)
+- Existing users: Users with targets below 75% are automatically adjusted upward
+
+To customize the minimum target, set the environment variable:
+```bash
+NEXT_PUBLIC_ATTENDANCE_TARGET_MIN=75  # Default: 75%
+```
+
+**Note:** Existing users with custom targets between 50-75% will be adjusted to meet the new minimum. This ensures compliance with institutional attendance policies.
+
+<br />
+
 ## ⚡ Performance Optimizations
 
 GhostClass is optimized for maximum performance:
