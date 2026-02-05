@@ -25,6 +25,7 @@ export function AttendanceSettingsProvider({
   children,
 }: AttendanceSettingsProviderProps) {
   const { settings, updateTarget, isLoading } = useUserSettings();
+
   const targetPercentage = settings?.target_percentage ?? 75;
 
   return (

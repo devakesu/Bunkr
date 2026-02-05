@@ -292,9 +292,51 @@ The application will be available at:
 
 <br />
 
+## ⚙️ Configuration
+
+### Attendance Target Minimum
+
+The default minimum attendance target has been updated from **50%** to **75%** to align with common institutional requirements. This affects:
+
+- New user onboarding: Default target percentage set to 75%
+- Validation: Minimum target enforced at 75% (configurable via `NEXT_PUBLIC_ATTENDANCE_TARGET_MIN`)
+- Existing users: Any target below the minimum (75%) is automatically adjusted upward to meet the threshold
+
+To customize the minimum target, set the environment variable:
+```bash
+NEXT_PUBLIC_ATTENDANCE_TARGET_MIN=75  # Default: 75%
+```
+
+**Note:** All existing users with targets below 75% will have their targets automatically adjusted to 75% on next login or settings sync. This ensures compliance with institutional attendance policies while preserving targets that already meet or exceed the minimum.
+
+<br />
+
 ## ⚡ Performance Optimizations
 
 GhostClass is optimized for maximum performance:
+
+**Progressive Web App (PWA)**
+- Service worker with Serwist for offline functionality and caching
+- Manifest file for installable web app experience
+- Intelligent caching strategies:
+  - Static assets: StaleWhileRevalidate for CSS/JS/workers
+  - Images: CacheFirst with 30-day expiration (trusted sources only)
+  - API requests: NetworkFirst (no explicit timeout; serves cache if network request fails)
+  - Note: Only /api/public/* and /api/static/* API endpoints are cached; all other API endpoints, including /api/user-settings and /api/attendance, always use the network to ensure fresh user data
+
+**Testing PWA Features Locally**
+By default, service workers are disabled in development to avoid caching issues. To test PWA functionality (offline mode, caching, install prompts) during development:
+```bash
+# Unix/Linux/macOS
+ENABLE_SW_IN_DEV="true" npm run dev
+
+# Windows Command Prompt
+set ENABLE_SW_IN_DEV=true && npm run dev
+
+# Windows PowerShell
+$env:ENABLE_SW_IN_DEV="true"; npm run dev
+```
+This enables the service worker in development mode without requiring a production build.
 
 **Code Splitting & Loading Strategy**
 - Next.js App Router automatic route-based code splitting for pages and layouts

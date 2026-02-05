@@ -78,7 +78,15 @@ export const handleLogout = async (csrfToken?: string | null) => {
     }
     
     // 1. Sign out from Supabase (Server-side session)
-    const { error } = await supabase.auth.signOut();
+    // CRITICAL: Use scope: 'local' to only logout current device/session
+    // Supabase Auth v2 supports three scopes:
+    //   - 'global': signs out all sessions for this user (default if scope not specified)
+    //   - 'local': signs out only the current session, preserving sessions on other devices
+    //   - 'others': signs out all other sessions except the current one
+    // We use 'local' to preserve multi-device sessions
+    const { error } = await supabase.auth.signOut({
+      scope: 'local' // Only sign out the current session, not all sessions
+    });
     if (error) throw error;
 
     // 2. Clear Cookies with CSRF protection

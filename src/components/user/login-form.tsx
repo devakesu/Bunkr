@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Lock as LockIcon, Mail, Phone, User } from "lucide-react"; 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -23,6 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 import { logger } from "@/lib/logger";
 import { isAuthSessionMissingError } from "@/lib/security/auth";
+import { DEFAULT_TARGET_PERCENTAGE } from "@/providers/user-settings";
 
 interface LoginFormProps extends HTMLMotionProps<"div"> {
   className?: string;
@@ -94,6 +95,20 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
 
   // Initialize CSRF token
   useCSRFToken();
+  
+  // Create stable Supabase client reference to avoid unnecessary re-renders
+  // SAFETY: The Supabase client returned by createClient() is stateless and safe to memoize.
+  // It doesn't contain any user-specific state - auth state is managed separately via
+  // Supabase's internal session management. Memoizing prevents unnecessary client recreation
+  // on each render, which could cause performance issues and potential memory leaks.
+  //
+  // WARNING FOR FUTURE DEVELOPERS:
+  // This memoization creates a hidden assumption: createClient() must ALWAYS return a stateless,
+  // user-agnostic client. If createClient() were ever changed to return a user-specific client
+  // (e.g., based on auth state), this memoization would break and cause bugs. In such a case,
+  // either remove the memoization entirely or use a ref (useRef) instead to make it clearer
+  // this is meant to be a stable reference that doesn't depend on component state.
+  const supabase = useMemo(() => createClient(), []);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const password = e.target.value;
@@ -116,7 +131,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     
     const checkUser = async () => {
       setIsLoadingPage(true);
-      const supabase = createClient();
+  
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         // Ignore auth session missing errors - they're expected when not logged in
@@ -142,7 +157,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     return () => {
       isMounted = false;
     };
-  }, [router]);
+    // supabase is memoized with empty deps, so including it here is safe and stable
+  }, [router, supabase]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -168,14 +184,124 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       // 2. Securely Save Token (Bridge to GhostClass) - requires CSRF token
       const csrfToken = getCsrfToken();
       
-      await axios.post("/api/auth/save-token", 
+      const saveTokenResponse = await axios.post("/api/auth/save-token", 
         { token }, 
         { 
           headers: csrfToken ? { [CSRF_HEADER]: csrfToken } : {}
         }
       );
 
-      // 3. Success
+      // 3. Pre-populate settings from save-token response for immediate availability
+      // This eliminates the 5-10 second delay showing defaults on fresh login
+      const settings = saveTokenResponse.data?.settings;
+      
+      // Get user ID first - this is important before storing user-bound settings
+      // If this fails, we will skip settings prefetch but still allow navigation
+      const { data: { user }, error: getUserError } = await supabase.auth.getUser();
+      if (getUserError || !user) {
+        // User cannot be retrieved after successful login; log and continue without
+        // user-bound settings prefetch. The dashboard will fetch settings from DB.
+        const errorMsg = "User session not available after successful login; skipping settings prefetch";
+        logger.error(errorMsg, {
+          context: "LoginForm/handleSubmit",
+          error: getUserError,
+        });
+      } else if (settings) {
+        // Validate user ID matches between login response and Supabase session
+        // This prevents storing settings under an incorrect user ID.
+        //
+        // API RESPONSE SCHEMAS:
+        // - Current schema (preferred):   { user: { id: string, ... }, settings: ... }
+        // - Legacy schema (back-compat):  { user_id: string, settings: ... }
+        //
+        // We first try the current nested user.id shape and only fall back to the
+        // legacy top-level user_id field to support older backend responses while
+        // the authentication/bridge services are being fully migrated.
+        //
+        // Once all callers and services have been updated to return the current
+        // schema, the user_id fallback can be safely removed to simplify this code.
+        const responseUserId = saveTokenResponse.data?.user?.id ?? saveTokenResponse.data?.user_id;
+        if (responseUserId && user.id !== responseUserId) {
+          logger.error("User ID mismatch between login response and Supabase session", {
+            context: "LoginForm/handleSubmit",
+            responseUserId,
+            sessionUserId: user.id,
+          });
+          // Skip storing settings to avoid data corruption
+          // Settings will be fetched from DB on the dashboard, so this is non-blocking
+        } else {
+          // Validate and normalize settings values before using them to prevent
+          // prototype pollution or injection attacks
+          const bunkEnabled =
+            typeof settings.bunk_calculator_enabled === "boolean"
+              ? settings.bunk_calculator_enabled
+              : true;
+          const rawTarget = settings.target_percentage;
+          
+          // Normalize target percentage using the same logic as normalizeTarget in user-settings.ts
+          // This handles decimal percentages (e.g., 75.5) by rounding, and ensures values are
+          // within valid range [1-100]. If the value is invalid, falls back to DEFAULT_TARGET_PERCENTAGE.
+          let targetPercentage = DEFAULT_TARGET_PERCENTAGE;
+          
+          if (typeof rawTarget === "number" && Number.isFinite(rawTarget)) {
+            const normalizedTarget = Math.round(rawTarget);
+            if (normalizedTarget >= 1 && normalizedTarget <= 100) {
+              targetPercentage = normalizedTarget;
+            }
+          }
+          
+          const bunkValue = bunkEnabled.toString();
+          const targetValue = targetPercentage.toString();
+          
+          try {
+            // Store settings with user ID to ensure they belong to the current user
+            // Use sessionStorage for reliable cross-navigation transfer
+            sessionStorage.setItem("prefetchedSettings", JSON.stringify({
+              bunk_calculator_enabled: bunkEnabled,
+              target_percentage: targetPercentage
+            }));
+            
+            // Also update localStorage for persistence across sessions
+            localStorage.setItem(`showBunkCalc_${user.id}`, bunkValue);
+            localStorage.setItem(`targetPercentage_${user.id}`, targetValue);
+          } catch (storageError) {
+            // Storage errors are non-critical - log but continue
+            // Storage can fail in private browsing mode or when storage is disabled
+            logger.dev("Failed to write returned settings to storage after login", {
+              context: "LoginForm/handleSubmit",
+              error: storageError instanceof Error ? storageError.message : String(storageError),
+            });
+          }
+        }
+      } else {
+        // Fallback: apply default settings when none are returned from save-token
+        // This is expected for brand new users who haven't set up their preferences yet
+        // We apply sensible defaults and let the settings provider create the DB record
+        const defaultSettings = {
+          bunk_calculator_enabled: true,
+          target_percentage: 75,
+        };
+
+        try {
+          sessionStorage.setItem("prefetchedSettings", JSON.stringify(defaultSettings));
+          localStorage.setItem(`showBunkCalc_${user.id}`, defaultSettings.bunk_calculator_enabled.toString());
+          localStorage.setItem(`targetPercentage_${user.id}`, defaultSettings.target_percentage.toString());
+        } catch (storageError) {
+          // Storage errors are non-critical - log but continue
+          logger.dev("Failed to write default settings to storage after login", {
+            context: "LoginForm/handleSubmit",
+            error: storageError instanceof Error ? storageError.message : String(storageError),
+          });
+        }
+
+        // For new users, this is expected behavior - log at dev level to reduce monitoring noise
+        // since this is a normal part of the new user onboarding flow
+        logger.dev("No settings returned from /api/auth/save-token; applied default settings for new user.", {
+          context: "LoginForm/handleSubmit",
+        });
+      }
+
+      // 4. Success - navigate to dashboard
       router.push("/dashboard");
 
     } catch (error) {
@@ -250,7 +376,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
 
   return (
     <motion.div
-      className={cn("flex flex-col gap-3", className)}
+      className={cn("flex flex-col gap-3 login-page", className)}
       {...props}
       initial="hidden"
       animate="visible"

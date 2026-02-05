@@ -86,8 +86,10 @@ const getNormalizedSession = (s: string | number) => parseInt(normalizeSession(s
 export function AttendanceCalendar({
   attendanceData,
 }: AttendanceCalendarProps) {
-  const [currentYear, setCurrentYear] = useState<number | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<number | null>(null);
+  const [currentDate, setCurrentDate] = useState<{ year: number | null; month: number | null }>({ 
+    year: null, 
+    month: null 
+  });
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<string>("all");
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
@@ -101,20 +103,17 @@ export function AttendanceCalendar({
       if (dateSelected) {
         const parsedDate = new Date(dateSelected);
         setSelectedDate(parsedDate);
-        setCurrentMonth(parsedDate.getMonth());
-        setCurrentYear(parsedDate.getFullYear());
+        setCurrentDate({ month: parsedDate.getMonth(), year: parsedDate.getFullYear() });
       } else {
         const now = new Date();
-        setCurrentYear(now.getFullYear());
-        setCurrentMonth(now.getMonth());
+        setCurrentDate({ year: now.getFullYear(), month: now.getMonth() });
         setSelectedDate(now);
       }
     } catch (error) {
       // Fallback if sessionStorage is unavailable or throws
       Sentry.captureException(error);
       const now = new Date();
-      setCurrentYear(now.getFullYear());
-      setCurrentMonth(now.getMonth());
+      setCurrentDate({ year: now.getFullYear(), month: now.getMonth() });
       setSelectedDate(now);
     }
   }, []);
@@ -266,41 +265,63 @@ export function AttendanceCalendar({
 
   const handlePreviousMonth = () => { 
     // If the calendar is still initializing, provide feedback instead of appearing unresponsive
-    if (currentMonth === null || currentYear === null) {
+    if (currentDate.month === null || currentDate.year === null) {
       toast.info("Calendar is still loading. Please wait...");
       return;
     }
 
-    setCurrentMonth((p) => {
-      if (p === null) return p;
-      if (p === 0) {
-        setCurrentYear((y) => (y === null ? y : y - 1));
-        return 11;
+    setCurrentDate(prev => {
+      // Guard against null values to satisfy TypeScript strict null checks
+      if (prev.month === null || prev.year === null) return prev;
+      
+      if (prev.month === 0) {
+        return { year: prev.year - 1, month: 11 };
+      } else {
+        return { year: prev.year, month: prev.month - 1 };
       }
-      return p - 1;
     });
   };
   const handleNextMonth = () => { 
     // If the calendar is still initializing, provide feedback instead of appearing unresponsive
-    if (currentMonth === null || currentYear === null) {
+    if (currentDate.month === null || currentDate.year === null) {
       toast.info("Calendar is still loading. Please wait...");
       return;
     }
 
-    setCurrentMonth((p) => {
-      if (p === null) return p;
-      if (p === 11) {
-        setCurrentYear((y) => (y === null ? y : y + 1));
-        return 0;
+    setCurrentDate(prev => {
+      // Guard against null values to satisfy TypeScript strict null checks
+      if (prev.month === null || prev.year === null) return prev;
+      
+      if (prev.month === 11) {
+        return { year: prev.year + 1, month: 0 };
+      } else {
+        return { year: prev.year, month: prev.month + 1 };
       }
-      return p + 1;
     });
   };
   const goToToday = () => { 
     const t = new Date(); 
-    setCurrentYear(t.getFullYear()); 
-    setCurrentMonth(t.getMonth()); 
+    setCurrentDate({ year: t.getFullYear(), month: t.getMonth() }); 
     setSelectedDate(t); 
+  };
+  
+  const handleMonthChange = (value: string) => {
+    setCurrentDate(prev => {
+      // Guard against null values (matches pattern in handlePreviousMonth/handleNextMonth)
+      if (prev.month === null || prev.year === null) return prev;
+      return { ...prev, month: parseInt(value, 10) };
+    });
+  };
+  
+  const handleYearChange = (value: string) => {
+    const newYear = parseInt(value, 10);
+    if (newYear >= 2018) {
+      setCurrentDate(prev => {
+        // Guard against null values (matches pattern in handlePreviousMonth/handleNextMonth)
+        if (prev.month === null || prev.year === null) return prev;
+        return { ...prev, year: newYear };
+      });
+    }
   };
   
   const getDaysInMonth = useCallback((year: number, month: number) => new Date(year, month + 1, 0).getDate(), []);
@@ -469,13 +490,17 @@ export function AttendanceCalendar({
   const yearOptions = useMemo(() => Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => 2018 + i), []);
   
   const calendarCells = useMemo(() => {
-    if (!selectedDate || currentYear === null || currentMonth === null) return [];
+    if (!selectedDate || currentDate.year === null || currentDate.month === null) return [];
     
-    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
-    const firstDayOfMonth = getFirstDayOfMonth(currentYear, currentMonth);
+    // Extract non-null values for use in closures below
+    const year = currentDate.year;
+    const month = currentDate.month;
+    
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDayOfMonth = getFirstDayOfMonth(year, month);
     const leadingEmptyCells = Array(firstDayOfMonth).fill(null).map((_, index) => <div key={`empty-leading-${index}`} className="h-10 w-full" />);
     const dayCells = Array(daysInMonth).fill(null).map((_, index) => {
-        const date = new Date(currentYear, currentMonth, index + 1);
+        const date = new Date(year, month, index + 1);
         const status = getEventStatus(date);
         const hasEvents = status !== null; 
         const isSelected = isSameDay(date, selectedDate);
@@ -494,8 +519,7 @@ export function AttendanceCalendar({
           const dateString = date.toISOString();
           sessionStorage.setItem("selected_date", dateString);
           setSelectedDate(date);
-          setCurrentMonth(date.getMonth());
-          setCurrentYear(date.getFullYear());
+          setCurrentDate({ month: date.getMonth(), year: date.getFullYear() });
         };
         
         const dateLabel = `${monthNames[date.getMonth()]} ${index + 1}, ${date.getFullYear()}${isSelected ? ', selected' : ''}${status ? `, ${status}` : ''}`;
@@ -515,10 +539,10 @@ export function AttendanceCalendar({
         );
     });
     return [...leadingEmptyCells, ...dayCells];
-  }, [currentYear, currentMonth, selectedDate, getDaysInMonth, getFirstDayOfMonth, getEventStatus, isSameDay, isToday, monthNames]);
+  }, [currentDate.year, currentDate.month, selectedDate, getDaysInMonth, getFirstDayOfMonth, getEventStatus, isSameDay, isToday, monthNames]);
 
   // Show loading state while dates are initializing
-  if (currentYear === null || currentMonth === null || !selectedDate) {
+  if (currentDate.year === null || currentDate.month === null || !selectedDate) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-[400px]">
@@ -533,8 +557,8 @@ export function AttendanceCalendar({
     );
   }
 
-  // After the null check above, we know currentMonth and currentYear are not null
-  // Using non-null assertions here is safe because the early return prevents execution if they're null
+  // After the null check above, we know currentDate.year and currentDate.month are not null
+  // Non-null assertions in this block are safe due to the guard condition at line 516
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col">
@@ -553,25 +577,25 @@ export function AttendanceCalendar({
                 <SelectItem value="otherLeave">Other Leave</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={currentMonth!.toString()} onValueChange={(value) => setCurrentMonth(parseInt(value, 10))}>
+            <Select value={currentDate.month!.toString()} onValueChange={handleMonthChange}>
               <SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Select month">
-                <SelectValue>{monthNames[currentMonth!]}</SelectValue>
+                <SelectValue>{monthNames[currentDate.month!]}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">
                 {monthNames.map((month, index) => (
-                  <SelectItem key={month} value={index.toString()} className={currentMonth === index ? "bg-white/5 mt-0.5" : "capitalize"}>
+                  <SelectItem key={month} value={index.toString()} className={currentDate.month === index ? "bg-white/5 mt-0.5" : "capitalize"}>
                     {month}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select value={currentYear!.toString()} onValueChange={(value) => { const newYear = parseInt(value, 10); if (newYear >= 2018) setCurrentYear(newYear); }}>
+            <Select value={currentDate.year!.toString()} onValueChange={handleYearChange}>
               <SelectTrigger className="w-[90px] h-9 bg-background/60 border-border/60 text-sm custom-dropdown" aria-label="Select year">
-                <SelectValue>{currentYear}</SelectValue>
+                <SelectValue>{currentDate.year}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 max-h-70 backdrop-blur-md custom-dropdown">
                 {yearOptions.map((year) => (
-                  <SelectItem key={year} value={year.toString()} className={currentYear === year ? "bg-white/5 mt-0.5" : "mt-0.5"}>
+                  <SelectItem key={year} value={year.toString()} className={currentDate.year === year ? "bg-white/5 mt-0.5" : "mt-0.5"}>
                     {year}
                   </SelectItem>
                 ))}

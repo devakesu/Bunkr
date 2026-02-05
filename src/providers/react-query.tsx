@@ -16,7 +16,7 @@ import { AttendanceSettingsProvider } from "./attendance-settings";
  * - Stale time: 3 minutes
  * - Garbage collection: 10 minutes
  * - Retry: 2 attempts
- * - Window focus refetch: Disabled
+ * - Window focus refetch: Disabled globally, but can be enabled per-query for cross-device sync
  * - Auto refetch interval: 15 minutes
  * 
  * @param children - Child components to wrap
@@ -38,6 +38,8 @@ export default function ReactQueryProvider({ children }: PropsWithChildren) {
             staleTime: 3 * 60 * 1000,
             gcTime: 10 * 60 * 1000,
             retry: 2,
+            // Disable global window focus refetch to avoid performance issues
+            // Enable it per-query for critical queries that need cross-device sync
             refetchOnWindowFocus: false,
             refetchInterval: 15 * 60 * 1000,
           },

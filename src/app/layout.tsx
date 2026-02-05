@@ -7,6 +7,7 @@ import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import { GlobalInit } from "@/lib/global-init";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
+import { ServiceWorkerRegister } from "@/components/sw-register";
 
 const metadataBaseUrl = (() => {
   try {
@@ -64,7 +65,7 @@ const dmMono = DM_Mono({
 });
 
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -76,6 +77,8 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/logo.png" />
         <meta name="application-name" content="GhostClass" />
         <meta name="google" content="notranslate" />
         <meta name="format-detection" content="telephone=no" />
@@ -116,6 +119,7 @@ export default async function RootLayout({
             zIndex={99999}
           />
           <GlobalInit />
+          <ServiceWorkerRegister />
           <div id="main-content" tabIndex={-1} className="flex min-h-screen flex-col bg-background">
             {children}
           </div>

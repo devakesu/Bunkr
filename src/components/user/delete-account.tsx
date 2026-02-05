@@ -54,8 +54,8 @@ export function DeleteAccount() {
   };
 
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/10">
-      <div className="flex items-start justify-between">
+    <div className="rounded-lg border border-red-200 bg-red-50 p-4 sm:p-5 dark:border-red-900/50 dark:bg-red-950/10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <h3 className="font-medium text-red-900 dark:text-red-200 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" aria-hidden="true" />
@@ -68,7 +68,11 @@ export function DeleteAccount() {
         
         <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm" className="shrink-0 bg-red-600 hover:bg-red-700">
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-full sm:w-auto shrink-0 bg-red-600 hover:bg-red-700"
+            >
               <Trash2 className="h-4 w-4 mr-2" aria-label="Delete account" />
               Delete Account
             </Button>
