@@ -104,10 +104,9 @@ export function useUserSettings() {
       if (prefetched) {
         try {
           const parsed = JSON.parse(prefetched) as UserSettings;
-          // Remove prefetched settings immediately after use to ensure they're only used once
-          // This prevents stale prefetched data from being used on subsequent component mounts
-          // If the component remounts, we fall back to localStorage which is the correct behavior
-          sessionStorage.removeItem("prefetchedSettings");
+          // NOTE: We don't remove prefetched settings here anymore to avoid race conditions
+          // where component remounts cause a flash of localStorage fallback values.
+          // Instead, we'll remove them after the first successful query fetch in the effect below.
           return parsed;
         } catch (error) {
           logger.error("Failed to parse prefetched settings", error);
@@ -128,11 +127,20 @@ export function useUserSettings() {
     },
     staleTime: 30 * 1000, // 30 seconds - reduces API load while keeping data reasonably fresh
     gcTime: 5 * 60 * 1000, // 5 minutes - keep cache for reasonable time to avoid unnecessary refetches
-    refetchOnWindowFocus: () => !isMutatingRef.current, // Only refetch on focus if not currently mutating
+    refetchOnWindowFocus: () => {
+      // Defensive: clear mutation flag if it's stuck (edge case safeguard)
+      // This ensures refetching can resume even if onSuccess/onError somehow doesn't fire
+      if (isMutatingRef.current && !updateSettingsMutation.isPending) {
+        isMutatingRef.current = false;
+      }
+      return !isMutatingRef.current;
+    },
     retry: (failureCount, error) => {
       // Retry on network errors, but not on auth errors
       // This allows initial fetch attempts while auth is pending to fail gracefully
       // and automatically retry once session is established
+      // Note: While using error message string matching is not ideal, Supabase doesn't provide
+      // specific error codes for "no user" scenarios. This is the most reliable method available.
       const isNoUserError = error instanceof Error && error.message === "No user";
       return failureCount < 3 && !isNoUserError;
     }
@@ -232,6 +240,12 @@ export function useUserSettings() {
       // Mark that we've completed a successful fetch
       hasCompletedInitialFetchRef.current = true;
       
+      // Clean up prefetched settings after first successful DB fetch
+      // This prevents stale prefetched data from being reused on subsequent initialData calls
+      if (sessionStorage.getItem("prefetchedSettings") !== null) {
+        sessionStorage.removeItem("prefetchedSettings");
+      }
+      
       const localBunk = localStorage.getItem("showBunkCalc");
       const dbBunk = (settings.bunk_calculator_enabled ?? true).toString();
       
@@ -250,15 +264,20 @@ export function useUserSettings() {
       }
     } 
     // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
-    // CRITICAL: Only run this for truly new users (first fetch ever)
-    // If we've already fetched before, skip initialization to prevent resetting on refetch
+    // CRITICAL: Only run initialization on first fetch to prevent resetting on subsequent refetches
     else if (settings === null && !hasCompletedInitialFetchRef.current) {
       const localBunk = localStorage.getItem("showBunkCalc");
       const localTarget = localStorage.getItem("targetPercentage");
+      
+      // Check if we have prefetched settings that should be synced to DB
+      // This happens when user just logged in and settings were fetched from /api/auth/save-token
       const hasPrefetchedSettings = sessionStorage.getItem("prefetchedSettings") !== null;
       
-      // Skip initialization if prefetched settings exist (already synced to DB)
+      // Skip initialization if prefetched settings exist - they'll be synced on next query success
+      // The prefetched settings are already in the query cache from initialData, so the next
+      // successful DB response will trigger Case A above to sync them
       if (hasPrefetchedSettings) {
+        // Don't mark as completed yet - wait for actual DB sync in Case A
         return;
       }
       

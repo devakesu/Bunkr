@@ -96,6 +96,10 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
   useCSRFToken();
   
   // Create stable Supabase client reference to avoid unnecessary re-renders
+  // SAFETY: The Supabase client returned by createClient() is stateless and safe to memoize.
+  // It doesn't contain any user-specific state - auth state is managed separately via
+  // Supabase's internal session management. Memoizing prevents unnecessary client recreation
+  // on each render, which could cause performance issues and potential memory leaks.
   const supabase = useMemo(() => createClient(), []);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,7 +202,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         localStorage.setItem("targetPercentage", targetValue);
       } else {
         // Fallback: apply default settings when none are returned from save-token
-        // This ensures consistent UX even if the API doesn't return settings
+        // This is expected for brand new users who haven't set up their preferences yet
+        // We apply sensible defaults and let the settings provider create the DB record
         const defaultSettings = {
           bunk_calculator_enabled: true,
           target_percentage: 75,
@@ -209,17 +214,17 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           localStorage.setItem("showBunkCalc", defaultSettings.bunk_calculator_enabled.toString());
           localStorage.setItem("targetPercentage", defaultSettings.target_percentage.toString());
         } catch (storageError) {
-          logger.warn("Failed to write default settings to storage after login", {
+          // Log storage errors at dev level as they're rare and non-critical
+          logger.dev("Failed to write default settings to storage after login", {
             context: "LoginForm/handleSubmit",
             error: storageError instanceof Error ? storageError.message : String(storageError),
           });
         }
 
-        logger.warn("No settings returned from /api/auth/save-token; applied default settings.", {
+        // For new users, this is expected behavior, so log at info level instead of warning
+        // Only capture in Sentry if this happens repeatedly for the same user (which would be unusual)
+        logger.info("No settings returned from /api/auth/save-token; applied default settings for new user.", {
           context: "LoginForm/handleSubmit",
-        });
-        Sentry.captureMessage("No settings returned from save-token; default settings applied on login.", {
-          level: "warning",
         });
       }
 

@@ -129,7 +129,8 @@ export const Navbar = () => {
   }, [settings?.target_percentage]);
   
   const currentBunkCalc = useMemo(() => {
-    if (settings?.bunk_calculator_enabled !== undefined) {
+    // Explicitly check for both null and undefined to ensure proper handling
+    if (settings?.bunk_calculator_enabled !== undefined && settings?.bunk_calculator_enabled !== null) {
       return settings.bunk_calculator_enabled;
     }
     if (typeof window === 'undefined') return true;
