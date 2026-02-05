@@ -284,6 +284,9 @@ export function useUserSettings() {
     // We need complete data from DB before deciding whether to initialize
     if (updateSettingsMutation.isPending || isLoading || isFetching) return;
 
+    // Track if effect is still mounted to prevent state updates after unmount
+    let isMounted = true;
+
     // Get user ID for scoped storage keys
     const getUserId = async () => {
       try {
@@ -296,6 +299,9 @@ export function useUserSettings() {
     };
 
     getUserId().then(userId => {
+      // Check if component is still mounted before proceeding
+      if (!isMounted) return;
+      
       if (!userId) {
         logger.dev("User ID not available for storage sync, skipping", {
           context: "useUserSettings/syncEffect"
@@ -387,6 +393,11 @@ export function useUserSettings() {
         });
       }
     });
+
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+    };
     // mutateSettings is stable - it's the mutate function from useMutation and doesn't change between renders
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings, isLoading, isFetching, updateSettingsMutation.isPending, supabase.auth]);
