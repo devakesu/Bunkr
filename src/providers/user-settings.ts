@@ -53,6 +53,10 @@ export function useUserSettings() {
   // Track if we've completed the initial fetch to prevent re-initialization on refetches
   // This is critical to prevent settings from resetting to defaults when query is invalidated
   const hasCompletedInitialFetchRef = useRef(false);
+  
+  // Track if we've attempted initialization to prevent redundant mutation calls
+  // This prevents duplicate initialization during rapid refetches before mutation completes
+  const hasAttemptedInitializationRef = useRef(false);
 
   // Monitor session changes to trigger settings fetch on login
   // This ensures settings are loaded immediately when user authenticates,
@@ -236,12 +240,15 @@ export function useUserSettings() {
     // We need complete data from DB before deciding whether to initialize
     if (updateSettingsMutation.isPending || isLoading || isFetching) return;
 
+    // Mark that we've completed the initial fetch (whether settings exist or not)
+    // This prevents premature initialization attempts before the query has finished
+    if (!hasCompletedInitialFetchRef.current) {
+      hasCompletedInitialFetchRef.current = true;
+    }
+
     // Case A: DB has data -> Sync to LocalStorage ONLY if different (Source of Truth = DB)
     // This handles cross-device sync (e.g., changed settings on another device)
     if (settings) {
-      // Mark that we've completed a successful fetch
-      hasCompletedInitialFetchRef.current = true;
-      
       // Clean up prefetched settings after first successful DB fetch
       // This prevents stale prefetched data from being reused on subsequent initialData calls
       if (sessionStorage.getItem("prefetchedSettings") !== null) {
@@ -266,8 +273,8 @@ export function useUserSettings() {
       }
     } 
     // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
-    // CRITICAL: Only run initialization on first fetch to prevent resetting on subsequent refetches
-    else if (settings === null && !hasCompletedInitialFetchRef.current) {
+    // This runs once per session when DB returns null after initial fetch completes
+    else if (settings === null) {
       const localBunk = localStorage.getItem("showBunkCalc");
       const localTarget = localStorage.getItem("targetPercentage");
       
@@ -275,17 +282,28 @@ export function useUserSettings() {
       // This happens when user just logged in and settings were fetched from /api/auth/save-token
       const hasPrefetchedSettings = sessionStorage.getItem("prefetchedSettings") !== null;
       
-      // Skip initialization if prefetched settings exist - they'll be synced on next query success
-      // The prefetched settings are already in the query cache from initialData, so the next
-      // successful DB response will trigger Case A above to sync them
-      if (hasPrefetchedSettings) {
-        // Don't mark as completed yet - wait for actual DB sync in Case A
+      // Helper function to determine if initialization should be skipped
+      const shouldSkipInitialization = () => {
+        // Skip if prefetched settings exist (they'll be synced on next query success)
+        if (hasPrefetchedSettings) return true;
+        
+        // Skip if we've already attempted initialization (prevent redundant mutations)
+        // This ensures we only try once per session, even if refetches still return null
+        if (hasAttemptedInitializationRef.current) return true;
+        
+        return false;
+      };
+      
+      if (shouldSkipInitialization()) {
         return;
       }
-      
-      hasCompletedInitialFetchRef.current = true;
+
+      // Mark that we've attempted initialization to prevent duplicate calls
+      // Even if the mutation fails, we won't retry automatically - user can refresh
+      hasAttemptedInitializationRef.current = true;
 
       // Create DB record using localStorage values if they exist, otherwise use defaults
+      // This runs only once per session when settings is null after initial fetch
       mutateSettings({
         bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
         target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
