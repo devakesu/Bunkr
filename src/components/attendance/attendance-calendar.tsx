@@ -271,7 +271,7 @@ export function AttendanceCalendar({
     }
 
     setCurrentDate(prev => {
-      // Double-check values are not null for TypeScript
+      // Guard against null values to satisfy TypeScript strict null checks
       if (prev.month === null || prev.year === null) return prev;
       
       if (prev.month === 0) {
@@ -289,7 +289,7 @@ export function AttendanceCalendar({
     }
 
     setCurrentDate(prev => {
-      // Double-check values are not null for TypeScript
+      // Guard against null values to satisfy TypeScript strict null checks
       if (prev.month === null || prev.year === null) return prev;
       
       if (prev.month === 11) {
@@ -307,7 +307,7 @@ export function AttendanceCalendar({
   
   const handleMonthChange = (value: string) => {
     setCurrentDate(prev => {
-      // Validate that previous state is not null for consistency
+      // Guard against null values (matches pattern in handlePreviousMonth/handleNextMonth)
       if (prev.month === null || prev.year === null) return prev;
       return { ...prev, month: parseInt(value, 10) };
     });
@@ -317,7 +317,7 @@ export function AttendanceCalendar({
     const newYear = parseInt(value, 10);
     if (newYear >= 2018) {
       setCurrentDate(prev => {
-        // Validate that previous state is not null for consistency
+        // Guard against null values (matches pattern in handlePreviousMonth/handleNextMonth)
         if (prev.month === null || prev.year === null) return prev;
         return { ...prev, year: newYear };
       });
