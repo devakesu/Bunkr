@@ -41,19 +41,34 @@ export async function updateSession(request: NextRequest, nonce?: string) {
   try {
     await supabase.auth.getUser();
   } catch (error) {
-    // If token refresh fails (e.g., missing refresh token), clear invalid session cookies
-    // This prevents subsequent requests from attempting to refresh an invalid token
-    const authCookies = request.cookies.getAll()
-      .filter(({ name }) => name.startsWith('sb-') || name.includes('auth'))
-      .map(({ name }) => name);
+    // Only clear cookies for authentication-specific errors (invalid/expired tokens)
+    // Don't clear cookies for transient network issues or service unavailability
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isAuthError = errorMessage.toLowerCase().includes('invalid') || 
+                       errorMessage.toLowerCase().includes('expired') ||
+                       errorMessage.toLowerCase().includes('unauthorized') ||
+                       errorMessage.toLowerCase().includes('jwt') ||
+                       errorMessage.toLowerCase().includes('token');
     
-    authCookies.forEach(name => {
-      response.cookies.delete(name);
-    });
+    if (isAuthError) {
+      // Clear invalid session cookies for auth-specific errors
+      const authCookies = request.cookies.getAll()
+        .filter(({ name }) => name.startsWith('sb-') || name.includes('auth'))
+        .map(({ name }) => name);
+      
+      authCookies.forEach(name => {
+        response.cookies.delete(name);
+      });
 
-    logger.warn("Session refresh failed in middleware, clearing invalid session cookies", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+      logger.warn("Session refresh failed in middleware, clearing invalid session cookies", {
+        error: errorMessage,
+      });
+    } else {
+      // Log transient errors but don't clear cookies
+      logger.warn("Transient error in session refresh, preserving session cookies", {
+        error: errorMessage,
+      });
+    }
   }
 
   return response;
