@@ -271,11 +271,11 @@ export function useUserSettings() {
 
     // Helper to validate session is still active before performing operations
     // Returns true if session is valid and component is still mounted
-    const validateActiveSession = async (userId: string, isMounted: boolean): Promise<boolean> => {
-      if (!isMounted) return false;
+    const validateActiveSession = async (userId: string, isComponentMounted: boolean): Promise<boolean> => {
+      if (!isComponentMounted) return false;
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        return !!(session && session.user.id === userId && isMounted);
+        return !!(session && session.user.id === userId && isComponentMounted);
       } catch {
         return false;
       }

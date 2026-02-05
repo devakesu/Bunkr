@@ -204,6 +204,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       if (settings) {
         // Validate user ID matches between login response and Supabase session
         // This prevents storing settings under an incorrect user ID
+        // NOTE: The fallback to user_id handles different API response formats
         const responseUserId = saveTokenResponse.data?.user?.id ?? saveTokenResponse.data?.user_id;
         if (responseUserId && user.id !== responseUserId) {
           logger.error("User ID mismatch between login response and Supabase session", {
@@ -212,6 +213,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
             sessionUserId: user.id,
           });
           // Skip storing settings to avoid data corruption
+          // Settings will be fetched from DB on the dashboard, so this is non-blocking
         } else {
           // Validate and normalize settings values before using them to prevent
           // prototype pollution or injection attacks
