@@ -26,19 +26,9 @@ export function AttendanceSettingsProvider({
   children,
 }: AttendanceSettingsProviderProps) {
   const { settings, updateTarget, isLoading } = useUserSettings();
-  
+
   const targetPercentage = useMemo(() => {
-    if (settings?.target_percentage !== undefined) {
-      return settings.target_percentage;
-    }
-    if (typeof window === "undefined") return 75;
-    try {
-      const stored = localStorage.getItem("targetPercentage");
-      return stored ? parseInt(stored, 10) : 75;
-    } catch {
-      // localStorage can fail in private browsing mode or when storage is disabled
-      return 75;
-    }
+    return settings?.target_percentage ?? 75;
   }, [settings?.target_percentage]);
 
   const setTargetPercentage = (percentage: number) => {

@@ -118,36 +118,26 @@ export const Navbar = () => {
     await handleLogout();
   };
 
-  // During loading, read from localStorage to show user's last known value instead of defaults
+  // During loading, fall back to a safe default when settings are not yet available
   const currentTarget = useMemo(() => {
     if (settings?.target_percentage !== undefined) {
       return settings.target_percentage;
     }
     if (typeof window === 'undefined') return 75;
-    try {
-      const stored = localStorage.getItem('targetPercentage');
-      return stored ? parseInt(stored, 10) : 75;
-    } catch {
-      // localStorage can fail in private browsing mode or when storage is disabled
-      return 75;
-    }
+    // Avoid reading legacy, unscoped localStorage keys; use a stable default instead
+    return 75;
   }, [settings?.target_percentage]);
   
   const currentBunkCalc = useMemo(() => {
     // Check !== undefined since optional chaining returns undefined for null/undefined settings
     // This allows bunk_calculator_enabled to be false (a valid value) while falling back
-    // to localStorage when settings is not yet loaded
+    // to a default when settings is not yet loaded
     if (settings?.bunk_calculator_enabled !== undefined) {
       return settings.bunk_calculator_enabled;
     }
     if (typeof window === 'undefined') return true;
-    try {
-      const stored = localStorage.getItem('showBunkCalc');
-      return stored ? stored === 'true' : true;
-    } catch {
-      // localStorage can fail in private browsing mode or when storage is disabled
-      return true;
-    }
+    // Avoid reading legacy, unscoped localStorage keys; use a stable default instead
+    return true;
   }, [settings]);
 
   return (

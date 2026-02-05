@@ -116,7 +116,7 @@
     "rimraf": "^6.1.2",
     "supabase": "^2.72.9",
     "tailwindcss": "^4",
-    "typescript": "5.9.3",
+    "typescript": "~5.9.3",
     "typescript-eslint": "^8.53.1",
     "vitest": "^4.0.18"
   }

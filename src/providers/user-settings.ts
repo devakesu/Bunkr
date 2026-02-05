@@ -81,17 +81,12 @@ export function useUserSettings() {
             // Get user ID from the session before it's cleared (session param may still have it)
             const userId = session?.user?.id;
             
-            // Clear both user-scoped and legacy keys to ensure complete cleanup
+            // Clear user-scoped keys for the user who just signed out
             if (userId) {
               sessionStorage.removeItem(`prefetchedSettings_${userId}`);
               localStorage.removeItem(`showBunkCalc_${userId}`);
               localStorage.removeItem(`targetPercentage_${userId}`);
             }
-            
-            // Also clear legacy keys for backwards compatibility
-            sessionStorage.removeItem("prefetchedSettings");
-            localStorage.removeItem("showBunkCalc");
-            localStorage.removeItem("targetPercentage");
           }
         } catch (error) {
           // Ignore storage clearing errors (e.g., restricted environment)
@@ -354,8 +349,9 @@ export function useUserSettings() {
       else if (settings === null) {
         const localBunkKey = `showBunkCalc_${userId}`;
         const localTargetKey = `targetPercentage_${userId}`;
-        const localBunk = localStorage.getItem(localBunkKey);
-        const localTarget = localStorage.getItem(localTargetKey);
+        // Check user-scoped keys first, then fall back to legacy keys for migration
+        const localBunk = localStorage.getItem(localBunkKey) ?? localStorage.getItem("showBunkCalc");
+        const localTarget = localStorage.getItem(localTargetKey) ?? localStorage.getItem("targetPercentage");
         
         // Check if we have prefetched settings that should be synced to DB
         // This happens when user just logged in and settings were fetched from /api/auth/save-token

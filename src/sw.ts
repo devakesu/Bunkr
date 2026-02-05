@@ -51,22 +51,32 @@ const serwist = new Serwist({
       }),
     },
     {
-      // API caching strategy: NetworkFirst with 3-second timeout
-      // - GET requests are cached for offline support and fast loading
-      // - 3-second timeout provides balance between fresh data and offline resilience
-      // - For slow networks, falls back to cache after timeout to maintain UX
-      // Note: Mutation endpoints (POST/PUT/PATCH/DELETE) are excluded by the GET check
-      // and will always go through the network without caching
-      // 
-      // TIMEOUT RATIONALE: 3 seconds is appropriate for most API endpoints in this application.
-      // Data-heavy operations (reports, analytics) should ideally be optimized at the backend level.
-      // If specific endpoints consistently need more time, consider implementing endpoint-specific
-      // caching strategies or backend optimizations rather than increasing this global timeout.
-      matcher: ({ request, url }) =>
-        request.method === "GET" && url.pathname.startsWith("/api/"),
+      // API caching strategy: NetworkFirst for cacheable GET /api requests.
+      // - Mutation endpoints (POST/PUT/PATCH/DELETE) are excluded by the GET check
+      //   and will always go through the network without caching.
+      // - Certain time-sensitive endpoints are explicitly excluded to avoid stale data.
+      // - No explicit network timeout is used here to avoid serving stale cache for
+      //   legitimately long-running operations (e.g., reports, bulk operations).
+      matcher: ({ request, url }) => {
+        if (request.method !== "GET") {
+          return false;
+        }
+        if (!url.pathname.startsWith("/api/")) {
+          return false;
+        }
+        // Exclude known time-sensitive or user-specific endpoints from caching
+        const uncachedPrefixes = [
+          "/api/user-settings",
+          "/api/attendance",
+          "/api/realtime",
+        ];
+        if (uncachedPrefixes.some((path) => url.pathname.startsWith(path))) {
+          return false;
+        }
+        return true;
+      },
       handler: new NetworkFirst({
         cacheName: "api",
-        networkTimeoutSeconds: 3,
       }),
     },
   ],

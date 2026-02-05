@@ -195,12 +195,9 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           // Get user ID to prevent cross-user data leakage in shared device scenarios
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) {
-            logger.warn("User ID not available after successful login. Settings will not be stored to prevent cross-user data leakage.", {
-              context: "LoginForm/handleSubmit",
-            });
-            // Continue without storing to avoid potential cross-user leakage
-            router.push("/dashboard");
-            return;
+            // Treat this as a hard error so that we do not navigate to the dashboard
+            // with an inconsistent state (token saved but no user-scoped settings).
+            throw new Error("User session not available after successful login");
           }
 
           // Store settings with user ID to ensure they belong to the current user
@@ -234,12 +231,9 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           // Get user ID to prevent cross-user data leakage in shared device scenarios
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) {
-            logger.warn("User ID not available after successful login. Default settings will not be stored to prevent cross-user data leakage.", {
-              context: "LoginForm/handleSubmit",
-            });
-            // Continue without storing to avoid potential cross-user leakage
-            router.push("/dashboard");
-            return;
+            // Treat this as a hard error so that we do not navigate to the dashboard
+            // with an inconsistent state (token saved but no user-scoped settings).
+            throw new Error("User session not available after successful login");
           }
 
           sessionStorage.setItem(`prefetchedSettings_${user.id}`, JSON.stringify(defaultSettings));
