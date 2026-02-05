@@ -129,7 +129,9 @@ export const Navbar = () => {
   }, [settings?.target_percentage]);
   
   const currentBunkCalc = useMemo(() => {
-    // Explicitly check !== undefined to ensure proper handling of both null and falsy values
+    // Check !== undefined since optional chaining returns undefined for null/undefined settings
+    // This allows bunk_calculator_enabled to be false (a valid value) while falling back
+    // to localStorage when settings is not yet loaded
     if (settings?.bunk_calculator_enabled !== undefined) {
       return settings.bunk_calculator_enabled;
     }
