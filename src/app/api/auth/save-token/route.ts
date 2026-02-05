@@ -323,7 +323,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
       }
       
-      logger.error("Ezygo verification error:", err.message);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.error("Ezygo verification error:", errorMessage);
       Sentry.captureException(err, { tags: { type: "ezygo_network_error", location: "save_token" }, extra: { userId: redact("id", verifieduserId) } });
       
       return NextResponse.json({ message: "Authentication service error" }, { status: 502 });
