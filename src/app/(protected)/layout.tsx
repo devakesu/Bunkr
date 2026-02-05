@@ -147,6 +147,7 @@ export default function ProtectedLayout({
               // Only apply inert when the feature is supported and element should be hidden
               {...((isHidden &&
                 typeof HTMLElement !== "undefined" &&
+                HTMLElement?.prototype &&
                 "inert" in HTMLElement.prototype
                   ? { inert: true }
                   : {}) as any)}

@@ -319,9 +319,10 @@ GhostClass is optimized for maximum performance:
 - Service worker with Serwist for offline functionality and caching
 - Manifest file for installable web app experience
 - Intelligent caching strategies:
-  - Static assets: CacheFirst with 30-day expiration
-  - Images: CacheFirst with 1-year expiration
+  - Static assets: StaleWhileRevalidate for CSS/JS/workers
+  - Images: CacheFirst with 30-day expiration (trusted sources only)
   - API requests: NetworkFirst (no explicit timeout; serves cache if network request fails)
+  - Note: /api/user-settings and /api/attendance are excluded from caching to ensure fresh user data
 
 **Testing PWA Features Locally**
 By default, service workers are disabled in development to avoid caching issues. To test PWA functionality (offline mode, caching, install prompts) during development:

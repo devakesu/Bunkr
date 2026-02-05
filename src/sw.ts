@@ -42,7 +42,7 @@ const serwist = new Serwist({
       handler: new CacheFirst({
         cacheName: "images",
         plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
+          new CacheableResponsePlugin({ statuses: [200] }),
           new ExpirationPlugin({
             maxEntries: 100,
             maxAgeSeconds: 60 * 60 * 24 * 30,
@@ -87,7 +87,33 @@ serwist.addEventListeners();
 // Allow manual skip waiting via postMessage for user-initiated updates
 // This enables a "New version available - Click to refresh" UI pattern
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
+  (async () => {
+    if (!(event.data && event.data.type === "SKIP_WAITING")) {
+      return;
+    }
+
+    // Validate the message source before forcing activation
+    const source = event.source;
+    if (!source || !("id" in source)) {
+      return;
+    }
+
+    try {
+      const client = await self.clients.get((source as Client | WindowClient).id);
+      if (!client) {
+        return;
+      }
+
+      const clientUrl = new URL(client.url);
+      if (clientUrl.origin !== self.location.origin) {
+        // Ignore messages from cross-origin clients
+        return;
+      }
+
+      self.skipWaiting();
+    } catch {
+      // In case of any error resolving the client, do not force activation
+      return;
+    }
+  })();
 });

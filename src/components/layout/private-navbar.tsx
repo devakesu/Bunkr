@@ -48,7 +48,6 @@ import UserPlaceholder from "@/assets/user.png";
 import { Bell } from "lucide-react";
 import { useNotifications } from "@/hooks/notifications/useNotifications";
 import NProgress from "nprogress";
-import { useMemo } from "react";
 
 export const Navbar = () => {
   const router = useRouter();
@@ -119,26 +118,15 @@ export const Navbar = () => {
   };
 
   // During loading, fall back to a safe default when settings are not yet available
-  const currentTarget = useMemo(() => {
-    if (settings?.target_percentage !== undefined) {
-      return settings.target_percentage;
-    }
-    if (typeof window === 'undefined') return 75;
-    // Avoid reading legacy, unscoped localStorage keys; use a stable default instead
-    return 75;
-  }, [settings?.target_percentage]);
+  const currentTarget = settings?.target_percentage ?? 75;
   
-  const currentBunkCalc = useMemo(() => {
-    // Check !== undefined since optional chaining returns undefined for null/undefined settings
-    // This allows bunk_calculator_enabled to be false (a valid value) while falling back
-    // to a default when settings is not yet loaded
-    if (settings?.bunk_calculator_enabled !== undefined) {
-      return settings.bunk_calculator_enabled;
-    }
-    if (typeof window === 'undefined') return true;
-    // Avoid reading legacy, unscoped localStorage keys; use a stable default instead
-    return true;
-  }, [settings]);
+  // Check !== undefined && !== null since optional chaining returns undefined for null/undefined settings
+  // This allows bunk_calculator_enabled to be false (a valid value) while falling back
+  // to a default when settings is not yet loaded or is explicitly null
+  const currentBunkCalc = settings?.bunk_calculator_enabled !== undefined && 
+                          settings?.bunk_calculator_enabled !== null
+    ? settings.bunk_calculator_enabled 
+    : true;
 
   return (
     <header className="top-0 z-10 flex h-20 items-center justify-between gap-4 border-b-2 bg-background px-4 md:px-6 text-white mr-0.5 border-white/5">
