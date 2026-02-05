@@ -296,6 +296,28 @@ The application will be available at:
 
 GhostClass is optimized for maximum performance:
 
+**Progressive Web App (PWA)**
+- Service worker with Serwist for offline functionality and caching
+- Manifest file for installable web app experience
+- Intelligent caching strategies:
+  - Static assets: CacheFirst with 30-day expiration
+  - Images: CacheFirst with 1-year expiration
+  - API requests: NetworkFirst with 3-second timeout fallback
+
+**Testing PWA Features Locally**
+By default, service workers are disabled in development to avoid caching issues. To test PWA functionality (offline mode, caching, install prompts) during development:
+```bash
+# Unix/Linux/macOS
+ENABLE_SW_IN_DEV="true" npm run dev
+
+# Windows Command Prompt
+set ENABLE_SW_IN_DEV=true && npm run dev
+
+# Windows PowerShell
+$env:ENABLE_SW_IN_DEV="true"; npm run dev
+```
+This enables the service worker in development mode without requiring a production build.
+
 **Code Splitting & Loading Strategy**
 - Next.js App Router automatic route-based code splitting for pages and layouts
 - Lazy loaded Recharts components (XAxis, YAxis, Tooltip, ResponsiveContainer)

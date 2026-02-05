@@ -191,15 +191,24 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         const bunkValue = (settings.bunk_calculator_enabled ?? true).toString();
         const targetValue = (settings.target_percentage ?? 75).toString();
         
-        // Use sessionStorage for reliable cross-navigation transfer
-        sessionStorage.setItem("prefetchedSettings", JSON.stringify({
-          bunk_calculator_enabled: settings.bunk_calculator_enabled ?? true,
-          target_percentage: settings.target_percentage ?? 75
-        }));
-        
-        // Also update localStorage for persistence across sessions
-        localStorage.setItem("showBunkCalc", bunkValue);
-        localStorage.setItem("targetPercentage", targetValue);
+        try {
+          // Use sessionStorage for reliable cross-navigation transfer
+          sessionStorage.setItem("prefetchedSettings", JSON.stringify({
+            bunk_calculator_enabled: settings.bunk_calculator_enabled ?? true,
+            target_percentage: settings.target_percentage ?? 75
+          }));
+          
+          // Also update localStorage for persistence across sessions
+          localStorage.setItem("showBunkCalc", bunkValue);
+          localStorage.setItem("targetPercentage", targetValue);
+        } catch (storageError) {
+          // Log storage errors at dev level as they're rare and non-critical
+          // Storage can fail in private browsing mode or when storage is disabled
+          logger.dev("Failed to write returned settings to storage after login", {
+            context: "LoginForm/handleSubmit",
+            error: storageError instanceof Error ? storageError.message : String(storageError),
+          });
+        }
       } else {
         // Fallback: apply default settings when none are returned from save-token
         // This is expected for brand new users who haven't set up their preferences yet
