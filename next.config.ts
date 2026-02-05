@@ -2,10 +2,15 @@ import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
 
+const isProduction = process.env.NODE_ENV === "production";
+const enableSwInDev = process.env.ENABLE_SW_IN_DEV === "true";
+
 const withSerwist = withSerwistInit({
   swSrc: "src/sw.ts",
   swDest: "public/sw.js",
-  disable: process.env.NODE_ENV !== "production",
+  // By default, disable service workers outside production.
+  // To test PWA functionality in development, set ENABLE_SW_IN_DEV="true".
+  disable: isProduction ? false : !enableSwInDev,
 });
 
 const nextConfig: NextConfig = {

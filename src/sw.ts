@@ -46,6 +46,12 @@ const serwist = new Serwist({
       }),
     },
     {
+      // API caching strategy: NetworkFirst with 3-second timeout
+      // - GET requests are cached for offline support and fast loading
+      // - 3-second timeout provides balance between fresh data and offline resilience
+      // - For slow networks, falls back to cache after timeout to maintain UX
+      // Note: Mutation endpoints (POST/PUT/PATCH/DELETE) are excluded by the GET check
+      // and will always go through the network without caching
       matcher: ({ request, url }) =>
         request.method === "GET" && url.pathname.startsWith("/api/"),
       handler: new NetworkFirst({
