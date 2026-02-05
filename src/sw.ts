@@ -15,8 +15,11 @@ declare const self: ServiceWorkerGlobalScope & {
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
-  skipWaiting: true,
-  clientsClaim: true,
+  // Wait for all clients to close before activating new service worker
+  // This prevents breaking changes from affecting active users
+  skipWaiting: false,
+  // Don't take control immediately to allow graceful updates
+  clientsClaim: false,
   runtimeCaching: [
     {
       matcher: ({ request }) => request.destination === "document",
@@ -70,3 +73,11 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// Allow manual skip waiting via postMessage for user-initiated updates
+// This enables a "New version available - Click to refresh" UI pattern
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});

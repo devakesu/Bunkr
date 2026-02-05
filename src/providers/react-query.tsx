@@ -38,7 +38,9 @@ export default function ReactQueryProvider({ children }: PropsWithChildren) {
             staleTime: 3 * 60 * 1000,
             gcTime: 10 * 60 * 1000,
             retry: 2,
-            refetchOnWindowFocus: true,
+            // Disable global window focus refetch to avoid performance issues
+            // Enable it per-query for critical queries that need cross-device sync
+            refetchOnWindowFocus: false,
             refetchInterval: 15 * 60 * 1000,
           },
         },
