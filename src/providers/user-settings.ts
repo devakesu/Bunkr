@@ -266,8 +266,9 @@ export function useUserSettings() {
       }
     } 
     // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
-    // CRITICAL: Only run initialization on first fetch to prevent resetting on subsequent refetches
-    else if (settings === null && !hasCompletedInitialFetchRef.current) {
+    // CRITICAL: Run initialization whenever settings is null and we're not currently mutating
+    // This handles both initial fetch and subsequent refetches that still return null
+    else if (settings === null) {
       const localBunk = localStorage.getItem("showBunkCalc");
       const localTarget = localStorage.getItem("targetPercentage");
       
@@ -275,17 +276,17 @@ export function useUserSettings() {
       // This happens when user just logged in and settings were fetched from /api/auth/save-token
       const hasPrefetchedSettings = sessionStorage.getItem("prefetchedSettings") !== null;
       
-      // Skip initialization if prefetched settings exist - they'll be synced on next query success
-      // The prefetched settings are already in the query cache from initialData, so the next
-      // successful DB response will trigger Case A above to sync them
-      if (hasPrefetchedSettings) {
-        // Don't mark as completed yet - wait for actual DB sync in Case A
+      // Skip initialization if:
+      // 1. Prefetched settings exist (they'll be synced on next query success), OR
+      // 2. Initial fetch hasn't completed yet (avoid premature initialization), OR
+      // 3. A mutation is already in progress (avoid duplicate initialization)
+      if (hasPrefetchedSettings || !hasCompletedInitialFetchRef.current || updateSettingsMutation.isPending) {
         return;
       }
-      
-      hasCompletedInitialFetchRef.current = true;
 
       // Create DB record using localStorage values if they exist, otherwise use defaults
+      // This will run on any refetch that returns null after the initial fetch has completed
+      // ensuring new users always get their settings initialized even if the first attempt failed
       mutateSettings({
         bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
         target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75

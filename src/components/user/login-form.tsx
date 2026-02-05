@@ -230,8 +230,9 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           });
         }
 
-        // For new users, this is expected behavior - no need for Sentry capture
-        logger.info("No settings returned from /api/auth/save-token; applied default settings for new user.", {
+        // For new users, this is expected behavior - log at dev level to reduce monitoring noise
+        // since this is a normal part of the new user onboarding flow
+        logger.dev("No settings returned from /api/auth/save-token; applied default settings for new user.", {
           context: "LoginForm/handleSubmit",
         });
       }
