@@ -195,7 +195,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           // Get user ID to prevent cross-user data leakage in shared device scenarios
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) {
-            logger.warn("User ID not available after successful login", {
+            logger.warn("User ID not available after successful login. Settings will not be stored to prevent cross-user data leakage.", {
               context: "LoginForm/handleSubmit",
             });
             // Continue without storing to avoid potential cross-user leakage
@@ -234,7 +234,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           // Get user ID to prevent cross-user data leakage in shared device scenarios
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) {
-            logger.warn("User ID not available after successful login", {
+            logger.warn("User ID not available after successful login. Default settings will not be stored to prevent cross-user data leakage.", {
               context: "LoginForm/handleSubmit",
             });
             // Continue without storing to avoid potential cross-user leakage

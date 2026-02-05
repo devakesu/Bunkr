@@ -135,7 +135,9 @@ export function useUserSettings() {
       try {
         // Try to get user ID from session storage or a cached location
         // We'll validate this against the actual user ID when the query runs
-        const sessionStr = sessionStorage.getItem(`sb-${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0] || 'ghostclass'}-auth-token`);
+        const DEFAULT_SUPABASE_PROJECT_NAME = 'ghostclass';
+        const projectName = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0] || DEFAULT_SUPABASE_PROJECT_NAME;
+        const sessionStr = sessionStorage.getItem(`sb-${projectName}-auth-token`);
         if (sessionStr) {
           const session = JSON.parse(sessionStr);
           userId = session?.user?.id;
@@ -284,12 +286,22 @@ export function useUserSettings() {
 
     // Get user ID for scoped storage keys
     const getUserId = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      return session?.user?.id;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        return session?.user?.id;
+      } catch (error) {
+        logger.dev("Failed to get user ID for storage sync", { error });
+        return undefined;
+      }
     };
 
     getUserId().then(userId => {
-      if (!userId) return;
+      if (!userId) {
+        logger.dev("User ID not available for storage sync, skipping", {
+          context: "useUserSettings/syncEffect"
+        });
+        return;
+      }
 
       // Mark that we've completed the initial fetch (whether settings exist or not)
       // This prevents premature initialization attempts before the query has finished
