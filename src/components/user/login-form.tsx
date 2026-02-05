@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Lock as LockIcon, Mail, Phone, User } from "lucide-react"; 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -94,7 +94,9 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
 
   // Initialize CSRF token
   useCSRFToken();
-  const supabase = createClient();
+  
+  // Create stable Supabase client reference to avoid unnecessary re-renders
+  const supabase = useMemo(() => createClient(), []);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const password = e.target.value;
@@ -143,6 +145,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     return () => {
       isMounted = false;
     };
+    // supabase is memoized with empty deps, so it's stable and safe to omit
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -274,7 +278,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      suppressHydrationWarning
     >
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-2">
@@ -283,7 +286,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           <motion.div
             className="flex flex-col items-center gap-1.5 -mt-8 sm:-mt-10" 
             variants={logoVariants}
-            suppressHydrationWarning
           >
             <div className="flex justify-center items-center flex-col">
               <div className="relative w-[340px] h-[120px] sm:w-[520px] sm:h-[180px] overflow-hidden"> 
