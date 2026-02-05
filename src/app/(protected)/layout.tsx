@@ -143,8 +143,12 @@ export default function ProtectedLayout({
               )}
               // The inert attribute disables keyboard/screen reader interaction with hidden elements
               // Browser support: Chrome 102+, Safari 15.5+, Firefox 112+ (March 2023+)
-              // For older browsers, pointer-events-none provides basic interaction prevention
-              inert={isHidden}
+              // Feature detection ensures graceful degradation on older browsers
+              inert={
+                typeof HTMLElement !== "undefined" &&
+                "inert" in HTMLElement.prototype &&
+                isHidden
+              }
             >
               <Navbar />
             </motion.div>
