@@ -23,6 +23,10 @@
 # production
 /build
 
+# service worker (generated at build time)
+/public/sw.js
+/public/sw.js.map
+
 # misc
 .DS_Store
 *.pem

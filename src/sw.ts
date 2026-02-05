@@ -114,5 +114,8 @@ self.addEventListener("message", (event) => {
       // In case of any error resolving the client, do not force activation
       return;
     }
-  })();
+  })().catch((error) => {
+    // Log unexpected errors so they don't fail silently
+    console.error("Unexpected error in SKIP_WAITING message handler:", error);
+  });
 });

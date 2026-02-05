@@ -6,7 +6,15 @@ const isProduction = process.env.NODE_ENV === "production";
 const enableSwInDev = process.env.ENABLE_SW_IN_DEV === "true";
 
 const withSerwist = withSerwistInit({
+  // Source TypeScript service worker implementation
   swSrc: "src/sw.ts",
+  // Destination for the generated service worker.
+  // NOTE:
+  // - This file is generated at build time and MUST NOT be committed to version control.
+  // - Ensure "public/sw.js" is listed in .gitignore so it is treated as a build artifact.
+  // - The public/ directory contains both static assets (checked in) and generated assets
+  //   like this service worker; document this structure (e.g., in README.md or public/README.md)
+  //   so team members understand which files are safe to edit/commit.
   swDest: "public/sw.js",
   // By default, service workers are disabled outside production to avoid caching issues during development.
   // To test PWA / offline functionality locally, start Next.js in development mode with ENABLE_SW_IN_DEV="true"

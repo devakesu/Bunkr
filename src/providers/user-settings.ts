@@ -271,6 +271,14 @@ export function useUserSettings() {
     };
 
     // Async IIFE to perform storage synchronization operations
+    //
+    // UNMOUNT BEHAVIOR:
+    // If the component unmounts during async operations, the isMounted check prevents
+    // state updates, but the promise chain continues executing. While this is handled
+    // correctly, if there are many rapid mount/unmount cycles (e.g., during navigation),
+    // this could lead to many pending promises. This is generally not a practical issue
+    // in production, but is worth noting for debugging purposes. If this becomes a concern,
+    // consider implementing cleanup via AbortController.
     (async () => {
       const userId = getUserId();
       
