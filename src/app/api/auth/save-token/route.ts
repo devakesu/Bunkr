@@ -800,7 +800,7 @@ export async function POST(req: Request) {
       const { data: settings } = await supabaseAdmin
         .from("user_settings")
         .select("bunk_calculator_enabled, target_percentage")
-        .eq("user_id", verifieduserId)
+        .eq("user_id", userId)
         .maybeSingle();
       userSettings = settings;
     } catch (settingsError) {
