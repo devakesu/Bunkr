@@ -91,12 +91,14 @@ export function useUserSettings() {
             const userId = currentUserIdRef.current;
             
             // Clear user-scoped keys for the user who just signed out
-            // Note: We don't clear prefetched settings here since initialData no longer
-            // uses user-scoped prefetch keys (only legacy non-scoped keys)
             if (userId) {
               localStorage.removeItem(`showBunkCalc_${userId}`);
               localStorage.removeItem(`targetPercentage_${userId}`);
             }
+
+            // Also clear non-scoped prefetched settings to avoid cross-user leakage
+            // This prevents the next user from seeing the previous user's prefetched settings
+            sessionStorage.removeItem("prefetchedSettings");
             
             // Clear the ref after cleanup
             currentUserIdRef.current = null;
@@ -133,51 +135,16 @@ export function useUserSettings() {
       return data as UserSettings | null;
     },
     // Populate initial data from prefetched settings or localStorage
-    // This prevents flashing default values while DB is fetching
+    // This prevents flashing default values while DB is fetching.
+    // SECURITY: Avoid reading non-user-scoped storage here to prevent cross-user
+    // leakage when multiple users share the same browser session. Always let the
+    // query fetch user-scoped data from the backend instead.
     initialData: () => {
       if (typeof window === 'undefined') return undefined;
       
-      // DESIGN DECISION: Use non-user-scoped keys for sessionStorage prefetch
-      // This approach has trade-offs:
-      //
-      // Pros:
-      // 1. No dependency on parsing Supabase's internal token storage format
-      // 2. Simpler implementation - no coupling to Supabase implementation details
-      // 3. Adequate for the use case: preventing UI flashing during first render
-      //
-      // Cons:
-      // 1. Not suitable for multi-user scenarios on the same device within the same browser session
-      //    (but this is rare - users typically don't share browser sessions)
-      //
-      // The actual query will fetch user-scoped data from the DB and sync it properly,
-      // and the sync effect handles migrating from legacy to user-scoped localStorage keys.
-      // Multi-device scenarios are handled by the sync effect, not initialData.
-      
-      // Priority 1: Check sessionStorage for prefetched settings (fresh login)
-      const prefetched = sessionStorage.getItem("prefetchedSettings");
-      if (prefetched) {
-        try {
-          const parsed = JSON.parse(prefetched) as UserSettings;
-          // NOTE: We don't remove prefetched settings here anymore to avoid race conditions
-          // where component remounts cause a flash of localStorage fallback values.
-          // Instead, we'll remove them after the first successful query fetch in the effect below.
-          return parsed;
-        } catch (error) {
-          logger.error("Failed to parse prefetched settings", error);
-        }
-      }
-      
-      // Priority 2: Fall back to localStorage for existing users
-      // Use legacy keys for backwards compatibility
-      const localBunk = localStorage.getItem("showBunkCalc");
-      const localTarget = localStorage.getItem("targetPercentage");
-      
-      if (localBunk !== null || localTarget !== null) {
-        return {
-          bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
-          target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
-        } as UserSettings;
-      }
+      // Return undefined to let the query fetch fresh data from the backend.
+      // This is safer than reading from non-user-scoped storage which could
+      // leak data between users in the same browser session.
       return undefined;
     },
     staleTime: 30 * 1000, // 30 seconds - reduces API load while keeping data reasonably fresh
@@ -302,7 +269,22 @@ export function useUserSettings() {
       }
     };
 
-    getUserId().then(userId => {
+    // Helper to validate session is still active before performing operations
+    // Returns true if session is valid and component is still mounted
+    const validateActiveSession = async (userId: string, isComponentMounted: boolean): Promise<boolean> => {
+      if (!isComponentMounted) return false;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        return !!(session && session.user.id === userId && isComponentMounted);
+      } catch {
+        return false;
+      }
+    };
+
+    // Async IIFE to perform storage synchronization operations
+    (async () => {
+      const userId = await getUserId();
+      
       // Check if component is still mounted before proceeding
       if (!isMounted) return;
       
@@ -327,6 +309,12 @@ export function useUserSettings() {
         const legacyKey = "prefetchedSettings";
         if (sessionStorage.getItem(legacyKey) !== null) {
           sessionStorage.removeItem(legacyKey);
+        }
+        
+        // Validate session is still active before performing localStorage operations
+        // This prevents race condition where user logs out while this promise is pending
+        if (!(await validateActiveSession(userId, isMounted))) {
+          return;
         }
         
         const localBunkKey = `showBunkCalc_${userId}`;
@@ -382,9 +370,11 @@ export function useUserSettings() {
         // Even if the mutation fails, we won't retry automatically - user can refresh
         hasAttemptedInitializationRef.current = true;
 
-        // Final check: Ensure component is still mounted before calling mutateSettings
-        // This prevents race condition where component unmounts between line 310 and here
-        if (!isMounted) return;
+        // Validate session is still active before calling mutateSettings
+        // This prevents race condition where user logs out while this promise is pending
+        if (!(await validateActiveSession(userId, isMounted))) {
+          return;
+        }
 
         // Create DB record using localStorage values if they exist, otherwise use defaults
         // This runs only once per session when settings is null after initial fetch
@@ -393,7 +383,7 @@ export function useUserSettings() {
           target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : 75
         });
       }
-    });
+    })();
 
     // Cleanup function to prevent state updates after unmount
     return () => {
