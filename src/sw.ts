@@ -1,7 +1,9 @@
 /// <reference lib="webworker" />
 
 import { Serwist } from "serwist";
+// Strategy classes for different caching behaviors
 import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from "serwist";
+// Plugins used specifically for the image runtime caching strategy
 import { CacheableResponsePlugin, ExpirationPlugin } from "serwist";
 
 declare const self: ServiceWorkerGlobalScope & {
@@ -52,6 +54,11 @@ const serwist = new Serwist({
       // - For slow networks, falls back to cache after timeout to maintain UX
       // Note: Mutation endpoints (POST/PUT/PATCH/DELETE) are excluded by the GET check
       // and will always go through the network without caching
+      // 
+      // TIMEOUT RATIONALE: 3 seconds is appropriate for most API endpoints in this application.
+      // Data-heavy operations (reports, analytics) should ideally be optimized at the backend level.
+      // If specific endpoints consistently need more time, consider implementing endpoint-specific
+      // caching strategies or backend optimizations rather than increasing this global timeout.
       matcher: ({ request, url }) =>
         request.method === "GET" && url.pathname.startsWith("/api/"),
       handler: new NetworkFirst({

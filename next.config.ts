@@ -8,8 +8,10 @@ const enableSwInDev = process.env.ENABLE_SW_IN_DEV === "true";
 const withSerwist = withSerwistInit({
   swSrc: "src/sw.ts",
   swDest: "public/sw.js",
-  // By default, disable service workers outside production.
-  // To test PWA functionality in development, set ENABLE_SW_IN_DEV="true".
+  // By default, service workers are disabled outside production to avoid caching issues during development.
+  // To test PWA / offline functionality locally, start Next.js in development mode with ENABLE_SW_IN_DEV="true"
+  // Example: ENABLE_SW_IN_DEV="true" npm run dev
+  // This behavior should be documented in README.md for team members testing PWA features.
   disable: isProduction ? false : !enableSwInDev,
 });
 
