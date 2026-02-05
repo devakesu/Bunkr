@@ -149,9 +149,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     return () => {
       isMounted = false;
     };
-    // supabase is memoized with empty deps, so it's stable and safe to omit
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+    // supabase is memoized with empty deps, so including it here is safe and stable
+  }, [router, supabase]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -209,7 +208,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         try {
           // Store settings with user ID to ensure they belong to the current user
           // Use sessionStorage for reliable cross-navigation transfer
-          sessionStorage.setItem(`prefetchedSettings_${user.id}`, JSON.stringify({
+          sessionStorage.setItem("prefetchedSettings", JSON.stringify({
             bunk_calculator_enabled: settings.bunk_calculator_enabled ?? true,
             target_percentage: settings.target_percentage ?? 75
           }));
@@ -235,7 +234,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         };
 
         try {
-          sessionStorage.setItem(`prefetchedSettings_${user.id}`, JSON.stringify(defaultSettings));
+          sessionStorage.setItem("prefetchedSettings", JSON.stringify(defaultSettings));
           localStorage.setItem(`showBunkCalc_${user.id}`, defaultSettings.bunk_calculator_enabled.toString());
           localStorage.setItem(`targetPercentage_${user.id}`, defaultSettings.target_percentage.toString());
         } catch (storageError) {

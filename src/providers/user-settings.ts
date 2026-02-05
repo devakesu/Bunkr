@@ -137,22 +137,23 @@ export function useUserSettings() {
     initialData: () => {
       if (typeof window === 'undefined') return undefined;
       
-      // LIMITATION: User ID is not available synchronously here without parsing Supabase's
-      // internal token storage format, which would tightly couple us to implementation details
-      // that could change in future Supabase versions. Instead, we fall back to legacy
-      // non-user-scoped keys for initialData.
+      // DESIGN DECISION: Use non-user-scoped keys for sessionStorage prefetch
+      // This approach has trade-offs:
       //
-      // This is acceptable because:
-      // 1. initialData is only used to prevent UI flashing during the first render
-      // 2. The actual query will fetch user-scoped data from the DB and sync it properly
-      // 3. The sync effect (lines 286-411) handles migrating from legacy to user-scoped keys
-      // 4. Multi-user scenarios on the same device are handled by the sync effect, not initialData
+      // Pros:
+      // 1. No dependency on parsing Supabase's internal token storage format
+      // 2. Simpler implementation - no coupling to Supabase implementation details
+      // 3. Adequate for the use case: preventing UI flashing during first render
       //
-      // If a reliable, app-controlled source of the user ID becomes available synchronously
-      // (e.g., React Context), it can be wired in here to enable user-scoped initialData.
+      // Cons:
+      // 1. Not suitable for multi-user scenarios on the same device within the same browser session
+      //    (but this is rare - users typically don't share browser sessions)
+      //
+      // The actual query will fetch user-scoped data from the DB and sync it properly,
+      // and the sync effect handles migrating from legacy to user-scoped localStorage keys.
+      // Multi-device scenarios are handled by the sync effect, not initialData.
       
       // Priority 1: Check sessionStorage for prefetched settings (fresh login)
-      // Use legacy key since we don't have user ID available synchronously
       const prefetched = sessionStorage.getItem("prefetchedSettings");
       if (prefetched) {
         try {
@@ -167,7 +168,7 @@ export function useUserSettings() {
       }
       
       // Priority 2: Fall back to localStorage for existing users
-      // Use legacy keys since we don't have user ID available synchronously
+      // Use legacy keys for backwards compatibility
       const localBunk = localStorage.getItem("showBunkCalc");
       const localTarget = localStorage.getItem("targetPercentage");
       
@@ -188,10 +189,12 @@ export function useUserSettings() {
       // Retry on network errors, but not on auth errors
       // This allows initial fetch attempts while auth is pending to fail gracefully
       // and automatically retry once session is established
-      // LIMITATION: Using error message string matching is not ideal as error messages can change
-      // between Supabase versions or be localized. However, Supabase doesn't provide specific error
-      // codes for "no user" scenarios, so string matching is the most reliable method currently available.
-      // If Supabase adds error codes in the future, this should be updated to use those instead.
+      //
+      // TECHNICAL DEBT: Using error message string matching is fragile as error messages
+      // can change between Supabase versions or be localized. However, Supabase doesn't
+      // currently provide specific error codes for "no user" scenarios, so string matching
+      // is the most reliable method available. If Supabase adds error codes in the future,
+      // this should be updated to use those instead (e.g., error.code === "NO_USER").
       const isNoUserError = error instanceof Error && error.message === "No user";
       return failureCount < 3 && !isNoUserError;
     }
@@ -321,7 +324,6 @@ export function useUserSettings() {
       if (settings) {
         // Clean up prefetched settings after first successful DB fetch
         // This prevents stale prefetched data from being reused on subsequent initialData calls
-        // Only check legacy key since initialData no longer uses user-scoped prefetch keys
         const legacyKey = "prefetchedSettings";
         if (sessionStorage.getItem(legacyKey) !== null) {
           sessionStorage.removeItem(legacyKey);
@@ -357,7 +359,6 @@ export function useUserSettings() {
         
         // Check if we have prefetched settings that should be synced to DB
         // This happens when user just logged in and settings were fetched from /api/auth/save-token
-        // Only check legacy key since initialData no longer uses user-scoped prefetch keys
         const legacyKey = "prefetchedSettings";
         const hasPrefetchedSettings = sessionStorage.getItem(legacyKey) !== null;
         
