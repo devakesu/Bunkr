@@ -20,12 +20,21 @@ export function ServiceWorkerRegister() {
       return;
     }
 
+    let updateIntervalId: NodeJS.Timeout | null = null;
+    let isMounted = true;
+
     // Wait for page to load before registering to avoid impacting initial page load performance
-    window.addEventListener("load", async () => {
+    const handleLoad = async () => {
+      // Check if component is still mounted
+      if (!isMounted) return;
+
       try {
         const registration = await navigator.serviceWorker.register("/sw.js", {
           scope: "/",
         });
+
+        // Check again after async operation
+        if (!isMounted) return;
 
         logger.dev("Service worker registered successfully", {
           context: "ServiceWorkerRegister",
@@ -55,7 +64,8 @@ export function ServiceWorkerRegister() {
         });
 
         // Check for updates periodically (every hour)
-        setInterval(() => {
+        updateIntervalId = setInterval(() => {
+          if (!isMounted) return;
           registration.update().catch((error) => {
             logger.dev("Service worker update check failed", {
               context: "ServiceWorkerRegister",
@@ -69,7 +79,18 @@ export function ServiceWorkerRegister() {
           error,
         });
       }
-    });
+    };
+
+    window.addEventListener("load", handleLoad);
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      window.removeEventListener("load", handleLoad);
+      if (updateIntervalId) {
+        clearInterval(updateIntervalId);
+      }
+    };
   }, []);
 
   // This component doesn't render anything
