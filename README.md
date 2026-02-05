@@ -307,7 +307,14 @@ GhostClass is optimized for maximum performance:
 **Testing PWA Features Locally**
 By default, service workers are disabled in development to avoid caching issues. To test PWA functionality (offline mode, caching, install prompts) during development:
 ```bash
+# Unix/Linux/macOS
 ENABLE_SW_IN_DEV="true" npm run dev
+
+# Windows Command Prompt
+set ENABLE_SW_IN_DEV=true && npm run dev
+
+# Windows PowerShell
+$env:ENABLE_SW_IN_DEV="true"; npm run dev
 ```
 This enables the service worker in development mode without requiring a production build.
 
