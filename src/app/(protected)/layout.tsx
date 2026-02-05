@@ -148,7 +148,7 @@ export default function ProtectedLayout({
               {...((isHidden &&
                 typeof HTMLElement !== "undefined" &&
                 "inert" in HTMLElement.prototype
-                  ? { inert: "" }
+                  ? { inert: true }
                   : {}) as any)}
             >
               <Navbar />
