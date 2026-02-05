@@ -269,7 +269,7 @@ export function useUserSettings() {
       }
     };
 
-    // Async function to perform sync operations
+    // Async IIFE to perform storage synchronization operations
     (async () => {
       const userId = await getUserId();
       
