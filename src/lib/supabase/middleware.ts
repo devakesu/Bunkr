@@ -44,11 +44,19 @@ export async function updateSession(request: NextRequest, nonce?: string) {
     // Only clear cookies for authentication-specific errors (invalid/expired tokens)
     // Don't clear cookies for transient network issues or service unavailability
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const isAuthError = errorMessage.toLowerCase().includes('invalid') || 
-                       errorMessage.toLowerCase().includes('expired') ||
-                       errorMessage.toLowerCase().includes('unauthorized') ||
-                       errorMessage.toLowerCase().includes('jwt') ||
-                       errorMessage.toLowerCase().includes('token');
+    const lowerErrorMsg = errorMessage.toLowerCase();
+    
+    // Check for authentication-specific error patterns
+    const isAuthError = lowerErrorMsg.includes('invalid') || 
+                       lowerErrorMsg.includes('expired') ||
+                       lowerErrorMsg.includes('unauthorized') ||
+                       lowerErrorMsg.includes('jwt') ||
+                       (lowerErrorMsg.includes('token') && (
+                         lowerErrorMsg.includes('refresh') ||
+                         lowerErrorMsg.includes('access') ||
+                         lowerErrorMsg.includes('invalid') ||
+                         lowerErrorMsg.includes('expired')
+                       ));
     
     if (isAuthError) {
       // Clear invalid session cookies for auth-specific errors
