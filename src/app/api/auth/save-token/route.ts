@@ -310,8 +310,8 @@ export async function POST(req: Request) {
       lockUserId = verifieduserId;
 
     } catch (err: any) {
-      // Handle timeout and connection errors (ECONNABORTED, ENOTFOUND, ETIMEDOUT, EHOSTUNREACH, ECONNRESET, ENETUNREACH)
-      if (isAxiosError(err) && err.code && ['ECONNABORTED', 'ETIMEDOUT', 'ENOTFOUND', 'EHOSTUNREACH', 'ECONNRESET', 'ENETUNREACH'].includes(err.code)) {
+      // Handle timeout and connection errors (ECONNABORTED, ENOTFOUND, ETIMEDOUT, EHOSTUNREACH, ECONNRESET, ENETUNREACH, ECONNREFUSED)
+      if (isAxiosError(err) && err.code && ['ECONNABORTED', 'ETIMEDOUT', 'ENOTFOUND', 'EHOSTUNREACH', 'ECONNRESET', 'ENETUNREACH', 'ECONNREFUSED'].includes(err.code)) {
         logger.warn(`EzyGo API timeout/connection error (code: ${err.code})`);
         Sentry.captureException(err, {
           tags: { type: "ezygo_timeout", location: "save_token" },

@@ -53,9 +53,7 @@ export async function updateSession(request: NextRequest, nonce?: string) {
                        lowerErrorMsg.includes('jwt') ||
                        (lowerErrorMsg.includes('token') && (
                          lowerErrorMsg.includes('refresh') ||
-                         lowerErrorMsg.includes('access') ||
-                         lowerErrorMsg.includes('invalid') ||
-                         lowerErrorMsg.includes('expired')
+                         lowerErrorMsg.includes('access')
                        ));
     
     if (isAuthError) {
