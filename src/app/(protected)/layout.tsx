@@ -146,7 +146,7 @@ export default function ProtectedLayout({
               // Feature detection ensures graceful degradation on older browsers
               // Only apply inert when the feature is supported and element should be hidden
               inert={
-                isHidden && 
+                isHidden &&
                 typeof HTMLElement !== "undefined" &&
                 "inert" in HTMLElement.prototype
                   ? true
