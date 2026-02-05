@@ -135,7 +135,7 @@ export const Navbar = () => {
     if (typeof window === 'undefined') return true;
     const stored = localStorage.getItem('showBunkCalc');
     return stored ? stored === 'true' : true;
-  }, [settings?.bunk_calculator_enabled]);
+  }, [settings]);
 
   return (
     <header className="top-0 z-10 flex h-20 items-center justify-between gap-4 border-b-2 bg-background px-4 md:px-6 text-white mr-0.5 border-white/5">

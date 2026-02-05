@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Lock as LockIcon, Mail, Phone, User } from "lucide-react"; 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -94,7 +94,9 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
 
   // Initialize CSRF token
   useCSRFToken();
-  const supabase = createClient();
+  
+  // Create stable Supabase client reference to avoid unnecessary re-renders
+  const supabase = useMemo(() => createClient(), []);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const password = e.target.value;
@@ -143,6 +145,8 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
     return () => {
       isMounted = false;
     };
+    // supabase is memoized with empty deps, so it's stable and safe to omit
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -192,6 +196,31 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         // Also update localStorage for persistence across sessions
         localStorage.setItem("showBunkCalc", bunkValue);
         localStorage.setItem("targetPercentage", targetValue);
+      } else {
+        // Fallback: apply default settings when none are returned from save-token
+        // This ensures consistent UX even if the API doesn't return settings
+        const defaultSettings = {
+          bunk_calculator_enabled: true,
+          target_percentage: 75,
+        };
+
+        try {
+          sessionStorage.setItem("prefetchedSettings", JSON.stringify(defaultSettings));
+          localStorage.setItem("showBunkCalc", defaultSettings.bunk_calculator_enabled.toString());
+          localStorage.setItem("targetPercentage", defaultSettings.target_percentage.toString());
+        } catch (storageError) {
+          logger.warn("Failed to write default settings to storage after login", {
+            context: "LoginForm/handleSubmit",
+            error: storageError instanceof Error ? storageError.message : String(storageError),
+          });
+        }
+
+        logger.warn("No settings returned from /api/auth/save-token; applied default settings.", {
+          context: "LoginForm/handleSubmit",
+        });
+        Sentry.captureMessage("No settings returned from save-token; default settings applied on login.", {
+          level: "warning",
+        });
       }
 
       // 4. Success - navigate to dashboard
@@ -274,7 +303,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      suppressHydrationWarning
     >
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-2">
@@ -283,7 +311,6 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           <motion.div
             className="flex flex-col items-center gap-1.5 -mt-8 sm:-mt-10" 
             variants={logoVariants}
-            suppressHydrationWarning
           >
             <div className="flex justify-center items-center flex-col">
               <div className="relative w-[340px] h-[120px] sm:w-[520px] sm:h-[180px] overflow-hidden"> 

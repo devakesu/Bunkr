@@ -104,6 +104,9 @@ export function useUserSettings() {
       if (prefetched) {
         try {
           const parsed = JSON.parse(prefetched) as UserSettings;
+          // Remove prefetched settings immediately after use to ensure they're only used once
+          // This prevents stale prefetched data from being used on subsequent component mounts
+          // If the component remounts, we fall back to localStorage which is the correct behavior
           sessionStorage.removeItem("prefetchedSettings");
           return parsed;
         } catch (error) {
@@ -130,7 +133,8 @@ export function useUserSettings() {
       // Retry on network errors, but not on auth errors
       // This allows initial fetch attempts while auth is pending to fail gracefully
       // and automatically retry once session is established
-      return failureCount < 3 && error?.message !== "No user";
+      const isNoUserError = error instanceof Error && error.message === "No user";
+      return failureCount < 3 && !isNoUserError;
     }
   });
   
