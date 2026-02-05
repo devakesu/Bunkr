@@ -7,6 +7,7 @@ import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import { GlobalInit } from "@/lib/global-init";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
+import { ServiceWorkerRegister } from "@/components/sw-register";
 
 const metadataBaseUrl = (() => {
   try {
@@ -118,6 +119,7 @@ export default function RootLayout({
             zIndex={99999}
           />
           <GlobalInit />
+          <ServiceWorkerRegister />
           <div id="main-content" tabIndex={-1} className="flex min-h-screen flex-col bg-background">
             {children}
           </div>

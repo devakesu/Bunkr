@@ -25,7 +25,7 @@ const serwist = new Serwist({
       matcher: ({ request }) => request.destination === "document",
       handler: new NetworkFirst({
         cacheName: "pages",
-        networkTimeoutSeconds: 5,
+        networkTimeoutSeconds: 15,
       }),
     },
     {
