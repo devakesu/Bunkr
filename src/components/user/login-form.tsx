@@ -192,15 +192,27 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         const targetValue = (settings.target_percentage ?? 75).toString();
         
         try {
+          // Get user ID to prevent cross-user data leakage in shared device scenarios
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) {
+            logger.warn("User ID not available after successful login. Settings will not be stored to prevent cross-user data leakage.", {
+              context: "LoginForm/handleSubmit",
+            });
+            // Continue without storing to avoid potential cross-user leakage
+            router.push("/dashboard");
+            return;
+          }
+
+          // Store settings with user ID to ensure they belong to the current user
           // Use sessionStorage for reliable cross-navigation transfer
-          sessionStorage.setItem("prefetchedSettings", JSON.stringify({
+          sessionStorage.setItem(`prefetchedSettings_${user.id}`, JSON.stringify({
             bunk_calculator_enabled: settings.bunk_calculator_enabled ?? true,
             target_percentage: settings.target_percentage ?? 75
           }));
           
           // Also update localStorage for persistence across sessions
-          localStorage.setItem("showBunkCalc", bunkValue);
-          localStorage.setItem("targetPercentage", targetValue);
+          localStorage.setItem(`showBunkCalc_${user.id}`, bunkValue);
+          localStorage.setItem(`targetPercentage_${user.id}`, targetValue);
         } catch (storageError) {
           // Log storage errors at dev level as they're rare and non-critical
           // Storage can fail in private browsing mode or when storage is disabled
@@ -219,9 +231,20 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         };
 
         try {
-          sessionStorage.setItem("prefetchedSettings", JSON.stringify(defaultSettings));
-          localStorage.setItem("showBunkCalc", defaultSettings.bunk_calculator_enabled.toString());
-          localStorage.setItem("targetPercentage", defaultSettings.target_percentage.toString());
+          // Get user ID to prevent cross-user data leakage in shared device scenarios
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) {
+            logger.warn("User ID not available after successful login. Default settings will not be stored to prevent cross-user data leakage.", {
+              context: "LoginForm/handleSubmit",
+            });
+            // Continue without storing to avoid potential cross-user leakage
+            router.push("/dashboard");
+            return;
+          }
+
+          sessionStorage.setItem(`prefetchedSettings_${user.id}`, JSON.stringify(defaultSettings));
+          localStorage.setItem(`showBunkCalc_${user.id}`, defaultSettings.bunk_calculator_enabled.toString());
+          localStorage.setItem(`targetPercentage_${user.id}`, defaultSettings.target_percentage.toString());
         } catch (storageError) {
           // Log storage errors at dev level as they're rare and non-critical
           logger.dev("Failed to write default settings to storage after login", {
