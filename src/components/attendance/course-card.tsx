@@ -73,34 +73,35 @@ export function CourseCard({ course }: CourseCardProps) {
   }), [course.id, course.name, course.code, normalize]);
 
   useEffect(() => {
-    // Load user-scoped preference to avoid cross-user leakage on shared devices
-    const fetchUserAndLoadSetting = async () => {
-      try {
-        const { data: { user } } = await (await import("@/lib/supabase/client")).createClient().auth.getUser();
-        if (user?.id) {
-          const scopedKey = `showBunkCalc_${user.id}`;
-          const scopedValue = localStorage.getItem(scopedKey);
-          if (scopedValue !== null) {
-            setShowBunkCalc(scopedValue === "true");
-            return;
-          }
-        }
+    let isMounted = true;
 
-        // Fallback to legacy key if scoped value doesn't exist
-        const legacyValue = localStorage.getItem("showBunkCalc");
-        if (legacyValue !== null) {
-          setShowBunkCalc(legacyValue === "true");
+    // Load user-scoped preference to avoid cross-user leakage on shared devices
+    const loadSetting = () => {
+      // Use the existing user from the useUser() hook to avoid duplicate auth call
+      const userId = user?.id;
+      
+      if (userId) {
+        const scopedKey = `showBunkCalc_${userId}`;
+        const scopedValue = localStorage.getItem(scopedKey);
+        if (scopedValue !== null && isMounted) {
+          setShowBunkCalc(scopedValue === "true");
+          return;
         }
-      } catch (error) {
-        // Fallback: if auth fails, don't block rendering
-        console.debug("Failed to get user for localStorage key", error);
+      }
+
+      // Fallback to legacy key if scoped value doesn't exist
+      const legacyValue = localStorage.getItem("showBunkCalc");
+      if (legacyValue !== null && isMounted) {
+        setShowBunkCalc(legacyValue === "true");
       }
     };
 
-    fetchUserAndLoadSetting();
+    loadSetting();
 
     const handleBunkCalcToggle = (event: CustomEvent) => {
-      setShowBunkCalc(event.detail);
+      if (isMounted) {
+        setShowBunkCalc(event.detail);
+      }
     };
 
     window.addEventListener(
@@ -115,7 +116,7 @@ export function CourseCard({ course }: CourseCardProps) {
         handleBunkCalcToggle as EventListener
       );
     };
-  }, []);
+  }, [user?.id]);
 
   const stats = useMemo(() => {
     // 1. Official Data (From API) - Use course prop as fallback for initial render
