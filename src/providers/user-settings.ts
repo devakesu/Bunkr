@@ -54,10 +54,6 @@ export function useUserSettings() {
   // and clear it after onSuccess/onError to prevent stale data from overwriting changes
   const isMutatingRef = useRef(false);
   
-  // Track if we've completed the initial fetch to prevent re-initialization on refetches
-  // This is critical to prevent settings from resetting to defaults when query is invalidated
-  const hasCompletedInitialFetchRef = useRef(false);
-  
   // Track if we've attempted initialization to prevent redundant mutation calls
   // This prevents duplicate initialization during rapid refetches before mutation completes
   const hasAttemptedInitializationRef = useRef(false);
@@ -200,13 +196,19 @@ export function useUserSettings() {
       // Sync to localStorage immediately for instant UI feedback (using scoped keys)
       // Skip localStorage write when no user ID is available to avoid writing under null keys
       if (userId) {
-        if (newSettings.bunk_calculator_enabled !== undefined) {
-          localStorage.setItem(`showBunkCalc_${userId}`, newSettings.bunk_calculator_enabled.toString());
-          window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
-        }
-        if (newSettings.target_percentage !== undefined) {
-          const normalizedTarget = normalizeTarget(newSettings.target_percentage);
-          localStorage.setItem(`targetPercentage_${userId}`, normalizedTarget.toString());
+        try {
+          if (newSettings.bunk_calculator_enabled !== undefined) {
+            localStorage.setItem(`showBunkCalc_${userId}`, newSettings.bunk_calculator_enabled.toString());
+            window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
+          }
+          if (newSettings.target_percentage !== undefined) {
+            const normalizedTarget = normalizeTarget(newSettings.target_percentage);
+            localStorage.setItem(`targetPercentage_${userId}`, normalizedTarget.toString());
+          }
+        } catch (error) {
+          // Storage access may throw in private mode or when disabled
+          // Log error but don't fail the mutation - DB update can still proceed
+          logger.dev("Failed to write to localStorage in onMutate", { error });
         }
       }
       
@@ -258,12 +260,13 @@ export function useUserSettings() {
 
     // Helper to validate session is still active and belongs to the expected user
     // Returns true if session is valid, matches the expected userId, and component is still mounted
-    const validateActiveSession = async (expectedUserId: string, isComponentMounted: boolean): Promise<boolean> => {
-      if (!isComponentMounted) return false;
+    const validateActiveSession = async (expectedUserId: string): Promise<boolean> => {
+      // Check current mount state from closure to prevent race conditions
+      if (!isMounted) return false;
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        // Verify session exists, user matches, and component is still mounted
-        return !!(session && session.user.id === expectedUserId && isComponentMounted);
+        // Verify session exists, user matches, and component is still mounted (re-check after async)
+        return !!(session && session.user.id === expectedUserId && isMounted);
       } catch {
         return false;
       }
@@ -284,12 +287,6 @@ export function useUserSettings() {
           return;
         }
 
-        // Mark that we've completed the initial fetch (whether settings exist or not)
-        // This prevents premature initialization attempts before the query has finished
-        if (!hasCompletedInitialFetchRef.current) {
-          hasCompletedInitialFetchRef.current = true;
-        }
-
         // Case A: DB has data -> Sync to LocalStorage ONLY if different (Source of Truth = DB)
         // This handles cross-device sync (e.g., changed settings on another device)
         if (settings) {
@@ -302,7 +299,7 @@ export function useUserSettings() {
           
           // Validate session is still active and belongs to the same user before performing localStorage operations
           // This prevents race condition where user logs out while this promise is pending
-          if (!(await validateActiveSession(userId, isMounted))) {
+          if (!(await validateActiveSession(userId))) {
             return;
           }
           
@@ -375,7 +372,7 @@ export function useUserSettings() {
 
           // Validate session is still active and belongs to the same user before calling mutateSettings
           // This prevents race condition where user logs out while this promise is pending
-          if (!(await validateActiveSession(userId, isMounted))) {
+          if (!(await validateActiveSession(userId))) {
             return;
           }
 
