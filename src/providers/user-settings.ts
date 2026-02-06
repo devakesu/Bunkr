@@ -51,7 +51,9 @@ export function useUserSettings() {
   
   // Track current user ID in state to scope the query key
   // This prevents cross-user settings flash when switching users
+  // Also maintained in a ref for synchronous access during cleanup
   const [userId, setUserId] = useState<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
   // Read prefetched settings from sessionStorage (set by login flow) to avoid
   // showing default values before the first DB fetch completes.
@@ -123,76 +125,74 @@ export function useUserSettings() {
   // Track if we've attempted initialization to prevent redundant mutation calls
   // This prevents duplicate initialization during rapid refetches before mutation completes
   const hasAttemptedInitializationRef = useRef(false);
-  
-  // Track current user ID to enable cleanup on sign out
-  // The session parameter in SIGNED_OUT event is already cleared, so we need to track it separately
-  const currentUserIdRef = useRef<string | null>(null);
-
-  // Initialize userId on mount
-  useEffect(() => {
-    const initializeUserId = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        currentUserIdRef.current = session.user.id;
-        setUserId(session.user.id);
-      }
-    };
-    initializeUserId();
-  }, [supabase.auth]);
 
   // Monitor session changes to trigger settings fetch on login
   // This ensures settings are loaded immediately when user authenticates,
   // not just when navigating to protected routes
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Update current user ID ref and state when session changes
-      if (session?.user?.id) {
-        currentUserIdRef.current = session.user.id;
-        setUserId(session.user.id);
-      } else {
-        currentUserIdRef.current = null;
-        setUserId(null);
-      }
-      
-      // When user signs in or session refreshes, invalidate settings cache
-      // to trigger immediate re-fetch with the new auth session
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        // Reset initialization flag on new login to allow fresh initialization if needed
-        hasAttemptedInitializationRef.current = false;
-        queryClient.invalidateQueries({ queryKey: ["userSettings", session?.user?.id] });
-      }
-      // When user signs out, clear settings from cache and browser storage
-      else if (event === "SIGNED_OUT") {
-        queryClient.removeQueries({ queryKey: ["userSettings"] });
-        hasAttemptedInitializationRef.current = false;
+    // Initialize userId on mount and subscribe to auth changes in a single effect
+    // to avoid race conditions between separate initialization and listener effects
+    const initializeAndSubscribe = async () => {
+      // Get initial session
+      const { data: { session } } = await supabase.auth.getSession();
+      const initialUserId = session?.user?.id ?? null;
+      currentUserIdRef.current = initialUserId;
+      setUserId(initialUserId);
+
+      // Subscribe to auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        const newUserId = session?.user?.id ?? null;
         
-        // Clear user-specific storage to prevent data leakage between users
-        try {
-          if (typeof window !== "undefined") {
-            // Use the stored user ID from ref since session is already cleared at this point
-            const userId = currentUserIdRef.current;
-            
-            // Clear user-scoped keys for the user who just signed out
-            if (userId) {
-              localStorage.removeItem(`showBunkCalc_${userId}`);
-              localStorage.removeItem(`targetPercentage_${userId}`);
-            }
-
-            // Also clear non-scoped prefetched settings to avoid cross-user leakage
-            // This prevents the next user from seeing the previous user's prefetched settings
-            sessionStorage.removeItem("prefetchedSettings");
-            
-            // Clear the ref after cleanup
-            currentUserIdRef.current = null;
-          }
-        } catch (error) {
-          // Ignore storage clearing errors (e.g., restricted environment)
-          logger.dev("Failed to clear storage on sign out", { error });
+        // Update both state and ref when session changes
+        currentUserIdRef.current = newUserId;
+        setUserId(newUserId);
+        
+        // When user signs in or session refreshes, invalidate settings cache
+        // to trigger immediate re-fetch with the new auth session
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          // Reset initialization flag on new login to allow fresh initialization if needed
+          hasAttemptedInitializationRef.current = false;
+          queryClient.invalidateQueries({ queryKey: ["userSettings", newUserId] });
         }
-      }
-    });
+        // When user signs out, clear settings from cache and browser storage
+        else if (event === "SIGNED_OUT") {
+          queryClient.removeQueries({ queryKey: ["userSettings"] });
+          hasAttemptedInitializationRef.current = false;
+          
+          // Clear user-specific storage to prevent data leakage between users
+          try {
+            if (typeof window !== "undefined") {
+              // Use the stored user ID from ref since session is already cleared at this point
+              const userId = currentUserIdRef.current;
+              
+              // Clear user-scoped keys for the user who just signed out
+              if (userId) {
+                localStorage.removeItem(`showBunkCalc_${userId}`);
+                localStorage.removeItem(`targetPercentage_${userId}`);
+              }
 
-    return () => subscription?.unsubscribe();
+              // Also clear non-scoped prefetched settings to avoid cross-user leakage
+              // This prevents the next user from seeing the previous user's prefetched settings
+              sessionStorage.removeItem("prefetchedSettings");
+              
+              // Clear the ref after cleanup
+              currentUserIdRef.current = null;
+            }
+          } catch (error) {
+            // Ignore storage clearing errors (e.g., restricted environment)
+            logger.dev("Failed to clear storage on sign out", { error });
+          }
+        }
+      });
+
+      return subscription;
+    };
+
+    const subscriptionPromise = initializeAndSubscribe();
+    
+    return () => {
+      subscriptionPromise.then(subscription => subscription?.unsubscribe());
+    };
   }, [queryClient, supabase.auth]);
 
   // 1. Fetch from DB
