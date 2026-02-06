@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { toast } from "sonner";
 import { UserSettings } from "@/types/user-settings";
 import * as Sentry from "@sentry/nextjs";
@@ -51,7 +51,8 @@ export function useUserSettings() {
 
   // Read prefetched settings from sessionStorage (set by login flow) to avoid
   // showing default values before the first DB fetch completes.
-  const prefetchedSettings = (() => {
+  // Memoized to avoid repeated sessionStorage access and JSON parsing on every render.
+  const prefetchedSettings = useMemo(() => {
     if (typeof window === "undefined") return null;
     try {
       const raw = sessionStorage.getItem("prefetchedSettings");
@@ -83,7 +84,7 @@ export function useUserSettings() {
     } catch {
       return null;
     }
-  })();
+  }, []);
   
   // Track mutation window to prevent focus refetch from overwriting optimistic updates
   // When user toggles a setting, we set this to true during onMutate

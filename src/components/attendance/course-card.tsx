@@ -84,14 +84,14 @@ export function CourseCard({ course }: CourseCardProps) {
           const scopedValue = localStorage.getItem(scopedKey);
           if (scopedValue !== null && isMounted) {
             setShowBunkCalc(scopedValue === "true");
-            return;
           }
-        }
-
-        // Fallback to legacy key if scoped value doesn't exist
-        const legacyValue = localStorage.getItem("showBunkCalc");
-        if (legacyValue !== null && isMounted) {
-          setShowBunkCalc(legacyValue === "true");
+          // Don't fallback to legacy key when user is authenticated to avoid cross-user leakage
+        } else {
+          // Only use legacy key when there is no authenticated user
+          const legacyValue = localStorage.getItem("showBunkCalc");
+          if (legacyValue !== null && isMounted) {
+            setShowBunkCalc(legacyValue === "true");
+          }
         }
       } catch {
         // Ignore storage access errors (e.g., private mode, disabled storage)
