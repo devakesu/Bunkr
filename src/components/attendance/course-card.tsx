@@ -80,9 +80,9 @@ export function CourseCard({ course }: CourseCardProps) {
     const fetchUserAndLoadSetting = async () => {
       try {
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.id && isMounted) {
-          const localKey = `showBunkCalc_${user.id}`;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id && isMounted) {
+          const localKey = `showBunkCalc_${session.user.id}`;
           const stored = localStorage.getItem(localKey);
           if (stored !== null) {
             setShowBunkCalc(stored === "true");
@@ -90,7 +90,7 @@ export function CourseCard({ course }: CourseCardProps) {
         }
       } catch (error) {
         // Fallback: if auth fails, don't block rendering
-        logger.dev("Failed to get user for localStorage key", error);
+        logger.dev("Failed to get session for localStorage key", error);
       }
     };
 
