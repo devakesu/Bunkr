@@ -54,10 +54,6 @@ export function useUserSettings() {
   // and clear it after onSuccess/onError to prevent stale data from overwriting changes
   const isMutatingRef = useRef(false);
   
-  // Track if we've completed the initial fetch to prevent re-initialization on refetches
-  // This is critical to prevent settings from resetting to defaults when query is invalidated
-  const hasCompletedInitialFetchRef = useRef(false);
-  
   // Track if we've attempted initialization to prevent redundant mutation calls
   // This prevents duplicate initialization during rapid refetches before mutation completes
   const hasAttemptedInitializationRef = useRef(false);
@@ -193,14 +189,27 @@ export function useUserSettings() {
       
       queryClient.setQueryData(["userSettings"], optimisticData);
       
-      // Sync to localStorage immediately for instant UI feedback
-      if (newSettings.bunk_calculator_enabled !== undefined) {
-        localStorage.setItem("showBunkCalc", newSettings.bunk_calculator_enabled.toString());
-        window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
-      }
-      if (newSettings.target_percentage !== undefined) {
-        const normalizedTarget = normalizeTarget(newSettings.target_percentage);
-        localStorage.setItem("targetPercentage", normalizedTarget.toString());
+      // Get current user ID from session (not from ref which can be null)
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      
+      // Sync to localStorage immediately for instant UI feedback (using scoped keys)
+      // Skip localStorage write when no user ID is available to avoid writing under null keys
+      if (userId) {
+        try {
+          if (newSettings.bunk_calculator_enabled !== undefined) {
+            localStorage.setItem(`showBunkCalc_${userId}`, newSettings.bunk_calculator_enabled.toString());
+            window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
+          }
+          if (newSettings.target_percentage !== undefined) {
+            const normalizedTarget = normalizeTarget(newSettings.target_percentage);
+            localStorage.setItem(`targetPercentage_${userId}`, normalizedTarget.toString());
+          }
+        } catch (error) {
+          // Storage access may throw in private mode or when disabled
+          // Log error but don't fail the mutation - DB update can still proceed
+          logger.dev("Failed to write to localStorage in onMutate", { error });
+        }
       }
       
       return { previousSettings };
@@ -249,158 +258,139 @@ export function useUserSettings() {
     // Track if effect is still mounted to prevent state updates after unmount
     let isMounted = true;
 
-    // Get user ID for scoped storage keys from the auth-tracked ref instead of making a new async call
-    const getUserId = () => {
-      const userId = currentUserIdRef.current;
-      if (!userId) {
-        logger.dev("No current user ID available for storage sync");
-      }
-      return userId;
-    };
-
-    // Helper to validate session is still active before performing operations
-    // Returns true if session is valid and component is still mounted
-    const validateActiveSession = async (userId: string, isComponentMounted: boolean): Promise<boolean> => {
-      if (!isComponentMounted) return false;
+    // Helper to validate session is still active and belongs to the expected user
+    // Returns true if session is valid, matches the expected userId, and component is still mounted
+    const validateActiveSession = async (expectedUserId: string): Promise<boolean> => {
+      // Check current mount state from closure to prevent race conditions
+      if (!isMounted) return false;
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        return !!(session && session.user.id === userId && isComponentMounted);
+        // Verify session exists, user matches, and component is still mounted (re-check after async)
+        return !!(session && session.user.id === expectedUserId && isMounted);
       } catch {
         return false;
       }
     };
 
     // Async IIFE to perform storage synchronization operations
-    //
-    // UNMOUNT BEHAVIOR:
-    // If the component unmounts during async operations, the isMounted check prevents
-    // state updates, but the promise chain continues executing. While this is handled
-    // correctly, if there are many rapid mount/unmount cycles (e.g., during navigation),
-    // this could lead to many pending promises. This is generally not a practical issue
-    // in production, but is worth noting for debugging purposes. If this becomes a concern,
-    // consider implementing cleanup via AbortController.
     (async () => {
-      const userId = getUserId();
-      
       // Check if component is still mounted before proceeding
       if (!isMounted) return;
-      
-      if (!userId) {
-        logger.dev("User ID not available for storage sync, skipping", {
-          context: "useUserSettings/syncEffect"
-        });
+
+      try {
+        // Get current user ID from auth session
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+        
+        if (!userId) {
+          logger.dev("No user ID available for storage sync, skipping");
+          return;
+        }
+
+        // Case A: DB has data -> Sync to LocalStorage ONLY if different (Source of Truth = DB)
+        // This handles cross-device sync (e.g., changed settings on another device)
+        if (settings) {
+          // Clean up prefetched settings after first successful DB fetch
+          // This prevents stale prefetched data from being reused on subsequent initialData calls
+          const legacyKey = "prefetchedSettings";
+          if (sessionStorage.getItem(legacyKey) !== null) {
+            sessionStorage.removeItem(legacyKey);
+          }
+          
+          // Validate session is still active and belongs to the same user before performing localStorage operations
+          // This prevents race condition where user logs out while this promise is pending
+          if (!(await validateActiveSession(userId))) {
+            return;
+          }
+          
+          const localBunkKey = `showBunkCalc_${userId}`;
+          const localBunk = localStorage.getItem(localBunkKey);
+          const dbBunk = (settings.bunk_calculator_enabled ?? true).toString();
+          
+          // Only sync if localStorage differs from DB (cross-device change)
+          if (localBunk !== dbBunk) {
+            // Check if component is still mounted before performing side effects
+            if (!isMounted) return;
+            localStorage.setItem(localBunkKey, dbBunk);
+            window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: settings.bunk_calculator_enabled ?? true }));
+          }
+          
+          const localTargetKey = `targetPercentage_${userId}`;
+          const localTarget = localStorage.getItem(localTargetKey);
+          const dbTarget = normalizeTarget(settings.target_percentage).toString();
+          
+          // Only sync if localStorage differs from DB
+          if (localTarget !== dbTarget) {
+            // Check if component is still mounted before performing side effects
+            if (!isMounted) return;
+            localStorage.setItem(localTargetKey, dbTarget);
+          }
+        } 
+        // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
+        // This runs once per session when DB returns null after initial fetch completes
+        else if (settings === null) {
+          // Check user-scoped keys first, then fall back to legacy keys for migration
+          const localBunkKey = `showBunkCalc_${userId}`;
+          const localTargetKey = `targetPercentage_${userId}`;
+          const localBunk = localStorage.getItem(localBunkKey) ?? localStorage.getItem("showBunkCalc");
+          const localTarget = localStorage.getItem(localTargetKey) ?? localStorage.getItem("targetPercentage");
+          
+          // Clean up legacy keys after migration
+          const legacyCleanupFlagKey = "legacyKeysCleaned";
+          const hasCleanedLegacyKeysThisSession = sessionStorage.getItem(legacyCleanupFlagKey) === "true";
+          
+          if (!hasCleanedLegacyKeysThisSession) {
+            if (localStorage.getItem("showBunkCalc") !== null) {
+              localStorage.removeItem("showBunkCalc");
+            }
+            if (localStorage.getItem("targetPercentage") !== null) {
+              localStorage.removeItem("targetPercentage");
+            }
+            sessionStorage.setItem(legacyCleanupFlagKey, "true");
+          }
+          
+          // Check if we have prefetched settings that should be synced to DB
+          // This happens when user just logged in and settings were fetched from /api/auth/save-token
+          const legacyKey = "prefetchedSettings";
+          const hasPrefetchedSettings = sessionStorage.getItem(legacyKey) !== null;
+          
+          // Helper function to determine if initialization should be skipped
+          const shouldSkipInitialization = () => {
+            // Skip if prefetched settings exist (they'll be synced on next query success)
+            if (hasPrefetchedSettings) return true;
+            
+            // Skip if we've already attempted initialization (prevent redundant mutations)
+            // This ensures we only try once per session, even if refetches still return null
+            if (hasAttemptedInitializationRef.current) return true;
+            
+            return false;
+          };
+          
+          if (shouldSkipInitialization()) {
+            return;
+          }
+
+          // Validate session is still active and belongs to the same user before calling mutateSettings
+          // This prevents race condition where user logs out while this promise is pending
+          if (!(await validateActiveSession(userId))) {
+            return;
+          }
+
+          // Mark that we've attempted initialization to prevent duplicate calls
+          // Even if the mutation fails, we won't retry automatically - user can refresh
+          hasAttemptedInitializationRef.current = true;
+
+          // Create DB record using localStorage values if they exist, otherwise use defaults
+          // This runs only once per session when settings is null after initial fetch
+          mutateSettings({
+            bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
+            target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : DEFAULT_TARGET_PERCENTAGE
+          });
+        }
+      } catch (error) {
+        // Log error and return gracefully to avoid unhandled promise rejection
+        logger.dev("Error during storage sync:", error);
         return;
-      }
-
-      // Mark that we've completed the initial fetch (whether settings exist or not)
-      // This prevents premature initialization attempts before the query has finished
-      if (!hasCompletedInitialFetchRef.current) {
-        hasCompletedInitialFetchRef.current = true;
-      }
-
-      // Case A: DB has data -> Sync to LocalStorage ONLY if different (Source of Truth = DB)
-      // This handles cross-device sync (e.g., changed settings on another device)
-      if (settings) {
-        // Clean up prefetched settings after first successful DB fetch
-        // This prevents stale prefetched data from being reused on subsequent initialData calls
-        const legacyKey = "prefetchedSettings";
-        if (sessionStorage.getItem(legacyKey) !== null) {
-          sessionStorage.removeItem(legacyKey);
-        }
-        
-        // Validate session is still active before performing localStorage operations
-        // This prevents race condition where user logs out while this promise is pending
-        if (!(await validateActiveSession(userId, isMounted))) {
-          return;
-        }
-        
-        const localBunkKey = `showBunkCalc_${userId}`;
-        const localBunk = localStorage.getItem(localBunkKey);
-        const dbBunk = (settings.bunk_calculator_enabled ?? true).toString();
-        
-        // Only sync if localStorage differs from DB (cross-device change)
-        if (localBunk !== dbBunk) {
-          // Check if component is still mounted before performing side effects
-          if (!isMounted) return;
-          localStorage.setItem(localBunkKey, dbBunk);
-          window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: settings.bunk_calculator_enabled ?? true }));
-        }
-        
-        const localTargetKey = `targetPercentage_${userId}`;
-        const localTarget = localStorage.getItem(localTargetKey);
-        const dbTarget = normalizeTarget(settings.target_percentage).toString();
-        
-        // Only sync if localStorage differs from DB
-        if (localTarget !== dbTarget) {
-          // Check if component is still mounted before performing side effects
-          if (!isMounted) return;
-          localStorage.setItem(localTargetKey, dbTarget);
-        }
-      } 
-      // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
-      // This runs once per session when DB returns null after initial fetch completes
-      else if (settings === null) {
-        const localBunkKey = `showBunkCalc_${userId}`;
-        const localTargetKey = `targetPercentage_${userId}`;
-        // Check user-scoped keys first, then fall back to legacy keys for migration
-        const localBunk = localStorage.getItem(localBunkKey) ?? localStorage.getItem("showBunkCalc");
-        const localTarget = localStorage.getItem(localTargetKey) ?? localStorage.getItem("targetPercentage");
-        
-        // Clean up legacy keys if they exist and were used for migration
-        // Use a session-scoped flag to avoid redundant localStorage operations
-        const legacyCleanupFlagKey = "legacyKeysCleaned";
-        const hasCleanedLegacyKeysThisSession =
-          sessionStorage.getItem(legacyCleanupFlagKey) === "true";
-
-        if (!hasCleanedLegacyKeysThisSession) {
-          const legacyBunkKey = "showBunkCalc";
-          const legacyTargetKey = "targetPercentage";
-          if (localStorage.getItem(legacyBunkKey) !== null) {
-            localStorage.removeItem(legacyBunkKey);
-          }
-          if (localStorage.getItem(legacyTargetKey) !== null) {
-            localStorage.removeItem(legacyTargetKey);
-          }
-          sessionStorage.setItem(legacyCleanupFlagKey, "true");
-        }
-        
-        // Check if we have prefetched settings that should be synced to DB
-        // This happens when user just logged in and settings were fetched from /api/auth/save-token
-        const legacyKey = "prefetchedSettings";
-        const hasPrefetchedSettings = sessionStorage.getItem(legacyKey) !== null;
-        
-        // Helper function to determine if initialization should be skipped
-        const shouldSkipInitialization = () => {
-          // Skip if prefetched settings exist (they'll be synced on next query success)
-          if (hasPrefetchedSettings) return true;
-          
-          // Skip if we've already attempted initialization (prevent redundant mutations)
-          // This ensures we only try once per session, even if refetches still return null
-          if (hasAttemptedInitializationRef.current) return true;
-          
-          return false;
-        };
-        
-        if (shouldSkipInitialization()) {
-          return;
-        }
-
-        // Validate session is still active before calling mutateSettings
-        // This prevents race condition where user logs out while this promise is pending
-        if (!(await validateActiveSession(userId, isMounted))) {
-          return;
-        }
-
-        // Mark that we've attempted initialization to prevent duplicate calls
-        // Even if the mutation fails, we won't retry automatically - user can refresh
-        hasAttemptedInitializationRef.current = true;
-
-        // Create DB record using localStorage values if they exist, otherwise use defaults
-        // This runs only once per session when settings is null after initial fetch
-        mutateSettings({
-          bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
-          target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : DEFAULT_TARGET_PERCENTAGE
-        });
       }
     })();
 

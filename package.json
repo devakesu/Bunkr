@@ -1,6 +1,6 @@
 {
   "name": "ghostclass",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "private": true,
   "engines": {
     "node": "^20.19.0 || >=22.12.0",
@@ -65,7 +65,7 @@
     "cookies-next": "^6.1.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.6.5",
-    "glob": "^11.0.0",
+    "glob": "^13.0.1",
     "ldrs": "^1.1.6",
     "lodash-es": "^4.17.23",
     "lucide-react": "^0.563.0",

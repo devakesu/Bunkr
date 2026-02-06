@@ -10,6 +10,8 @@ import { useAttendanceSettings } from "@/providers/attendance-settings";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useUser } from "@/hooks/users/user";
+import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 
 /**
  * Extended Course interface with additional attendance statistics.
@@ -71,10 +73,28 @@ export function CourseCard({ course }: CourseCardProps) {
   }), [course.id, course.name, course.code, normalize]);
 
   useEffect(() => {
-    const stored = localStorage.getItem("showBunkCalc");
-    if (stored !== null) {
-      setShowBunkCalc(stored === "true");
-    }
+    // Track if component is still mounted to prevent state updates after unmount
+    let isMounted = true;
+
+    // Get user ID from auth to use scoped localStorage key
+    const fetchUserAndLoadSetting = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id && isMounted) {
+          const localKey = `showBunkCalc_${session.user.id}`;
+          const stored = localStorage.getItem(localKey);
+          if (stored !== null) {
+            setShowBunkCalc(stored === "true");
+          }
+        }
+      } catch (error) {
+        // Fallback: if auth fails, don't block rendering
+        logger.dev("Failed to get session for localStorage key", error);
+      }
+    };
+
+    fetchUserAndLoadSetting();
 
     const handleBunkCalcToggle = (event: CustomEvent) => {
       setShowBunkCalc(event.detail);
@@ -86,6 +106,7 @@ export function CourseCard({ course }: CourseCardProps) {
     );
 
     return () => {
+      isMounted = false;
       window.removeEventListener(
         "bunkCalcToggle",
         handleBunkCalcToggle as EventListener
