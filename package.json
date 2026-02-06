@@ -93,7 +93,7 @@
     "@eslint/eslintrc": "^3",
     "@eslint/js": "^9.39.2",
     "@playwright/test": "^1.58.0",
-    "@redocly/cli": "^2.15.1",
+    "@redocly/cli": "^2.15.2",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
