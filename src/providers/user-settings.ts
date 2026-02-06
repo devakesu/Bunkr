@@ -200,7 +200,12 @@ export function useUserSettings() {
     const subscriptionPromise = initializeAndSubscribe();
     
     return () => {
-      subscriptionPromise.then(subscription => subscription?.unsubscribe());
+      subscriptionPromise
+        .then(subscription => subscription?.unsubscribe())
+        .catch(error => {
+          // Log initialization/cleanup errors but don't throw to avoid breaking cleanup
+          logger.dev("Failed to unsubscribe from auth state changes", { error });
+        });
     };
   }, [queryClient, supabase.auth]);
 
@@ -270,6 +275,13 @@ export function useUserSettings() {
       // currentUserIdRef is initialized on mount, so it should always be available
       const currentUserId = currentUserIdRef.current;
       
+      // If no userId is available, we shouldn't proceed with cache operations
+      // This is a safety check, though it should not happen in normal operation
+      if (!currentUserId) {
+        logger.dev("Mutation attempted without userId - this should not happen");
+        return { previousSettings: undefined, currentUserId: null };
+      }
+      
       // Cancel any pending queries for userSettings (scoped by userId)
       await queryClient.cancelQueries({ queryKey: ["userSettings", currentUserId] });
       
@@ -286,28 +298,29 @@ export function useUserSettings() {
       queryClient.setQueryData(["userSettings", currentUserId], optimisticData);
       
       // Sync to localStorage immediately for instant UI feedback (scoped per user)
-      if (currentUserId) {
-        try {
-          if (newSettings.bunk_calculator_enabled !== undefined) {
-            localStorage.setItem(`showBunkCalc_${currentUserId}`, newSettings.bunk_calculator_enabled.toString());
-            window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
-          }
-          if (newSettings.target_percentage !== undefined) {
-            const normalizedTarget = normalizeTarget(newSettings.target_percentage);
-            localStorage.setItem(`targetPercentage_${currentUserId}`, normalizedTarget.toString());
-          }
-        } catch (error) {
-          // Ignore storage errors (e.g., private mode, disabled storage, quota exceeded)
-          // Settings update can still proceed without localStorage sync
-          logger.dev("Failed to sync settings to localStorage", { error });
+      try {
+        if (newSettings.bunk_calculator_enabled !== undefined) {
+          localStorage.setItem(`showBunkCalc_${currentUserId}`, newSettings.bunk_calculator_enabled.toString());
+          window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
         }
+        if (newSettings.target_percentage !== undefined) {
+          const normalizedTarget = normalizeTarget(newSettings.target_percentage);
+          localStorage.setItem(`targetPercentage_${currentUserId}`, normalizedTarget.toString());
+        }
+      } catch (error) {
+        // Ignore storage errors (e.g., private mode, disabled storage, quota exceeded)
+        // Settings update can still proceed without localStorage sync
+        logger.dev("Failed to sync settings to localStorage", { error });
       }
       
       return { previousSettings, currentUserId };
     },
     onSuccess: (newData, _variables, context) => {
       // Update cache with actual server response (ensures normalized values)
-      queryClient.setQueryData(["userSettings", context?.currentUserId], newData);
+      // Context should always be present since onMutate returns it
+      if (context?.currentUserId) {
+        queryClient.setQueryData(["userSettings", context.currentUserId], newData);
+      }
       
       // DO NOT write to localStorage here - already done in onMutate
       // This prevents redundant writes and event dispatches that cause glitches
