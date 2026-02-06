@@ -143,13 +143,13 @@ export function useUserSettings() {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         const newUserId = session?.user?.id ?? null;
         
-        // Update both state and ref when session changes
-        currentUserIdRef.current = newUserId;
-        setUserId(newUserId);
-        
         // When user signs in or session refreshes, invalidate settings cache
         // to trigger immediate re-fetch with the new auth session
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          // Update both state and ref when session changes
+          currentUserIdRef.current = newUserId;
+          setUserId(newUserId);
+          
           // Reset initialization flag on new login to allow fresh initialization if needed
           hasAttemptedInitializationRef.current = false;
           // Invalidate the new user's scoped query
@@ -159,34 +159,38 @@ export function useUserSettings() {
         }
         // When user signs out, clear settings from cache and browser storage
         else if (event === "SIGNED_OUT") {
-          // Remove user-scoped queries using the userId from before sign out
-          // currentUserIdRef still holds the previous user's ID at this point
-          queryClient.removeQueries({ queryKey: ["userSettings", currentUserIdRef.current] });
+          // Store the previous userId before clearing the ref
+          const previousUserId = currentUserIdRef.current;
+          
+          // Update state and ref to null for the signed-out state
+          currentUserIdRef.current = newUserId;
+          setUserId(newUserId);
+          
+          // Remove user-scoped queries using the previous user's ID
+          queryClient.removeQueries({ queryKey: ["userSettings", previousUserId] });
           hasAttemptedInitializationRef.current = false;
           
           // Clear user-specific storage to prevent data leakage between users
           try {
             if (typeof window !== "undefined") {
-              // Use the stored user ID from ref since session is already cleared at this point
-              const userId = currentUserIdRef.current;
-              
               // Clear user-scoped keys for the user who just signed out
-              if (userId) {
-                localStorage.removeItem(`showBunkCalc_${userId}`);
-                localStorage.removeItem(`targetPercentage_${userId}`);
+              if (previousUserId) {
+                localStorage.removeItem(`showBunkCalc_${previousUserId}`);
+                localStorage.removeItem(`targetPercentage_${previousUserId}`);
               }
 
               // Also clear non-scoped prefetched settings to avoid cross-user leakage
               // This prevents the next user from seeing the previous user's prefetched settings
               sessionStorage.removeItem("prefetchedSettings");
-              
-              // Clear the ref after cleanup
-              currentUserIdRef.current = null;
             }
           } catch (error) {
             // Ignore storage clearing errors (e.g., restricted environment)
             logger.dev("Failed to clear storage on sign out", { error });
           }
+        } else {
+          // For all other events (e.g., USER_UPDATED, PASSWORD_RECOVERY), just update the tracking
+          currentUserIdRef.current = newUserId;
+          setUserId(newUserId);
         }
       });
 
@@ -258,33 +262,13 @@ export function useUserSettings() {
       return data;
     },
     // Optimistic update: update cache before server responds
-    onMutate: async (newSettings) => {
+    onMutate: async (newSettings): Promise<{ previousSettings: UserSettings | undefined; currentUserId: string | null }> => {
       // Mark that we're in a mutation window - prevents focus refetch from pulling stale data
       isMutatingRef.current = true;
       
       // Get current userId for scoping the query key
-      // If currentUserIdRef is not yet set (e.g., mutation happens before auth listener runs),
-      // fall back to fetching the session to ensure we always have a userId for scoping
-      let currentUserId = currentUserIdRef.current;
-      if (!currentUserId) {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          currentUserId = session?.user?.id || null;
-          // Update ref for future mutations if we successfully retrieved userId
-          if (currentUserId) {
-            currentUserIdRef.current = currentUserId;
-          } else if (session) {
-            // Session exists but has no user ID - this is an edge case with corrupted session data
-            logger.dev("Session exists but userId is missing during localStorage sync", { 
-              hasUserObject: !!session?.user,
-              userIdProperty: session?.user?.id,
-              sessionKeys: Object.keys(session)
-            });
-          }
-        } catch (error) {
-          logger.dev("Failed to get session for localStorage sync", { error });
-        }
-      }
+      // currentUserIdRef is initialized on mount, so it should always be available
+      const currentUserId = currentUserIdRef.current;
       
       // Cancel any pending queries for userSettings (scoped by userId)
       await queryClient.cancelQueries({ queryKey: ["userSettings", currentUserId] });
