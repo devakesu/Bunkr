@@ -64,8 +64,8 @@ export function useUserSettings() {
       // Validate that prefetched settings include a userId for cross-user safety
       // If no userId is present, this is legacy format - still use it but with caution
       const userId = parsed.userId;
-      // Use explicit check for backward compatibility: if settings field exists, use it; otherwise use parsed directly (legacy)
-      const settingsData = parsed.settings !== undefined ? parsed.settings : parsed;
+      // Use property check for backward compatibility: if 'settings' property exists, use it; otherwise use parsed directly (legacy)
+      const settingsData = 'settings' in parsed ? parsed.settings : parsed;
 
       const bunk_calculator_enabled =
         typeof settingsData.bunk_calculator_enabled === "boolean"
@@ -252,8 +252,9 @@ export function useUserSettings() {
           } else if (session) {
             // Session exists but has no user ID - this is an edge case with corrupted session data
             logger.dev("Session exists but userId is missing during localStorage sync", { 
-              hasSession: !!session,
-              hasUser: !!session?.user 
+              hasUserObject: !!session?.user,
+              userIdProperty: session?.user?.id,
+              sessionKeys: Object.keys(session)
             });
           }
         } catch (error) {
