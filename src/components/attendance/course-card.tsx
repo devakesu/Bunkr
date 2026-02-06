@@ -10,8 +10,6 @@ import { useAttendanceSettings } from "@/providers/attendance-settings";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useUser } from "@/hooks/users/user";
-import { createClient } from "@/lib/supabase/client";
-import { logger } from "@/lib/logger";
 
 /**
  * Extended Course interface with additional attendance statistics.
@@ -77,22 +75,27 @@ export function CourseCard({ course }: CourseCardProps) {
 
     // Load user-scoped preference to avoid cross-user leakage on shared devices
     const loadSetting = () => {
-      // Use the existing user from the useUser() hook to avoid duplicate auth call
-      const userId = user?.id;
-      
-      if (userId) {
-        const scopedKey = `showBunkCalc_${userId}`;
-        const scopedValue = localStorage.getItem(scopedKey);
-        if (scopedValue !== null && isMounted) {
-          setShowBunkCalc(scopedValue === "true");
-          return;
+      try {
+        // Use the existing user from the useUser() hook to avoid duplicate auth call
+        const userId = user?.id;
+        
+        if (userId) {
+          const scopedKey = `showBunkCalc_${userId}`;
+          const scopedValue = localStorage.getItem(scopedKey);
+          if (scopedValue !== null && isMounted) {
+            setShowBunkCalc(scopedValue === "true");
+            return;
+          }
         }
-      }
 
-      // Fallback to legacy key if scoped value doesn't exist
-      const legacyValue = localStorage.getItem("showBunkCalc");
-      if (legacyValue !== null && isMounted) {
-        setShowBunkCalc(legacyValue === "true");
+        // Fallback to legacy key if scoped value doesn't exist
+        const legacyValue = localStorage.getItem("showBunkCalc");
+        if (legacyValue !== null && isMounted) {
+          setShowBunkCalc(legacyValue === "true");
+        }
+      } catch {
+        // Ignore storage access errors (e.g., private mode, disabled storage)
+        // Fall back to default value (true) already set in useState
       }
     };
 
