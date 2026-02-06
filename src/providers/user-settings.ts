@@ -58,16 +58,28 @@ export function useUserSettings() {
       if (!raw) return null;
       const parsed = JSON.parse(raw) as Partial<UserSettings> | null;
       if (!parsed || typeof parsed !== "object") return null;
+
+      const bunk_calculator_enabled =
+        typeof parsed.bunk_calculator_enabled === "boolean"
+          ? parsed.bunk_calculator_enabled
+          : undefined;
+      const target_percentage =
+        typeof parsed.target_percentage === "number"
+          ? normalizeTarget(parsed.target_percentage)
+          : undefined;
+
+      // Only use prefetched settings if both fields are valid; otherwise, fall back to null.
+      if (
+        typeof bunk_calculator_enabled !== "boolean" ||
+        typeof target_percentage !== "number"
+      ) {
+        return null;
+      }
+
       return {
-        bunk_calculator_enabled:
-          typeof parsed.bunk_calculator_enabled === "boolean"
-            ? parsed.bunk_calculator_enabled
-            : undefined,
-        target_percentage:
-          typeof parsed.target_percentage === "number"
-            ? normalizeTarget(parsed.target_percentage)
-            : undefined,
-      } as UserSettings;
+        bunk_calculator_enabled,
+        target_percentage,
+      };
     } catch {
       return null;
     }
@@ -218,13 +230,19 @@ export function useUserSettings() {
       // Sync to localStorage immediately for instant UI feedback (scoped per user)
       const currentUserId = currentUserIdRef.current;
       if (currentUserId) {
-        if (newSettings.bunk_calculator_enabled !== undefined) {
-          localStorage.setItem(`showBunkCalc_${currentUserId}`, newSettings.bunk_calculator_enabled.toString());
-          window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
-        }
-        if (newSettings.target_percentage !== undefined) {
-          const normalizedTarget = normalizeTarget(newSettings.target_percentage);
-          localStorage.setItem(`targetPercentage_${currentUserId}`, normalizedTarget.toString());
+        try {
+          if (newSettings.bunk_calculator_enabled !== undefined) {
+            localStorage.setItem(`showBunkCalc_${currentUserId}`, newSettings.bunk_calculator_enabled.toString());
+            window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
+          }
+          if (newSettings.target_percentage !== undefined) {
+            const normalizedTarget = normalizeTarget(newSettings.target_percentage);
+            localStorage.setItem(`targetPercentage_${currentUserId}`, normalizedTarget.toString());
+          }
+        } catch (error) {
+          // Ignore storage errors (e.g., private mode, disabled storage, quota exceeded)
+          // Settings update can still proceed without localStorage sync
+          logger.dev("Failed to sync settings to localStorage", { error });
         }
       }
       
