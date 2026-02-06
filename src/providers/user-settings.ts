@@ -193,14 +193,14 @@ export function useUserSettings() {
       
       queryClient.setQueryData(["userSettings"], optimisticData);
       
-      // Sync to localStorage immediately for instant UI feedback
+      // Sync to localStorage immediately for instant UI feedback (using scoped keys)
       if (newSettings.bunk_calculator_enabled !== undefined) {
-        localStorage.setItem("showBunkCalc", newSettings.bunk_calculator_enabled.toString());
+        localStorage.setItem(`showBunkCalc_${currentUserIdRef.current}`, newSettings.bunk_calculator_enabled.toString());
         window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
       }
       if (newSettings.target_percentage !== undefined) {
         const normalizedTarget = normalizeTarget(newSettings.target_percentage);
-        localStorage.setItem("targetPercentage", normalizedTarget.toString());
+        localStorage.setItem(`targetPercentage_${currentUserIdRef.current}`, normalizedTarget.toString());
       }
       
       return { previousSettings };
@@ -249,46 +249,29 @@ export function useUserSettings() {
     // Track if effect is still mounted to prevent state updates after unmount
     let isMounted = true;
 
-    // Get user ID for scoped storage keys from the auth-tracked ref instead of making a new async call
-    const getUserId = () => {
-      const userId = currentUserIdRef.current;
-      if (!userId) {
-        logger.dev("No current user ID available for storage sync");
-      }
-      return userId;
-    };
-
     // Helper to validate session is still active before performing operations
     // Returns true if session is valid and component is still mounted
-    const validateActiveSession = async (userId: string, isComponentMounted: boolean): Promise<boolean> => {
+    const validateActiveSession = async (isComponentMounted: boolean): Promise<boolean> => {
       if (!isComponentMounted) return false;
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        return !!(session && session.user.id === userId && isComponentMounted);
+        return !!(session && isComponentMounted);
       } catch {
         return false;
       }
     };
 
     // Async IIFE to perform storage synchronization operations
-    //
-    // UNMOUNT BEHAVIOR:
-    // If the component unmounts during async operations, the isMounted check prevents
-    // state updates, but the promise chain continues executing. While this is handled
-    // correctly, if there are many rapid mount/unmount cycles (e.g., during navigation),
-    // this could lead to many pending promises. This is generally not a practical issue
-    // in production, but is worth noting for debugging purposes. If this becomes a concern,
-    // consider implementing cleanup via AbortController.
     (async () => {
-      const userId = getUserId();
-      
       // Check if component is still mounted before proceeding
       if (!isMounted) return;
+
+      // Get current user ID from auth session
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
       
       if (!userId) {
-        logger.dev("User ID not available for storage sync, skipping", {
-          context: "useUserSettings/syncEffect"
-        });
+        logger.dev("No user ID available for storage sync, skipping");
         return;
       }
 
@@ -310,7 +293,7 @@ export function useUserSettings() {
         
         // Validate session is still active before performing localStorage operations
         // This prevents race condition where user logs out while this promise is pending
-        if (!(await validateActiveSession(userId, isMounted))) {
+        if (!(await validateActiveSession(isMounted))) {
           return;
         }
         
@@ -340,26 +323,22 @@ export function useUserSettings() {
       // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
       // This runs once per session when DB returns null after initial fetch completes
       else if (settings === null) {
+        // Check user-scoped keys first, then fall back to legacy keys for migration
         const localBunkKey = `showBunkCalc_${userId}`;
         const localTargetKey = `targetPercentage_${userId}`;
-        // Check user-scoped keys first, then fall back to legacy keys for migration
         const localBunk = localStorage.getItem(localBunkKey) ?? localStorage.getItem("showBunkCalc");
         const localTarget = localStorage.getItem(localTargetKey) ?? localStorage.getItem("targetPercentage");
         
-        // Clean up legacy keys if they exist and were used for migration
-        // Use a session-scoped flag to avoid redundant localStorage operations
+        // Clean up legacy keys after migration
         const legacyCleanupFlagKey = "legacyKeysCleaned";
-        const hasCleanedLegacyKeysThisSession =
-          sessionStorage.getItem(legacyCleanupFlagKey) === "true";
-
+        const hasCleanedLegacyKeysThisSession = sessionStorage.getItem(legacyCleanupFlagKey) === "true";
+        
         if (!hasCleanedLegacyKeysThisSession) {
-          const legacyBunkKey = "showBunkCalc";
-          const legacyTargetKey = "targetPercentage";
-          if (localStorage.getItem(legacyBunkKey) !== null) {
-            localStorage.removeItem(legacyBunkKey);
+          if (localStorage.getItem("showBunkCalc") !== null) {
+            localStorage.removeItem("showBunkCalc");
           }
-          if (localStorage.getItem(legacyTargetKey) !== null) {
-            localStorage.removeItem(legacyTargetKey);
+          if (localStorage.getItem("targetPercentage") !== null) {
+            localStorage.removeItem("targetPercentage");
           }
           sessionStorage.setItem(legacyCleanupFlagKey, "true");
         }
@@ -387,7 +366,7 @@ export function useUserSettings() {
 
         // Validate session is still active before calling mutateSettings
         // This prevents race condition where user logs out while this promise is pending
-        if (!(await validateActiveSession(userId, isMounted))) {
+        if (!(await validateActiveSession(isMounted))) {
           return;
         }
 
