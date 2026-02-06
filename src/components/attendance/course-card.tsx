@@ -71,10 +71,31 @@ export function CourseCard({ course }: CourseCardProps) {
   }), [course.id, course.name, course.code, normalize]);
 
   useEffect(() => {
-    const stored = localStorage.getItem("showBunkCalc");
-    if (stored !== null) {
-      setShowBunkCalc(stored === "true");
-    }
+    // Load user-scoped preference to avoid cross-user leakage on shared devices
+    const fetchUserAndLoadSetting = async () => {
+      try {
+        const { data: { user } } = await (await import("@/lib/supabase/client")).createClient().auth.getUser();
+        if (user?.id) {
+          const scopedKey = `showBunkCalc_${user.id}`;
+          const scopedValue = localStorage.getItem(scopedKey);
+          if (scopedValue !== null) {
+            setShowBunkCalc(scopedValue === "true");
+            return;
+          }
+        }
+
+        // Fallback to legacy key if scoped value doesn't exist
+        const legacyValue = localStorage.getItem("showBunkCalc");
+        if (legacyValue !== null) {
+          setShowBunkCalc(legacyValue === "true");
+        }
+      } catch (error) {
+        // Fallback: if auth fails, don't block rendering
+        console.debug("Failed to get user for localStorage key", error);
+      }
+    };
+
+    fetchUserAndLoadSetting();
 
     const handleBunkCalcToggle = (event: CustomEvent) => {
       setShowBunkCalc(event.detail);

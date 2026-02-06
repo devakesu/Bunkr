@@ -154,6 +154,10 @@ export const getCspHeader = (nonce?: string) => {
   // - 'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='
   //   → Login page or authentication component inline styles
   //   → Used for form animations or transitions
+  //
+  // - 'sha256-Q9MUdYBtYzn5frLpoNRLdFYW76cJ4ok2SmIKzTFq57Q='
+  //   → Inline styles injected at runtime (observed in production CSP violation)
+  //   → Update/remove if the source is identified and migrated to static CSS
   const styleSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
     : [
@@ -164,7 +168,8 @@ export const getCspHeader = (nonce?: string) => {
         "'sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk='", // Recharts
         "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='", // Next.js/React hydration
         "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='", // Animation libraries
-        "'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='"  // Login/auth inline styles
+        "'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='", // Login/auth inline styles
+        "'sha256-Q9MUdYBtYzn5frLpoNRLdFYW76cJ4ok2SmIKzTFq57Q='"  // Runtime inline styles (CSP violation hash)
       ];
   
   // script-src-elem: Controls <script> elements specifically
@@ -226,7 +231,8 @@ export const getCspHeader = (nonce?: string) => {
         "'sha256-441zG27rExd4/il+NvIqyL8zFx5XmyNQtE381kSkUJk='", // Recharts
         "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='", // Next.js/React hydration
         "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='", // Animation libraries
-        "'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='"  // Login/auth inline styles
+        "'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='", // Login/auth inline styles
+        "'sha256-Q9MUdYBtYzn5frLpoNRLdFYW76cJ4ok2SmIKzTFq57Q='"  // Runtime inline styles (CSP violation hash)
       ];
 
   return `

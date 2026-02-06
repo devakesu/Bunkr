@@ -48,6 +48,30 @@ const normalizeTarget = (value?: number | null) => {
 export function useUserSettings() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+
+  // Read prefetched settings from sessionStorage (set by login flow) to avoid
+  // showing default values before the first DB fetch completes.
+  const prefetchedSettings = (() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = sessionStorage.getItem("prefetchedSettings");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Partial<UserSettings> | null;
+      if (!parsed || typeof parsed !== "object") return null;
+      return {
+        bunk_calculator_enabled:
+          typeof parsed.bunk_calculator_enabled === "boolean"
+            ? parsed.bunk_calculator_enabled
+            : undefined,
+        target_percentage:
+          typeof parsed.target_percentage === "number"
+            ? normalizeTarget(parsed.target_percentage)
+            : undefined,
+      } as UserSettings;
+    } catch {
+      return null;
+    }
+  })();
   
   // Track mutation window to prevent focus refetch from overwriting optimistic updates
   // When user toggles a setting, we set this to true during onMutate
@@ -120,6 +144,8 @@ export function useUserSettings() {
   // 1. Fetch from DB
   const { data: settings, isLoading, isFetching } = useQuery({
     queryKey: ["userSettings"],
+    initialData: prefetchedSettings ?? undefined,
+    initialDataUpdatedAt: prefetchedSettings ? Date.now() : undefined,
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return null;
@@ -193,14 +219,17 @@ export function useUserSettings() {
       
       queryClient.setQueryData(["userSettings"], optimisticData);
       
-      // Sync to localStorage immediately for instant UI feedback
-      if (newSettings.bunk_calculator_enabled !== undefined) {
-        localStorage.setItem("showBunkCalc", newSettings.bunk_calculator_enabled.toString());
-        window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
-      }
-      if (newSettings.target_percentage !== undefined) {
-        const normalizedTarget = normalizeTarget(newSettings.target_percentage);
-        localStorage.setItem("targetPercentage", normalizedTarget.toString());
+      // Sync to localStorage immediately for instant UI feedback (scoped per user)
+      const currentUserId = currentUserIdRef.current;
+      if (currentUserId) {
+        if (newSettings.bunk_calculator_enabled !== undefined) {
+          localStorage.setItem(`showBunkCalc_${currentUserId}`, newSettings.bunk_calculator_enabled.toString());
+          window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
+        }
+        if (newSettings.target_percentage !== undefined) {
+          const normalizedTarget = normalizeTarget(newSettings.target_percentage);
+          localStorage.setItem(`targetPercentage_${currentUserId}`, normalizedTarget.toString());
+        }
       }
       
       return { previousSettings };
