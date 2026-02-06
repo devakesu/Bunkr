@@ -65,7 +65,7 @@ export function useUserSettings() {
       const raw = sessionStorage.getItem("prefetchedSettings");
       if (!raw) return null;
       
-      // Parse as unknown first, then apply runtime type guards
+      // Parse as unknown first to avoid unsafe type assertions and enable proper runtime validation
       const parsed: unknown = JSON.parse(raw);
       if (!parsed || typeof parsed !== "object") return null;
 
@@ -152,11 +152,16 @@ export function useUserSettings() {
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           // Reset initialization flag on new login to allow fresh initialization if needed
           hasAttemptedInitializationRef.current = false;
+          // Invalidate the new user's scoped query
           queryClient.invalidateQueries({ queryKey: ["userSettings", newUserId] });
+          // Also remove any queries that might have been created with null userId during initial mount
+          queryClient.removeQueries({ queryKey: ["userSettings", null] });
         }
         // When user signs out, clear settings from cache and browser storage
         else if (event === "SIGNED_OUT") {
-          queryClient.removeQueries({ queryKey: ["userSettings"] });
+          // Remove user-scoped queries using the userId from before sign out
+          // currentUserIdRef still holds the previous user's ID at this point
+          queryClient.removeQueries({ queryKey: ["userSettings", currentUserIdRef.current] });
           hasAttemptedInitializationRef.current = false;
           
           // Clear user-specific storage to prevent data leakage between users
