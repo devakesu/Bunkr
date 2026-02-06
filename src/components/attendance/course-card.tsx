@@ -10,6 +10,8 @@ import { useAttendanceSettings } from "@/providers/attendance-settings";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useUser } from "@/hooks/users/user";
+import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 
 /**
  * Extended Course interface with additional attendance statistics.
@@ -107,6 +109,7 @@ export function CourseCard({ course }: CourseCardProps) {
     );
 
     return () => {
+      isMounted = false;
       window.removeEventListener(
         "bunkCalcToggle",
         handleBunkCalcToggle as EventListener

@@ -483,7 +483,6 @@ GhostClass implements multiple layers of security:
 - **Input Validation** - Zod schemas validate all user input
 - **HttpOnly Cookies** - Sensitive data stored in secure, httpOnly cookies
 - **Origin Validation** - Strict origin checking in production (disabled in dev)
-- **Terms Acceptance Flow** - Enforced legal agreement with version tracking
 - **Cloudflare Turnstile** - Bot protection on public endpoints
 
 For detailed security implementation, see [SECURITY.md](docs/SECURITY.md).
@@ -535,7 +534,7 @@ docker run -p 3000:3000 --env-file .env ghostclass
 
 ### Production Checklist
 1. ✅ Set all required environment variables
-2. ✅ Configure Supabase RLS policies
+2. ✅ Configure Supabase
 3. ✅ Set up Sentry project for error tracking
 4. ✅ Configure Cloudflare Turnstile
 5. ✅ Set up Redis instance for rate limiting
@@ -543,7 +542,6 @@ docker run -p 3000:3000 --env-file .env ghostclass
 7. ✅ Enable HTTPS with valid SSL certificate
 8. ✅ Set up cron jobs for attendance sync
 9. ✅ Configure legal terms version and effective date
-10. ✅ Set encryption key for secure token storage
 
 <br />
 

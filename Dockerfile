@@ -165,9 +165,14 @@ RUN addgroup --system --gid 1001 nodejs && \
     apk add --no-cache wget
 
 # Core Next.js output
+# Note: Copy public folder first (base static assets)
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Copy the generated service worker from the builder stage
+# The sw.js file is generated during build by @serwist/next and must be copied separately
+# since it's in .gitignore and created as a build artifact
+COPY --from=builder --chown=nextjs:nodejs /app/public/sw.js* ./public/
 
 # Clean up
 RUN rm -rf \
