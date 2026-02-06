@@ -226,7 +226,12 @@ CREATE TABLE IF NOT EXISTS "public"."users" (
     "last_synced_at" timestamp with time zone,
     "auth_id" "uuid",
     "terms_accepted_at" timestamp with time zone,
-    "terms_version" "text"
+    "terms_version" "text",
+    "auth_password" "text",
+    "auth_password_iv" "text",
+    CONSTRAINT "check_auth_password_consistency" CHECK (((("auth_password" IS NULL) AND ("auth_password_iv" IS NULL)) OR (("auth_password" IS NOT NULL) AND ("auth_password_iv" IS NOT NULL)))),
+    CONSTRAINT "check_auth_password_iv_not_empty" CHECK ((("auth_password_iv" IS NULL) OR ("auth_password_iv" <> ''::"text"))),
+    CONSTRAINT "check_auth_password_not_empty" CHECK ((("auth_password" IS NULL) OR ("auth_password" <> ''::"text")))
 );
 
 

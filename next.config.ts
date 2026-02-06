@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
 
 const isProduction = process.env.NODE_ENV === "production";
-const enableSwInDev = process.env.ENABLE_SW_IN_DEV === "true";
+const enableSwInDev = process.env.NEXT_PUBLIC_ENABLE_SW_IN_DEV === "true";
 
 const withSerwist = withSerwistInit({
   // Source TypeScript service worker implementation
@@ -17,11 +17,14 @@ const withSerwist = withSerwistInit({
   //   so team members understand which files are safe to edit/commit.
   swDest: "public/sw.js",
   // By default, service workers are disabled outside production to avoid caching issues during development.
-  // To test PWA / offline functionality locally, start Next.js in development mode with ENABLE_SW_IN_DEV="true"
-  // Example: ENABLE_SW_IN_DEV="true" npm run dev
+  // To test PWA / offline functionality locally, start Next.js in development mode with NEXT_PUBLIC_ENABLE_SW_IN_DEV="true"
+  // Example: NEXT_PUBLIC_ENABLE_SW_IN_DEV="true" npm run dev
   // This behavior should be documented in README.md for team members testing PWA features.
   disable: isProduction ? false : !enableSwInDev,
 });
+
+// Suppress Serwist Turbopack warning (Serwist doesn't support Turbopack yet)
+process.env.SERWIST_SUPPRESS_TURBOPACK_WARNING = "1";
 
 const nextConfig: NextConfig = {
   output: "standalone",
