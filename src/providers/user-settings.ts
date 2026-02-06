@@ -152,8 +152,7 @@ export function useUserSettings() {
   // 1. Fetch from DB
   const { data: settings, isLoading, isFetching } = useQuery({
     queryKey: ["userSettings"],
-    initialData: prefetchedSettings ?? undefined,
-    initialDataUpdatedAt: prefetchedSettings ? Date.now() : undefined,
+    placeholderData: prefetchedSettings ?? undefined,
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return null;
