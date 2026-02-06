@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { encrypt, decrypt } from "@/lib/crypto";
@@ -272,7 +272,7 @@ export async function POST(req: Request) {
         `${process.env.NEXT_PUBLIC_BACKEND_URL}user`,
         {
           headers: { Authorization: `Bearer ${token}` },
-          timeout: 5000,
+          timeout: 15000, // Increased from 5s to 15s to handle slow backends and network latency
           validateStatus: (status) => status < 500,
         }
       );
@@ -310,14 +310,21 @@ export async function POST(req: Request) {
       lockUserId = verifieduserId;
 
     } catch (err: any) {
-      if (err.code === 'ECONNABORTED') {
-        return NextResponse.json({ message: "Authentication service timeout" }, { status: 504 });
+      // Handle timeout and connection errors (ECONNABORTED, ENOTFOUND, ETIMEDOUT, EHOSTUNREACH, ECONNRESET, ENETUNREACH, ECONNREFUSED)
+      if (isAxiosError(err) && err.code && ['ECONNABORTED', 'ETIMEDOUT', 'ENOTFOUND', 'EHOSTUNREACH', 'ECONNRESET', 'ENETUNREACH', 'ECONNREFUSED'].includes(err.code)) {
+        logger.warn(`EzyGo API timeout/connection error (code: ${err.code})`);
+        Sentry.captureException(err, {
+          tags: { type: "ezygo_timeout", location: "save_token" },
+          level: "warning",
+        });
+        return NextResponse.json({ message: "Authentication service unavailable. Please try again." }, { status: 504 });
       }
-      if (err.response?.status === 401) {
+      if (isAxiosError(err) && err.response?.status === 401) {
         return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
       }
       
-      logger.error("Ezygo verification error:", err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.error("Ezygo verification error:", errorMessage);
       Sentry.captureException(err, { tags: { type: "ezygo_network_error", location: "save_token" }, extra: { userId: redact("id", verifieduserId) } });
       
       return NextResponse.json({ message: "Authentication service error" }, { status: 502 });
