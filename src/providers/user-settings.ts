@@ -317,7 +317,7 @@ export function useUserSettings() {
     },
     onSuccess: (newData, _variables, context) => {
       // Update cache with actual server response (ensures normalized values)
-      // Context should always be present since onMutate returns it
+      // Context should always be present since onMutate returns it (unless onMutate throws before returning)
       if (context?.currentUserId) {
         queryClient.setQueryData(["userSettings", context.currentUserId], newData);
       }
@@ -331,7 +331,8 @@ export function useUserSettings() {
     },
     onError: (err, _variables, context) => {
       // Rollback to previous data on error
-      if (context?.previousSettings) {
+      // Only rollback if we have both the previous settings and a valid userId for the query key
+      if (context?.previousSettings && context?.currentUserId) {
         queryClient.setQueryData(["userSettings", context.currentUserId], context.previousSettings);
       }
       
