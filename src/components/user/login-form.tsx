@@ -256,9 +256,13 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
           try {
             // Store settings with user ID to ensure they belong to the current user
             // Use sessionStorage for reliable cross-navigation transfer
+            // Include userId in the stored data to prevent cross-user leakage if hook stays mounted
             sessionStorage.setItem("prefetchedSettings", JSON.stringify({
-              bunk_calculator_enabled: bunkEnabled,
-              target_percentage: targetPercentage
+              userId: user.id,
+              settings: {
+                bunk_calculator_enabled: bunkEnabled,
+                target_percentage: targetPercentage
+              }
             }));
             
             // Also update localStorage for persistence across sessions
@@ -283,7 +287,11 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         };
 
         try {
-          sessionStorage.setItem("prefetchedSettings", JSON.stringify(defaultSettings));
+          // Include userId in prefetched settings to prevent cross-user leakage
+          sessionStorage.setItem("prefetchedSettings", JSON.stringify({
+            userId: user.id,
+            settings: defaultSettings
+          }));
           localStorage.setItem(`showBunkCalc_${user.id}`, defaultSettings.bunk_calculator_enabled.toString());
           localStorage.setItem(`targetPercentage_${user.id}`, defaultSettings.target_percentage.toString());
         } catch (storageError) {

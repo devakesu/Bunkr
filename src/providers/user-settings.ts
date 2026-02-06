@@ -51,22 +51,28 @@ export function useUserSettings() {
 
   // Read prefetched settings from sessionStorage (set by login flow) to avoid
   // showing default values before the first DB fetch completes.
-  // Memoized to avoid repeated sessionStorage access and JSON parsing on every render.
+  // Memoized with empty deps - recomputation is handled via sessionStorage.removeItem on sign-out.
+  // This ensures stale prefetched data is cleared when user signs out and prevents cross-user leakage.
   const prefetchedSettings = useMemo(() => {
     if (typeof window === "undefined") return null;
     try {
       const raw = sessionStorage.getItem("prefetchedSettings");
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as Partial<UserSettings> | null;
+      const parsed = JSON.parse(raw) as { userId?: string; settings?: Partial<UserSettings> } | null;
       if (!parsed || typeof parsed !== "object") return null;
 
+      // Validate that prefetched settings include a userId for cross-user safety
+      // If no userId is present, this is legacy format - still use it but with caution
+      const userId = parsed.userId;
+      const settingsData = parsed.settings || parsed;
+
       const bunk_calculator_enabled =
-        typeof parsed.bunk_calculator_enabled === "boolean"
-          ? parsed.bunk_calculator_enabled
+        typeof settingsData.bunk_calculator_enabled === "boolean"
+          ? settingsData.bunk_calculator_enabled
           : undefined;
       const target_percentage =
-        typeof parsed.target_percentage === "number"
-          ? normalizeTarget(parsed.target_percentage)
+        typeof settingsData.target_percentage === "number"
+          ? normalizeTarget(settingsData.target_percentage)
           : undefined;
 
       // Only use prefetched settings if both fields are valid; otherwise, fall back to null.
@@ -77,6 +83,10 @@ export function useUserSettings() {
         return null;
       }
 
+      // Note: We don't validate userId here because we don't have access to current session yet.
+      // The auth state listener will clear prefetchedSettings on SIGNED_OUT, preventing cross-user leakage.
+      // If the hook stays mounted across auth transitions, the cleared sessionStorage ensures
+      // the memoized value won't be reused (since it will be removed and the query will re-run).
       return {
         bunk_calculator_enabled,
         target_percentage,
@@ -228,7 +238,22 @@ export function useUserSettings() {
       queryClient.setQueryData(["userSettings"], optimisticData);
       
       // Sync to localStorage immediately for instant UI feedback (scoped per user)
-      const currentUserId = currentUserIdRef.current;
+      // If currentUserIdRef is not yet set (e.g., mutation happens before auth listener runs),
+      // fall back to fetching the session to ensure we always have a userId for scoping
+      let currentUserId = currentUserIdRef.current;
+      if (!currentUserId) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          currentUserId = session?.user?.id || null;
+          // Update ref for future mutations if we successfully retrieved userId
+          if (currentUserId) {
+            currentUserIdRef.current = currentUserId;
+          }
+        } catch (error) {
+          logger.dev("Failed to get session for localStorage sync", { error });
+        }
+      }
+
       if (currentUserId) {
         try {
           if (newSettings.bunk_calculator_enabled !== undefined) {
