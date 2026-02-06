@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { UserSettings } from "@/types/user-settings";
 import * as Sentry from "@sentry/nextjs";
@@ -48,6 +48,12 @@ const normalizeTarget = (value?: number | null) => {
 export function useUserSettings() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+  
+  // Track current user ID in state to scope the query key
+  // This prevents cross-user settings flash when switching users
+  // Also maintained in a ref for synchronous access during cleanup
+  const [userId, setUserId] = useState<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
   // Read prefetched settings from sessionStorage (set by login flow) to avoid
   // showing default values before the first DB fetch completes.
@@ -58,21 +64,35 @@ export function useUserSettings() {
     try {
       const raw = sessionStorage.getItem("prefetchedSettings");
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as { userId?: string; settings?: Partial<UserSettings> } | null;
+      
+      // Parse as unknown first to avoid unsafe type assertions and enable proper runtime validation
+      const parsed: unknown = JSON.parse(raw);
       if (!parsed || typeof parsed !== "object") return null;
 
-      // Validate that prefetched settings include a userId for cross-user safety
-      // If no userId is present, this is legacy format - still use it but with caution
-      const userId = parsed.userId;
-      // Use property check for backward compatibility: if 'settings' property exists, use it; otherwise use parsed directly (legacy)
-      const settingsData = 'settings' in parsed ? parsed.settings : parsed;
+      // Determine if this is the new format { userId, settings } or legacy format { bunk_calculator_enabled, target_percentage }
+      // Runtime type guards for both shapes
+      let settingsData: unknown;
+      
+      if ('settings' in parsed && parsed.settings !== null && typeof parsed.settings === "object") {
+        // New format: { userId?: string; settings: { bunk_calculator_enabled, target_percentage } }
+        settingsData = parsed.settings;
+      } else if ('bunk_calculator_enabled' in parsed || 'target_percentage' in parsed) {
+        // Legacy format: { bunk_calculator_enabled, target_percentage }
+        settingsData = parsed;
+      } else {
+        // Unknown format
+        return null;
+      }
+
+      // Guard against null/undefined settingsData
+      if (!settingsData || typeof settingsData !== "object") return null;
 
       const bunk_calculator_enabled =
-        typeof settingsData.bunk_calculator_enabled === "boolean"
+        'bunk_calculator_enabled' in settingsData && typeof settingsData.bunk_calculator_enabled === "boolean"
           ? settingsData.bunk_calculator_enabled
           : undefined;
       const target_percentage =
-        typeof settingsData.target_percentage === "number"
+        'target_percentage' in settingsData && typeof settingsData.target_percentage === "number"
           ? normalizeTarget(settingsData.target_percentage)
           : undefined;
 
@@ -105,65 +125,93 @@ export function useUserSettings() {
   // Track if we've attempted initialization to prevent redundant mutation calls
   // This prevents duplicate initialization during rapid refetches before mutation completes
   const hasAttemptedInitializationRef = useRef(false);
-  
-  // Track current user ID to enable cleanup on sign out
-  // The session parameter in SIGNED_OUT event is already cleared, so we need to track it separately
-  const currentUserIdRef = useRef<string | null>(null);
 
   // Monitor session changes to trigger settings fetch on login
   // This ensures settings are loaded immediately when user authenticates,
   // not just when navigating to protected routes
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Update current user ID ref when session changes
-      if (session?.user?.id) {
-        currentUserIdRef.current = session.user.id;
-      }
-      
-      // When user signs in or session refreshes, invalidate settings cache
-      // to trigger immediate re-fetch with the new auth session
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        // Reset initialization flag on new login to allow fresh initialization if needed
-        hasAttemptedInitializationRef.current = false;
-        queryClient.invalidateQueries({ queryKey: ["userSettings"] });
-      }
-      // When user signs out, clear settings from cache and browser storage
-      else if (event === "SIGNED_OUT") {
-        queryClient.removeQueries({ queryKey: ["userSettings"] });
-        hasAttemptedInitializationRef.current = false;
+    // Initialize userId on mount and subscribe to auth changes in a single effect
+    // to avoid race conditions between separate initialization and listener effects
+    const initializeAndSubscribe = async () => {
+      // Get initial session
+      const { data: { session } } = await supabase.auth.getSession();
+      const initialUserId = session?.user?.id ?? null;
+      currentUserIdRef.current = initialUserId;
+      setUserId(initialUserId);
+
+      // Subscribe to auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        const newUserId = session?.user?.id ?? null;
         
-        // Clear user-specific storage to prevent data leakage between users
-        try {
-          if (typeof window !== "undefined") {
-            // Use the stored user ID from ref since session is already cleared at this point
-            const userId = currentUserIdRef.current;
-            
-            // Clear user-scoped keys for the user who just signed out
-            if (userId) {
-              localStorage.removeItem(`showBunkCalc_${userId}`);
-              localStorage.removeItem(`targetPercentage_${userId}`);
-            }
-
-            // Also clear non-scoped prefetched settings to avoid cross-user leakage
-            // This prevents the next user from seeing the previous user's prefetched settings
-            sessionStorage.removeItem("prefetchedSettings");
-            
-            // Clear the ref after cleanup
-            currentUserIdRef.current = null;
-          }
-        } catch (error) {
-          // Ignore storage clearing errors (e.g., restricted environment)
-          logger.dev("Failed to clear storage on sign out", { error });
+        // When user signs in or session refreshes, invalidate settings cache
+        // to trigger immediate re-fetch with the new auth session
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          // Update both state and ref when session changes
+          currentUserIdRef.current = newUserId;
+          setUserId(newUserId);
+          
+          // Reset initialization flag on new login to allow fresh initialization if needed
+          hasAttemptedInitializationRef.current = false;
+          // Invalidate the new user's scoped query
+          queryClient.invalidateQueries({ queryKey: ["userSettings", newUserId] });
+          // Also remove any queries that might have been created with null userId during initial mount
+          queryClient.removeQueries({ queryKey: ["userSettings", null] });
         }
-      }
-    });
+        // When user signs out, clear settings from cache and browser storage
+        else if (event === "SIGNED_OUT") {
+          // Store the previous userId before clearing the ref
+          const previousUserId = currentUserIdRef.current;
+          
+          // Update state and ref to null for the signed-out state
+          currentUserIdRef.current = newUserId;
+          setUserId(newUserId);
+          
+          // Remove user-scoped queries using the previous user's ID
+          queryClient.removeQueries({ queryKey: ["userSettings", previousUserId] });
+          hasAttemptedInitializationRef.current = false;
+          
+          // Clear user-specific storage to prevent data leakage between users
+          try {
+            if (typeof window !== "undefined") {
+              // Clear user-scoped keys for the user who just signed out
+              if (previousUserId) {
+                localStorage.removeItem(`showBunkCalc_${previousUserId}`);
+                localStorage.removeItem(`targetPercentage_${previousUserId}`);
+              }
 
-    return () => subscription?.unsubscribe();
+              // Also clear non-scoped prefetched settings to avoid cross-user leakage
+              // This prevents the next user from seeing the previous user's prefetched settings
+              sessionStorage.removeItem("prefetchedSettings");
+            }
+          } catch (error) {
+            // Ignore storage clearing errors (e.g., restricted environment)
+            logger.dev("Failed to clear storage on sign out", { error });
+          }
+        } else {
+          // For all other events (e.g., USER_UPDATED, PASSWORD_RECOVERY), just update the tracking
+          currentUserIdRef.current = newUserId;
+          setUserId(newUserId);
+        }
+      });
+
+      return subscription;
+    };
+
+    const subscriptionPromise = initializeAndSubscribe();
+    
+    return () => {
+      subscriptionPromise
+        .then(subscription => subscription?.unsubscribe())
+        .catch(error => {
+          // Log initialization/cleanup errors but don't throw to avoid breaking cleanup
+          logger.dev("Failed to unsubscribe from auth state changes", { error });
+        });
+    };
   }, [queryClient, supabase.auth]);
 
   // 1. Fetch from DB
   const { data: settings, isLoading, isFetching } = useQuery({
-    queryKey: ["userSettings"],
+    queryKey: ["userSettings", userId],
     placeholderData: prefetchedSettings ?? undefined,
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -219,15 +267,26 @@ export function useUserSettings() {
       return data;
     },
     // Optimistic update: update cache before server responds
-    onMutate: async (newSettings) => {
+    onMutate: async (newSettings): Promise<{ previousSettings: UserSettings | undefined; currentUserId: string | null }> => {
       // Mark that we're in a mutation window - prevents focus refetch from pulling stale data
       isMutatingRef.current = true;
       
-      // Cancel any pending queries for userSettings
-      await queryClient.cancelQueries({ queryKey: ["userSettings"] });
+      // Get current userId for scoping the query key
+      // currentUserIdRef is initialized on mount, so it should always be available
+      const currentUserId = currentUserIdRef.current;
+      
+      // If no userId is available, we shouldn't proceed with cache operations
+      // This is a safety check, though it should not happen in normal operation
+      if (!currentUserId) {
+        logger.dev("Mutation attempted without userId - this should not happen");
+        return { previousSettings: undefined, currentUserId: null };
+      }
+      
+      // Cancel any pending queries for userSettings (scoped by userId)
+      await queryClient.cancelQueries({ queryKey: ["userSettings", currentUserId] });
       
       // Snapshot the previous data for rollback
-      const previousSettings = queryClient.getQueryData<UserSettings>(["userSettings"]);
+      const previousSettings = queryClient.getQueryData<UserSettings>(["userSettings", currentUserId]);
       
       // Optimistically update the cache with normalized values
       const optimisticData = {
@@ -236,54 +295,32 @@ export function useUserSettings() {
         target_percentage: newSettings.target_percentage ? normalizeTarget(newSettings.target_percentage) : previousSettings?.target_percentage
       } as UserSettings;
       
-      queryClient.setQueryData(["userSettings"], optimisticData);
+      queryClient.setQueryData(["userSettings", currentUserId], optimisticData);
       
       // Sync to localStorage immediately for instant UI feedback (scoped per user)
-      // If currentUserIdRef is not yet set (e.g., mutation happens before auth listener runs),
-      // fall back to fetching the session to ensure we always have a userId for scoping
-      let currentUserId = currentUserIdRef.current;
-      if (!currentUserId) {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          currentUserId = session?.user?.id || null;
-          // Update ref for future mutations if we successfully retrieved userId
-          if (currentUserId) {
-            currentUserIdRef.current = currentUserId;
-          } else if (session) {
-            // Session exists but has no user ID - this is an edge case with corrupted session data
-            logger.dev("Session exists but userId is missing during localStorage sync", { 
-              hasUserObject: !!session?.user,
-              userIdProperty: session?.user?.id,
-              sessionKeys: Object.keys(session)
-            });
-          }
-        } catch (error) {
-          logger.dev("Failed to get session for localStorage sync", { error });
+      try {
+        if (newSettings.bunk_calculator_enabled !== undefined) {
+          localStorage.setItem(`showBunkCalc_${currentUserId}`, newSettings.bunk_calculator_enabled.toString());
+          window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
         }
-      }
-
-      if (currentUserId) {
-        try {
-          if (newSettings.bunk_calculator_enabled !== undefined) {
-            localStorage.setItem(`showBunkCalc_${currentUserId}`, newSettings.bunk_calculator_enabled.toString());
-            window.dispatchEvent(new CustomEvent("bunkCalcToggle", { detail: newSettings.bunk_calculator_enabled }));
-          }
-          if (newSettings.target_percentage !== undefined) {
-            const normalizedTarget = normalizeTarget(newSettings.target_percentage);
-            localStorage.setItem(`targetPercentage_${currentUserId}`, normalizedTarget.toString());
-          }
-        } catch (error) {
-          // Ignore storage errors (e.g., private mode, disabled storage, quota exceeded)
-          // Settings update can still proceed without localStorage sync
-          logger.dev("Failed to sync settings to localStorage", { error });
+        if (newSettings.target_percentage !== undefined) {
+          const normalizedTarget = normalizeTarget(newSettings.target_percentage);
+          localStorage.setItem(`targetPercentage_${currentUserId}`, normalizedTarget.toString());
         }
+      } catch (error) {
+        // Ignore storage errors (e.g., private mode, disabled storage, quota exceeded)
+        // Settings update can still proceed without localStorage sync
+        logger.dev("Failed to sync settings to localStorage", { error });
       }
       
-      return { previousSettings };
+      return { previousSettings, currentUserId };
     },
-    onSuccess: (newData) => {
+    onSuccess: (newData, _variables, context) => {
       // Update cache with actual server response (ensures normalized values)
-      queryClient.setQueryData(["userSettings"], newData);
+      // Context should always be present since onMutate returns it (unless onMutate throws before returning)
+      if (context?.currentUserId) {
+        queryClient.setQueryData(["userSettings", context.currentUserId], newData);
+      }
       
       // DO NOT write to localStorage here - already done in onMutate
       // This prevents redundant writes and event dispatches that cause glitches
@@ -294,8 +331,9 @@ export function useUserSettings() {
     },
     onError: (err, _variables, context) => {
       // Rollback to previous data on error
-      if (context?.previousSettings) {
-        queryClient.setQueryData(["userSettings"], context.previousSettings);
+      // Only rollback if we have both the previous settings and a valid userId for the query key
+      if (context?.previousSettings && context?.currentUserId) {
+        queryClient.setQueryData(["userSettings", context.currentUserId], context.previousSettings);
       }
       
       if (err.message !== "No user") {
