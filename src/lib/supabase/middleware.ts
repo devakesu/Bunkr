@@ -44,36 +44,65 @@ export async function updateSession(request: NextRequest, nonce?: string) {
     // Only clear cookies for authentication-specific errors (invalid/expired tokens)
     // Don't clear cookies for transient network issues or service unavailability
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const lowerErrorMsg = errorMessage.toLowerCase();
-    
-    // Check for authentication-specific error patterns
-    const isAuthError = lowerErrorMsg.includes('invalid') || 
-                       lowerErrorMsg.includes('expired') ||
-                       lowerErrorMsg.includes('unauthorized') ||
-                       lowerErrorMsg.includes('jwt') ||
-                       (lowerErrorMsg.includes('token') && (
-                         lowerErrorMsg.includes('refresh') ||
-                         lowerErrorMsg.includes('access')
-                       ));
-    
+    const anyError = error as any;
+
+    // Prefer structured properties over brittle string matching on error messages
+    const status: number | undefined =
+      typeof anyError?.status === "number"
+        ? anyError.status
+        : typeof anyError?.statusCode === "number"
+          ? anyError.statusCode
+          : undefined;
+    const errorCode: string | undefined =
+      typeof anyError?.code === "string" ? anyError.code : undefined;
+    const errorName: string | undefined =
+      typeof anyError?.name === "string" ? anyError.name : undefined;
+
+    // Treat typical auth failures as authentication errors
+    const authStatusCodes = new Set<number>([401, 403]);
+    const authErrorCodes = new Set<string>([
+      "INVALID_AUTH",
+      "INVALID_JWT",
+      "JWT_EXPIRED",
+      "PGRST301",
+      "PGRST302",
+    ]);
+
+    const isAuthError =
+      (status !== undefined && authStatusCodes.has(status)) ||
+      (errorCode !== undefined && authErrorCodes.has(errorCode));
+
     if (isAuthError) {
       // Clear invalid session cookies for auth-specific errors
-      const authCookies = request.cookies.getAll()
-        .filter(({ name }) => name.startsWith('sb-') || name.includes('auth'))
+      const authCookies = request.cookies
+        .getAll()
+        .filter(({ name }) => name.startsWith("sb-") || name.includes("auth"))
         .map(({ name }) => name);
-      
-      authCookies.forEach(name => {
+
+      authCookies.forEach((name) => {
         response.cookies.delete(name);
       });
 
-      logger.warn("Session refresh failed in middleware, clearing invalid session cookies", {
-        error: errorMessage,
-      });
+      logger.warn(
+        "Session refresh failed in middleware, clearing invalid session cookies",
+        {
+          error: errorMessage,
+          status,
+          code: errorCode,
+          name: errorName,
+        },
+      );
     } else {
-      // Log transient errors but don't clear cookies
-      logger.warn("Transient error in session refresh, preserving session cookies", {
-        error: errorMessage,
-      });
+      // Log transient or unknown errors but don't clear cookies
+      logger.warn(
+        "Transient or non-auth error in session refresh, preserving session cookies",
+        {
+          error: errorMessage,
+          status,
+          code: errorCode,
+          name: errorName,
+        },
+      );
     }
   }
 
