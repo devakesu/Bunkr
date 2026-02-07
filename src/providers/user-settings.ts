@@ -76,10 +76,13 @@ export function useUserSettings() {
       // Parse as unknown first to avoid unsafe type assertions and enable proper runtime validation
       const parsed: unknown = JSON.parse(raw);
       if (!parsed || typeof parsed !== "object") return null;
+      
+      // Convert to Record for safe property access
+      const parsedRecord = parsed as Record<string, unknown>;
 
       // Validate userId if we have a current user - prevent cross-user leakage
-      if (currentUserId && 'userId' in parsed && typeof parsed.userId === "string") {
-        if (parsed.userId !== currentUserId) {
+      if (currentUserId && 'userId' in parsedRecord && typeof parsedRecord.userId === "string") {
+        if (parsedRecord.userId !== currentUserId) {
           // Stored settings belong to a different user - clear and ignore
           sessionStorage.removeItem("prefetchedSettings");
           return null;
@@ -88,20 +91,20 @@ export function useUserSettings() {
 
       // Determine if this is the new format { userId, settings } or legacy format { bunk_calculator_enabled, target_percentage }
       // Runtime type guards for both shapes
-      let settingsData: unknown;
+      let settingsData: Record<string, unknown>;
       
-      if ('settings' in parsed && parsed.settings !== null && typeof parsed.settings === "object") {
+      if ('settings' in parsedRecord && parsedRecord.settings !== null && typeof parsedRecord.settings === "object") {
         // New format: { userId?: string; settings: { bunk_calculator_enabled, target_percentage } }
-        settingsData = parsed.settings;
-      } else if ('bunk_calculator_enabled' in parsed || 'target_percentage' in parsed) {
+        settingsData = parsedRecord.settings as Record<string, unknown>;
+      } else if ('bunk_calculator_enabled' in parsedRecord || 'target_percentage' in parsedRecord) {
         // Legacy format: { bunk_calculator_enabled, target_percentage }
-        settingsData = parsed;
+        settingsData = parsedRecord;
       } else {
         // Unknown format
         return null;
       }
 
-      // Guard against null/undefined settingsData
+      // Guard against null/undefined settingsData (should not happen after the type check above, but be defensive)
       if (!settingsData || typeof settingsData !== "object") return null;
 
       const bunk_calculator_enabled =
@@ -151,6 +154,9 @@ export function useUserSettings() {
       const initialUserId = session?.user?.id ?? null;
       currentUserIdRef.current = initialUserId;
       setUserId(initialUserId);
+      // Reload prefetched settings based on the initial user to avoid using
+      // settings belonging to a different user from a previous session.
+      setPrefetchedSettings(loadPrefetchedSettings(initialUserId));
 
       // Subscribe to auth changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
