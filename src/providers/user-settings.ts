@@ -65,7 +65,7 @@ function loadPrefetchedSettings(currentUserId: string | null): UserSettings | nu
     
     // Parse as unknown first to avoid unsafe type assertions and enable proper runtime validation
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
+    if (!parsed || typeof parsed !== "object") return clearAndReturn();
     
     // Convert to Record for safe property access
     const parsedRecord = parsed as Record<string, unknown>;
@@ -98,8 +98,8 @@ function loadPrefetchedSettings(currentUserId: string | null): UserSettings | nu
       // Legacy format: { bunk_calculator_enabled, target_percentage }
       settingsData = parsedRecord;
     } else {
-      // Unknown format
-      return null;
+      // Unknown format - clear stale data
+      return clearAndReturn();
     }
 
     const bunk_calculator_enabled =
@@ -111,12 +111,12 @@ function loadPrefetchedSettings(currentUserId: string | null): UserSettings | nu
         ? normalizeTarget(settingsData.target_percentage)
         : undefined;
 
-    // Only use prefetched settings if both fields are valid; otherwise, fall back to null.
+    // Only use prefetched settings if both fields are valid; otherwise, clear and fall back to null.
     if (
       typeof bunk_calculator_enabled !== "boolean" ||
       typeof target_percentage !== "number"
     ) {
-      return null;
+      return clearAndReturn();
     }
 
     return {
@@ -124,7 +124,8 @@ function loadPrefetchedSettings(currentUserId: string | null): UserSettings | nu
       target_percentage,
     };
   } catch {
-    return null;
+    // Clear invalid data that caused parse failure
+    return clearAndReturn();
   }
 }
 
