@@ -64,14 +64,15 @@ function loadPrefetchedSettings(currentUserId: string | null): UserSettings | nu
     // Validate userId if we have a current user - prevent cross-user leakage
     if (currentUserId) {
       // When a user is authenticated, only accept prefetched settings with a matching userId
-      // Legacy records without userId should be rejected to prevent cross-user leakage
-      if (!('userId' in parsedRecord) || typeof parsedRecord.userId !== "string") {
-        // Legacy format without userId - reject when user is known
+      // First check if userId field exists (new format), reject if missing (legacy format)
+      if (!('userId' in parsedRecord)) {
+        // Legacy format without userId - reject when user is known to prevent cross-user leakage
         sessionStorage.removeItem("prefetchedSettings");
         return null;
       }
-      if (parsedRecord.userId !== currentUserId) {
-        // Stored settings belong to a different user - clear and ignore
+      // Then validate the userId is a string and matches the current user
+      if (typeof parsedRecord.userId !== "string" || parsedRecord.userId !== currentUserId) {
+        // Invalid type or belongs to a different user - clear and ignore
         sessionStorage.removeItem("prefetchedSettings");
         return null;
       }
@@ -91,9 +92,6 @@ function loadPrefetchedSettings(currentUserId: string | null): UserSettings | nu
       // Unknown format
       return null;
     }
-
-    // Guard against null/undefined settingsData (should not happen after the type check above, but be defensive)
-    if (!settingsData || typeof settingsData !== "object") return null;
 
     const bunk_calculator_enabled =
       'bunk_calculator_enabled' in settingsData && typeof settingsData.bunk_calculator_enabled === "boolean"
