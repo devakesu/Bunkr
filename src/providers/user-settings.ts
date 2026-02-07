@@ -144,7 +144,7 @@ export function useUserSettings() {
   // during the same render where userId first becomes non-null, preventing an initial
   // "defaults" flash when the React Query hook is enabled.
   const prefetchedSettings = useMemo<UserSettings | null>(() => {
-    // If there's no resolved user, clear any prefetched settings to avoid cross-user leakage
+    // If there's no resolved user, do not expose any prefetched settings to avoid cross-user leakage
     if (!userId) {
       return null;
     }
@@ -170,6 +170,9 @@ export function useUserSettings() {
   // This ensures settings are loaded immediately when user authenticates,
   // not just when navigating to protected routes
   useEffect(() => {
+    // Reset mounted flag at the start of the effect to handle effect re-runs
+    isMountedRef.current = true;
+    
     // Initialize userId on mount and subscribe to auth changes in a single effect
     // to avoid race conditions between separate initialization and listener effects
     const initializeAndSubscribe = async () => {
