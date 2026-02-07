@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { toast } from "sonner";
 import { UserSettings } from "@/types/user-settings";
 import * as Sentry from "@sentry/nextjs";
@@ -46,7 +46,9 @@ const normalizeTarget = (value?: number | null) => {
 };
 
 export function useUserSettings() {
-  const supabase = createClient();
+  // Create stable Supabase client reference to avoid re-subscribing to auth changes on every render
+  // The client is stateless and safe to memoize - auth state is managed separately via Supabase's session management
+  const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
   
   // Track current user ID in state to scope the query key
@@ -311,7 +313,10 @@ export function useUserSettings() {
       const optimisticData = {
         ...(previousSettings || {}),
         ...newSettings,
-        target_percentage: newSettings.target_percentage ? normalizeTarget(newSettings.target_percentage) : previousSettings?.target_percentage
+        target_percentage:
+          newSettings.target_percentage !== undefined
+            ? normalizeTarget(newSettings.target_percentage)
+            : previousSettings?.target_percentage
       } as UserSettings;
       
       queryClient.setQueryData(["userSettings", currentUserId], optimisticData);
@@ -453,36 +458,8 @@ export function useUserSettings() {
         // Case B: DB is empty (New User) -> Migrate LocalStorage to DB or Initialize with defaults
         // This runs once per session when DB returns null after initial fetch completes
         else if (settings === null) {
-          // Check user-scoped keys first, then fall back to legacy keys for migration
-          const localBunkKey = `showBunkCalc_${userId}`;
-          const localTargetKey = `targetPercentage_${userId}`;
-          const localBunk = localStorage.getItem(localBunkKey) ?? localStorage.getItem("showBunkCalc");
-          const localTarget = localStorage.getItem(localTargetKey) ?? localStorage.getItem("targetPercentage");
-          
-          // Clean up legacy keys after migration
-          const legacyCleanupFlagKey = "legacyKeysCleaned";
-          const hasCleanedLegacyKeysThisSession = sessionStorage.getItem(legacyCleanupFlagKey) === "true";
-          
-          if (!hasCleanedLegacyKeysThisSession) {
-            if (localStorage.getItem("showBunkCalc") !== null) {
-              localStorage.removeItem("showBunkCalc");
-            }
-            if (localStorage.getItem("targetPercentage") !== null) {
-              localStorage.removeItem("targetPercentage");
-            }
-            sessionStorage.setItem(legacyCleanupFlagKey, "true");
-          }
-          
-          // Check if we have prefetched settings that should be synced to DB
-          // This happens when user just logged in and settings were fetched from /api/auth/save-token
-          const legacyKey = "prefetchedSettings";
-          const hasPrefetchedSettings = sessionStorage.getItem(legacyKey) !== null;
-          
           // Helper function to determine if initialization should be skipped
           const shouldSkipInitialization = () => {
-            // Skip if prefetched settings exist (they'll be synced on next query success)
-            if (hasPrefetchedSettings) return true;
-            
             // Skip if we've already attempted initialization (prevent redundant mutations)
             // This ensures we only try once per session, even if refetches still return null
             if (hasAttemptedInitializationRef.current) return true;
@@ -504,12 +481,54 @@ export function useUserSettings() {
           // Even if the mutation fails, we won't retry automatically - user can refresh
           hasAttemptedInitializationRef.current = true;
 
-          // Create DB record using localStorage values if they exist, otherwise use defaults
+          // Determine settings to use for DB initialization
+          let settingsToInitialize: { bunk_calculator_enabled: boolean; target_percentage: number };
+          
+          // Check if we have prefetched settings that should be synced to DB
+          // This happens when user just logged in and settings were fetched from /api/auth/save-token
+          // If the backend returned settings but no DB row exists, we need to create the row from prefetched values
+          const legacyKey = "prefetchedSettings";
+          const prefetchedFromStorage = loadPrefetchedSettings(userId);
+          
+          if (prefetchedFromStorage) {
+            // Use prefetched settings from the backend (ensures DB row is created with server values)
+            settingsToInitialize = {
+              bunk_calculator_enabled: prefetchedFromStorage.bunk_calculator_enabled,
+              target_percentage: prefetchedFromStorage.target_percentage
+            };
+            // Clean up prefetched settings after using them for initialization
+            sessionStorage.removeItem(legacyKey);
+          } else {
+            // Fall back to localStorage values if they exist, otherwise use defaults
+            // Check user-scoped keys first, then fall back to legacy keys for migration
+            const localBunkKey = `showBunkCalc_${userId}`;
+            const localTargetKey = `targetPercentage_${userId}`;
+            const localBunk = localStorage.getItem(localBunkKey) ?? localStorage.getItem("showBunkCalc");
+            const localTarget = localStorage.getItem(localTargetKey) ?? localStorage.getItem("targetPercentage");
+            
+            // Clean up legacy keys after migration
+            const legacyCleanupFlagKey = "legacyKeysCleaned";
+            const hasCleanedLegacyKeysThisSession = sessionStorage.getItem(legacyCleanupFlagKey) === "true";
+            
+            if (!hasCleanedLegacyKeysThisSession) {
+              if (localStorage.getItem("showBunkCalc") !== null) {
+                localStorage.removeItem("showBunkCalc");
+              }
+              if (localStorage.getItem("targetPercentage") !== null) {
+                localStorage.removeItem("targetPercentage");
+              }
+              sessionStorage.setItem(legacyCleanupFlagKey, "true");
+            }
+            
+            settingsToInitialize = {
+              bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
+              target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : DEFAULT_TARGET_PERCENTAGE
+            };
+          }
+
+          // Create DB record from determined settings
           // This runs only once per session when settings is null after initial fetch
-          mutateSettings({
-            bunk_calculator_enabled: localBunk !== null ? localBunk === "true" : true,
-            target_percentage: localTarget !== null ? normalizeTarget(Number(localTarget)) : DEFAULT_TARGET_PERCENTAGE
-          });
+          mutateSettings(settingsToInitialize);
         }
       } catch (error) {
         // Log error and return gracefully to avoid unhandled promise rejection
