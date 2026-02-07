@@ -146,12 +146,19 @@ export function useUserSettings() {
   // This ensures settings are loaded immediately when user authenticates,
   // not just when navigating to protected routes
   useEffect(() => {
+    // Track if component is still mounted to prevent state updates after unmount
+    let isMounted = true;
+
     // Initialize userId on mount and subscribe to auth changes in a single effect
     // to avoid race conditions between separate initialization and listener effects
     const initializeAndSubscribe = async () => {
       // Get initial session
       const { data: { session } } = await supabase.auth.getSession();
       const initialUserId = session?.user?.id ?? null;
+      
+      // Guard against state updates on unmounted component
+      if (!isMounted) return;
+      
       currentUserIdRef.current = initialUserId;
       setUserId(initialUserId);
       // Reload prefetched settings based on the initial user to avoid using
@@ -225,6 +232,9 @@ export function useUserSettings() {
     const subscriptionPromise = initializeAndSubscribe();
     
     return () => {
+      // Mark component as unmounted to prevent state updates
+      isMounted = false;
+      
       subscriptionPromise
         .then(subscription => subscription?.unsubscribe())
         .catch(error => {
