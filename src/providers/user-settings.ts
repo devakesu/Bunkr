@@ -46,10 +46,19 @@ const normalizeTarget = (value?: number | null) => {
 };
 
 // Helper function to load and validate prefetched settings from sessionStorage
-// Validates the stored userId against the current session to prevent cross-user leakage
+// When currentUserId is provided (user is authenticated), validates that stored settings
+// belong to that user and rejects legacy records without userId. When currentUserId is null
+// (no user authenticated), accepts any valid settings format.
 // Defined at module level to avoid recreation on every render
 function loadPrefetchedSettings(currentUserId: string | null): UserSettings | null {
   if (typeof window === "undefined") return null;
+  
+  // Helper to clear invalid/stale prefetched settings
+  const clearAndReturn = () => {
+    sessionStorage.removeItem("prefetchedSettings");
+    return null;
+  };
+  
   try {
     const raw = sessionStorage.getItem("prefetchedSettings");
     if (!raw) return null;
@@ -67,14 +76,12 @@ function loadPrefetchedSettings(currentUserId: string | null): UserSettings | nu
       // First check if userId field exists (new format), reject if missing (legacy format)
       if (!('userId' in parsedRecord)) {
         // Legacy format without userId - reject when user is known to prevent cross-user leakage
-        sessionStorage.removeItem("prefetchedSettings");
-        return null;
+        return clearAndReturn();
       }
       // Then validate the userId is a string and matches the current user
       if (typeof parsedRecord.userId !== "string" || parsedRecord.userId !== currentUserId) {
         // Invalid type or belongs to a different user - clear and ignore
-        sessionStorage.removeItem("prefetchedSettings");
-        return null;
+        return clearAndReturn();
       }
     }
 
