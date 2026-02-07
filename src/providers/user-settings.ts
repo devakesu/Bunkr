@@ -150,9 +150,6 @@ export function useUserSettings() {
   // This ensures settings are loaded immediately when user authenticates,
   // not just when navigating to protected routes
   useEffect(() => {
-    // Reset mounted flag on mount
-    isMountedRef.current = true;
-
     // Initialize userId on mount and subscribe to auth changes in a single effect
     // to avoid race conditions between separate initialization and listener effects
     const initializeAndSubscribe = async () => {
