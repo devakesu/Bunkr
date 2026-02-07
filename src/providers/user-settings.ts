@@ -55,7 +55,11 @@ function loadPrefetchedSettings(currentUserId: string | null): UserSettings | nu
   
   // Helper to clear invalid/stale prefetched settings
   const clearAndReturn = () => {
-    sessionStorage.removeItem("prefetchedSettings");
+    try {
+      sessionStorage.removeItem("prefetchedSettings");
+    } catch {
+      // Swallow storage errors to ensure we always return null
+    }
     return null;
   };
   
