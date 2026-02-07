@@ -60,10 +60,24 @@ export function useUserSettings() {
   // Read prefetched settings from sessionStorage (set by login flow) to avoid
   // showing default values before the first DB fetch completes.
   // Using state instead of useMemo so we can clear it on auth transitions and prevent cross-user leakage.
-  const [prefetchedSettings, setPrefetchedSettings] = useState<UserSettings | null>(() => {
-    if (typeof window === "undefined") return null;
-    return loadPrefetchedSettings(null); // Initial load without userId validation
-  });
+  // Initialize to null and only load after userId is resolved to prevent cross-user flash on mount.
+  const [prefetchedSettings, setPrefetchedSettings] = useState<UserSettings | null>(null);
+
+  // Load or clear prefetched settings whenever the authenticated user changes.
+  // This ensures we never apply settings for an unknown or mismatched user.
+  useEffect(() => {
+    // If there's no resolved user, clear any prefetched settings to avoid cross-user leakage
+    if (!userId) {
+      setPrefetchedSettings(null);
+      return;
+    }
+
+    // When a valid userId is available, load and validate prefetched settings for that user
+    const validated = loadPrefetchedSettings(userId);
+    setPrefetchedSettings(validated);
+    // loadPrefetchedSettings is stable (doesn't close over changing values) so it's safe to omit from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   // Helper function to load and validate prefetched settings from sessionStorage
   // Validates the stored userId against the current session to prevent cross-user leakage
@@ -81,7 +95,14 @@ export function useUserSettings() {
       const parsedRecord = parsed as Record<string, unknown>;
 
       // Validate userId if we have a current user - prevent cross-user leakage
-      if (currentUserId && 'userId' in parsedRecord && typeof parsedRecord.userId === "string") {
+      if (currentUserId) {
+        // When a user is authenticated, only accept prefetched settings with a matching userId
+        // Legacy records without userId should be rejected to prevent cross-user leakage
+        if (!('userId' in parsedRecord) || typeof parsedRecord.userId !== "string") {
+          // Legacy format without userId - reject when user is known
+          sessionStorage.removeItem("prefetchedSettings");
+          return null;
+        }
         if (parsedRecord.userId !== currentUserId) {
           // Stored settings belong to a different user - clear and ignore
           sessionStorage.removeItem("prefetchedSettings");
@@ -162,12 +183,13 @@ export function useUserSettings() {
       
       currentUserIdRef.current = initialUserId;
       setUserId(initialUserId);
-      // Reload prefetched settings based on the initial user to avoid using
-      // settings belonging to a different user from a previous session.
-      setPrefetchedSettings(loadPrefetchedSettings(initialUserId));
+      // The separate useEffect will handle loading prefetched settings based on userId
 
       // Subscribe to auth changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        // Guard against state updates on unmounted component
+        if (!isMountedRef.current) return;
+        
         const newUserId = session?.user?.id ?? null;
         
         // When user signs in or session refreshes, invalidate settings cache
@@ -176,9 +198,7 @@ export function useUserSettings() {
           // Update both state and ref when session changes
           currentUserIdRef.current = newUserId;
           setUserId(newUserId);
-          
-          // Reload prefetched settings for the new user and validate userId
-          setPrefetchedSettings(loadPrefetchedSettings(newUserId));
+          // The separate useEffect will handle loading prefetched settings based on userId
           
           // Reset initialization flag on new login to allow fresh initialization if needed
           hasAttemptedInitializationRef.current = false;
@@ -195,9 +215,7 @@ export function useUserSettings() {
           // Update state and ref to null for the signed-out state
           currentUserIdRef.current = newUserId;
           setUserId(newUserId);
-          
-          // Clear prefetched settings state to prevent cross-user leakage
-          setPrefetchedSettings(null);
+          // The separate useEffect will handle clearing prefetched settings when userId becomes null
           
           // Remove user-scoped queries using the previous user's ID
           queryClient.removeQueries({ queryKey: ["userSettings", previousUserId] });
@@ -248,7 +266,11 @@ export function useUserSettings() {
   // 1. Fetch from DB
   const { data: settings, isLoading, isFetching } = useQuery({
     queryKey: ["userSettings", userId],
-    placeholderData: prefetchedSettings ?? undefined,
+    // Only apply placeholder data when we have a concrete userId to avoid leaking
+    // prefetched settings into an unauthenticated or unresolved session state.
+    placeholderData: userId ? prefetchedSettings ?? undefined : undefined,
+    // Gate the query itself on a non-null userId so we never fetch for ["userSettings", null].
+    enabled: !!userId,
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return null;
