@@ -45,6 +45,82 @@ const normalizeTarget = (value?: number | null) => {
   return Math.min(100, Math.max(MIN_TARGET, Math.round(value)));
 };
 
+// Helper function to load and validate prefetched settings from sessionStorage
+// Validates the stored userId against the current session to prevent cross-user leakage
+// Defined at module level to avoid recreation on every render
+function loadPrefetchedSettings(currentUserId: string | null): UserSettings | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem("prefetchedSettings");
+    if (!raw) return null;
+    
+    // Parse as unknown first to avoid unsafe type assertions and enable proper runtime validation
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    
+    // Convert to Record for safe property access
+    const parsedRecord = parsed as Record<string, unknown>;
+
+    // Validate userId if we have a current user - prevent cross-user leakage
+    if (currentUserId) {
+      // When a user is authenticated, only accept prefetched settings with a matching userId
+      // Legacy records without userId should be rejected to prevent cross-user leakage
+      if (!('userId' in parsedRecord) || typeof parsedRecord.userId !== "string") {
+        // Legacy format without userId - reject when user is known
+        sessionStorage.removeItem("prefetchedSettings");
+        return null;
+      }
+      if (parsedRecord.userId !== currentUserId) {
+        // Stored settings belong to a different user - clear and ignore
+        sessionStorage.removeItem("prefetchedSettings");
+        return null;
+      }
+    }
+
+    // Determine if this is the new format { userId, settings } or legacy format { bunk_calculator_enabled, target_percentage }
+    // Runtime type guards for both shapes
+    let settingsData: Record<string, unknown>;
+    
+    if ('settings' in parsedRecord && parsedRecord.settings !== null && typeof parsedRecord.settings === "object") {
+      // New format: { userId?: string; settings: { bunk_calculator_enabled, target_percentage } }
+      settingsData = parsedRecord.settings as Record<string, unknown>;
+    } else if ('bunk_calculator_enabled' in parsedRecord || 'target_percentage' in parsedRecord) {
+      // Legacy format: { bunk_calculator_enabled, target_percentage }
+      settingsData = parsedRecord;
+    } else {
+      // Unknown format
+      return null;
+    }
+
+    // Guard against null/undefined settingsData (should not happen after the type check above, but be defensive)
+    if (!settingsData || typeof settingsData !== "object") return null;
+
+    const bunk_calculator_enabled =
+      'bunk_calculator_enabled' in settingsData && typeof settingsData.bunk_calculator_enabled === "boolean"
+        ? settingsData.bunk_calculator_enabled
+        : undefined;
+    const target_percentage =
+      'target_percentage' in settingsData && typeof settingsData.target_percentage === "number"
+        ? normalizeTarget(settingsData.target_percentage)
+        : undefined;
+
+    // Only use prefetched settings if both fields are valid; otherwise, fall back to null.
+    if (
+      typeof bunk_calculator_enabled !== "boolean" ||
+      typeof target_percentage !== "number"
+    ) {
+      return null;
+    }
+
+    return {
+      bunk_calculator_enabled,
+      target_percentage,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function useUserSettings() {
   // Create stable Supabase client reference to avoid re-subscribing to auth changes on every render
   // The client is stateless and safe to memoize - auth state is managed separately via Supabase's session management
@@ -75,84 +151,7 @@ export function useUserSettings() {
     // When a valid userId is available, load and validate prefetched settings for that user
     const validated = loadPrefetchedSettings(userId);
     setPrefetchedSettings(validated);
-    // loadPrefetchedSettings is stable (doesn't close over changing values) so it's safe to omit from deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
-
-  // Helper function to load and validate prefetched settings from sessionStorage
-  // Validates the stored userId against the current session to prevent cross-user leakage
-  function loadPrefetchedSettings(currentUserId: string | null): UserSettings | null {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = sessionStorage.getItem("prefetchedSettings");
-      if (!raw) return null;
-      
-      // Parse as unknown first to avoid unsafe type assertions and enable proper runtime validation
-      const parsed: unknown = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object") return null;
-      
-      // Convert to Record for safe property access
-      const parsedRecord = parsed as Record<string, unknown>;
-
-      // Validate userId if we have a current user - prevent cross-user leakage
-      if (currentUserId) {
-        // When a user is authenticated, only accept prefetched settings with a matching userId
-        // Legacy records without userId should be rejected to prevent cross-user leakage
-        if (!('userId' in parsedRecord) || typeof parsedRecord.userId !== "string") {
-          // Legacy format without userId - reject when user is known
-          sessionStorage.removeItem("prefetchedSettings");
-          return null;
-        }
-        if (parsedRecord.userId !== currentUserId) {
-          // Stored settings belong to a different user - clear and ignore
-          sessionStorage.removeItem("prefetchedSettings");
-          return null;
-        }
-      }
-
-      // Determine if this is the new format { userId, settings } or legacy format { bunk_calculator_enabled, target_percentage }
-      // Runtime type guards for both shapes
-      let settingsData: Record<string, unknown>;
-      
-      if ('settings' in parsedRecord && parsedRecord.settings !== null && typeof parsedRecord.settings === "object") {
-        // New format: { userId?: string; settings: { bunk_calculator_enabled, target_percentage } }
-        settingsData = parsedRecord.settings as Record<string, unknown>;
-      } else if ('bunk_calculator_enabled' in parsedRecord || 'target_percentage' in parsedRecord) {
-        // Legacy format: { bunk_calculator_enabled, target_percentage }
-        settingsData = parsedRecord;
-      } else {
-        // Unknown format
-        return null;
-      }
-
-      // Guard against null/undefined settingsData (should not happen after the type check above, but be defensive)
-      if (!settingsData || typeof settingsData !== "object") return null;
-
-      const bunk_calculator_enabled =
-        'bunk_calculator_enabled' in settingsData && typeof settingsData.bunk_calculator_enabled === "boolean"
-          ? settingsData.bunk_calculator_enabled
-          : undefined;
-      const target_percentage =
-        'target_percentage' in settingsData && typeof settingsData.target_percentage === "number"
-          ? normalizeTarget(settingsData.target_percentage)
-          : undefined;
-
-      // Only use prefetched settings if both fields are valid; otherwise, fall back to null.
-      if (
-        typeof bunk_calculator_enabled !== "boolean" ||
-        typeof target_percentage !== "number"
-      ) {
-        return null;
-      }
-
-      return {
-        bunk_calculator_enabled,
-        target_percentage,
-      };
-    } catch {
-      return null;
-    }
-  }
   
   // Track mutation window to prevent focus refetch from overwriting optimistic updates
   // When user toggles a setting, we set this to true during onMutate
