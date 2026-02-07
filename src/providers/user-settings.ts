@@ -45,6 +45,89 @@ const normalizeTarget = (value?: number | null) => {
   return Math.min(100, Math.max(MIN_TARGET, Math.round(value)));
 };
 
+// Helper function to load and validate prefetched settings from sessionStorage
+// When currentUserId is provided (user is authenticated), validates that stored settings
+// belong to that user and rejects legacy records without userId. When currentUserId is null
+// (no user authenticated), accepts any valid settings format.
+// Defined at module level to avoid recreation on every render
+function loadPrefetchedSettings(currentUserId: string | null): UserSettings | null {
+  if (typeof window === "undefined") return null;
+  
+  // Helper to clear invalid/stale prefetched settings
+  const clearAndReturn = () => {
+    sessionStorage.removeItem("prefetchedSettings");
+    return null;
+  };
+  
+  try {
+    const raw = sessionStorage.getItem("prefetchedSettings");
+    if (!raw) return null;
+    
+    // Parse as unknown first to avoid unsafe type assertions and enable proper runtime validation
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    
+    // Convert to Record for safe property access
+    const parsedRecord = parsed as Record<string, unknown>;
+
+    // Validate userId if we have a current user - prevent cross-user leakage
+    if (currentUserId) {
+      // When a user is authenticated, only accept prefetched settings with a matching userId
+      // First check if userId field exists (new format), reject if missing (legacy format)
+      if (!('userId' in parsedRecord)) {
+        // Legacy format without userId - reject when user is known to prevent cross-user leakage
+        return clearAndReturn();
+      }
+      // Then validate the userId is a string and matches the current user
+      if (typeof parsedRecord.userId !== "string" || parsedRecord.userId !== currentUserId) {
+        // Invalid type or belongs to a different user - clear and ignore
+        return clearAndReturn();
+      }
+    }
+    // Note: When currentUserId is null (unauthenticated), we accept both new and legacy formats
+    // since there's no cross-user leakage risk. This supports the migration path from legacy format.
+
+    // Determine if this is the new format { userId, settings } or legacy format { bunk_calculator_enabled, target_percentage }
+    // Runtime type guards for both shapes
+    let settingsData: Record<string, unknown>;
+    
+    if ('settings' in parsedRecord && parsedRecord.settings !== null && typeof parsedRecord.settings === "object") {
+      // New format: { userId?: string; settings: { bunk_calculator_enabled, target_percentage } }
+      settingsData = parsedRecord.settings as Record<string, unknown>;
+    } else if ('bunk_calculator_enabled' in parsedRecord || 'target_percentage' in parsedRecord) {
+      // Legacy format: { bunk_calculator_enabled, target_percentage }
+      settingsData = parsedRecord;
+    } else {
+      // Unknown format
+      return null;
+    }
+
+    const bunk_calculator_enabled =
+      'bunk_calculator_enabled' in settingsData && typeof settingsData.bunk_calculator_enabled === "boolean"
+        ? settingsData.bunk_calculator_enabled
+        : undefined;
+    const target_percentage =
+      'target_percentage' in settingsData && typeof settingsData.target_percentage === "number"
+        ? normalizeTarget(settingsData.target_percentage)
+        : undefined;
+
+    // Only use prefetched settings if both fields are valid; otherwise, fall back to null.
+    if (
+      typeof bunk_calculator_enabled !== "boolean" ||
+      typeof target_percentage !== "number"
+    ) {
+      return null;
+    }
+
+    return {
+      bunk_calculator_enabled,
+      target_percentage,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function useUserSettings() {
   // Create stable Supabase client reference to avoid re-subscribing to auth changes on every render
   // The client is stateless and safe to memoize - auth state is managed separately via Supabase's session management
@@ -60,78 +143,22 @@ export function useUserSettings() {
   // Read prefetched settings from sessionStorage (set by login flow) to avoid
   // showing default values before the first DB fetch completes.
   // Using state instead of useMemo so we can clear it on auth transitions and prevent cross-user leakage.
-  const [prefetchedSettings, setPrefetchedSettings] = useState<UserSettings | null>(() => {
-    if (typeof window === "undefined") return null;
-    return loadPrefetchedSettings(null); // Initial load without userId validation
-  });
+  // Initialize to null and only load after userId is resolved to prevent cross-user flash on mount.
+  const [prefetchedSettings, setPrefetchedSettings] = useState<UserSettings | null>(null);
 
-  // Helper function to load and validate prefetched settings from sessionStorage
-  // Validates the stored userId against the current session to prevent cross-user leakage
-  function loadPrefetchedSettings(currentUserId: string | null): UserSettings | null {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = sessionStorage.getItem("prefetchedSettings");
-      if (!raw) return null;
-      
-      // Parse as unknown first to avoid unsafe type assertions and enable proper runtime validation
-      const parsed: unknown = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object") return null;
-      
-      // Convert to Record for safe property access
-      const parsedRecord = parsed as Record<string, unknown>;
-
-      // Validate userId if we have a current user - prevent cross-user leakage
-      if (currentUserId && 'userId' in parsedRecord && typeof parsedRecord.userId === "string") {
-        if (parsedRecord.userId !== currentUserId) {
-          // Stored settings belong to a different user - clear and ignore
-          sessionStorage.removeItem("prefetchedSettings");
-          return null;
-        }
-      }
-
-      // Determine if this is the new format { userId, settings } or legacy format { bunk_calculator_enabled, target_percentage }
-      // Runtime type guards for both shapes
-      let settingsData: Record<string, unknown>;
-      
-      if ('settings' in parsedRecord && parsedRecord.settings !== null && typeof parsedRecord.settings === "object") {
-        // New format: { userId?: string; settings: { bunk_calculator_enabled, target_percentage } }
-        settingsData = parsedRecord.settings as Record<string, unknown>;
-      } else if ('bunk_calculator_enabled' in parsedRecord || 'target_percentage' in parsedRecord) {
-        // Legacy format: { bunk_calculator_enabled, target_percentage }
-        settingsData = parsedRecord;
-      } else {
-        // Unknown format
-        return null;
-      }
-
-      // Guard against null/undefined settingsData (should not happen after the type check above, but be defensive)
-      if (!settingsData || typeof settingsData !== "object") return null;
-
-      const bunk_calculator_enabled =
-        'bunk_calculator_enabled' in settingsData && typeof settingsData.bunk_calculator_enabled === "boolean"
-          ? settingsData.bunk_calculator_enabled
-          : undefined;
-      const target_percentage =
-        'target_percentage' in settingsData && typeof settingsData.target_percentage === "number"
-          ? normalizeTarget(settingsData.target_percentage)
-          : undefined;
-
-      // Only use prefetched settings if both fields are valid; otherwise, fall back to null.
-      if (
-        typeof bunk_calculator_enabled !== "boolean" ||
-        typeof target_percentage !== "number"
-      ) {
-        return null;
-      }
-
-      return {
-        bunk_calculator_enabled,
-        target_percentage,
-      };
-    } catch {
-      return null;
+  // Load or clear prefetched settings whenever the authenticated user changes.
+  // This ensures we never apply settings for an unknown or mismatched user.
+  useEffect(() => {
+    // If there's no resolved user, clear any prefetched settings to avoid cross-user leakage
+    if (!userId) {
+      setPrefetchedSettings(null);
+      return;
     }
-  }
+
+    // When a valid userId is available, load and validate prefetched settings for that user
+    const validated = loadPrefetchedSettings(userId);
+    setPrefetchedSettings(validated);
+  }, [userId]);
   
   // Track mutation window to prevent focus refetch from overwriting optimistic updates
   // When user toggles a setting, we set this to true during onMutate
@@ -162,12 +189,13 @@ export function useUserSettings() {
       
       currentUserIdRef.current = initialUserId;
       setUserId(initialUserId);
-      // Reload prefetched settings based on the initial user to avoid using
-      // settings belonging to a different user from a previous session.
-      setPrefetchedSettings(loadPrefetchedSettings(initialUserId));
+      // The separate useEffect will handle loading prefetched settings based on userId
 
       // Subscribe to auth changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        // Guard against state updates on unmounted component
+        if (!isMountedRef.current) return;
+        
         const newUserId = session?.user?.id ?? null;
         
         // When user signs in or session refreshes, invalidate settings cache
@@ -176,9 +204,7 @@ export function useUserSettings() {
           // Update both state and ref when session changes
           currentUserIdRef.current = newUserId;
           setUserId(newUserId);
-          
-          // Reload prefetched settings for the new user and validate userId
-          setPrefetchedSettings(loadPrefetchedSettings(newUserId));
+          // The separate useEffect will handle loading prefetched settings based on userId
           
           // Reset initialization flag on new login to allow fresh initialization if needed
           hasAttemptedInitializationRef.current = false;
@@ -195,9 +221,7 @@ export function useUserSettings() {
           // Update state and ref to null for the signed-out state
           currentUserIdRef.current = newUserId;
           setUserId(newUserId);
-          
-          // Clear prefetched settings state to prevent cross-user leakage
-          setPrefetchedSettings(null);
+          // The separate useEffect will handle clearing prefetched settings when userId becomes null
           
           // Remove user-scoped queries using the previous user's ID
           queryClient.removeQueries({ queryKey: ["userSettings", previousUserId] });
@@ -248,7 +272,11 @@ export function useUserSettings() {
   // 1. Fetch from DB
   const { data: settings, isLoading, isFetching } = useQuery({
     queryKey: ["userSettings", userId],
-    placeholderData: prefetchedSettings ?? undefined,
+    // Only apply placeholder data when we have a concrete userId to avoid leaking
+    // prefetched settings into an unauthenticated or unresolved session state.
+    placeholderData: userId ? prefetchedSettings ?? undefined : undefined,
+    // Gate the query itself on a non-null userId so we never fetch for ["userSettings", null].
+    enabled: !!userId,
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return null;
