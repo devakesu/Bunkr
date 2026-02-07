@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { UserSettings } from "@/types/user-settings";
 import * as Sentry from "@sentry/nextjs";
@@ -57,9 +57,15 @@ export function useUserSettings() {
 
   // Read prefetched settings from sessionStorage (set by login flow) to avoid
   // showing default values before the first DB fetch completes.
-  // Memoized with empty deps - recomputation is handled via sessionStorage.removeItem on sign-out.
-  // This ensures stale prefetched data is cleared when user signs out and prevents cross-user leakage.
-  const prefetchedSettings = useMemo(() => {
+  // Using state instead of useMemo so we can clear it on auth transitions and prevent cross-user leakage.
+  const [prefetchedSettings, setPrefetchedSettings] = useState<UserSettings | null>(() => {
+    if (typeof window === "undefined") return null;
+    return loadPrefetchedSettings(null); // Initial load without userId validation
+  });
+
+  // Helper function to load and validate prefetched settings from sessionStorage
+  // Validates the stored userId against the current session to prevent cross-user leakage
+  function loadPrefetchedSettings(currentUserId: string | null): UserSettings | null {
     if (typeof window === "undefined") return null;
     try {
       const raw = sessionStorage.getItem("prefetchedSettings");
@@ -68,6 +74,15 @@ export function useUserSettings() {
       // Parse as unknown first to avoid unsafe type assertions and enable proper runtime validation
       const parsed: unknown = JSON.parse(raw);
       if (!parsed || typeof parsed !== "object") return null;
+
+      // Validate userId if we have a current user - prevent cross-user leakage
+      if (currentUserId && 'userId' in parsed && typeof parsed.userId === "string") {
+        if (parsed.userId !== currentUserId) {
+          // Stored settings belong to a different user - clear and ignore
+          sessionStorage.removeItem("prefetchedSettings");
+          return null;
+        }
+      }
 
       // Determine if this is the new format { userId, settings } or legacy format { bunk_calculator_enabled, target_percentage }
       // Runtime type guards for both shapes
@@ -104,10 +119,6 @@ export function useUserSettings() {
         return null;
       }
 
-      // Note: We don't validate userId here because we don't have access to current session yet.
-      // The auth state listener will clear prefetchedSettings on SIGNED_OUT, preventing cross-user leakage.
-      // If the hook stays mounted across auth transitions, the cleared sessionStorage ensures
-      // the memoized value won't be reused (since it will be removed and the query will re-run).
       return {
         bunk_calculator_enabled,
         target_percentage,
@@ -115,7 +126,7 @@ export function useUserSettings() {
     } catch {
       return null;
     }
-  }, []);
+  }
   
   // Track mutation window to prevent focus refetch from overwriting optimistic updates
   // When user toggles a setting, we set this to true during onMutate
@@ -150,6 +161,9 @@ export function useUserSettings() {
           currentUserIdRef.current = newUserId;
           setUserId(newUserId);
           
+          // Reload prefetched settings for the new user and validate userId
+          setPrefetchedSettings(loadPrefetchedSettings(newUserId));
+          
           // Reset initialization flag on new login to allow fresh initialization if needed
           hasAttemptedInitializationRef.current = false;
           // Invalidate the new user's scoped query
@@ -165,6 +179,9 @@ export function useUserSettings() {
           // Update state and ref to null for the signed-out state
           currentUserIdRef.current = newUserId;
           setUserId(newUserId);
+          
+          // Clear prefetched settings state to prevent cross-user leakage
+          setPrefetchedSettings(null);
           
           // Remove user-scoped queries using the previous user's ID
           queryClient.removeQueries({ queryKey: ["userSettings", previousUserId] });
@@ -278,6 +295,8 @@ export function useUserSettings() {
       // If no userId is available, we shouldn't proceed with cache operations
       // This is a safety check, though it should not happen in normal operation
       if (!currentUserId) {
+        // Reset mutation window flag since we're aborting optimistic update
+        isMutatingRef.current = false;
         logger.dev("Mutation attempted without userId - this should not happen");
         return { previousSettings: undefined, currentUserId: null };
       }
