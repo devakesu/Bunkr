@@ -10,6 +10,7 @@ import { useAttendanceSettings } from "@/providers/attendance-settings";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useUser } from "@/hooks/users/user";
+import { createClient } from "@/lib/supabase/client";
 
 /**
  * Extended Course interface with additional attendance statistics.
@@ -74,10 +75,14 @@ export function CourseCard({ course }: CourseCardProps) {
     let isMounted = true;
 
     // Load user-scoped preference to avoid cross-user leakage on shared devices
-    const loadSetting = () => {
+    const loadSetting = async () => {
       try {
-        // Use the existing user from the useUser() hook to avoid duplicate auth call
-        const userId = user?.id;
+        // Get Supabase auth user ID (UUID) to match the localStorage keys written in
+        // login-form.tsx and user-settings.ts. This ensures we read the correct
+        // user-scoped preference, not the numeric backend user ID from useUser().
+        const supabase = createClient();
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const userId = authUser?.id;
         
         if (userId) {
           const scopedKey = `showBunkCalc_${userId}`;
@@ -119,7 +124,7 @@ export function CourseCard({ course }: CourseCardProps) {
         handleBunkCalcToggle as EventListener
       );
     };
-  }, [user?.id]);
+  }, []);
 
   const stats = useMemo(() => {
     // 1. Official Data (From API) - Use course prop as fallback for initial render
