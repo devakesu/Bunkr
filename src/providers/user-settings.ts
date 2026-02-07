@@ -335,16 +335,16 @@ export function useUserSettings() {
       // Mark that we're in a mutation window - prevents focus refetch from pulling stale data
       isMutatingRef.current = true;
       
-      // Get current userId for scoping the query key
-      // currentUserIdRef is initialized on mount, so it should always be available
-      const currentUserId = currentUserIdRef.current;
+      // Derive userId from the same source as the mutation (getSession) to ensure
+      // cache updates happen even if currentUserIdRef is stale/null
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id ?? null;
       
       // If no userId is available, we shouldn't proceed with cache operations
-      // This is a safety check, though it should not happen in normal operation
       if (!currentUserId) {
         // Reset mutation window flag since we're aborting optimistic update
         isMutatingRef.current = false;
-        logger.dev("Mutation attempted without userId - this should not happen");
+        logger.dev("Mutation attempted without userId - session not available");
         return { previousSettings: undefined, currentUserId: null };
       }
       

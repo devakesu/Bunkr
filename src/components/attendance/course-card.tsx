@@ -80,9 +80,11 @@ export function CourseCard({ course }: CourseCardProps) {
         // Get Supabase auth user ID (UUID) to match the localStorage keys written in
         // login-form.tsx and user-settings.ts. This ensures we read the correct
         // user-scoped preference, not the numeric backend user ID from useUser().
+        // Use getSession() (local, synchronous) instead of getUser() (network call)
+        // to avoid N network requests on pages with many CourseCards.
         const supabase = createClient();
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        const userId = authUser?.id;
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user.id;
         
         if (userId) {
           const scopedKey = `showBunkCalc_${userId}`;
