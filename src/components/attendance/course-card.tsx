@@ -84,7 +84,7 @@ export function CourseCard({ course }: CourseCardProps) {
         // to avoid N network requests on pages with many CourseCards.
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
-        const userId = session?.user.id;
+        const userId = session?.user?.id;
         
         if (userId) {
           const scopedKey = `showBunkCalc_${userId}`;
