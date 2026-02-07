@@ -177,34 +177,28 @@ export function useUserSettings() {
     // Initialize userId on mount and subscribe to auth changes in a single effect
     // to avoid race conditions between separate initialization and listener effects
     const initializeAndSubscribe = async () => {
-      // Get initial session
-      const { data: { session } } = await supabase.auth.getSession();
-      const initialUserId = session?.user?.id ?? null;
-      
-      // Guard against state updates on unmounted component
-      if (!isMountedRef.current) return;
-      
-      currentUserIdRef.current = initialUserId;
-      setUserId(initialUserId);
-      // The separate useEffect will handle loading prefetched settings based on userId
-
-      // Subscribe to auth changes
+      // Subscribe to auth changes FIRST (before reading session) to ensure we don't miss
+      // any auth events that occur during initialization. The INITIAL_SESSION event will
+      // provide the current session state.
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         // Guard against state updates on unmounted component
         if (!isMountedRef.current) return;
         
         const newUserId = session?.user?.id ?? null;
         
-        // When user signs in or session refreshes, invalidate settings cache
-        // to trigger immediate re-fetch with the new auth session
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        // Handle initial session event (replaces the previous getSession() call)
+        // or when user signs in or session refreshes
+        if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           // Update both state and ref when session changes
           currentUserIdRef.current = newUserId;
           setUserId(newUserId);
           // useMemo will handle recomputing prefetched settings based on the new userId
           
-          // Reset initialization flag on new login to allow fresh initialization if needed
-          hasAttemptedInitializationRef.current = false;
+          // Reset initialization flag on new login/refresh to allow fresh initialization if needed
+          // For INITIAL_SESSION, this is the first time, so flag is already false
+          if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+            hasAttemptedInitializationRef.current = false;
+          }
           // Only invalidate queries for a valid user ID to avoid inconsistent cache operations
           if (newUserId) {
             queryClient.invalidateQueries({ queryKey: ["userSettings", newUserId] });
@@ -544,7 +538,13 @@ export function useUserSettings() {
               target_percentage: prefetchedFromStorage.target_percentage
             };
             // Clean up prefetched settings after using them for initialization
-            sessionStorage.removeItem(legacyKey);
+            // Wrap in try/catch so DB initialization proceeds even if storage cleanup fails
+            try {
+              sessionStorage.removeItem(legacyKey);
+            } catch (cleanupError) {
+              // Ignore cleanup failures - they won't prevent DB initialization
+              logger.dev("Failed to clean up prefetched settings from sessionStorage:", cleanupError);
+            }
           } else {
             // Fall back to localStorage values if they exist, otherwise use defaults
             // Check user-scoped keys first, then fall back to legacy keys for migration
