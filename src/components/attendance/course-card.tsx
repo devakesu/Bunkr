@@ -11,7 +11,6 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useUser } from "@/hooks/users/user";
 import { createClient } from "@/lib/supabase/client";
-import { logger } from "@/lib/logger";
 
 /**
  * Extended Course interface with additional attendance statistics.
@@ -73,31 +72,46 @@ export function CourseCard({ course }: CourseCardProps) {
   }), [course.id, course.name, course.code, normalize]);
 
   useEffect(() => {
-    // Track if component is still mounted to prevent state updates after unmount
     let isMounted = true;
 
-    // Get user ID from auth to use scoped localStorage key
-    const fetchUserAndLoadSetting = async () => {
+    // Load user-scoped preference to avoid cross-user leakage on shared devices
+    const loadSetting = async () => {
       try {
+        // Get Supabase auth user ID (UUID) to match the localStorage keys written in
+        // login-form.tsx and user-settings.ts. This ensures we read the correct
+        // user-scoped preference, not the numeric backend user ID from useUser().
+        // Use getSession() (local, synchronous) instead of getUser() (network call)
+        // to avoid N network requests on pages with many CourseCards.
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id && isMounted) {
-          const localKey = `showBunkCalc_${session.user.id}`;
-          const stored = localStorage.getItem(localKey);
-          if (stored !== null) {
-            setShowBunkCalc(stored === "true");
+        const userId = session?.user?.id;
+        
+        if (userId) {
+          const scopedKey = `showBunkCalc_${userId}`;
+          const scopedValue = localStorage.getItem(scopedKey);
+          if (scopedValue !== null && isMounted) {
+            setShowBunkCalc(scopedValue === "true");
+          }
+          // Don't fallback to legacy key when user is authenticated to avoid cross-user leakage
+        } else {
+          // Only use legacy key when there is no authenticated user
+          const legacyValue = localStorage.getItem("showBunkCalc");
+          if (legacyValue !== null && isMounted) {
+            setShowBunkCalc(legacyValue === "true");
           }
         }
-      } catch (error) {
-        // Fallback: if auth fails, don't block rendering
-        logger.dev("Failed to get session for localStorage key", error);
+      } catch {
+        // Ignore storage access errors (e.g., private mode, disabled storage)
+        // Fall back to default value (true) already set in useState
       }
     };
 
-    fetchUserAndLoadSetting();
+    loadSetting();
 
     const handleBunkCalcToggle = (event: CustomEvent) => {
-      setShowBunkCalc(event.detail);
+      if (isMounted) {
+        setShowBunkCalc(event.detail);
+      }
     };
 
     window.addEventListener(
