@@ -141,13 +141,17 @@ export function useUserSettings() {
   // Track if we've attempted initialization to prevent redundant mutation calls
   // This prevents duplicate initialization during rapid refetches before mutation completes
   const hasAttemptedInitializationRef = useRef(false);
+  
+  // Track if component is still mounted to prevent state updates after unmount
+  // Using a ref ensures the latest value is always accessed in async callbacks
+  const isMountedRef = useRef(true);
 
   // Monitor session changes to trigger settings fetch on login
   // This ensures settings are loaded immediately when user authenticates,
   // not just when navigating to protected routes
   useEffect(() => {
-    // Track if component is still mounted to prevent state updates after unmount
-    let isMounted = true;
+    // Reset mounted flag on mount
+    isMountedRef.current = true;
 
     // Initialize userId on mount and subscribe to auth changes in a single effect
     // to avoid race conditions between separate initialization and listener effects
@@ -157,7 +161,7 @@ export function useUserSettings() {
       const initialUserId = session?.user?.id ?? null;
       
       // Guard against state updates on unmounted component
-      if (!isMounted) return;
+      if (!isMountedRef.current) return;
       
       currentUserIdRef.current = initialUserId;
       setUserId(initialUserId);
@@ -233,7 +237,7 @@ export function useUserSettings() {
     
     return () => {
       // Mark component as unmounted to prevent state updates
-      isMounted = false;
+      isMountedRef.current = false;
       
       subscriptionPromise
         .then(subscription => subscription?.unsubscribe())
