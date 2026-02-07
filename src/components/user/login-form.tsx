@@ -287,11 +287,9 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
         };
 
         try {
-          // Include userId in prefetched settings to prevent cross-user leakage
-          sessionStorage.setItem("prefetchedSettings", JSON.stringify({
-            userId: user.id,
-            settings: defaultSettings
-          }));
+          // We intentionally do NOT write to sessionStorage.prefetchedSettings here so
+          // that the settings provider will still create a user_settings row in the DB.
+          // Writing prefetchedSettings would cause the provider to skip DB initialization.
           localStorage.setItem(`showBunkCalc_${user.id}`, defaultSettings.bunk_calculator_enabled.toString());
           localStorage.setItem(`targetPercentage_${user.id}`, defaultSettings.target_percentage.toString());
         } catch (storageError) {
