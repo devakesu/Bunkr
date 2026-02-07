@@ -84,6 +84,8 @@ function loadPrefetchedSettings(currentUserId: string | null): UserSettings | nu
         return clearAndReturn();
       }
     }
+    // Note: When currentUserId is null (unauthenticated), we accept both new and legacy formats
+    // since there's no cross-user leakage risk. This supports the migration path from legacy format.
 
     // Determine if this is the new format { userId, settings } or legacy format { bunk_calculator_enabled, target_percentage }
     // Runtime type guards for both shapes
