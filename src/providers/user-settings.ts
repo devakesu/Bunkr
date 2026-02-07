@@ -141,6 +141,10 @@ export function useUserSettings() {
   // Track if we've attempted initialization to prevent redundant mutation calls
   // This prevents duplicate initialization during rapid refetches before mutation completes
   const hasAttemptedInitializationRef = useRef(false);
+  
+  // Track if component is still mounted to prevent state updates after unmount
+  // Using a ref ensures the latest value is always accessed in async callbacks
+  const isMountedRef = useRef(true);
 
   // Monitor session changes to trigger settings fetch on login
   // This ensures settings are loaded immediately when user authenticates,
@@ -152,6 +156,10 @@ export function useUserSettings() {
       // Get initial session
       const { data: { session } } = await supabase.auth.getSession();
       const initialUserId = session?.user?.id ?? null;
+      
+      // Guard against state updates on unmounted component
+      if (!isMountedRef.current) return;
+      
       currentUserIdRef.current = initialUserId;
       setUserId(initialUserId);
       // Reload prefetched settings based on the initial user to avoid using
@@ -225,6 +233,9 @@ export function useUserSettings() {
     const subscriptionPromise = initializeAndSubscribe();
     
     return () => {
+      // Mark component as unmounted to prevent state updates
+      isMountedRef.current = false;
+      
       subscriptionPromise
         .then(subscription => subscription?.unsubscribe())
         .catch(error => {
