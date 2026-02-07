@@ -140,24 +140,17 @@ export function useUserSettings() {
   const [userId, setUserId] = useState<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
 
-  // Read prefetched settings from sessionStorage (set by login flow) to avoid
-  // showing default values before the first DB fetch completes.
-  // Using state instead of useMemo so we can clear it on auth transitions and prevent cross-user leakage.
-  // Initialize to null and only load after userId is resolved to prevent cross-user flash on mount.
-  const [prefetchedSettings, setPrefetchedSettings] = useState<UserSettings | null>(null);
-
-  // Load or clear prefetched settings whenever the authenticated user changes.
-  // This ensures we never apply settings for an unknown or mismatched user.
-  useEffect(() => {
+  // We derive this from userId via useMemo so that prefetched settings are available
+  // during the same render where userId first becomes non-null, preventing an initial
+  // "defaults" flash when the React Query hook is enabled.
+  const prefetchedSettings = useMemo<UserSettings | null>(() => {
     // If there's no resolved user, clear any prefetched settings to avoid cross-user leakage
     if (!userId) {
-      setPrefetchedSettings(null);
-      return;
+      return null;
     }
 
     // When a valid userId is available, load and validate prefetched settings for that user
-    const validated = loadPrefetchedSettings(userId);
-    setPrefetchedSettings(validated);
+    return loadPrefetchedSettings(userId);
   }, [userId]);
   
   // Track mutation window to prevent focus refetch from overwriting optimistic updates
@@ -204,12 +197,14 @@ export function useUserSettings() {
           // Update both state and ref when session changes
           currentUserIdRef.current = newUserId;
           setUserId(newUserId);
-          // The separate useEffect will handle loading prefetched settings based on userId
+          // useMemo will handle recomputing prefetched settings based on the new userId
           
           // Reset initialization flag on new login to allow fresh initialization if needed
           hasAttemptedInitializationRef.current = false;
-          // Invalidate the new user's scoped query
-          queryClient.invalidateQueries({ queryKey: ["userSettings", newUserId] });
+          // Only invalidate queries for a valid user ID to avoid inconsistent cache operations
+          if (newUserId) {
+            queryClient.invalidateQueries({ queryKey: ["userSettings", newUserId] });
+          }
           // Also remove any queries that might have been created with null userId during initial mount
           queryClient.removeQueries({ queryKey: ["userSettings", null] });
         }
@@ -221,10 +216,13 @@ export function useUserSettings() {
           // Update state and ref to null for the signed-out state
           currentUserIdRef.current = newUserId;
           setUserId(newUserId);
-          // The separate useEffect will handle clearing prefetched settings when userId becomes null
+          // useMemo will handle recomputing prefetched settings (clearing) based on userId becoming null
           
           // Remove user-scoped queries using the previous user's ID
-          queryClient.removeQueries({ queryKey: ["userSettings", previousUserId] });
+          // Only remove queries if we have a valid previousUserId to avoid inconsistent cache operations
+          if (previousUserId) {
+            queryClient.removeQueries({ queryKey: ["userSettings", previousUserId] });
+          }
           hasAttemptedInitializationRef.current = false;
           
           // Clear user-specific storage to prevent data leakage between users
