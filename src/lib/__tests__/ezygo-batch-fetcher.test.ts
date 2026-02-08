@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { fetchEzygoData, getRateLimiterStats } from '../ezygo-batch-fetcher';
+import { fetchEzygoData, getRateLimiterStats, resetRateLimiterState } from '../ezygo-batch-fetcher';
 
 // Mock the circuit breaker to passthrough execution
 vi.mock('../circuit-breaker', () => ({
@@ -10,6 +10,12 @@ vi.mock('../circuit-breaker', () => ({
     constructor(message: string) {
       super(message);
       this.name = 'CircuitBreakerOpenError';
+    }
+  },
+  NonBreakerError: class NonBreakerError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'NonBreakerError';
     }
   },
 }));
@@ -26,6 +32,8 @@ vi.mock('../logger', () => ({
 describe('EzyGo Batch Fetcher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset rate limiter state to avoid test interference
+    resetRateLimiterState();
     // Reset fetch mock before each test
     global.fetch = vi.fn();
     
@@ -122,6 +130,30 @@ describe('EzyGo Batch Fetcher', () => {
 
       // Should make 2 separate requests (different bodies)
       expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should deduplicate endpoints with and without leading slash', async () => {
+      const mockResponse = { data: 'test' };
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const token = 'test-token';
+
+      // Make concurrent requests with /endpoint and endpoint
+      const promises = [
+        fetchEzygoData('/myprofile', token),
+        fetchEzygoData('myprofile', token),
+      ];
+
+      const results = await Promise.all(promises);
+
+      // Both should return the same result
+      expect(results).toEqual([mockResponse, mockResponse]);
+      
+      // But fetch should only be called once due to endpoint normalization
+      expect(global.fetch).toHaveBeenCalledTimes(1);
     });
   });
 

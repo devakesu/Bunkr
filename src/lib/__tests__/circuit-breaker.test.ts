@@ -220,4 +220,83 @@ describe('CircuitBreaker', () => {
       expect(status.successCount).toBe(0);
     });
   });
+
+  describe('NonBreakerError handling', () => {
+    it('should not increment failure count for NonBreakerError', async () => {
+      const { NonBreakerError } = await import('../circuit-breaker');
+      const mockFn = vi.fn().mockRejectedValue(new NonBreakerError('Client error'));
+      
+      // Fail with NonBreakerError - should not count as failure
+      await expect(ezygoCircuitBreaker.execute(mockFn)).rejects.toThrow('Client error');
+      
+      const status = ezygoCircuitBreaker.getStatus();
+      expect(status.failures).toBe(0);
+      expect(status.state).toBe('CLOSED');
+    });
+
+    it('should not open circuit with multiple NonBreakerErrors', async () => {
+      const { NonBreakerError } = await import('../circuit-breaker');
+      const mockFn = vi.fn().mockRejectedValue(new NonBreakerError('Client error'));
+      
+      // Fail 5 times with NonBreakerError - should not open circuit
+      for (let i = 0; i < 5; i++) {
+        await expect(ezygoCircuitBreaker.execute(mockFn)).rejects.toThrow('Client error');
+      }
+      
+      const status = ezygoCircuitBreaker.getStatus();
+      expect(status.failures).toBe(0);
+      expect(status.state).toBe('CLOSED');
+    });
+
+    it('should allow HALF_OPEN to progress with NonBreakerError', async () => {
+      const { NonBreakerError } = await import('../circuit-breaker');
+      
+      // Open the circuit
+      const failFn = vi.fn().mockRejectedValue(new Error('Server error'));
+      for (let i = 0; i < 3; i++) {
+        await expect(ezygoCircuitBreaker.execute(failFn)).rejects.toThrow('Server error');
+      }
+      
+      expect(ezygoCircuitBreaker.getStatus().state).toBe('OPEN');
+      
+      // Manually transition to HALF_OPEN by resetting the circuit
+      ezygoCircuitBreaker.reset();
+      ezygoCircuitBreaker['state'] = 'HALF_OPEN' as any;
+      ezygoCircuitBreaker['halfOpenInFlight'] = 0;
+      ezygoCircuitBreaker['successCount'] = 0;
+      
+      // Make request with NonBreakerError in HALF_OPEN - should count as success for bookkeeping
+      const clientErrorFn = vi.fn().mockRejectedValue(new NonBreakerError('Auth error'));
+      await expect(ezygoCircuitBreaker.execute(clientErrorFn)).rejects.toThrow('Auth error');
+      
+      // Should have incremented success count
+      expect(ezygoCircuitBreaker.getStatus().successCount).toBe(1);
+      
+      // Make one more successful request to close the circuit
+      const successFn = vi.fn().mockResolvedValue('success');
+      await ezygoCircuitBreaker.execute(successFn);
+      
+      const status = ezygoCircuitBreaker.getStatus();
+      expect(status.state).toBe('CLOSED');
+    });
+
+    it('should reset prior failures when NonBreakerError occurs in CLOSED', async () => {
+      const { NonBreakerError } = await import('../circuit-breaker');
+      
+      // Fail twice with regular errors
+      const failFn = vi.fn().mockRejectedValue(new Error('Server error'));
+      await expect(ezygoCircuitBreaker.execute(failFn)).rejects.toThrow();
+      await expect(ezygoCircuitBreaker.execute(failFn)).rejects.toThrow();
+      
+      expect(ezygoCircuitBreaker.getStatus().failures).toBe(2);
+      
+      // NonBreakerError should reset failure count
+      const clientErrorFn = vi.fn().mockRejectedValue(new NonBreakerError('Client error'));
+      await expect(ezygoCircuitBreaker.execute(clientErrorFn)).rejects.toThrow('Client error');
+      
+      const status = ezygoCircuitBreaker.getStatus();
+      expect(status.failures).toBe(0);
+      expect(status.state).toBe('CLOSED');
+    });
+  });
 });

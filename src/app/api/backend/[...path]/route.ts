@@ -3,7 +3,7 @@ import { Buffer } from "buffer";
 import { getAuthTokenServer } from "@/lib/security/auth-cookie";
 import { validateCsrfToken } from "@/lib/security/csrf";
 import { logger } from "@/lib/logger";
-import { ezygoCircuitBreaker, CircuitBreakerOpenError } from "@/lib/circuit-breaker";
+import { ezygoCircuitBreaker, CircuitBreakerOpenError, UpstreamServerError } from "@/lib/circuit-breaker";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
@@ -336,6 +336,18 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
 
       const text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
 
+      // Check for server errors (5xx) and throw to trip circuit breaker
+      // Use UpstreamServerError to preserve response details for proper proxying
+      if (res.status >= 500) {
+        throw new UpstreamServerError(
+          `Upstream server error: ${res.status} ${res.statusText}`,
+          res.status,
+          res.statusText,
+          text
+        );
+      }
+      
+      // Always return consistent shape
       return { res, text };
     });
 
@@ -402,6 +414,30 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
         { message: "Service temporarily unavailable - please try again shortly" }, 
         { status: 503 }
       );
+    }
+    
+    // Check if this is an upstream server error (5xx) - preserve response semantics
+    if (error instanceof UpstreamServerError) {
+      logger.error("Proxy upstream 5xx error", { 
+        status: error.status, 
+        target,
+        bodyPreview: error.body.substring(0, MAX_ERROR_BODY_LOG_LENGTH)
+      });
+      
+      let errorMessage: string = error.body;
+      try {
+        // Try to parse JSON error message from upstream
+        const parsed = JSON.parse(error.body);
+        errorMessage = parsed.message || error.body;
+      } catch {
+        // Not JSON, use raw text as error message
+      }
+      
+      const clientMessage = IS_PRODUCTION
+        ? "An error occurred while processing your request" 
+        : errorMessage;
+      
+      return NextResponse.json({ message: clientMessage, status: error.status }, { status: error.status });
     }
     
     // Check if response was too large

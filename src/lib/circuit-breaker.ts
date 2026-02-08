@@ -28,6 +28,32 @@ export class CircuitBreakerOpenError extends Error {
   }
 }
 
+/**
+ * Error that should not trigger circuit breaker (e.g., 4xx client errors)
+ */
+export class NonBreakerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NonBreakerError';
+  }
+}
+
+/**
+ * Error for upstream 5xx responses that should trip the circuit breaker
+ * Carries response details so they can be properly proxied to the client
+ */
+export class UpstreamServerError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public statusText: string,
+    public body: string
+  ) {
+    super(message);
+    this.name = 'UpstreamServerError';
+  }
+}
+
 class CircuitBreaker {
   private state: CircuitState = 'CLOSED';
   private failures = 0;
@@ -96,6 +122,16 @@ class CircuitBreaker {
       this.onSuccess();
       return result;
     } catch (error) {
+      // Don't count NonBreakerError (4xx client errors) as breaker failures
+      // Treat them as "success" for breaker bookkeeping so HALF_OPEN can progress
+      // and prior failures can be cleared (even in CLOSED state)
+      // Note: This should only execute in HALF_OPEN/CLOSED, never in OPEN state
+      if (error instanceof NonBreakerError) {
+        if (this.state === 'HALF_OPEN' || this.failures > 0) {
+          this.onSuccess();
+        }
+        throw error;
+      }
       this.onFailure(error);
       throw error;
     } finally {
