@@ -19,12 +19,12 @@ When multiple users access the dashboard simultaneously, the application makes 6
 This implementation uses a hybrid approach combining:
 1. **Server Components** - Fetch initial data server-side
 2. **Request Deduplication** - Share in-flight requests across users
-3. **Rate Limiting** - Maximum 5 concurrent requests at any time
+3. **Rate Limiting** - Maximum 3 concurrent requests at any time (default, configurable)
 4. **Circuit Breaker** - Graceful degradation when API is down
 
-**Result:**
-- 20 concurrent users = **Max 5 concurrent API requests** to EzyGo
-- ✅ Prevents rate limiting
+**Result (with MAX_CONCURRENT = 3):**
+- 20 concurrent users = **Max 3 concurrent API requests** to EzyGo at any moment
+- ✅ Significantly reduces risk of rate limiting
 - ✅ Maintains fast UX for early users
 - ✅ Graceful queueing for later users
 - ✅ Automatic recovery from API issues
@@ -48,9 +48,9 @@ CLOSED → OPEN → HALF_OPEN → CLOSED
 - **HALF_OPEN**: Testing recovery (3 test requests)
 
 Configuration:
-- Opens after 5 consecutive failures
-- Stays open for 30 seconds
-- Tests with 3 requests before closing
+- Opens after 3 consecutive failures
+- Stays open for 60 seconds
+- Tests with 2 requests before closing
 
 #### 2. Batch Fetcher (`src/lib/ezygo-batch-fetcher.ts`)
 
@@ -62,7 +62,7 @@ Three-layer protection system:
 - Multiple users share the same request
 
 **Layer 2: Rate Limiting**
-- Max 5 concurrent requests
+- Max 3 concurrent requests
 - Automatic queuing for excess requests
 - Fair distribution via FIFO queue
 
@@ -94,7 +94,7 @@ Receives initial data and:
 
 | Metric | Before | After |
 |--------|--------|-------|
-| Peak concurrent requests | 120 | 5 |
+| Peak concurrent requests | 120 | 3 |
 | First user load time | ~2s | ~2s (same) |
 | 20th user load time | ~2s | ~6s (queued) |
 | Rate limit risk | High 🔴 | Low 🟢 |
@@ -161,7 +161,7 @@ const circuitStatus = ezygoCircuitBreaker.getStatus();
 
 ### Tuning Rate Limits
 
-Edit [src/lib/ezygo-batch-fetcher.ts](k:/Development/Projects/Bunkr/src/lib/ezygo-batch-fetcher.ts):
+Edit `src/lib/ezygo-batch-fetcher.ts`:
 
 ```typescript
 const MAX_CONCURRENT = 3; // Conservative for single-IP deployment
@@ -173,7 +173,7 @@ const MAX_CONCURRENT = 3; // Conservative for single-IP deployment
 
 ### Tuning Circuit Breaker
 
-Edit [src/lib/circuit-breaker.ts](k:/Development/Projects/Bunkr/src/lib/circuit-breaker.ts):
+Edit `src/lib/circuit-breaker.ts`:
 
 ```typescript
 private readonly failureThreshold = 3;      // Opens after 3 failures (conservative)

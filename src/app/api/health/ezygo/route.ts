@@ -12,8 +12,9 @@ export async function GET() {
   const rateLimiterStats = getRateLimiterStats();
   const circuitBreakerStatus = ezygoCircuitBreaker.getStatus();
   
-  const isHealthy = !circuitBreakerStatus.isOpen && 
-                    rateLimiterStats.activeRequests < rateLimiterStats.maxConcurrent;
+  const atOrBelowCapacity = rateLimiterStats.activeRequests <= rateLimiterStats.maxConcurrent;
+  const hasBacklog = rateLimiterStats.queueLength > 0;
+  const isHealthy = !circuitBreakerStatus.isOpen && atOrBelowCapacity && !hasBacklog;
   
   return NextResponse.json({
     status: isHealthy ? 'healthy' : 'degraded',

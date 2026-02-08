@@ -3,15 +3,16 @@
  * 
  * Solves the concurrent user problem by:
  * 1. Deduplicating identical in-flight requests (15-second cache window)
- * 2. Rate limiting concurrent requests to max 5 at a time
+ * 2. Rate limiting concurrent requests to max 3 at a time
  * 3. Queueing additional requests to prevent overwhelming the API
  * 
- * Example: 20 concurrent users = max 5 concurrent API calls instead of 120
+ * Example: 20 concurrent users = max 3 concurrent API calls instead of 120
  */
 
 import { LRUCache } from 'lru-cache';
 import { logger } from './logger';
 import { ezygoCircuitBreaker } from './circuit-breaker';
+import { createHash } from 'crypto';
 
 // 1. SHORT-LIVED CACHE (15 seconds) - Handles burst traffic
 // Stores in-flight request promises, not results
@@ -75,7 +76,10 @@ export async function fetchEzygoData<T>(
   method: 'GET' | 'POST' = 'GET',
   body?: any
 ): Promise<T> {
-  const cacheKey = `${token.slice(-8)}:${endpoint}:${JSON.stringify(body || {})}`;
+  // Create secure cache key using SHA-256 hash of token + method + endpoint + body
+  // This prevents cross-user request deduplication from token suffix collisions
+  const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 16);
+  const cacheKey = `${method}:${tokenHash}:${endpoint}:${JSON.stringify(body || {})}`;
   
   // Check if request is already in-flight
   const existingRequest = requestCache.get(cacheKey);

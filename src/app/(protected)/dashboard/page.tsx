@@ -43,7 +43,7 @@ export default async function DashboardPage() {
   
   // 3. Fetch data server-side with deduplication and rate limiting
   // This prevents 20 concurrent users from making 120 API calls
-  // Instead: max 5 concurrent calls with request deduplication
+  // Instead: max 3 concurrent calls with request deduplication
   let initialData = null;
   try {
     logger.dev('[Dashboard] Fetching initial data server-side', {

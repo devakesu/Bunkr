@@ -3,7 +3,7 @@ import { Buffer } from "buffer";
 import { getAuthTokenServer } from "@/lib/security/auth-cookie";
 import { validateCsrfToken } from "@/lib/security/csrf";
 import { logger } from "@/lib/logger";
-import { ezygoCircuitBreaker } from "@/lib/circuit-breaker";
+import { ezygoCircuitBreaker, CircuitBreakerOpenError } from "@/lib/circuit-breaker";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
@@ -172,6 +172,16 @@ const UPSTREAM_TIMEOUT_MS = 15_000;
 // exposing sensitive information in server logs (database errors, internal paths, etc.)
 const MAX_ERROR_BODY_LOG_LENGTH = 500;
 
+/**
+ * Custom error for oversized upstream responses
+ */
+class UpstreamResponseTooLargeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UpstreamResponseTooLargeError';
+  }
+}
+
 async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: number, signal: AbortSignal) {
   if (!body) return "";
   const reader = body.getReader();
@@ -185,7 +195,7 @@ async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: num
     if (value) {
       received += value.length;
       if (received > limit) {
-        throw new Error("Upstream response exceeded safety limit");
+        throw new UpstreamResponseTooLargeError("Upstream response exceeded safety limit");
       }
       chunks.push(value);
     }
@@ -324,13 +334,7 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
 
       clearTimeout(timeout);
 
-      let text: string;
-      try {
-        text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
-      } catch (sizeErr) {
-        logger.error("Proxy response too large", { target, error: (sizeErr as Error)?.message });
-        throw new Error("Upstream response too large");
-      }
+      const text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
 
       return { res, text };
     });
@@ -388,8 +392,8 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
   } catch (err) {
     const error = err as Error;
     
-    // Check if circuit breaker is open
-    if (error.message?.includes('Circuit breaker is open')) {
+    // Check if circuit breaker is open using instanceof
+    if (error instanceof CircuitBreakerOpenError) {
       logger.warn("Circuit breaker is open - EzyGo API may be experiencing issues", { 
         target,
         path: pathSegments.join("/")
@@ -397,6 +401,15 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       return NextResponse.json(
         { message: "Service temporarily unavailable - please try again shortly" }, 
         { status: 503 }
+      );
+    }
+    
+    // Check if response was too large
+    if (error instanceof UpstreamResponseTooLargeError) {
+      logger.error("Proxy response too large", { target, error: error.message });
+      return NextResponse.json(
+        { message: "Upstream response too large" },
+        { status: 502 }
       );
     }
     
