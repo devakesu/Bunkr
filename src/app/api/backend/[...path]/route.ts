@@ -424,16 +424,21 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     // Check if this is an upstream server error (5xx or 429) - preserve response semantics
     if (error instanceof UpstreamServerError) {
       const is429 = error.status === 429;
-      const logLevel = is429 ? "warn" : "error";
-      const logMessage = is429 
-        ? "Proxy upstream rate limit (429)" 
-        : "Proxy upstream 5xx error";
       
-      logger[logLevel](logMessage, { 
-        status: error.status, 
-        target,
-        bodyPreview: error.body.substring(0, MAX_ERROR_BODY_LOG_LENGTH)
-      });
+      // Log 429 as warning, 5xx as error
+      if (is429) {
+        logger.warn("Proxy upstream rate limit (429)", { 
+          status: error.status, 
+          target,
+          bodyPreview: error.body.substring(0, MAX_ERROR_BODY_LOG_LENGTH)
+        });
+      } else {
+        logger.error("Proxy upstream 5xx error", { 
+          status: error.status, 
+          target,
+          bodyPreview: error.body.substring(0, MAX_ERROR_BODY_LOG_LENGTH)
+        });
+      }
       
       let errorMessage: string = error.body;
       try {
