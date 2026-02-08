@@ -335,9 +335,10 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
 
         const text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
 
-        // Check for server errors (5xx) and throw to trip circuit breaker
+        // Check for server errors (5xx) and rate limiting (429) and throw to trip circuit breaker
         // Use UpstreamServerError to preserve response details for proper proxying
-        if (res.status >= 500) {
+        // 429 is treated as a breaker-worthy error to prevent retry storms during upstream rate limiting
+        if (res.status >= 500 || res.status === 429) {
           throw new UpstreamServerError(
             `Upstream server error: ${res.status} ${res.statusText}`,
             res.status,
@@ -395,6 +396,8 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       // - Consider a separate DEBUG flag for controlled verbose logging if needed
       
       const is5xxError = res.status >= 500;
+      // Preserve 429 rate-limit messages even in production as they contain actionable info
+      // Only sanitize 5xx errors which may expose internal implementation details
       const clientMessage = (IS_PRODUCTION && is5xxError)
         ? "An error occurred while processing your request" 
         : errorMessage;
@@ -418,13 +421,24 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       );
     }
     
-    // Check if this is an upstream server error (5xx) - preserve response semantics
+    // Check if this is an upstream server error (5xx or 429) - preserve response semantics
     if (error instanceof UpstreamServerError) {
-      logger.error("Proxy upstream 5xx error", { 
-        status: error.status, 
-        target,
-        bodyPreview: error.body.substring(0, MAX_ERROR_BODY_LOG_LENGTH)
-      });
+      const is429 = error.status === 429;
+      
+      // Log 429 as warning, 5xx as error
+      if (is429) {
+        logger.warn("Proxy upstream rate limit (429)", { 
+          status: error.status, 
+          target,
+          bodyPreview: error.body.substring(0, MAX_ERROR_BODY_LOG_LENGTH)
+        });
+      } else {
+        logger.error("Proxy upstream 5xx error", { 
+          status: error.status, 
+          target,
+          bodyPreview: error.body.substring(0, MAX_ERROR_BODY_LOG_LENGTH)
+        });
+      }
       
       let errorMessage: string = error.body;
       try {
@@ -435,7 +449,9 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
         // Not JSON, use raw text as error message
       }
       
-      const clientMessage = IS_PRODUCTION
+      // Preserve 429 rate-limit messages even in production as they contain actionable info
+      // Only sanitize 5xx errors which may expose internal implementation details
+      const clientMessage = (IS_PRODUCTION && error.status >= 500)
         ? "An error occurred while processing your request" 
         : errorMessage;
       

@@ -609,7 +609,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             </div>
           </div>
 
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="w-full lg:w-87.5">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="w-full lg:w-[350px]">
             <Card className="custom-container shadow-sm border-accent/20">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-medium">Total Attendance</CardTitle>
@@ -753,7 +753,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
 
         <div className="mb-6">
-          <Card className="custom-container"><CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Attendance Calendar</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">Your attendance history at a glance</CardDescription></CardHeader><CardContent>{attendanceData ? <AttendanceCalendar attendanceData={attendanceData} /> : <div className="flex items-center justify-center h-50"><p className="text-muted-foreground">No attendance data available</p></div>}</CardContent></Card>
+          <Card className="custom-container"><CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Attendance Calendar</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">Your attendance history at a glance</CardDescription></CardHeader><CardContent>{attendanceData ? <AttendanceCalendar attendanceData={attendanceData} /> : <div className="flex items-center justify-center h-[200px]"><p className="text-muted-foreground">No attendance data available</p></div>}</CardContent></Card>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
@@ -797,7 +797,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                 </table>
               </div>
             </div>
-          ) : <div className="flex items-center justify-center h-50"><p className="text-muted-foreground">No faculty information available</p></div>}</CardContent></Card>
+          ) : <div className="flex items-center justify-center h-[200px]"><p className="text-muted-foreground">No faculty information available</p></div>}</CardContent></Card>
         </motion.div>
 
         <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>

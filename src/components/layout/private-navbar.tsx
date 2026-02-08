@@ -388,7 +388,7 @@ export const Navbar = () => {
                       <SelectTrigger className="w-20 h-8 text-xs bg-background/50 border-white/10">
                         <SelectValue placeholder={`${currentTarget}%`} />
                       </SelectTrigger>
-                      <SelectContent className="custom-dropdown z-60">
+                      <SelectContent className="custom-dropdown z-[60]">
                           {[75, 80, 85, 90, 95].map((p) => (
                             <SelectItem key={p} value={p.toString()}>{p}%</SelectItem>
                           ))}

@@ -14,6 +14,24 @@ import { logger } from './logger';
 import { ezygoCircuitBreaker, NonBreakerError } from './circuit-breaker';
 import { createHash } from 'crypto';
 
+/**
+ * Queue-related errors that should not trip the circuit breaker
+ * These indicate local resource constraints, not API failure
+ */
+class QueueFullError extends NonBreakerError {
+  constructor(size: number) {
+    super(`Request queue is full (${size} items). Please try again later.`);
+    this.name = 'QueueFullError';
+  }
+}
+
+class QueueTimeoutError extends NonBreakerError {
+  constructor(timeoutMs: number) {
+    super(`Request queue timeout: waited ${timeoutMs}ms without getting a slot`);
+    this.name = 'QueueTimeoutError';
+  }
+}
+
 // 1. SHORT-LIVED CACHE (15 seconds) - Handles burst traffic
 // Stores in-flight request promises and caches resolved results for up to 15 seconds
 // This allows multiple concurrent callers to await the same request and subsequent calls to reuse cached results
@@ -30,11 +48,24 @@ const requestCache = new LRUCache<string, Promise<any>>({
 // This is conservative but safe - increase only if you verify EzyGo's limits
 let activeRequests = 0;
 const MAX_CONCURRENT = 3; // Conservative: 3 concurrent requests from single IP
-const requestQueue: Array<() => void> = [];
+const MAX_QUEUE_SIZE = 100; // Prevent unbounded queue growth
+const QUEUE_TIMEOUT_MS = 30000; // 30 seconds max wait time in queue
+
+// Use a counter for unique queue item identification
+let queueItemId = 0;
+
+interface QueuedRequest {
+  id: number;
+  resolve: () => void;
+  reject: (error: Error) => void;
+}
+
+const requestQueue: QueuedRequest[] = [];
 
 /**
  * Wait for an available request slot
  * If max concurrent requests reached, queues the request
+ * Throws QueueFullError if queue is full or QueueTimeoutError if wait exceeds timeout
  */
 function waitForSlot(): Promise<void> {
   if (activeRequests < MAX_CONCURRENT) {
@@ -42,10 +73,33 @@ function waitForSlot(): Promise<void> {
     return Promise.resolve();
   }
   
-  return new Promise((resolve) => {
-    requestQueue.push(() => {
-      activeRequests++;
-      resolve();
+  // Check queue size limit
+  if (requestQueue.length >= MAX_QUEUE_SIZE) {
+    throw new QueueFullError(MAX_QUEUE_SIZE);
+  }
+  
+  return new Promise((resolve, reject) => {
+    const itemId = ++queueItemId;
+    const timeoutId = setTimeout(() => {
+      // Remove from queue if still present
+      const index = requestQueue.findIndex(item => item.id === itemId);
+      if (index !== -1) {
+        requestQueue.splice(index, 1);
+      }
+      reject(new QueueTimeoutError(QUEUE_TIMEOUT_MS));
+    }, QUEUE_TIMEOUT_MS);
+    
+    requestQueue.push({
+      id: itemId,
+      resolve: () => {
+        clearTimeout(timeoutId);
+        activeRequests++;
+        resolve();
+      },
+      reject: (error: Error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      }
     });
   });
 }
@@ -57,7 +111,7 @@ function releaseSlot() {
   activeRequests--;
   const next = requestQueue.shift();
   if (next) {
-    next();
+    next.resolve();
   }
 }
 
@@ -92,7 +146,18 @@ export async function fetchEzygoData<T>(
   
   // Create new request with rate limiting and circuit breaker
   const requestPromise = (async () => {
-    await waitForSlot();
+    // QueueFullError and QueueTimeoutError are thrown by waitForSlot()
+    // They already extend NonBreakerError so they won't trip the circuit breaker
+    try {
+      await waitForSlot();
+    } catch (error) {
+      // Queue errors (full/timeout) are transient - evict from cache to allow immediate retry
+      // when queue has capacity again
+      if (error instanceof QueueFullError || error instanceof QueueTimeoutError) {
+        requestCache.delete(cacheKey);
+      }
+      throw error;
+    }
     
     try {
       const result = await ezygoCircuitBreaker.execute(async () => {

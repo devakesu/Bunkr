@@ -332,4 +332,86 @@ describe('Backend Proxy Route', () => {
       expect(response.status).toBe(200);
     });
   });
+
+  describe('Rate Limiting (429) Handling', () => {
+    it('should treat 429 as breaker-worthy and preserve error message in production', async () => {
+      const rateLimitMessage = 'Rate limit exceeded. Please try again in 60 seconds.';
+      vi.mocked(mockFetch).mockResolvedValue(
+        new Response(JSON.stringify({ message: rateLimitMessage }), {
+          status: 429,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      const response = await forward(request, 'GET', ['users']);
+      
+      // Should preserve 429 status
+      expect(response.status).toBe(429);
+      
+      // Should preserve rate-limit message even in production (not sanitized like 5xx)
+      const body = await response.json();
+      expect(body.message).toBe(rateLimitMessage);
+    });
+
+    it('should treat 429 as breaker-worthy error (exercises circuit breaker path)', async () => {
+      // Mock the circuit breaker module to track if execute was called
+      const { ezygoCircuitBreaker } = await import('@/lib/circuit-breaker');
+      const executeSpy = vi.spyOn(ezygoCircuitBreaker, 'execute');
+      
+      vi.mocked(mockFetch).mockResolvedValue(
+        new Response('Too Many Requests', {
+          status: 429,
+          headers: { 'content-type': 'text/plain' },
+        })
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      const response = await forward(request, 'GET', ['users']);
+      
+      // Circuit breaker execute should have been called
+      expect(executeSpy).toHaveBeenCalled();
+      
+      // Should return 429 status
+      expect(response.status).toBe(429);
+      
+      // Clean up
+      executeSpy.mockRestore();
+    });
+
+    it('should log 429 as warning (not error)', async () => {
+      const { logger } = await import('@/lib/logger');
+      const warnSpy = vi.spyOn(logger, 'warn');
+      
+      vi.mocked(mockFetch).mockResolvedValue(
+        new Response('Rate limited', {
+          status: 429,
+          headers: { 'content-type': 'text/plain' },
+        })
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      await forward(request, 'GET', ['users']);
+      
+      // Should log as warning with 429 context
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Proxy upstream rate limit (429)',
+        expect.objectContaining({
+          status: 429
+        })
+      );
+      
+      // Clean up
+      warnSpy.mockRestore();
+    });
+  });
 });
