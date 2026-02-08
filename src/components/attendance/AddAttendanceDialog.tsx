@@ -400,7 +400,7 @@ export function AddAttendanceDialog({
                     {format(date, "PPP")}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-70 p-3 pointer-events-auto z-50" align="start">
+                <PopoverContent className="w-[280px] p-3 pointer-events-auto z-50" align="start">
                   
                   {/* Custom Aesthetic Calendar */}
                   <div className="flex flex-col gap-2">
