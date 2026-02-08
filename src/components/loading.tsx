@@ -1,7 +1,6 @@
 "use client";
 
 import { Ring2 } from "ldrs/react";
-import "ldrs/react/Ring2.css";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
@@ -14,7 +13,7 @@ import { handleLogout } from "@/lib/security/auth";
  * 
  * Features:
  * - Animated spinner with accessible labels
- * - Timeout warning after 5 seconds
+ * - Timeout warning after 15 seconds
  * - Logout button for stuck states
  * - Humorous loading message
  * 
@@ -62,7 +61,7 @@ export function Loading() {
           {/* Text Group with gap */}
           <div className="flex flex-col gap-20">
             <div className="text-center text-sm text-muted-foreground/80">
-              The site will not load if EzyGo is down.
+              The site will not load if EzyGo is down. EzyGo response time is slow, sorry for the wait!
             </div>
             <div className="text-center text-sm text-muted-foreground/80">
               Taking too long ({">"} 1 min)?

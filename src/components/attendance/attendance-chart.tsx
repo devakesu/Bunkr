@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useRef } from "react";
 import {
   BarChart,
   Bar,
@@ -22,9 +22,6 @@ const YAxis = lazy(() =>
 );
 const Tooltip = lazy(() => 
   import('recharts').then(module => ({ default: module.Tooltip }))
-);
-const ResponsiveContainer = lazy(() => 
-  import('recharts').then(module => ({ default: module.ResponsiveContainer }))
 );
 
 // --- HELPERS ---
@@ -125,12 +122,29 @@ const CustomTargetLabel = (props: LabelProps) => {
 };
 
 export function AttendanceChart({ attendanceData, trackingData, coursesData }: AttendanceChartProps) {
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(max-width: 640px)").matches;
   });
   const { targetPercentage } = useAttendanceSettings();
   const safeTarget = Number(targetPercentage) > 0 ? Number(targetPercentage) : 75;
+
+  useEffect(() => {
+    // Measure container dimensions
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const { width, height } = containerRef.current.getBoundingClientRect();
+        setDimensions({ width, height });
+      }
+    };
+    
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -337,17 +351,23 @@ const renderTargetLabel = (props: LabelProps) => {
 
 return (
   <div
-    className="w-full h-full min-h-[220px]"
+    ref={containerRef}
+    className="w-full h-75"
     role="img"
     aria-label="Attendance overview bar chart"
   >
-    {data.length > 0 ? (
-      <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={300} debounce={1}>
-        <BarChart 
-          data={data} 
-          margin={{ top: 10, right: 20, left: -12, bottom: 18 }} 
-          barSize={getBarSize()}
-        >
+    {!dimensions.width || !dimensions.height ? (
+      <div className="h-full w-full flex items-center justify-center text-muted-foreground/30">
+        <BarChart3 className="w-8 h-8 animate-pulse opacity-50" aria-hidden="true" />
+      </div>
+    ) : data.length > 0 ? (
+      <BarChart 
+        data={data} 
+        margin={{ top: 10, right: 20, left: -12, bottom: isMobile ? 30 : 25 }} 
+        barSize={getBarSize()}
+        width={dimensions.width}
+        height={dimensions.height}
+      >
             <defs>
               <pattern id="striped-green" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
                 <rect width="8" height="8" fill="#10b981" fillOpacity="0.25" />
@@ -406,7 +426,6 @@ return (
 
             <ReferenceLine y={safeTarget} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={2} strokeOpacity={1} label={renderTargetLabel} />
           </BarChart>
-      </ResponsiveContainer>
     ) : (
       <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground/30">
          <BarChart3 className="w-8 h-8 mb-2 opacity-50"  aria-hidden="true" />

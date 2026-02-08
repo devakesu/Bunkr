@@ -1,6 +1,6 @@
 {
   "name": "ghostclass",
-  "version": "1.4.9",
+  "version": "1.5.0",
   "private": true,
   "engines": {
     "node": "^20.19.0 || >=22.12.0",
@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:https": "next dev --turbopack --experimental-https --experimental-https-key ./certificates/localhost-key.pem --experimental-https-cert ./certificates/localhost.pem",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -68,6 +69,7 @@
     "glob": "^13.0.1",
     "ldrs": "^1.1.6",
     "lodash-es": "^4.17.23",
+    "lru-cache": "^11.2.5",
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
     "nextjs-toploader": "^3.9.17",

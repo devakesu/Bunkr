@@ -3,6 +3,7 @@ import { Buffer } from "buffer";
 import { getAuthTokenServer } from "@/lib/security/auth-cookie";
 import { validateCsrfToken } from "@/lib/security/csrf";
 import { logger } from "@/lib/logger";
+import { ezygoCircuitBreaker } from "@/lib/circuit-breaker";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
@@ -301,33 +302,40 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+    // Wrap fetch in circuit breaker for automatic failure handling
+    // This protects against cascading failures when EzyGo API is down
+    const result = await ezygoCircuitBreaker.execute(async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
-    const res = await fetch(target, {
-      method,
-      headers: {
-        ...(isPublic ? {} : { Authorization: `Bearer ${token}` }),
-        "content-type": req.headers.get("content-type") || "application/json",
-        accept: req.headers.get("accept") || "application/json",
-      },
-      body: hasBody ? body : undefined,
-      // duplex is required for streaming request bodies
-      // See: https://github.com/nodejs/undici/issues/1583
-      ...(hasBody ? { duplex: "half" as const } : {}),
-      signal: controller.signal,
+      const res = await fetch(target, {
+        method,
+        headers: {
+          ...(isPublic ? {} : { Authorization: `Bearer ${token}` }),
+          "content-type": req.headers.get("content-type") || "application/json",
+          accept: req.headers.get("accept") || "application/json",
+        },
+        body: hasBody ? body : undefined,
+        // duplex is required for streaming request bodies
+        // See: https://github.com/nodejs/undici/issues/1583
+        ...(hasBody ? { duplex: "half" as const } : {}),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      let text: string;
+      try {
+        text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
+      } catch (sizeErr) {
+        logger.error("Proxy response too large", { target, error: (sizeErr as Error)?.message });
+        throw new Error("Upstream response too large");
+      }
+
+      return { res, text };
     });
 
-    clearTimeout(timeout);
-
-    let text: string;
-    try {
-      text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
-    } catch (sizeErr) {
-      logger.error("Proxy response too large", { target, error: (sizeErr as Error)?.message });
-      return NextResponse.json({ message: "Upstream response too large" }, { status: 502 });
-    }
-
+    const { res, text } = result;
     const contentType = res.headers.get("content-type") || "application/json";
 
     if (!res.ok) {
@@ -379,6 +387,19 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     return new NextResponse(text, { status: res.status, headers: { "content-type": contentType } });
   } catch (err) {
     const error = err as Error;
+    
+    // Check if circuit breaker is open
+    if (error.message?.includes('Circuit breaker is open')) {
+      logger.warn("Circuit breaker is open - EzyGo API may be experiencing issues", { 
+        target,
+        path: pathSegments.join("/")
+      });
+      return NextResponse.json(
+        { message: "Service temporarily unavailable - please try again shortly" }, 
+        { status: 503 }
+      );
+    }
+    
     logger.error("Proxy fetch failed", { target, error: error?.message });
     const isAbort = error?.name === "AbortError";
     return NextResponse.json({ message: isAbort ? "Upstream timed out" : "Upstream fetch failed" }, { status: 502 });
