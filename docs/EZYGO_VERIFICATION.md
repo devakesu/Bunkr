@@ -5,7 +5,7 @@
 ### Coverage Analysis
 
 #### 1. **Server-Side Calls (Direct to EzyGo)** ✅
-- **Dashboard Page** ([src/app/(protected)/dashboard/page.tsx](k:/Development/Projects/Bunkr/src/app/(protected)/dashboard/page.tsx))
+- **Dashboard Page** (`src/app/(protected)/dashboard/page.tsx`)
   - Uses `fetchDashboardData()` with rate limiting
   - Fetches 3 endpoints: `/myprofile`, `/institutionuser/courses/withusers`, `/attendancereports/student/detailed`
   - ✅ Protected by request deduplication
@@ -20,26 +20,26 @@ All client-side hooks use `axios` which goes through `/api/backend/*` proxy:
   - ✅ NOT rate-limited (login is critical path)
   - ✅ Origin validation protects against abuse
 
-- **Profile Hook** ([src/hooks/users/profile.ts](k:/Development/Projects/Bunkr/src/hooks/users/profile.ts))
+- **Profile Hook** (`src/hooks/users/profile.ts`)
   - Calls `/myprofile` via axios
   - ✅ Protected by circuit breaker in proxy
 
-- **User Hook** ([src/hooks/users/user.ts](k:/Development/Projects/Bunkr/src/hooks/users/user.ts))
+- **User Hook** (`src/hooks/users/user.ts`)
   - Calls `/user` via axios  
   - ✅ Protected by circuit breaker in proxy
 
-- **Courses Hook** ([src/hooks/courses/courses.ts](k:/Development/Projects/Bunkr/src/hooks/courses/courses.ts))
+- **Courses Hook** (`src/hooks/courses/courses.ts`)
   - Calls `/institutionuser/courses/withusers` via axios
   - ✅ Protected by circuit breaker in proxy
   - ✅ Accepts `initialData` from SSR
 
-- **Attendance Hook** ([src/hooks/courses/attendance.ts](k:/Development/Projects/Bunkr/src/hooks/courses/attendance.ts))
+- **Attendance Hook** (`src/hooks/courses/attendance.ts`)
   - Calls `/attendancereports/student/detailed` via axios
   - ✅ Protected by circuit breaker in proxy
   - ✅ Accepts `initialData` from SSR
 
 #### 3. **Cron/Background Jobs**
-- **Sync Cron** ([src/app/api/cron/sync/route.ts](k:/Development/Projects/Bunkr/src/app/api/cron/sync/route.ts))
+- **Sync Cron** (`src/app/api/cron/sync/route.ts`)
   - Direct calls to EzyGo API
   - ⚠️ **NOT rate-limited** (runs infrequently, separate from user traffic)
   - Consider: Add rate limiting if frequency increases

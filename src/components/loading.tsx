@@ -9,7 +9,7 @@ import { handleLogout } from "@/lib/security/auth";
 /**
  * Loading screen component with timeout warning and logout option.
  * Displays when waiting for external services (e.g., Ezygo authentication).
- * Shows a warning message after 5 seconds with option to logout.
+ * Shows a warning message after 15 seconds with option to logout.
  * 
  * Features:
  * - Animated spinner with accessible labels

@@ -9,20 +9,31 @@
  * - HALF_OPEN: Testing if API has recovered
  * 
  * Configuration:
- * - Opens after 5 consecutive failures
- * - Stays open for 30 seconds before attempting recovery
- * - Resets failure count after successful request
+ * - Opens after 3 consecutive failures
+ * - Stays open for 60 seconds before attempting recovery
+ * - Tests with 2 requests before closing
  */
 
 import { logger } from './logger';
 
 type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 
+/**
+ * Custom error thrown when circuit breaker is open
+ */
+export class CircuitBreakerOpenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CircuitBreakerOpenError';
+  }
+}
+
 class CircuitBreaker {
   private state: CircuitState = 'CLOSED';
   private failures = 0;
   private lastFailTime = 0;
   private successCount = 0;
+  private halfOpenInFlight = 0;
   
   // Conservative thresholds for single-IP deployment
   // Opens circuit after just 3 failures to protect against extended outages
@@ -51,6 +62,7 @@ class CircuitBreaker {
         });
         this.state = 'HALF_OPEN';
         this.successCount = 0;
+        this.halfOpenInFlight = 0;
       } else {
         const timeRemaining = Math.ceil((this.resetTimeout - timeSinceFailure) / 1000);
         logger.warn('[Circuit Breaker] Circuit is OPEN - failing fast', {
@@ -58,10 +70,25 @@ class CircuitBreaker {
           failures: this.failures,
           timeRemaining: `${timeRemaining}s`,
         });
-        throw new Error(
+        throw new CircuitBreakerOpenError(
           `Circuit breaker is open - EzyGo API may be experiencing issues. Retry in ${timeRemaining}s.`
         );
       }
+    }
+    
+    // In HALF_OPEN state, only allow limited concurrent requests through
+    if (this.state === 'HALF_OPEN') {
+      if (this.halfOpenInFlight >= this.halfOpenMaxRequests) {
+        logger.warn('[Circuit Breaker] HALF_OPEN request limit reached - rejecting request', {
+          context: 'circuit-breaker',
+          halfOpenInFlight: this.halfOpenInFlight,
+          maxRequests: this.halfOpenMaxRequests,
+        });
+        throw new CircuitBreakerOpenError(
+          'Circuit breaker is testing recovery - please try again shortly.'
+        );
+      }
+      this.halfOpenInFlight++;
     }
     
     try {
@@ -71,6 +98,12 @@ class CircuitBreaker {
     } catch (error) {
       this.onFailure(error);
       throw error;
+    } finally {
+      // Release HALF_OPEN slot if we were using one
+      if (this.state === 'HALF_OPEN' || 
+          (this.state === 'CLOSED' && this.halfOpenInFlight > 0)) {
+        this.halfOpenInFlight = Math.max(0, this.halfOpenInFlight - 1);
+      }
     }
   }
   
@@ -92,6 +125,7 @@ class CircuitBreaker {
         this.state = 'CLOSED';
         this.failures = 0;
         this.successCount = 0;
+        this.halfOpenInFlight = 0;
       }
     } else if (this.state === 'CLOSED') {
       // Reset failure count on success
@@ -121,6 +155,7 @@ class CircuitBreaker {
       });
       this.state = 'OPEN';
       this.successCount = 0;
+      this.halfOpenInFlight = 0;
     } else if (this.failures >= this.failureThreshold) {
       logger.error('[Circuit Breaker] Threshold reached - opening circuit', {
         context: 'circuit-breaker',
@@ -129,6 +164,7 @@ class CircuitBreaker {
         error: errorMessage,
       });
       this.state = 'OPEN';
+      this.halfOpenInFlight = 0;
     } else {
       logger.warn('[Circuit Breaker] Request failed', {
         context: 'circuit-breaker',
@@ -163,6 +199,7 @@ class CircuitBreaker {
     this.failures = 0;
     this.lastFailTime = 0;
     this.successCount = 0;
+    this.halfOpenInFlight = 0;
   }
 }
 

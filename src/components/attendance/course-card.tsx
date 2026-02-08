@@ -218,7 +218,7 @@ export function CourseCard({ course }: CourseCardProps) {
     <Card className="pt-0 pb-0 custom-container overflow-clip h-full min-h-70">
       <CardHeader className="flex justify-between items-start flex-row gap-2 pt-6 bg-[#2B2B2B]/40 pb-5 border-b-2 border-[#2B2B2B]/60">
         <div className="flex flex-col gap-1">
-          <CardTitle className="text-lg font-semibold wrap-break-word leading-tight">
+          <CardTitle className="text-lg font-semibold break-words leading-tight">
             {courseName}
           </CardTitle>
         </div>
