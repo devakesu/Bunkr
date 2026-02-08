@@ -92,7 +92,7 @@ interface DashboardClientProps {
 }
 
 export default function DashboardClient({ initialData }: DashboardClientProps) {
-  const { data: profile } = useProfile({ initialData: initialData?.profile });
+  const { data: profile } = useProfile();
   const { data: user } = useUser();
   const queryClient = useQueryClient();
 

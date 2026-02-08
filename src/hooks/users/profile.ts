@@ -34,7 +34,7 @@ interface EzygoProfileData {
   };
 }
 
-export const useProfile = (options?: { initialData?: UserProfile | null }) => {
+export const useProfile = (options?: { initialData?: UserProfile }) => {
   const supabase = createClient();
 
   return useQuery<UserProfile | null>({
@@ -127,7 +127,7 @@ export const useProfile = (options?: { initialData?: UserProfile | null }) => {
 
       return mergedData as UserProfile;
     },
-    initialData: options?.initialData,
+    initialData: options?.initialData ?? undefined,
     // Cache for 5 mins to avoid spamming the sync logic
     staleTime: 1000 * 60 * 5,
     gcTime: 30 * 60 * 1000,
