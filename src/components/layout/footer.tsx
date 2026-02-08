@@ -42,7 +42,7 @@ export const Footer = ({ className }: { className?: string }) => {
 
   return (
     <footer className={cn(
-      "w-full py-6 mt-12 border-t border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60",
+      "w-full py-6 mt-12 border-t border-border/40 bg-background/80 backdrop-blur-md supports-backdrop-filter:bg-background/60",
       className
     )} role="contentinfo" aria-label="Site footer">
       <div className="container px-4 md:px-8 flex flex-col-reverse md:flex-row justify-between items-center gap-y-6 gap-x-4 text-sm">
@@ -55,7 +55,7 @@ export const Footer = ({ className }: { className?: string }) => {
               href={authorUrl || "#"}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-foreground hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-red-500 hover:to-orange-500 transition-all duration-300"
+              className="font-medium text-foreground hover:text-transparent hover:bg-clip-text hover:bg-linear-to-r hover:from-red-500 hover:to-orange-500 transition-all duration-300"
               aria-label={`Visit ${authorName}'s profile`}
             >
               {authorName}
@@ -132,7 +132,7 @@ export const Footer = ({ className }: { className?: string }) => {
             </div>
           </div>
 
-          <div className="hidden sm:block h-4 w-[1px] bg-border/60" />
+          <div className="hidden sm:block h-4 w-px bg-border/60" />
 
           {/* Action Buttons with Semantic Links */}
           <div className="flex items-center gap-2">

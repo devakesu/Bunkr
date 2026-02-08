@@ -109,7 +109,7 @@ export function AcceptTermsForm() {
           className={cn(
             "w-full h-11 font-semibold transition-all duration-300",
             checked 
-              ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 shadow-[0_0_30px_-5px_rgba(168,85,247,0.5)]" 
+              ? "bg-linear-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 shadow-[0_0_30px_-5px_rgba(168,85,247,0.5)]" 
               : "bg-zinc-800 text-zinc-500 hover:bg-zinc-800"
           )}
           aria-live="polite"

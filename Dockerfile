@@ -129,6 +129,14 @@ RUN --mount=type=secret,id=sentry_token \
     npm run build && \
     rm -rf .next/cache
 
+# Verify service worker was generated
+RUN if [ ! -f "public/sw.js" ]; then \
+      echo "ERROR: Service worker (public/sw.js) was not generated during build!"; \
+      echo "This is required for PWA functionality."; \
+      exit 1; \
+    fi && \
+    echo "Service worker generated successfully at public/sw.js"
+
 # 2. Normalize timestamps
 RUN find .next -exec touch -d "@${SOURCE_DATE_EPOCH}" {} +
 
@@ -165,14 +173,12 @@ RUN addgroup --system --gid 1001 nodejs && \
     apk add --no-cache wget
 
 # Core Next.js output
-# Note: Copy public folder first (base static assets)
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# Copy the generated service worker from the builder stage
-# The sw.js file is generated during build by @serwist/next and must be copied separately
-# since it's in .gitignore and created as a build artifact
-COPY --from=builder --chown=nextjs:nodejs /app/public/sw.js* ./public/
+# Copy public folder including the generated service worker
+# The sw.js file is generated during build by @serwist/next into /app/public/
+# and must be explicitly copied as it's in .gitignore (build artifact)
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # Clean up
 RUN rm -rf \

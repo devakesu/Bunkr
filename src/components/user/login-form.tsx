@@ -397,7 +397,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
             variants={logoVariants}
           >
             <div className="flex justify-center items-center flex-col">
-              <div className="relative w-[340px] h-[120px] sm:w-[520px] sm:h-[180px] overflow-hidden"> 
+              <div className="relative w-85 h-30 sm:w-130 sm:h-45 overflow-hidden"> 
                 <Image 
                   src="/logo.png" 
                   alt="GhostClass Logo"
@@ -411,7 +411,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
               </div>
             </div>
             
-            <p className="text-center text-sm font-medium max-w-[322px] text-muted-foreground/80 -mt-2"> 
+            <p className="text-center text-sm font-medium max-w-80.5 text-muted-foreground/80 -mt-2"> 
               {"Drop your ezygo credentials - we're just the aesthetic upgrade you deserved."}
             </p>
           </motion.div>
@@ -511,7 +511,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
             <motion.div variants={itemVariants}>
               <Button
                 type="submit"
-                className="w-full font-semibold min-h-[46px] rounded-[12px] mt-2 font-sm shadow-sm hover:shadow-md transition-all"
+                className="w-full font-semibold min-h-11.5 rounded-[12px] mt-2 font-sm shadow-sm hover:shadow-md transition-all"
                 disabled={isLoading || !!passwordError}
               >
                 {isLoading ? "Logging in..." : "Login"}

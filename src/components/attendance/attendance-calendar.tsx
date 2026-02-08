@@ -545,7 +545,7 @@ export function AttendanceCalendar({
   if (currentDate.year === null || currentDate.month === null || !selectedDate) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-[400px]">
+        <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-100">
           <div className="text-muted-foreground">Loading calendar...</div>
         </Card>
         <Card className="border border-border/40 custom-container">
@@ -566,7 +566,7 @@ export function AttendanceCalendar({
         <CardHeader className="pb-2 flex flex-row flex-wrap items-center justify-center sm:justify-between gap-2 border-b border-border/40">
           <div className="flex items-center gap-2 max-sm:contents">
             <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Filter attendance by status">
+              <SelectTrigger className="w-32.5 h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Filter attendance by status">
                 <SelectValue>{filter === "all" ? "All" : filter.charAt(0).toUpperCase() + filter.slice(1)}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">
@@ -578,7 +578,7 @@ export function AttendanceCalendar({
               </SelectContent>
             </Select>
             <Select value={currentDate.month!.toString()} onValueChange={handleMonthChange}>
-              <SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Select month">
+              <SelectTrigger className="w-32.5 h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Select month">
                 <SelectValue>{monthNames[currentDate.month!]}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">
@@ -590,7 +590,7 @@ export function AttendanceCalendar({
               </SelectContent>
             </Select>
             <Select value={currentDate.year!.toString()} onValueChange={handleYearChange}>
-              <SelectTrigger className="w-[90px] h-9 bg-background/60 border-border/60 text-sm custom-dropdown" aria-label="Select year">
+              <SelectTrigger className="w-22.5 h-9 bg-background/60 border-border/60 text-sm custom-dropdown" aria-label="Select year">
                 <SelectValue>{currentDate.year}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 max-h-70 backdrop-blur-md custom-dropdown">
@@ -672,7 +672,7 @@ export function AttendanceCalendar({
                     const renderActions = () => {
                         if (event.isExtra) {
                             return (
-                                <div className="flex-shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
+                                <div className="shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
                                     <Badge variant="outline" className="text-[10px] h-6 px-2 bg-indigo-500/10 text-indigo-400 border-indigo-500/20 gap-1.5"><Sparkles className="w-3 h-3" aria-hidden="true" />Self-Marked</Badge>
                                     <Button 
                                         variant="ghost" 
@@ -696,7 +696,7 @@ export function AttendanceCalendar({
                         
                         if (hasTracking) {
                             return (
-                                <div className="flex-shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
+                                <div className="shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
                                     {event.isCorrection && (
                                         <Badge variant="outline" className="text-[10px] h-6 px-2 bg-orange-500/10 text-orange-400 border-orange-500/20 gap-1.5">
                                             <AlertTriangle className="w-3 h-3" aria-hidden="true" />Official: {event.originalStatus}
@@ -712,10 +712,10 @@ export function AttendanceCalendar({
                         
                         if (event.status === "Absent") {
                             return (
-                                <div className="flex-shrink-0 w-full sm:w-auto">
+                                <div className="shrink-0 w-full sm:w-auto">
                                     <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full">
-                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 225, "Duty Leave"); }} aria-label={`Mark ${event.title} as Duty Leave for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-[32px] py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-yellow-500/40 text-yellow-600 hover:bg-yellow-500/10 hover:border-yellow-500 hover:text-yellow-700 dark:text-yellow-500"}`}>{isLoading ? "..." : <><Briefcase className="w-3 h-3 shrink-0" aria-hidden="true"/><span className="truncate">Mark DL</span></>}</Button>
-                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 110, "Incorrectly marked absent"); }} aria-label={`Mark ${event.title} as Present for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-[32px] py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500 hover:text-green-700 dark:text-green-500"}`}>{isLoading ? "..." : <><CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" /><span className="truncate">Mark Present</span></>}</Button>
+                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 225, "Duty Leave"); }} aria-label={`Mark ${event.title} as Duty Leave for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-8 py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-yellow-500/40 text-yellow-600 hover:bg-yellow-500/10 hover:border-yellow-500 hover:text-yellow-700 dark:text-yellow-500"}`}>{isLoading ? "..." : <><Briefcase className="w-3 h-3 shrink-0" aria-hidden="true"/><span className="truncate">Mark DL</span></>}</Button>
+                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 110, "Incorrectly marked absent"); }} aria-label={`Mark ${event.title} as Present for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-8 py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500 hover:text-green-700 dark:text-green-500"}`}>{isLoading ? "..." : <><CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" /><span className="truncate">Mark Present</span></>}</Button>
                                     </div>
                                 </div>
                             );
@@ -741,7 +741,7 @@ export function AttendanceCalendar({
                 <div className="flex flex-col items-center justify-center flex-1 text-center px-6 py-12">
                   <div className="rounded-full bg-accent/30 p-4 mb-3 ring-1 ring-border/50"><CalendarIcon className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" /></div>
                   <h3 className="text-sm font-semibold text-foreground">No Classes Found</h3>
-                  <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-[200px]">Enjoy your free time! No classes recorded for this date.</p>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-50">Enjoy your free time! No classes recorded for this date.</p>
                   <Button variant="outline" size="sm" className="h-8 text-xs" onClick={goToToday}>Jump to Today</Button>
                 </div>
               )}

@@ -3,6 +3,7 @@ import { Buffer } from "buffer";
 import { getAuthTokenServer } from "@/lib/security/auth-cookie";
 import { validateCsrfToken } from "@/lib/security/csrf";
 import { logger } from "@/lib/logger";
+import { ezygoCircuitBreaker, CircuitBreakerOpenError } from "@/lib/circuit-breaker";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
@@ -171,6 +172,16 @@ const UPSTREAM_TIMEOUT_MS = 15_000;
 // exposing sensitive information in server logs (database errors, internal paths, etc.)
 const MAX_ERROR_BODY_LOG_LENGTH = 500;
 
+/**
+ * Custom error for oversized upstream responses
+ */
+class UpstreamResponseTooLargeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UpstreamResponseTooLargeError';
+  }
+}
+
 async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: number, signal: AbortSignal) {
   if (!body) return "";
   const reader = body.getReader();
@@ -184,7 +195,7 @@ async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: num
     if (value) {
       received += value.length;
       if (received > limit) {
-        throw new Error("Upstream response exceeded safety limit");
+        throw new UpstreamResponseTooLargeError("Upstream response exceeded safety limit");
       }
       chunks.push(value);
     }
@@ -301,33 +312,34 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+    // Wrap fetch in circuit breaker for automatic failure handling
+    // This protects against cascading failures when EzyGo API is down
+    const result = await ezygoCircuitBreaker.execute(async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
-    const res = await fetch(target, {
-      method,
-      headers: {
-        ...(isPublic ? {} : { Authorization: `Bearer ${token}` }),
-        "content-type": req.headers.get("content-type") || "application/json",
-        accept: req.headers.get("accept") || "application/json",
-      },
-      body: hasBody ? body : undefined,
-      // duplex is required for streaming request bodies
-      // See: https://github.com/nodejs/undici/issues/1583
-      ...(hasBody ? { duplex: "half" as const } : {}),
-      signal: controller.signal,
+      const res = await fetch(target, {
+        method,
+        headers: {
+          ...(isPublic ? {} : { Authorization: `Bearer ${token}` }),
+          "content-type": req.headers.get("content-type") || "application/json",
+          accept: req.headers.get("accept") || "application/json",
+        },
+        body: hasBody ? body : undefined,
+        // duplex is required for streaming request bodies
+        // See: https://github.com/nodejs/undici/issues/1583
+        ...(hasBody ? { duplex: "half" as const } : {}),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      const text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
+
+      return { res, text };
     });
 
-    clearTimeout(timeout);
-
-    let text: string;
-    try {
-      text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
-    } catch (sizeErr) {
-      logger.error("Proxy response too large", { target, error: (sizeErr as Error)?.message });
-      return NextResponse.json({ message: "Upstream response too large" }, { status: 502 });
-    }
-
+    const { res, text } = result;
     const contentType = res.headers.get("content-type") || "application/json";
 
     if (!res.ok) {
@@ -379,6 +391,28 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     return new NextResponse(text, { status: res.status, headers: { "content-type": contentType } });
   } catch (err) {
     const error = err as Error;
+    
+    // Check if circuit breaker is open using instanceof
+    if (error instanceof CircuitBreakerOpenError) {
+      logger.warn("Circuit breaker is open - EzyGo API may be experiencing issues", { 
+        target,
+        path: pathSegments.join("/")
+      });
+      return NextResponse.json(
+        { message: "Service temporarily unavailable - please try again shortly" }, 
+        { status: 503 }
+      );
+    }
+    
+    // Check if response was too large
+    if (error instanceof UpstreamResponseTooLargeError) {
+      logger.error("Proxy response too large", { target, error: error.message });
+      return NextResponse.json(
+        { message: "Upstream response too large" },
+        { status: 502 }
+      );
+    }
+    
     logger.error("Proxy fetch failed", { target, error: error?.message });
     const isAbort = error?.name === "AbortError";
     return NextResponse.json({ message: isAbort ? "Upstream timed out" : "Upstream fetch failed" }, { status: 502 });

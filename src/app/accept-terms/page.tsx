@@ -11,7 +11,7 @@ export default function AcceptTermsPage() {
   return (
     <>
       <Toaster />
-      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
         {/* Animated gradient mesh background */}
         <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
           {/* Animated gradient orbs */}
@@ -22,7 +22,7 @@ export default function AcceptTermsPage() {
           
           {/* Dot grid pattern */}
           <div 
-            className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle,_rgba(255,255,255,0.8)_1px,_transparent_1px)] [background-size:50px_50px]"
+            className="absolute inset-0 opacity-20 bg-[radial-gradient(circle,rgba(255,255,255,0.8)_1px,transparent_1px)] bg-size-[50px_50px]"
           ></div>
         </div>
         

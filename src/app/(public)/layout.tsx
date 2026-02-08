@@ -69,6 +69,16 @@ export default function PublicLayout({
             "fixed top-0 left-0 right-0 z-50",
             isHidden ? "pointer-events-none" : "pointer-events-auto"
           )}
+          // The inert attribute disables keyboard/screen reader interaction with hidden elements
+          // Browser support: Chrome 102+, Safari 15.5+, Firefox 112+ (March 2023+)
+          // Feature detection ensures graceful degradation on older browsers
+          // Only apply inert when the feature is supported and element should be hidden
+          {...((isHidden &&
+            typeof HTMLElement !== "undefined" &&
+            HTMLElement?.prototype &&
+            "inert" in HTMLElement.prototype
+              ? { inert: true }
+              : {}) as any)}
         >
           <PublicNavbar />
         </motion.div>
