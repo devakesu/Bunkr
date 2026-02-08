@@ -14,6 +14,24 @@ import { logger } from './logger';
 import { ezygoCircuitBreaker, NonBreakerError } from './circuit-breaker';
 import { createHash } from 'crypto';
 
+/**
+ * Queue-related errors that should not trip the circuit breaker
+ * These indicate local resource constraints, not API failure
+ */
+class QueueFullError extends NonBreakerError {
+  constructor(size: number) {
+    super(`Request queue is full (${size} items). Please try again later.`);
+    this.name = 'QueueFullError';
+  }
+}
+
+class QueueTimeoutError extends NonBreakerError {
+  constructor(timeoutMs: number) {
+    super(`Request queue timeout: waited ${timeoutMs}ms without getting a slot`);
+    this.name = 'QueueTimeoutError';
+  }
+}
+
 // 1. SHORT-LIVED CACHE (15 seconds) - Handles burst traffic
 // Stores in-flight request promises and caches resolved results for up to 15 seconds
 // This allows multiple concurrent callers to await the same request and subsequent calls to reuse cached results
@@ -33,10 +51,13 @@ const MAX_CONCURRENT = 3; // Conservative: 3 concurrent requests from single IP
 const MAX_QUEUE_SIZE = 100; // Prevent unbounded queue growth
 const QUEUE_TIMEOUT_MS = 30000; // 30 seconds max wait time in queue
 
+// Use a counter for unique queue item identification
+let queueItemId = 0;
+
 interface QueuedRequest {
+  id: number;
   resolve: () => void;
   reject: (error: Error) => void;
-  timestamp: number;
 }
 
 const requestQueue: QueuedRequest[] = [];
@@ -44,7 +65,7 @@ const requestQueue: QueuedRequest[] = [];
 /**
  * Wait for an available request slot
  * If max concurrent requests reached, queues the request
- * Throws error if queue is full or wait exceeds timeout
+ * Throws QueueFullError if queue is full or QueueTimeoutError if wait exceeds timeout
  */
 function waitForSlot(): Promise<void> {
   if (activeRequests < MAX_CONCURRENT) {
@@ -54,21 +75,22 @@ function waitForSlot(): Promise<void> {
   
   // Check queue size limit
   if (requestQueue.length >= MAX_QUEUE_SIZE) {
-    throw new Error(`Request queue is full (${MAX_QUEUE_SIZE} items). Please try again later.`);
+    throw new QueueFullError(MAX_QUEUE_SIZE);
   }
   
   return new Promise((resolve, reject) => {
-    const timestamp = Date.now();
+    const itemId = ++queueItemId;
     const timeoutId = setTimeout(() => {
       // Remove from queue if still present
-      const index = requestQueue.findIndex(item => item.timestamp === timestamp);
+      const index = requestQueue.findIndex(item => item.id === itemId);
       if (index !== -1) {
         requestQueue.splice(index, 1);
       }
-      reject(new Error(`Request queue timeout: waited ${QUEUE_TIMEOUT_MS}ms without getting a slot`));
+      reject(new QueueTimeoutError(QUEUE_TIMEOUT_MS));
     }, QUEUE_TIMEOUT_MS);
     
     requestQueue.push({
+      id: itemId,
       resolve: () => {
         clearTimeout(timeoutId);
         activeRequests++;
@@ -77,8 +99,7 @@ function waitForSlot(): Promise<void> {
       reject: (error: Error) => {
         clearTimeout(timeoutId);
         reject(error);
-      },
-      timestamp
+      }
     });
   });
 }
@@ -125,16 +146,9 @@ export async function fetchEzygoData<T>(
   
   // Create new request with rate limiting and circuit breaker
   const requestPromise = (async () => {
-    try {
-      await waitForSlot();
-    } catch (error) {
-      // Queue timeout or queue full errors should not trip the circuit breaker
-      // They indicate local resource constraints, not API failure
-      if (error instanceof Error && (error.message.includes('queue') || error.message.includes('timeout'))) {
-        throw new NonBreakerError(error.message);
-      }
-      throw error;
-    }
+    // QueueFullError and QueueTimeoutError are thrown by waitForSlot()
+    // They already extend NonBreakerError so they won't trip the circuit breaker
+    await waitForSlot();
     
     try {
       const result = await ezygoCircuitBreaker.execute(async () => {
