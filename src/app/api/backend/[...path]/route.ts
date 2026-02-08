@@ -333,8 +333,6 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
           signal: controller.signal,
         });
 
-        clearTimeout(timeout);
-
         const text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
 
         // Check for server errors (5xx) and throw to trip circuit breaker
