@@ -92,9 +92,16 @@ interface DashboardClientProps {
 }
 
 export default function DashboardClient({ initialData }: DashboardClientProps) {
-  const { data: profile } = useProfile();
+  const { data: hydratedProfile } = useProfile();
+  const profile = hydratedProfile ?? initialData?.profile;
   const { data: user } = useUser();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (initialData?.profile) {
+      queryClient.setQueryData(["profile"], initialData.profile);
+    }
+  }, [initialData?.profile, queryClient]);
   
   const { data: semesterData, isLoading: isLoadingSemester, isError: isSemesterError } = useFetchSemester();
   const { data: academicYearData, isLoading: isLoadingAcademicYear, isError: isAcademicYearError } = useFetchAcademicYear();
