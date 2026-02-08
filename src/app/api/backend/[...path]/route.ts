@@ -341,13 +341,8 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
         throw new Error(`Upstream server error: ${res.status} ${res.statusText}`);
       }
       
-      // For client errors (4xx), throw NonBreakerError to avoid tripping circuit
-      if (!res.ok && res.status >= 400 && res.status < 500) {
-        // Will be handled outside the circuit breaker
-        return { res, text, isClientError: true };
-      }
-
-      return { res, text, isClientError: false };
+      // Always return consistent shape with isClientError flag
+      return { res, text };
     });
 
     const { res, text } = result;
