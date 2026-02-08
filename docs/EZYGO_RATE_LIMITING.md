@@ -201,7 +201,8 @@ const requestCache = new LRUCache<string, Promise<any>>({
 1. **Server-side fetch fails**: Client component fetches directly
 2. **Circuit breaker opens**: Users see cached data or retry
 3. **Individual request fails**: Error logged, null returned
-4. **Queue wait**: Requests wait in the queue until a slot is available; there is currently no fixed maximum queue wait timeout
+4. **Queue timeout**: Requests wait in the queue for up to 30 seconds; after timeout, they fail with a clear error message
+5. **Queue full**: If the queue reaches 100 items, new requests are immediately rejected to prevent memory exhaustion
 
 ### Logging
 
