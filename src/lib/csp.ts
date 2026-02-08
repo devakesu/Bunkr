@@ -219,7 +219,7 @@ export const getCspHeader = (nonce?: string) => {
   // 1. Inline style attributes are less of a security concern than inline <style> elements
   // 2. Using hashes is impractical - each unique inline style needs its own hash
   // 3. Modern UI libraries legitimately use dynamic inline styles for animations/positioning
-  // Note: When any hash/nonce is present, 'unsafe-inline' is ignored by browsers
+  // Note: style-src-attr contains only 'unsafe-inline', so it will be honored by browsers
   const styleSrcAttrParts = ["'unsafe-inline'"];
   
   const styleSrcAttrDirective = `style-src-attr ${styleSrcAttrParts.join(" ")};`;

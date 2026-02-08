@@ -318,37 +318,41 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
-      const res = await fetch(target, {
-        method,
-        headers: {
-          ...(isPublic ? {} : { Authorization: `Bearer ${token}` }),
-          "content-type": req.headers.get("content-type") || "application/json",
-          accept: req.headers.get("accept") || "application/json",
-        },
-        body: hasBody ? body : undefined,
-        // duplex is required for streaming request bodies
-        // See: https://github.com/nodejs/undici/issues/1583
-        ...(hasBody ? { duplex: "half" as const } : {}),
-        signal: controller.signal,
-      });
+      try {
+        const res = await fetch(target, {
+          method,
+          headers: {
+            ...(isPublic ? {} : { Authorization: `Bearer ${token}` }),
+            "content-type": req.headers.get("content-type") || "application/json",
+            accept: req.headers.get("accept") || "application/json",
+          },
+          body: hasBody ? body : undefined,
+          // duplex is required for streaming request bodies
+          // See: https://github.com/nodejs/undici/issues/1583
+          ...(hasBody ? { duplex: "half" as const } : {}),
+          signal: controller.signal,
+        });
 
-      clearTimeout(timeout);
+        clearTimeout(timeout);
 
-      const text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
+        const text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
 
-      // Check for server errors (5xx) and throw to trip circuit breaker
-      // Use UpstreamServerError to preserve response details for proper proxying
-      if (res.status >= 500) {
-        throw new UpstreamServerError(
-          `Upstream server error: ${res.status} ${res.statusText}`,
-          res.status,
-          res.statusText,
-          text
-        );
+        // Check for server errors (5xx) and throw to trip circuit breaker
+        // Use UpstreamServerError to preserve response details for proper proxying
+        if (res.status >= 500) {
+          throw new UpstreamServerError(
+            `Upstream server error: ${res.status} ${res.statusText}`,
+            res.status,
+            res.statusText,
+            text
+          );
+        }
+        
+        // Always return consistent shape
+        return { res, text };
+      } finally {
+        clearTimeout(timeout);
       }
-      
-      // Always return consistent shape
-      return { res, text };
     });
 
     const { res, text } = result;
