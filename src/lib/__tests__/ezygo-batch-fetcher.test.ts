@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { fetchEzygoData, getRateLimiterStats } from '../ezygo-batch-fetcher';
+import { fetchEzygoData, getRateLimiterStats, resetRateLimiterState } from '../ezygo-batch-fetcher';
 
 // Mock the circuit breaker to passthrough execution
 vi.mock('../circuit-breaker', () => ({
@@ -10,6 +10,12 @@ vi.mock('../circuit-breaker', () => ({
     constructor(message: string) {
       super(message);
       this.name = 'CircuitBreakerOpenError';
+    }
+  },
+  NonBreakerError: class NonBreakerError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'NonBreakerError';
     }
   },
 }));
@@ -26,6 +32,8 @@ vi.mock('../logger', () => ({
 describe('EzyGo Batch Fetcher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset rate limiter state to avoid test interference
+    resetRateLimiterState();
     // Reset fetch mock before each test
     global.fetch = vi.fn();
     

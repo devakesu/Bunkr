@@ -180,7 +180,7 @@ select:focus-visible {
 
   body {
     @apply bg-background text-foreground;
-    @apply min-w-full!;
+    @apply !min-w-full;
   }
 
   input[type="date"] {
