@@ -124,7 +124,8 @@ class CircuitBreaker {
     } catch (error) {
       // Don't count NonBreakerError (4xx client errors) as breaker failures
       // Treat them as "success" for breaker bookkeeping so HALF_OPEN can progress
-      // and prior failures can be cleared
+      // and prior failures can be cleared (even in CLOSED state)
+      // Note: This should only execute in HALF_OPEN/CLOSED, never in OPEN state
       if (error instanceof NonBreakerError) {
         if (this.state === 'HALF_OPEN' || this.failures > 0) {
           this.onSuccess();

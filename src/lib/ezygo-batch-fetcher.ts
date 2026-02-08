@@ -133,9 +133,11 @@ export async function fetchEzygoData<T>(
       
       return result;
     } catch (error) {
-      // Evict failed promises from cache to allow immediate retries
-      // This prevents transient failures from blocking retries for the full TTL window
-      requestCache.delete(cacheKey);
+      // Only evict transient failures from cache to allow immediate retries
+      // NonBreakerErrors (401/403/404) represent permanent client errors that shouldn't be retried
+      if (!(error instanceof NonBreakerError)) {
+        requestCache.delete(cacheKey);
+      }
       throw error;
     } finally {
       releaseSlot();
@@ -144,7 +146,8 @@ export async function fetchEzygoData<T>(
   })();
   
   // Cache the promise so concurrent requests share the same fetch
-  // Note: settled (successful or failed) promises remain cached until TTL expiry or explicit deletion
+  // Successful promises and NonBreakerErrors stay cached until TTL expiry
+  // Transient failures (5xx, network errors) are evicted immediately for retry
   requestCache.set(cacheKey, requestPromise);
   
   return requestPromise;
