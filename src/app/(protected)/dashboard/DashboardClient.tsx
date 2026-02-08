@@ -92,17 +92,10 @@ interface DashboardClientProps {
 }
 
 export default function DashboardClient({ initialData }: DashboardClientProps) {
-  const { data: hydratedProfile } = useProfile();
-  const profile = hydratedProfile ?? initialData?.profile;
+  const { data: profile } = useProfile({ initialData: initialData?.profile ?? undefined });
   const { data: user } = useUser();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (initialData?.profile) {
-      queryClient.setQueryData(["profile"], initialData.profile);
-    }
-  }, [initialData?.profile, queryClient]);
-  
   const { data: semesterData, isLoading: isLoadingSemester, isError: isSemesterError } = useFetchSemester();
   const { data: academicYearData, isLoading: isLoadingAcademicYear, isError: isAcademicYearError } = useFetchAcademicYear();
   
@@ -674,7 +667,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 px-4 pt-2 pb-2">
-                  <div className="h-65 w-full">
+                  <div className="h-[260px] w-full">
                     {attendanceData ? (
                       <ErrorBoundary 
                         fallback={

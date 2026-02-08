@@ -15,8 +15,8 @@ import { ezygoCircuitBreaker, NonBreakerError } from './circuit-breaker';
 import { createHash } from 'crypto';
 
 // 1. SHORT-LIVED CACHE (15 seconds) - Handles burst traffic
-// Stores in-flight request promises, not results
-// This allows multiple concurrent callers to await the same request
+// Stores in-flight request promises and caches resolved results for up to 15 seconds
+// This allows multiple concurrent callers to await the same request and subsequent calls to reuse cached results
 const requestCache = new LRUCache<string, Promise<any>>({
   max: 500,
   ttl: 15000, // 15 seconds - good balance for deduplication without stale data
