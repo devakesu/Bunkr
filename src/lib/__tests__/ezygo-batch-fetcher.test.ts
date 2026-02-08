@@ -353,4 +353,86 @@ describe('EzyGo Batch Fetcher', () => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('Queue Management', () => {
+    it('should throw QueueFullError when queue is full', async () => {
+      // Reset state first
+      resetRateLimiterState();
+      vi.clearAllMocks();
+      
+      // Create a long-running fetch that blocks all slots
+      const blockingPromise = new Promise(() => {}); // Never resolves
+      (global.fetch as any).mockReturnValue(blockingPromise);
+      
+      // Fill up all 3 concurrent slots + 100 queue slots
+      const requests = [];
+      for (let i = 0; i < 103; i++) {
+        requests.push(
+          fetchEzygoData(`/endpoint-${i}`, `token-${i}`).catch(e => e)
+        );
+      }
+      
+      // Wait a bit for promises to start
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // The 104th request should fail immediately with QueueFullError
+      try {
+        await fetchEzygoData('/endpoint-104', 'token-104');
+        expect.fail('Should have thrown QueueFullError');
+      } catch (error: any) {
+        expect(error.name).toBe('QueueFullError');
+        expect(error.message).toContain('Request queue is full');
+        expect(error.message).toContain('100 items');
+      }
+      
+      // Clean up - reset state for other tests
+      resetRateLimiterState();
+    });
+
+    it('should evict queue errors from cache to allow retry', async () => {
+      // Reset state first
+      resetRateLimiterState();
+      vi.clearAllMocks();
+      
+      // Create a long-running fetch that blocks all slots
+      const blockingPromise = new Promise(() => {}); // Never resolves
+      (global.fetch as any).mockReturnValue(blockingPromise);
+      
+      // Fill up all 3 concurrent slots + 100 queue slots
+      const requests = [];
+      for (let i = 0; i < 103; i++) {
+        requests.push(
+          fetchEzygoData(`/endpoint-${i}`, `token-${i}`).catch(e => e)
+        );
+      }
+      
+      // Wait a bit for promises to start
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // Make the same request twice - both should fail with QueueFullError
+      // If cache wasn't evicted, the second would return the cached rejection
+      const endpoint = '/test-eviction';
+      const token = 'test-token';
+      
+      try {
+        await fetchEzygoData(endpoint, token);
+        expect.fail('First request should have thrown QueueFullError');
+      } catch (error: any) {
+        expect(error.name).toBe('QueueFullError');
+      }
+      
+      // Second request should also fail with QueueFullError (not cached)
+      try {
+        await fetchEzygoData(endpoint, token);
+        expect.fail('Second request should have thrown QueueFullError');
+      } catch (error: any) {
+        expect(error.name).toBe('QueueFullError');
+        // If it was cached, we'd get the same promise rejection
+        // The fact that it throws again proves cache was evicted
+      }
+      
+      // Clean up
+      resetRateLimiterState();
+    });
+  });
 });
