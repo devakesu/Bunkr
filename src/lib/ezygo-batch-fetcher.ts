@@ -118,12 +118,13 @@ export async function fetchEzygoData<T>(
 
         if (!response.ok) {
           const errorMsg = `EzyGo API error: ${response.status} ${response.statusText}`;
-          // 4xx errors (client errors like 401/403) shouldn't trip the circuit breaker
-          // They indicate invalid token/permissions, not API failure
-          if (response.status >= 400 && response.status < 500) {
+          // 4xx errors (client errors like 401/403/404) shouldn't trip the circuit breaker
+          // They indicate invalid token/permissions/resource, not API failure
+          // Note: 429 (rate limit) is intentionally NOT included as it indicates service degradation
+          if (response.status === 401 || response.status === 403 || response.status === 404) {
             throw new NonBreakerError(errorMsg);
           }
-          // 5xx errors (server errors) should trip the circuit breaker
+          // 5xx errors (server errors) and other 4xx should trip the circuit breaker
           throw new Error(errorMsg);
         }
 
@@ -131,14 +132,19 @@ export async function fetchEzygoData<T>(
       });
       
       return result;
+    } catch (error) {
+      // Evict failed promises from cache to allow immediate retries
+      // This prevents transient failures from blocking retries for the full TTL window
+      requestCache.delete(cacheKey);
+      throw error;
     } finally {
       releaseSlot();
-      // Let TTL handle cache expiration (15s window for deduplication)
-      // Don't force delete - this allows closely-spaced sequential calls to deduplicate
+      // Successful promises stay cached for the full TTL (15s) to enable deduplication
     }
   })();
   
-  // Cache the promise (not the result) so concurrent requests share the same fetch
+  // Cache the promise so concurrent requests share the same fetch
+  // Note: settled (successful or failed) promises remain cached until TTL expiry or explicit deletion
   requestCache.set(cacheKey, requestPromise);
   
   return requestPromise;

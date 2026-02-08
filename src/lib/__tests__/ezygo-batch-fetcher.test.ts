@@ -131,6 +131,30 @@ describe('EzyGo Batch Fetcher', () => {
       // Should make 2 separate requests (different bodies)
       expect(global.fetch).toHaveBeenCalledTimes(2);
     });
+
+    it('should deduplicate endpoints with and without leading slash', async () => {
+      const mockResponse = { data: 'test' };
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const token = 'test-token';
+
+      // Make concurrent requests with /endpoint and endpoint
+      const promises = [
+        fetchEzygoData('/myprofile', token),
+        fetchEzygoData('myprofile', token),
+      ];
+
+      const results = await Promise.all(promises);
+
+      // Both should return the same result
+      expect(results).toEqual([mockResponse, mockResponse]);
+      
+      // But fetch should only be called once due to endpoint normalization
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Rate Limiting', () => {
