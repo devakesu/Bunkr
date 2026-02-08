@@ -145,16 +145,11 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
     let resizeObserver: ResizeObserver | null = null;
 
     if (typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          if (entry.target === element) {
-            const { width, height } = entry.contentRect;
-            setDimensions({ width, height });
-          }
-        }
+      resizeObserver = new ResizeObserver(() => {
+        updateDimensions();
       });
       resizeObserver.observe(element);
-    } else if (typeof window !== "undefined") {
+    } else {
       window.addEventListener("resize", updateDimensions);
     }
 
@@ -164,7 +159,7 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
     return () => {
       if (resizeObserver) {
         resizeObserver.disconnect();
-      } else if (typeof window !== "undefined") {
+      } else {
         window.removeEventListener("resize", updateDimensions);
       }
     };
