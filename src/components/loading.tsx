@@ -1,7 +1,7 @@
 "use client";
 
 import { Ring2 } from "ldrs/react";
-import "ldrs/dist/react/Ring2.css";
+import "ldrs/react/Ring2.css";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
