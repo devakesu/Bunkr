@@ -28,6 +28,16 @@ export class CircuitBreakerOpenError extends Error {
   }
 }
 
+/**
+ * Error that should not trigger circuit breaker (e.g., 4xx client errors)
+ */
+export class NonBreakerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NonBreakerError';
+  }
+}
+
 class CircuitBreaker {
   private state: CircuitState = 'CLOSED';
   private failures = 0;
@@ -96,6 +106,10 @@ class CircuitBreaker {
       this.onSuccess();
       return result;
     } catch (error) {
+      // Don't count NonBreakerError (4xx) as breaker failures
+      if (error instanceof NonBreakerError) {
+        throw error;
+      }
       this.onFailure(error);
       throw error;
     } finally {

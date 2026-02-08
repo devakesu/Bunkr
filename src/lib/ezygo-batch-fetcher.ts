@@ -11,7 +11,7 @@
 
 import { LRUCache } from 'lru-cache';
 import { logger } from './logger';
-import { ezygoCircuitBreaker } from './circuit-breaker';
+import { ezygoCircuitBreaker, NonBreakerError } from './circuit-breaker';
 import { createHash } from 'crypto';
 
 // 1. SHORT-LIVED CACHE (15 seconds) - Handles burst traffic
@@ -76,10 +76,13 @@ export async function fetchEzygoData<T>(
   method: 'GET' | 'POST' = 'GET',
   body?: any
 ): Promise<T> {
+  // Normalize endpoint for consistent cache key (remove leading slashes)
+  const normalizedEndpoint = endpoint.replace(/^\/+/, '');
+  
   // Create secure cache key using SHA-256 hash of token + method + endpoint + body
   // This prevents cross-user request deduplication from token suffix collisions
   const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 16);
-  const cacheKey = `${method}:${tokenHash}:${endpoint}:${JSON.stringify(body || {})}`;
+  const cacheKey = `${method}:${tokenHash}:${normalizedEndpoint}:${JSON.stringify(body || {})}`;
   
   // Check if request is already in-flight
   const existingRequest = requestCache.get(cacheKey);
@@ -114,7 +117,14 @@ export async function fetchEzygoData<T>(
         });
 
         if (!response.ok) {
-          throw new Error(`EzyGo API error: ${response.status} ${response.statusText}`);
+          const errorMsg = `EzyGo API error: ${response.status} ${response.statusText}`;
+          // 4xx errors (client errors like 401/403) shouldn't trip the circuit breaker
+          // They indicate invalid token/permissions, not API failure
+          if (response.status >= 400 && response.status < 500) {
+            throw new NonBreakerError(errorMsg);
+          }
+          // 5xx errors (server errors) should trip the circuit breaker
+          throw new Error(errorMsg);
         }
 
         return response.json();
@@ -123,10 +133,8 @@ export async function fetchEzygoData<T>(
       return result;
     } finally {
       releaseSlot();
-      // Remove from cache after a short delay to allow concurrent requests to share
-      setTimeout(() => {
-        requestCache.delete(cacheKey);
-      }, 100);
+      // Let TTL handle cache expiration (15s window for deduplication)
+      // Don't force delete - this allows closely-spaced sequential calls to deduplicate
     }
   })();
   
@@ -182,4 +190,14 @@ export function getRateLimiterStats() {
     maxConcurrent: MAX_CONCURRENT,
     cacheSize: requestCache.size,
   };
+}
+
+/**
+ * Reset rate limiter state (for testing only)
+ * @internal
+ */
+export function resetRateLimiterState() {
+  activeRequests = 0;
+  requestQueue.length = 0;
+  requestCache.clear();
 }

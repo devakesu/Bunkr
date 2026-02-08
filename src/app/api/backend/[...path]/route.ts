@@ -336,7 +336,18 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
 
       const text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
 
-      return { res, text };
+      // Check for server errors (5xx) and throw to trip circuit breaker
+      if (res.status >= 500) {
+        throw new Error(`Upstream server error: ${res.status} ${res.statusText}`);
+      }
+      
+      // For client errors (4xx), throw NonBreakerError to avoid tripping circuit
+      if (!res.ok && res.status >= 400 && res.status < 500) {
+        // Will be handled outside the circuit breaker
+        return { res, text, isClientError: true };
+      }
+
+      return { res, text, isClientError: false };
     });
 
     const { res, text } = result;
