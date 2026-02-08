@@ -545,7 +545,7 @@ export function AttendanceCalendar({
   if (currentDate.year === null || currentDate.month === null || !selectedDate) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-100">
+        <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-[400px]">
           <div className="text-muted-foreground">Loading calendar...</div>
         </Card>
         <Card className="border border-border/40 custom-container">

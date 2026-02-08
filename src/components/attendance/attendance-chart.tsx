@@ -132,18 +132,37 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
   const safeTarget = Number(targetPercentage) > 0 ? Number(targetPercentage) : 75;
 
   useEffect(() => {
-    // Measure container dimensions
+    // Measure container dimensions and keep them in sync with container size
+    if (!containerRef.current) return;
+
+    const element = containerRef.current;
+
     const updateDimensions = () => {
-      if (containerRef.current) {
-        const { width, height } = containerRef.current.getBoundingClientRect();
-        setDimensions({ width, height });
+      const rect = element.getBoundingClientRect();
+      setDimensions({ width: rect.width, height: rect.height });
+    };
+
+    let resizeObserver: ResizeObserver | null = null;
+
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        updateDimensions();
+      });
+      resizeObserver.observe(element);
+    } else {
+      window.addEventListener("resize", updateDimensions);
+    }
+
+    // Initial measurement
+    updateDimensions();
+
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      } else {
+        window.removeEventListener("resize", updateDimensions);
       }
     };
-    
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    
-    return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
   useEffect(() => {
@@ -352,7 +371,7 @@ const renderTargetLabel = (props: LabelProps) => {
 return (
   <div
     ref={containerRef}
-    className="w-full h-75"
+    className="w-full h-full"
     role="img"
     aria-label="Attendance overview bar chart"
   >

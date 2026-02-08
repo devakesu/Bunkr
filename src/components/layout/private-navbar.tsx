@@ -201,7 +201,7 @@ export const Navbar = () => {
                 });
               }}
             >
-              <SelectTrigger className="w-27.5 custom-input cursor-pointer" aria-label="Set attendance target percentage">
+              <SelectTrigger className="w-[110px] custom-input cursor-pointer" aria-label="Set attendance target percentage">
                 <SelectValue>
                   <div className="flex items-center font-medium">
                     <Percent className="mr-2 h-4 w-4" />
@@ -229,7 +229,7 @@ export const Navbar = () => {
                 value={selectedInstitution}
                 onValueChange={handleInstitutionChange}
               >
-                <SelectTrigger className="w-35 md:w-72.5 custom-input cursor-pointer" aria-label="Select institution">
+                <SelectTrigger className="w-[140px] md:w-[290px] custom-input cursor-pointer" aria-label="Select institution">
                   <SelectValue>
                     {selectedInstitution &&
                       institutions?.find(
