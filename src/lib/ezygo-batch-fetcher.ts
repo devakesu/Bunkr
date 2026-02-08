@@ -30,11 +30,21 @@ const requestCache = new LRUCache<string, Promise<any>>({
 // This is conservative but safe - increase only if you verify EzyGo's limits
 let activeRequests = 0;
 const MAX_CONCURRENT = 3; // Conservative: 3 concurrent requests from single IP
-const requestQueue: Array<() => void> = [];
+const MAX_QUEUE_SIZE = 100; // Prevent unbounded queue growth
+const QUEUE_TIMEOUT_MS = 30000; // 30 seconds max wait time in queue
+
+interface QueuedRequest {
+  resolve: () => void;
+  reject: (error: Error) => void;
+  timestamp: number;
+}
+
+const requestQueue: QueuedRequest[] = [];
 
 /**
  * Wait for an available request slot
  * If max concurrent requests reached, queues the request
+ * Throws error if queue is full or wait exceeds timeout
  */
 function waitForSlot(): Promise<void> {
   if (activeRequests < MAX_CONCURRENT) {
@@ -42,10 +52,33 @@ function waitForSlot(): Promise<void> {
     return Promise.resolve();
   }
   
-  return new Promise((resolve) => {
-    requestQueue.push(() => {
-      activeRequests++;
-      resolve();
+  // Check queue size limit
+  if (requestQueue.length >= MAX_QUEUE_SIZE) {
+    throw new Error(`Request queue is full (${MAX_QUEUE_SIZE} items). Please try again later.`);
+  }
+  
+  return new Promise((resolve, reject) => {
+    const timestamp = Date.now();
+    const timeoutId = setTimeout(() => {
+      // Remove from queue if still present
+      const index = requestQueue.findIndex(item => item.timestamp === timestamp);
+      if (index !== -1) {
+        requestQueue.splice(index, 1);
+      }
+      reject(new Error(`Request queue timeout: waited ${QUEUE_TIMEOUT_MS}ms without getting a slot`));
+    }, QUEUE_TIMEOUT_MS);
+    
+    requestQueue.push({
+      resolve: () => {
+        clearTimeout(timeoutId);
+        activeRequests++;
+        resolve();
+      },
+      reject: (error: Error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      },
+      timestamp
     });
   });
 }
@@ -57,7 +90,7 @@ function releaseSlot() {
   activeRequests--;
   const next = requestQueue.shift();
   if (next) {
-    next();
+    next.resolve();
   }
 }
 
@@ -92,7 +125,16 @@ export async function fetchEzygoData<T>(
   
   // Create new request with rate limiting and circuit breaker
   const requestPromise = (async () => {
-    await waitForSlot();
+    try {
+      await waitForSlot();
+    } catch (error) {
+      // Queue timeout or queue full errors should not trip the circuit breaker
+      // They indicate local resource constraints, not API failure
+      if (error instanceof Error && (error.message.includes('queue') || error.message.includes('timeout'))) {
+        throw new NonBreakerError(error.message);
+      }
+      throw error;
+    }
     
     try {
       const result = await ezygoCircuitBreaker.execute(async () => {
