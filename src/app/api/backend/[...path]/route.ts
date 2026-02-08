@@ -396,6 +396,8 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       // - Consider a separate DEBUG flag for controlled verbose logging if needed
       
       const is5xxError = res.status >= 500;
+      // Preserve 429 rate-limit messages even in production as they contain actionable info
+      // Only sanitize 5xx errors which may expose internal implementation details
       const clientMessage = (IS_PRODUCTION && is5xxError)
         ? "An error occurred while processing your request" 
         : errorMessage;
@@ -419,9 +421,15 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       );
     }
     
-    // Check if this is an upstream server error (5xx) - preserve response semantics
+    // Check if this is an upstream server error (5xx or 429) - preserve response semantics
     if (error instanceof UpstreamServerError) {
-      logger.error("Proxy upstream 5xx error", { 
+      const is429 = error.status === 429;
+      const logLevel = is429 ? "warn" : "error";
+      const logMessage = is429 
+        ? "Proxy upstream rate limit (429)" 
+        : "Proxy upstream 5xx error";
+      
+      logger[logLevel](logMessage, { 
         status: error.status, 
         target,
         bodyPreview: error.body.substring(0, MAX_ERROR_BODY_LOG_LENGTH)
@@ -436,7 +444,9 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
         // Not JSON, use raw text as error message
       }
       
-      const clientMessage = IS_PRODUCTION
+      // Preserve 429 rate-limit messages even in production as they contain actionable info
+      // Only sanitize 5xx errors which may expose internal implementation details
+      const clientMessage = (IS_PRODUCTION && error.status >= 500)
         ? "An error occurred while processing your request" 
         : errorMessage;
       

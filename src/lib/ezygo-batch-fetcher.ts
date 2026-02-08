@@ -148,7 +148,16 @@ export async function fetchEzygoData<T>(
   const requestPromise = (async () => {
     // QueueFullError and QueueTimeoutError are thrown by waitForSlot()
     // They already extend NonBreakerError so they won't trip the circuit breaker
-    await waitForSlot();
+    try {
+      await waitForSlot();
+    } catch (error) {
+      // Queue errors (full/timeout) are transient - evict from cache to allow immediate retry
+      // when queue has capacity again
+      if (error instanceof QueueFullError || error instanceof QueueTimeoutError) {
+        requestCache.delete(cacheKey);
+      }
+      throw error;
+    }
     
     try {
       const result = await ezygoCircuitBreaker.execute(async () => {
