@@ -335,9 +335,10 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
 
         const text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
 
-        // Check for server errors (5xx) and throw to trip circuit breaker
+        // Check for server errors (5xx) and rate limiting (429) and throw to trip circuit breaker
         // Use UpstreamServerError to preserve response details for proper proxying
-        if (res.status >= 500) {
+        // 429 is treated as a breaker-worthy error to prevent retry storms during upstream rate limiting
+        if (res.status >= 500 || res.status === 429) {
           throw new UpstreamServerError(
             `Upstream server error: ${res.status} ${res.statusText}`,
             res.status,
