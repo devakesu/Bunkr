@@ -356,6 +356,9 @@ describe('EzyGo Batch Fetcher', () => {
 
   describe('Queue Management', () => {
     it('should throw QueueFullError when queue is full', async () => {
+      // Use fake timers to avoid long-running real timers
+      vi.useFakeTimers();
+      
       // Reset state first
       resetRateLimiterState();
       vi.clearAllMocks();
@@ -372,8 +375,8 @@ describe('EzyGo Batch Fetcher', () => {
         );
       }
       
-      // Wait a bit for promises to start
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // Advance timers to let promises start
+      await vi.advanceTimersByTimeAsync(10);
       
       // The 104th request should fail immediately with QueueFullError
       try {
@@ -387,9 +390,12 @@ describe('EzyGo Batch Fetcher', () => {
       
       // Clean up - reset state for other tests
       resetRateLimiterState();
+      vi.useRealTimers();
     });
 
     it('should evict queue errors from cache to allow retry', async () => {
+      // Use fake timers to avoid long-running real timers
+      vi.useFakeTimers();
       // Reset state first
       resetRateLimiterState();
       vi.clearAllMocks();
@@ -406,8 +412,8 @@ describe('EzyGo Batch Fetcher', () => {
         );
       }
       
-      // Wait a bit for promises to start
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // Advance timers to let promises start
+      await vi.advanceTimersByTimeAsync(10);
       
       // Make the same request twice - both should fail with QueueFullError
       // If cache wasn't evicted, the second would return the cached rejection
@@ -433,6 +439,7 @@ describe('EzyGo Batch Fetcher', () => {
       
       // Clean up
       resetRateLimiterState();
+      vi.useRealTimers();
     });
   });
 });

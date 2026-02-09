@@ -55,7 +55,6 @@ export default async function DashboardPage() {
     
     logger.dev('[Dashboard] Initial data fetched successfully', {
       context: 'dashboard-page',
-      hasProfile: !!initialData.profile,
       hasCourses: !!initialData.courses,
       hasAttendance: !!initialData.attendance,
     });
