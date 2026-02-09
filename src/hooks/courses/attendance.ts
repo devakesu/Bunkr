@@ -14,7 +14,7 @@ export const useAttendanceReport = (options?: { enabled?: boolean; initialData?:
       return res.data;
     },
     enabled: options?.enabled,
-    initialData: options?.initialData ?? undefined,
+    initialData: options?.initialData,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,

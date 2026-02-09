@@ -396,8 +396,7 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       // - Consider a separate DEBUG flag for controlled verbose logging if needed
       
       const is5xxError = res.status >= 500;
-      // Preserve 429 rate-limit messages even in production as they contain actionable info
-      // Only sanitize 5xx errors which may expose internal implementation details
+      // Only sanitize 5xx errors in production as they may expose internal implementation details
       const clientMessage = (IS_PRODUCTION && is5xxError)
         ? "An error occurred while processing your request" 
         : errorMessage;

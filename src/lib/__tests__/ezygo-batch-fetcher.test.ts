@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { fetchEzygoData, getRateLimiterStats, resetRateLimiterState } from '../ezygo-batch-fetcher';
 
+// Mock server-only to allow tests to run
+vi.mock('server-only', () => ({}));
+
 // Mock the circuit breaker to passthrough execution
 vi.mock('../circuit-breaker', () => ({
   ezygoCircuitBreaker: {
@@ -425,12 +428,21 @@ describe('EzyGo Batch Fetcher', () => {
         const endpoint = '/test-eviction';
         const token = 'test-token';
         
+        const initialCacheSize = getRateLimiterStats().cacheSize;
+        
         try {
           await fetchEzygoData(endpoint, token);
           expect.fail('First request should have thrown QueueFullError');
         } catch (error: any) {
           expect(error.name).toBe('QueueFullError');
         }
+        
+        // Allow time for cache eviction to complete
+        await vi.advanceTimersByTimeAsync(10);
+        
+        // Verify cache was evicted after QueueFullError
+        const cacheSizeAfterFirstError = getRateLimiterStats().cacheSize;
+        expect(cacheSizeAfterFirstError).toBe(initialCacheSize); // No increase, error was evicted
         
         // Second request should also fail with QueueFullError (not cached)
         try {
@@ -441,6 +453,13 @@ describe('EzyGo Batch Fetcher', () => {
           // If it was cached, we'd get the same promise rejection
           // The fact that it throws again proves cache was evicted
         }
+        
+        // Allow time for cache eviction to complete
+        await vi.advanceTimersByTimeAsync(10);
+        
+        // Verify cache still hasn't grown (both errors were evicted)
+        const cacheSizeAfterSecondError = getRateLimiterStats().cacheSize;
+        expect(cacheSizeAfterSecondError).toBe(initialCacheSize);
         
         // Clean up
         resetRateLimiterState();

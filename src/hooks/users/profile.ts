@@ -127,7 +127,7 @@ export const useProfile = (options?: { initialData?: UserProfile }) => {
 
       return mergedData as UserProfile;
     },
-    initialData: options?.initialData ?? undefined,
+    initialData: options?.initialData,
     // Cache for 5 mins to avoid spamming the sync logic
     staleTime: 1000 * 60 * 5,
     gcTime: 30 * 60 * 1000,
