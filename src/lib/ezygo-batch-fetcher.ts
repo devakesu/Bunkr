@@ -219,11 +219,13 @@ export async function fetchEzygoData<T>(
 }
 
 /**
- * Batch fetch all dashboard data in parallel
+ * Batch fetch dashboard data in parallel (courses and attendance)
  * Respects global rate limit but fetches concurrently when slots available
  * 
+ * Note: Profile is fetched client-side via useProfile hook to avoid redundant SSR fetching
+ * 
  * @param token - EzyGo access token
- * @returns Promise with profile, courses, and attendance data
+ * @returns Promise with courses and attendance data
  */
 export async function fetchDashboardData(token: string) {
   // These run concurrently but respect the global rate limit
