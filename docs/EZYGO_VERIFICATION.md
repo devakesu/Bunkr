@@ -7,7 +7,7 @@
 #### 1. **Server-Side Calls (Direct to EzyGo)** ✅
 - **Dashboard Page** (`src/app/(protected)/dashboard/page.tsx`)
   - Uses `fetchDashboardData()` with rate limiting
-  - Fetches 3 endpoints: `/myprofile`, `/institutionuser/courses/withusers`, `/attendancereports/student/detailed`
+  - Fetches 2 endpoints: `/institutionuser/courses/withusers`, `/attendancereports/student/detailed`
   - ✅ Protected by request deduplication
   - ✅ Protected by circuit breaker
   - ✅ Rate limited to 3 concurrent requests

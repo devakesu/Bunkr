@@ -123,7 +123,7 @@ User 2: Request → [Cache Hit] → Shared Promise → Response (instant)
 import { fetchDashboardData } from '@/lib/ezygo-batch-fetcher';
 
 // In Server Component
-const { profile, courses, attendance } = await fetchDashboardData(token);
+const { courses, attendance } = await fetchDashboardData(token);
 ```
 
 ### Individual API Calls

@@ -16,8 +16,14 @@ export async function GET() {
   const hasBacklog = rateLimiterStats.queueLength > 0;
   const isHealthy = !circuitBreakerStatus.isOpen && atOrBelowCapacity && !hasBacklog;
   
+  // Always return 200 OK with status payload to avoid triggering load balancer alerts
+  // during normal traffic bursts. Circuit OPEN is the only true unhealthy state.
+  const status = circuitBreakerStatus.isOpen ? 'unhealthy' : 
+                 hasBacklog ? 'degraded' : 
+                 'healthy';
+  
   return NextResponse.json({
-    status: isHealthy ? 'healthy' : 'degraded',
+    status,
     timestamp: new Date().toISOString(),
     rateLimiter: {
       activeRequests: rateLimiterStats.activeRequests,
@@ -37,7 +43,7 @@ export async function GET() {
         : null,
     },
   }, {
-    status: isHealthy ? 200 : 503,
+    status: circuitBreakerStatus.isOpen ? 503 : 200,
     headers: {
       'Cache-Control': 'no-store, max-age=0',
     },

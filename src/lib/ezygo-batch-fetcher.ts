@@ -9,6 +9,8 @@
  * Example: 20 concurrent users = max 3 concurrent API calls instead of 120
  */
 
+import 'server-only';
+
 import { LRUCache } from 'lru-cache';
 import { logger } from './logger';
 import { ezygoCircuitBreaker, NonBreakerError } from './circuit-breaker';
@@ -144,8 +146,21 @@ export async function fetchEzygoData<T>(
     return existingRequest;
   }
   
-  // Create new request with rate limiting and circuit breaker
-  const requestPromise = (async () => {
+  // Create a deferred promise that we control
+  // This ensures we can set it in cache before any synchronous errors occur
+  let resolveDeferred: (value: T) => void;
+  let rejectDeferred: (error: Error) => void;
+  const deferredPromise = new Promise<T>((resolve, reject) => {
+    resolveDeferred = resolve;
+    rejectDeferred = reject;
+  });
+  
+  // Set the deferred promise in cache immediately
+  // This ensures eviction works even if waitForSlot() throws synchronously
+  requestCache.set(cacheKey, deferredPromise);
+  
+  // Execute the actual request asynchronously
+  (async () => {
     // QueueFullError and QueueTimeoutError are thrown by waitForSlot()
     // They already extend NonBreakerError so they won't trip the circuit breaker
     try {
@@ -156,7 +171,8 @@ export async function fetchEzygoData<T>(
       if (error instanceof QueueFullError || error instanceof QueueTimeoutError) {
         requestCache.delete(cacheKey);
       }
-      throw error;
+      rejectDeferred(error as Error);
+      return;
     }
     
     try {
@@ -196,26 +212,21 @@ export async function fetchEzygoData<T>(
         return response.json();
       });
       
-      return result;
+      resolveDeferred(result);
     } catch (error) {
       // Only evict transient failures from cache to allow immediate retries
       // NonBreakerErrors (401/403/404) represent permanent client errors that shouldn't be retried
       if (!(error instanceof NonBreakerError)) {
         requestCache.delete(cacheKey);
       }
-      throw error;
+      rejectDeferred(error as Error);
     } finally {
       releaseSlot();
       // Successful promises stay cached for the full TTL (15s) to enable deduplication
     }
   })();
   
-  // Cache the promise so concurrent requests share the same fetch
-  // Successful promises and NonBreakerErrors stay cached until TTL expiry
-  // Transient failures (5xx, network errors) are evicted immediately for retry
-  requestCache.set(cacheKey, requestPromise);
-  
-  return requestPromise;
+  return deferredPromise;
 }
 
 /**
