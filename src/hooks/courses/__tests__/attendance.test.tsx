@@ -49,7 +49,6 @@ describe('useAttendanceReport', () => {
 
   it('should handle error state', async () => {
     vi.mocked(axiosInstance.post).mockRejectedValueOnce(new Error('Network error'))
-      .mockRejectedValueOnce(new Error('Network error')) // Second rejection for retry
 
     const { result } = renderHook(() => useAttendanceReport(), {
       wrapper: createWrapper(),
@@ -57,7 +56,7 @@ describe('useAttendanceReport', () => {
 
     await waitFor(() => {
       expect(result.current.isError).toBe(true)
-    }, { timeout: 3000 })
+    })
   })
 
   it('should respect enabled option', () => {
