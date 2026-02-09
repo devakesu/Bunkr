@@ -30,7 +30,7 @@ export const useFetchCourses = (options?: {
   enabled?: boolean; 
   initialData?: { courses: Record<string, Course> } | null 
 }) => {
-  return useQuery({
+  return useQuery<{ courses: Record<string, Course> } | null>({
     queryKey: ["courses"],
     queryFn: async () => {
       const res = await axios.get("/institutionuser/courses/withusers");

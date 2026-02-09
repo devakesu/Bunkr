@@ -12,12 +12,10 @@ export async function GET() {
   const rateLimiterStats = getRateLimiterStats();
   const circuitBreakerStatus = ezygoCircuitBreaker.getStatus();
   
-  const atOrBelowCapacity = rateLimiterStats.activeRequests <= rateLimiterStats.maxConcurrent;
   const hasBacklog = rateLimiterStats.queueLength > 0;
-  const isHealthy = !circuitBreakerStatus.isOpen && atOrBelowCapacity && !hasBacklog;
   
-  // Always return 200 OK with status payload to avoid triggering load balancer alerts
-  // during normal traffic bursts. Circuit OPEN is the only true unhealthy state.
+  // Return HTTP 503 when circuit is open, 200 otherwise
+  // Status payload indicates 'healthy', 'degraded', or 'unhealthy' for monitoring
   const status = circuitBreakerStatus.isOpen ? 'unhealthy' : 
                  hasBacklog ? 'degraded' : 
                  'healthy';

@@ -136,8 +136,8 @@ export async function fetchEzygoData<T>(
   const normalizedEndpoint = endpoint.replace(/^\/+/, '');
   
   // Create secure cache key using SHA-256 hash of token + method + endpoint + body
-  // This prevents cross-user request deduplication from token suffix collisions
-  const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 16);
+  // Use full hash (64 hex chars = 256 bits) to prevent cross-user collision and data exposure
+  const tokenHash = createHash('sha256').update(token).digest('hex');
   const cacheKey = `${method}:${tokenHash}:${normalizedEndpoint}:${JSON.stringify(body || {})}`;
   
   // Check if request is already in-flight
@@ -148,8 +148,8 @@ export async function fetchEzygoData<T>(
   
   // Create a deferred promise that we control
   // This ensures we can set it in cache before any synchronous errors occur
-  let resolveDeferred: (value: T) => void;
-  let rejectDeferred: (error: Error) => void;
+  let resolveDeferred!: (value: T) => void;
+  let rejectDeferred!: (error: Error) => void;
   const deferredPromise = new Promise<T>((resolve, reject) => {
     resolveDeferred = resolve;
     rejectDeferred = reject;
@@ -176,17 +176,18 @@ export async function fetchEzygoData<T>(
     }
     
     try {
-      const result = await ezygoCircuitBreaker.execute(async () => {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-        if (!backendUrl) {
-          throw new Error('NEXT_PUBLIC_BACKEND_URL is not configured');
-        }
+      // Validate backend URL before circuit breaker to avoid counting config errors as breaker failures
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+      if (!backendUrl) {
+        throw new NonBreakerError('NEXT_PUBLIC_BACKEND_URL is not configured');
+      }
 
-        // Remove trailing slash from base URL and leading slash from endpoint to avoid double slashes
-        const baseUrl = backendUrl.replace(/\/+$/, '');
-        const cleanEndpoint = endpoint.replace(/^\/+/, '');
-        const url = `${baseUrl}/${cleanEndpoint}`;
-        
+      // Remove trailing slash from base URL and leading slash from endpoint to avoid double slashes
+      const baseUrl = backendUrl.replace(/\/+$/, '');
+      const cleanEndpoint = endpoint.replace(/^\/+/, '');
+      const url = `${baseUrl}/${cleanEndpoint}`;
+      
+      const result = await ezygoCircuitBreaker.execute(async () => {
         const response = await fetch(url, {
           method,
           headers: {
@@ -215,7 +216,7 @@ export async function fetchEzygoData<T>(
       resolveDeferred(result);
     } catch (error) {
       // Only evict transient failures from cache to allow immediate retries
-      // NonBreakerErrors (401/403/404) represent permanent client errors that shouldn't be retried
+      // NonBreakerErrors (401/403/404 + config errors) represent permanent/config errors that shouldn't be retried
       if (!(error instanceof NonBreakerError)) {
         requestCache.delete(cacheKey);
       }
