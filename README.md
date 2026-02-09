@@ -499,8 +499,6 @@ GhostClass implements multiple layers of security:
 - **Origin Validation** - Strict origin checking in production (disabled in dev)
 - **Cloudflare Turnstile** - Bot protection on public endpoints
 
-For detailed security implementation, see [SECURITY.md](docs/SECURITY.md).
-
 To report security vulnerabilities, please email: [admin@ghostclass.devakesu.com](mailto:admin@ghostclass.devakesu.com)
 
 <br />

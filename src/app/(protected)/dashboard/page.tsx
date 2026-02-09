@@ -44,6 +44,7 @@ export default async function DashboardPage() {
   // 3. Fetch data server-side with deduplication and rate limiting
   // This prevents 20 concurrent users from making 120 API calls
   // Instead: max 3 concurrent calls with request deduplication
+  // Note: Profile is fetched client-side via useProfile hook
   let initialData = null;
   try {
     logger.dev('[Dashboard] Fetching initial data server-side', {
@@ -55,7 +56,6 @@ export default async function DashboardPage() {
     
     logger.dev('[Dashboard] Initial data fetched successfully', {
       context: 'dashboard-page',
-      hasProfile: !!initialData.profile,
       hasCourses: !!initialData.courses,
       hasAttendance: !!initialData.attendance,
     });

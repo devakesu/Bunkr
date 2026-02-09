@@ -227,14 +227,8 @@ export async function fetchEzygoData<T>(
  */
 export async function fetchDashboardData(token: string) {
   // These run concurrently but respect the global rate limit
-  const [profile, courses, attendance] = await Promise.all([
-    fetchEzygoData('/myprofile', token).catch((error) => {
-      logger.error('[EzyGo] Failed to fetch profile', {
-        context: 'ezygo-batch-fetcher',
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    }),
+  // Note: Profile is not fetched here as DashboardClient fetches it directly via useProfile
+  const [courses, attendance] = await Promise.all([
     fetchEzygoData('/institutionuser/courses/withusers', token).catch((error) => {
       logger.error('[EzyGo] Failed to fetch courses', {
         context: 'ezygo-batch-fetcher',
@@ -251,7 +245,7 @@ export async function fetchDashboardData(token: string) {
     })
   ]);
   
-  return { profile, courses, attendance };
+  return { courses, attendance };
 }
 
 /**
