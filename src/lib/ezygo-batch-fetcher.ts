@@ -34,12 +34,13 @@ class QueueTimeoutError extends NonBreakerError {
   }
 }
 
-// 1. SHORT-LIVED CACHE (15 seconds) - Handles burst traffic
-// Stores in-flight request promises and caches resolved results for up to 15 seconds
+// 1. LONG-LIVED CACHE (60 seconds) - Handles burst traffic and queuing delays
+// Stores in-flight request promises and caches resolved results for up to 60 seconds
 // This allows multiple concurrent callers to await the same request and subsequent calls to reuse cached results
+// TTL must be >= QUEUE_TIMEOUT_MS (30s) + fetch timeout (15s) to avoid cache expiry during queuing
 const requestCache = new LRUCache<string, Promise<any>>({
   max: 500,
-  ttl: 15000, // 15 seconds - good balance for deduplication without stale data
+  ttl: 60000, // 60 seconds - accounts for 30s queue wait + 15s fetch + 15s result cache
   updateAgeOnGet: false, // Don't reset TTL on access
   updateAgeOnHas: false,
 });

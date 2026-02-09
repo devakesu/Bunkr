@@ -28,7 +28,7 @@ import { Course } from "@/types";
  */
 export const useFetchCourses = (options?: { 
   enabled?: boolean; 
-  initialData?: { courses: Record<string, Course> } | null 
+  initialData?: { courses: Record<string, Course> }
 }) => {
   return useQuery<{ courses: Record<string, Course> } | null>({
     queryKey: ["courses"],
@@ -51,7 +51,7 @@ export const useFetchCourses = (options?: {
       return formattedData;
     },
     enabled: options?.enabled,
-    initialData: options?.initialData,
+    initialData: options?.initialData ?? undefined,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,

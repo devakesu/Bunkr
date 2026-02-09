@@ -151,7 +151,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     isLoading: isLoadingAttendance,
     refetch: refetchAttendance,
   } = useAttendanceReport({
-    initialData: initialData?.attendance,
+    initialData: initialData?.attendance ?? undefined,
   });
 
   const {
