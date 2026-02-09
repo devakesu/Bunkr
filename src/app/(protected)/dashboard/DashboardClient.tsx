@@ -144,7 +144,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             }, {})
           : initialData.courses
       }
-    : null;
+    : undefined;
 
   const {
     data: attendanceData,
