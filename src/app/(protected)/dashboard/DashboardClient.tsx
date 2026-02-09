@@ -678,7 +678,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                         <AttendanceChart 
                           attendanceData={filteredChartData} 
                           trackingData={trackingData} 
-                          coursesData={coursesData} 
+                          coursesData={coursesData ?? undefined} 
                         />
                       </ErrorBoundary>
                     ) : (

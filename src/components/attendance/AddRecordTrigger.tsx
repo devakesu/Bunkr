@@ -73,9 +73,9 @@ export function AddRecordTrigger({ user, onSuccess }: AddRecordTriggerProps) {
       <AddAttendanceDialog 
          open={isOpen} 
          onOpenChange={setIsOpen}
-         attendanceData={attendanceData}
+         attendanceData={attendanceData ?? undefined}
          trackingData={trackingData || []}
-         coursesData={coursesData}
+         coursesData={coursesData ?? undefined}
          user={dialogUser}
          onSuccess={handleSuccess}
          selectedSemester={selectedSemester ?? undefined}

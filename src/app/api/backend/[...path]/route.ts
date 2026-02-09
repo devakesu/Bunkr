@@ -3,7 +3,7 @@ import { Buffer } from "buffer";
 import { getAuthTokenServer } from "@/lib/security/auth-cookie";
 import { validateCsrfToken } from "@/lib/security/csrf";
 import { logger } from "@/lib/logger";
-import { ezygoCircuitBreaker, CircuitBreakerOpenError, UpstreamServerError } from "@/lib/circuit-breaker";
+import { ezygoCircuitBreaker, CircuitBreakerOpenError, UpstreamServerError, NonBreakerError } from "@/lib/circuit-breaker";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
@@ -174,8 +174,9 @@ const MAX_ERROR_BODY_LOG_LENGTH = 500;
 
 /**
  * Custom error for oversized upstream responses
+ * This is a local safety limit, not an upstream failure, so it should not trip the circuit breaker
  */
-class UpstreamResponseTooLargeError extends Error {
+class UpstreamResponseTooLargeError extends NonBreakerError {
   constructor(message: string) {
     super(message);
     this.name = 'UpstreamResponseTooLargeError';
