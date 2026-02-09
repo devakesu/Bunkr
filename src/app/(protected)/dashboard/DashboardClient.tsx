@@ -85,7 +85,6 @@ const getOfficialSessionRaw = (session: any, sessionKey: string | number): strin
 
 interface DashboardClientProps {
   initialData?: {
-    profile: any;
     courses: any;
     attendance: any;
   } | null;
