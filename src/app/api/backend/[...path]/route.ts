@@ -192,7 +192,11 @@ async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: num
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    if (signal.aborted) throw new Error("Upstream fetch aborted");
+    if (signal.aborted) {
+      const abortError = new Error("Upstream fetch aborted");
+      abortError.name = "AbortError";
+      throw abortError;
+    }
     if (value) {
       received += value.length;
       if (received > limit) {
