@@ -405,6 +405,103 @@ describe('EzyGo Batch Fetcher', () => {
   });
 
   describe('Queue Management', () => {
+    it('should enforce FIFO fairness - queued requests cannot be bypassed', async () => {
+      // Use fake timers to control request timing
+      vi.useFakeTimers();
+      
+      try {
+        // Reset state first
+        resetRateLimiterState();
+        vi.clearAllMocks();
+        
+        const completionOrder: number[] = [];
+        const resolvers: Array<() => void> = [];
+        
+        // Mock fetch to allow manual control over request completion
+        (global.fetch as any).mockImplementation(async () => {
+          return new Promise<any>((resolve) => {
+            resolvers.push(() => {
+              resolve({
+                ok: true,
+                json: async () => ({ data: 'test' }),
+              });
+            });
+          });
+        });
+        
+        // Start 3 requests to fill all concurrent slots
+        const request1 = fetchEzygoData('/endpoint-1', 'token-1').then(() => completionOrder.push(1));
+        const request2 = fetchEzygoData('/endpoint-2', 'token-2').then(() => completionOrder.push(2));
+        const request3 = fetchEzygoData('/endpoint-3', 'token-3').then(() => completionOrder.push(3));
+        
+        // Advance timers to allow requests to start
+        await vi.advanceTimersByTimeAsync(10);
+        
+        // Now all 3 slots are occupied, queue should be empty
+        expect(getRateLimiterStats().activeRequests).toBe(3);
+        expect(getRateLimiterStats().queueLength).toBe(0);
+        
+        // Queue two more requests (these will wait)
+        const request4 = fetchEzygoData('/endpoint-4', 'token-4').then(() => completionOrder.push(4));
+        const request5 = fetchEzygoData('/endpoint-5', 'token-5').then(() => completionOrder.push(5));
+        
+        await vi.advanceTimersByTimeAsync(10);
+        
+        // Verify queue has 2 items
+        expect(getRateLimiterStats().queueLength).toBe(2);
+        
+        // Complete request 1 to free up a slot
+        resolvers[0]();
+        await vi.advanceTimersByTimeAsync(10);
+        
+        // Request 4 should have taken the slot (first in queue)
+        expect(getRateLimiterStats().activeRequests).toBe(3); // Still 3 active
+        expect(getRateLimiterStats().queueLength).toBe(1); // Queue reduced to 1
+        
+        // NOW create a new request while queue is non-empty
+        const request6 = fetchEzygoData('/endpoint-6', 'token-6').then(() => completionOrder.push(6));
+        
+        await vi.advanceTimersByTimeAsync(10);
+        
+        // Request 6 should be queued (not bypass request 5)
+        expect(getRateLimiterStats().queueLength).toBe(2); // Queue has request 5 and 6
+        
+        // Complete request 2 to free another slot
+        resolvers[1]();
+        await vi.advanceTimersByTimeAsync(10);
+        
+        // Request 5 should take the slot (FIFO)
+        expect(getRateLimiterStats().queueLength).toBe(1); // Only request 6 left
+        
+        // Complete request 3
+        resolvers[2]();
+        await vi.advanceTimersByTimeAsync(10);
+        
+        // Request 6 should take the slot
+        expect(getRateLimiterStats().queueLength).toBe(0);
+        
+        // Complete remaining requests
+        resolvers[3]();
+        await vi.advanceTimersByTimeAsync(10);
+        resolvers[4]();
+        await vi.advanceTimersByTimeAsync(10);
+        resolvers[5]();
+        await vi.advanceTimersByTimeAsync(10);
+        
+        // Wait for all promises to resolve
+        await Promise.all([request1, request2, request3, request4, request5, request6]);
+        
+        // Verify FIFO order: requests completed in the order they were made
+        // Request 6 (which arrived late but while queue was non-empty) should come AFTER request 5
+        expect(completionOrder).toEqual([1, 2, 3, 4, 5, 6]);
+        
+        // Clean up
+        resetRateLimiterState();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('should throw QueueFullError when queue is full', async () => {
       // Use fake timers to prevent real 30s timeouts
       vi.useFakeTimers();
