@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode } from 'react'
 import { useAttendanceReport } from '@/hooks/courses/attendance'
+import { type AttendanceReport } from '@/types'
 import axiosInstance from '@/lib/axios'
 
 vi.mock('@/lib/axios', () => ({
@@ -26,10 +27,12 @@ describe('useAttendanceReport', () => {
   }
 
   it('should fetch attendance report data successfully', async () => {
-    const mockAttendanceReport = {
-      totalClasses: 100,
-      attendedClasses: 85,
-      percentage: 85,
+    const mockAttendanceReport: AttendanceReport = {
+      courses: {},
+      sessions: {},
+      attendanceTypes: {},
+      studentAttendanceData: {},
+      attendanceDatesArray: {},
     }
 
     vi.mocked(axiosInstance.post).mockResolvedValueOnce({
@@ -68,11 +71,13 @@ describe('useAttendanceReport', () => {
     expect(result.current.fetchStatus).toBe('idle')
   })
 
-  it('should normalize null initialData to undefined and trigger fetch', async () => {
-    const mockAttendanceReport = {
-      totalClasses: 100,
-      attendedClasses: 85,
-      percentage: 85,
+  it('should fetch data when initialData is undefined', async () => {
+    const mockAttendanceReport: AttendanceReport = {
+      courses: {},
+      sessions: {},
+      attendanceTypes: {},
+      studentAttendanceData: {},
+      attendanceDatesArray: {},
     }
 
     vi.mocked(axiosInstance.post).mockResolvedValueOnce({
@@ -97,10 +102,12 @@ describe('useAttendanceReport', () => {
   })
 
   it('should use initialData when provided and not trigger immediate fetch', () => {
-    const mockInitialData = {
-      totalClasses: 50,
-      attendedClasses: 40,
-      percentage: 80,
+    const mockInitialData: AttendanceReport = {
+      courses: {},
+      sessions: {},
+      attendanceTypes: {},
+      studentAttendanceData: {},
+      attendanceDatesArray: {},
     }
 
     const { result } = renderHook(
