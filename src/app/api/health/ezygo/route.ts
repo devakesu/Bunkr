@@ -21,7 +21,8 @@ export async function GET() {
                  'healthy';
   
   // Only expose detailed metrics in non-production environments to avoid information disclosure
-  const includeDetails = process.env.NODE_ENV !== "production";
+  // Default to production-safe behavior if NODE_ENV is not explicitly set to development/test
+  const includeDetails = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
   
   const basePayload = {
     status,
