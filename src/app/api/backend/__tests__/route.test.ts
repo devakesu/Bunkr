@@ -400,6 +400,12 @@ describe('Backend Proxy Route', () => {
   });
 
   describe('Rate Limiting (429) Handling', () => {
+    beforeEach(async () => {
+      // Reset circuit breaker before each test to ensure clean state
+      const { ezygoCircuitBreaker } = await import('@/lib/circuit-breaker');
+      ezygoCircuitBreaker.reset();
+    });
+
     it('should treat 429 as breaker-worthy and preserve error message in production', async () => {
       const rateLimitMessage = 'Rate limit exceeded. Please try again in 60 seconds.';
       vi.mocked(mockFetch).mockResolvedValue(
