@@ -181,7 +181,15 @@ of API calls, still subject to the global concurrency limits described above.
 curl https://your-domain.com/api/health/ezygo
 ```
 
-**Response:**
+**Production Response (minimal telemetry):**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-02-08T12:00:00Z"
+}
+```
+
+**Development/Test Response (detailed telemetry):**
 ```json
 {
   "status": "healthy",
@@ -201,6 +209,8 @@ curl https://your-domain.com/api/health/ezygo
   }
 }
 ```
+
+> **Security Note:** Detailed metrics are only exposed when `NODE_ENV` is set to `development` or `test` to prevent information disclosure in production. The endpoint always returns the correct HTTP status code (200 for healthy, 503 for unhealthy) regardless of environment.
 
 ### Monitoring Recommendations
 
