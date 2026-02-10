@@ -263,10 +263,13 @@ describe('EzyGo Batch Fetcher', () => {
           method: 'GET',
           headers: expect.objectContaining({
             'Authorization': 'Bearer test-token',
-            'Content-Type': 'application/json',
           }),
         })
       );
+      
+      // Verify Content-Type is NOT set for GET requests
+      const fetchCall = (global.fetch as any).mock.calls[0][1];
+      expect(fetchCall.headers['Content-Type']).toBeUndefined();
     });
 
     it('should include body for POST requests', async () => {
@@ -283,6 +286,10 @@ describe('EzyGo Batch Fetcher', () => {
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify(body),
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer test-token',
+            'Content-Type': 'application/json',
+          }),
         })
       );
     });
@@ -706,9 +713,18 @@ describe('EzyGo Batch Fetcher', () => {
         resetRateLimiterState();
         vi.clearAllMocks();
         
-        // Create a long-running fetch that blocks all slots
-        const blockingPromise = new Promise(() => {}); // Never resolves
-        (global.fetch as any).mockReturnValue(blockingPromise);
+        // Create a long-running fetch that respects AbortSignal
+        (global.fetch as any).mockImplementation((_url: string, init?: RequestInit) => {
+          return new Promise((_resolve, reject) => {
+            const signal = init?.signal;
+            if (signal) {
+              signal.addEventListener('abort', () => {
+                reject(new DOMException('Aborted', 'AbortError'));
+              });
+            }
+            // Don't resolve - simulates a slow request
+          });
+        });
         
         // Fill up all 3 concurrent slots + 100 queue slots
         const requests = [];
@@ -731,6 +747,9 @@ describe('EzyGo Batch Fetcher', () => {
           expect(error.message).toContain('100 items');
         }
         
+        // Advance timers to trigger timeouts and clean up pending requests
+        await vi.advanceTimersByTimeAsync(20000);
+        
         // Clean up - reset state for other tests
         resetRateLimiterState();
       } finally {
@@ -747,9 +766,18 @@ describe('EzyGo Batch Fetcher', () => {
         resetRateLimiterState();
         vi.clearAllMocks();
         
-        // Create a long-running fetch that blocks all slots
-        const blockingPromise = new Promise(() => {}); // Never resolves
-        (global.fetch as any).mockReturnValue(blockingPromise);
+        // Create a long-running fetch that respects AbortSignal
+        (global.fetch as any).mockImplementation((_url: string, init?: RequestInit) => {
+          return new Promise((_resolve, reject) => {
+            const signal = init?.signal;
+            if (signal) {
+              signal.addEventListener('abort', () => {
+                reject(new DOMException('Aborted', 'AbortError'));
+              });
+            }
+            // Don't resolve - simulates a slow request
+          });
+        });
         
         // Fill up all 3 concurrent slots + 100 queue slots
         const requests = [];
@@ -799,6 +827,9 @@ describe('EzyGo Batch Fetcher', () => {
         // Verify cache still hasn't grown (both errors were evicted)
         const cacheSizeAfterSecondError = getRateLimiterStats().cacheSize;
         expect(cacheSizeAfterSecondError).toBe(initialCacheSize);
+        
+        // Advance timers to trigger timeouts and clean up pending requests
+        await vi.advanceTimersByTimeAsync(20000);
         
         // Clean up
         resetRateLimiterState();

@@ -225,15 +225,27 @@ export async function fetchEzygoData<T>(
       const url = `${baseUrl}/${cleanEndpoint}`;
       
       const result = await ezygoCircuitBreaker.execute(async () => {
-        const response = await fetch(url, {
+        const headers: Record<string, string> = {
+          'Authorization': `Bearer ${token}`,
+        };
+        
+        // Only include Content-Type and body for POST requests with a body
+        // to avoid runtime errors in Node/undici and make headers semantically correct
+        if (method === 'POST' && serializedBody !== undefined) {
+          headers['Content-Type'] = 'application/json';
+        }
+        
+        const fetchOptions: RequestInit = {
           method,
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: serializedBody,
+          headers,
           signal: AbortSignal.timeout(15000), // 15 second timeout
-        });
+        };
+        
+        if (method === 'POST' && serializedBody !== undefined) {
+          fetchOptions.body = serializedBody;
+        }
+        
+        const response = await fetch(url, fetchOptions);
 
         if (!response.ok) {
           const errorMsg = `EzyGo API error: ${response.status} ${response.statusText}`;
