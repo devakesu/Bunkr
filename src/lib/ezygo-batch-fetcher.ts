@@ -142,7 +142,7 @@ export async function fetchEzygoData<T>(
   // Use full hash (64 hex chars = 256 bits) to prevent cross-user collision and data exposure
   // Explicitly encode body presence to distinguish undefined from {} or other falsy values
   const tokenHash = createHash('sha256').update(token).digest('hex');
-  const bodyKey = body !== undefined ? JSON.stringify(body) : '__NO_BODY__';
+  const bodyKey = body !== undefined ? JSON.stringify(body) : '__SENTINEL_NO_BODY_VALUE__';
   const cacheKey = `${method}:${tokenHash}:${normalizedEndpoint}:${bodyKey}`;
   
   // Check if request is already in-flight
