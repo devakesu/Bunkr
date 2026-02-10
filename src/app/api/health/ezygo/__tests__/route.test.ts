@@ -202,12 +202,13 @@ describe("EzyGo Health Check API Route", () => {
     });
 
     it("should return correct status regardless of environment", async () => {
-      const { ezygoCircuitBreaker } = await import("@/lib/circuit-breaker");
-      
       // Test production with open circuit
       vi.stubEnv("NODE_ENV", "production");
       vi.resetModules();
-      vi.mocked(ezygoCircuitBreaker.getStatus).mockReturnValue({
+      
+      // Re-import circuit breaker after resetModules to get the fresh mocked instance
+      const { ezygoCircuitBreaker: prodCircuitBreaker } = await import("@/lib/circuit-breaker");
+      vi.mocked(prodCircuitBreaker.getStatus).mockReturnValue({
         state: "OPEN",
         failures: 3,
         isOpen: true,
@@ -222,6 +223,17 @@ describe("EzyGo Health Check API Route", () => {
       // Test development with open circuit
       vi.stubEnv("NODE_ENV", "development");
       vi.resetModules();
+      
+      // Re-import circuit breaker after resetModules to get the fresh mocked instance
+      const { ezygoCircuitBreaker: devCircuitBreaker } = await import("@/lib/circuit-breaker");
+      vi.mocked(devCircuitBreaker.getStatus).mockReturnValue({
+        state: "OPEN",
+        failures: 3,
+        isOpen: true,
+        lastFailTime: Date.now(),
+        successCount: 0,
+      });
+      
       ({ GET } = await import("../route"));
       response = await GET();
       expect(response.status).toBe(503);
