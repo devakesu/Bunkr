@@ -345,16 +345,32 @@ describe('Backend Proxy Route', () => {
         vi.mocked(mockFetch).mockImplementation(async (_url, init) => {
           const signal = init?.signal;
           
+          // Fail fast if no AbortSignal is provided so the test doesn't hang silently
+          if (!signal) {
+            return Promise.reject(
+              new Error('Missing AbortSignal in timeout test fetch mock')
+            );
+          }
+
+          // If the signal is already aborted when fetch is called, reject immediately
+          if (signal.aborted) {
+            const abortError = new Error('The operation was aborted');
+            abortError.name = 'AbortError';
+            return Promise.reject(abortError);
+          }
+          
           return new Promise((_resolve, reject) => {
-            if (signal) {
-              // Reject with AbortError when signal fires abort event
-              signal.addEventListener('abort', () => {
+            // Reject with AbortError when signal fires abort event
+            signal.addEventListener(
+              'abort',
+              () => {
                 const abortError = new Error('The operation was aborted');
                 abortError.name = 'AbortError';
                 reject(abortError);
-              });
-            }
-            // Never resolve - simulates a hanging request
+              },
+              { once: true }
+            );
+            // Never resolve - simulates a hanging request until aborted
           });
         });
 
