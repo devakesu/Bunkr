@@ -158,13 +158,17 @@ Total concurrent to EzyGo: MAX 3 ✅
 Risk: LOW - Well under rate limits
 ```
 
-### Best Case (Deduplication Active)
+### Best Case (Deduplication Active - Per User)
 ```
-If 20 users load dashboard within 15 seconds:
-- First user triggers 3 API calls
-- Next 19 users share those same in-flight requests
-- Total API calls: 3 (instead of 60) 🎉
-- All 20 users get data within ~2 seconds
+If a single user (same token) triggers 20 dashboard loads within 60 seconds (e.g., multiple tabs or rapid reloads):
+- First request from that user triggers 3 API calls
+- Next 19 requests from the same user share those same in-flight requests
+- Total API calls for that user: 3 (instead of 60) 🎉
+- All 20 requests for that user get data within ~2 seconds
+
+Note: Deduplication is scoped per user/session (by token). Requests from different users 
+(different tokens) do **not** share in-flight requests and will each issue their own set 
+of API calls, still subject to the global concurrency limits described above.
 ```
 
 ---
