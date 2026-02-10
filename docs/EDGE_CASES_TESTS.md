@@ -13,7 +13,10 @@ This file documents edge cases and provides test scenarios to verify the rate li
 
 **Implementation:**
 - LRU cache with 60s TTL deduplicates in-flight requests and caches resolved responses
-- Cache key includes token + endpoint + body
+- Cache key structure: `${method}:${hashedToken}:${normalizedEndpoint}:${hashedBody}`
+  - Token and body are SHA-256 hashed for security
+  - Endpoint is normalized (leading slashes removed)
+  - Body uses sentinel value `__SENTINEL_NO_BODY_VALUE__` when undefined
 - Same user = same cache key = shared request/cached response
 
 ## Edge Case 2: 100 Users Hit Dashboard Simultaneously
@@ -41,8 +44,8 @@ This file documents edge cases and provides test scenarios to verify the rate li
 **Scenario:** API fails during active requests
 
 **Expected Behavior:**
-- First 3 failures: Circuit remains CLOSED
-- 4th failure: Circuit OPENS
+- First 2 failures: Circuit remains CLOSED
+- 3rd failure: Circuit OPENS (threshold = 3, opens when failures >= threshold)
 - Subsequent requests: Fail fast (503 error)
 - After 60s: Circuit transitions to HALF_OPEN
 - 2 test requests: If successful, circuit CLOSES
@@ -56,7 +59,10 @@ This file documents edge cases and provides test scenarios to verify the rate li
 
 **Scenario:** Multiple users need same public data
 
-**Cache Key Structure:** `${method}:${hashedToken}:${endpoint}:${hashedBody}`
+**Cache Key Structure:** `${method}:${hashedToken}:${normalizedEndpoint}:${hashedBody}`
+- Token and body are SHA-256 hashed
+- Endpoint is normalized (leading slashes removed)
+- Body uses sentinel value `__SENTINEL_NO_BODY_VALUE__` when undefined
 
 Different users = Different token hashes = Different cache keys
 Result: NO deduplication across users
