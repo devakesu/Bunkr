@@ -59,6 +59,10 @@ const QUEUE_TIMEOUT_MS = 30000; // 30 seconds max wait time in queue
 // Use a counter for unique queue item identification
 let queueItemId = 0;
 
+// Generation counter to invalidate stale in-flight requests after reset
+// Prevents in-flight requests from corrupting activeRequests when they complete after reset
+let generation = 0;
+
 interface QueuedRequest {
   id: number;
   timeoutId: NodeJS.Timeout;
@@ -75,13 +79,18 @@ const requestQueue: QueuedRequest[] = [];
  * 
  * Ensures FIFO fairness: if there are queued requests, new requests must also queue
  * to prevent jumping the line.
+ * 
+ * @returns The current generation ID to be passed to releaseSlot()
  */
-function waitForSlot(): Promise<void> {
+function waitForSlot(): Promise<number> {
+  // Capture generation at slot acquisition time
+  const slotGeneration = generation;
+  
   // Only take an immediate slot if queue is empty AND slots are available
   // This ensures FIFO: queued requests are always processed before new arrivals
   if (requestQueue.length === 0 && activeRequests < MAX_CONCURRENT) {
     activeRequests++;
-    return Promise.resolve();
+    return Promise.resolve(slotGeneration);
   }
   
   // Check queue size limit
@@ -106,7 +115,7 @@ function waitForSlot(): Promise<void> {
       resolve: () => {
         clearTimeout(timeoutId);
         activeRequests++;
-        resolve();
+        resolve(slotGeneration);
       },
       reject: (error: Error) => {
         clearTimeout(timeoutId);
@@ -118,8 +127,16 @@ function waitForSlot(): Promise<void> {
 
 /**
  * Release a request slot and process queue
+ * Only releases if the generation matches (prevents stale in-flight requests from corrupting state)
+ * @param slotGeneration - The generation ID from when the slot was acquired
  */
-function releaseSlot() {
+function releaseSlot(slotGeneration: number) {
+  // Ignore releases from prior generations (before last reset)
+  // This prevents in-flight requests from corrupting activeRequests after reset
+  if (slotGeneration !== generation) {
+    return;
+  }
+  
   activeRequests--;
   const next = requestQueue.shift();
   if (next) {
@@ -181,8 +198,9 @@ export async function fetchEzygoData<T>(
   (async () => {
     // QueueFullError and QueueTimeoutError are thrown by waitForSlot()
     // They already extend NonBreakerError so they won't trip the circuit breaker
+    let slotGeneration: number;
     try {
-      await waitForSlot();
+      slotGeneration = await waitForSlot();
     } catch (error) {
       // Queue errors (full/timeout) are transient - evict from cache to allow immediate retry
       // when queue has capacity again
@@ -240,7 +258,7 @@ export async function fetchEzygoData<T>(
       }
       rejectDeferred(error as Error);
     } finally {
-      releaseSlot();
+      releaseSlot(slotGeneration);
       // Successful promises stay cached for remaining TTL to enable deduplication
     }
   })();
@@ -296,18 +314,23 @@ export function getRateLimiterStats() {
  * Reset rate limiter state (for testing only)
  * Clears all in-flight requests, queue, and cache
  * Cancels pending timeouts and rejects queued promises
+ * Increments generation to invalidate any in-flight requests
  * @internal
  */
 export function resetRateLimiterState() {
+  // Increment generation to invalidate in-flight requests
+  // This prevents stale requests from corrupting activeRequests when they complete
+  generation++;
+  
   // Reset active request counter
   activeRequests = 0;
   
-  // Cancel all pending timeouts and reject queued promises
-  // This prevents dangling timeouts/promises in tests with fake timers
+  // Reject queued promises to prevent dangling handlers
+  // Note: We don't need to explicitly clearTimeout here because item.reject() 
+  // already clears the timeout in the reject wrapper (see waitForSlot)
   while (requestQueue.length > 0) {
     const item = requestQueue.shift();
     if (item) {
-      clearTimeout(item.timeoutId);
       item.reject(new Error('Rate limiter state reset'));
     }
   }
