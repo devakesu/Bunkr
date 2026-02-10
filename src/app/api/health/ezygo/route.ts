@@ -20,9 +20,16 @@ export async function GET() {
                  hasBacklog ? 'degraded' : 
                  'healthy';
   
-  return NextResponse.json({
+  // Only expose detailed metrics in non-production environments to avoid information disclosure
+  const includeDetails = process.env.NODE_ENV !== "production";
+  
+  const basePayload = {
     status,
     timestamp: new Date().toISOString(),
+  };
+  
+  const detailedPayload = includeDetails ? {
+    ...basePayload,
     rateLimiter: {
       activeRequests: rateLimiterStats.activeRequests,
       queueLength: rateLimiterStats.queueLength,
@@ -40,7 +47,9 @@ export async function GET() {
         ? new Date(circuitBreakerStatus.lastFailTime).toISOString() 
         : null,
     },
-  }, {
+  } : basePayload;
+  
+  return NextResponse.json(detailedPayload, {
     status: circuitBreakerStatus.isOpen ? 503 : 200,
     headers: {
       'Cache-Control': 'no-store, max-age=0',
