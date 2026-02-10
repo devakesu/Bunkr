@@ -340,19 +340,39 @@ describe('Backend Proxy Route', () => {
       vi.useFakeTimers();
       
       try {
-        // Create a stream that never completes
-        const hangingStream = new ReadableStream({
-          start() {
-            // Stream never sends data or closes
+        // Mock fetch to reject with AbortError when signal is aborted
+        // This simulates the behavior when a timeout occurs
+        vi.mocked(mockFetch).mockImplementation(async (_url, init) => {
+          const signal = init?.signal;
+          
+          // Fail fast if no AbortSignal is provided so the test doesn't hang silently
+          if (!signal) {
+            return Promise.reject(
+              new Error('Missing AbortSignal in timeout test fetch mock')
+            );
           }
-        });
 
-        vi.mocked(mockFetch).mockResolvedValue(
-          new Response(hangingStream, {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-          })
-        );
+          // If the signal is already aborted when fetch is called, reject immediately
+          if (signal.aborted) {
+            const abortError = new Error('The operation was aborted');
+            abortError.name = 'AbortError';
+            return Promise.reject(abortError);
+          }
+          
+          return new Promise((_resolve, reject) => {
+            // Reject with AbortError when signal fires abort event
+            signal.addEventListener(
+              'abort',
+              () => {
+                const abortError = new Error('The operation was aborted');
+                abortError.name = 'AbortError';
+                reject(abortError);
+              },
+              { once: true }
+            );
+            // Never resolve - simulates a hanging request until aborted
+          });
+        });
 
         const request = new NextRequest('http://localhost:3000/api/backend/users', {
           method: 'GET',
@@ -396,6 +416,12 @@ describe('Backend Proxy Route', () => {
   });
 
   describe('Rate Limiting (429) Handling', () => {
+    beforeEach(async () => {
+      // Reset circuit breaker before each test to ensure clean state
+      const { ezygoCircuitBreaker } = await import('@/lib/circuit-breaker');
+      ezygoCircuitBreaker.reset();
+    });
+
     it('should treat 429 as breaker-worthy and preserve error message in production', async () => {
       const rateLimitMessage = 'Rate limit exceeded. Please try again in 60 seconds.';
       vi.mocked(mockFetch).mockResolvedValue(
