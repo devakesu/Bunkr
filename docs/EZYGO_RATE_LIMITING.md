@@ -190,7 +190,7 @@ Edit `src/lib/ezygo-batch-fetcher.ts`:
 ```typescript
 const requestCache = new LRUCache<string, Promise<any>>({
   max: 500,
-  ttl: 15000, // Cache duration (ms)
+  ttl: 60000, // Cache duration (ms) — covers queue wait + fetch timeout
 });
 ```
 

@@ -8,13 +8,13 @@ This file documents edge cases and provides test scenarios to verify the rate li
 
 **Expected Behavior:**
 - First request: Triggers API calls
-- Subsequent requests (within 15s): Share in-flight promises
+- Subsequent requests (within 60s): Share in-flight promises and use cached responses
 - Result: Only 3 API calls total, not 9 (3 per refresh)
 
 **Implementation:**
-- LRU cache with 15s TTL deduplicates requests
+- LRU cache with 60s TTL deduplicates in-flight requests and caches resolved responses
 - Cache key includes token + endpoint + body
-- Same user = same cache key = shared request
+- Same user = same cache key = shared request/cached response
 
 ## Edge Case 2: 100 Users Hit Dashboard Simultaneously
 
@@ -137,7 +137,7 @@ After 3 timeouts → Circuit OPENS
 **Prevention:**
 - LRU cache max = 500 entries
 - Each entry = promise reference (small)
-- TTL = 15s (auto cleanup)
+- TTL = 60s (auto cleanup)
 - updateAgeOnGet = false (strict expiry)
 
 **Memory Usage:**

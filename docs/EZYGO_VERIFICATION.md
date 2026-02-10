@@ -255,7 +255,7 @@ grep "Deduplicating request" logs.txt
 - Predictable wait times
 
 **5. Smart Caching**
-- 15-second TTL reduces redundant calls
+- 60-second TTL reduces redundant calls
 - Stale-while-revalidate pattern (React Query)
 - Users see cached data while fresh data loads
 
@@ -365,7 +365,7 @@ ab -n 50 -c 50 https://your-domain.com/dashboard
 ### Configuration Optimized
 - ✅ MAX_CONCURRENT = 3 (conservative)
 - ✅ Circuit breaker = 3 failures before open
-- ✅ Cache TTL = 15s (balanced)
+- ✅ Cache TTL = 60s (balanced)
 - ✅ Recovery timeout = 60s (longer)
 
 ### Monitoring Ready

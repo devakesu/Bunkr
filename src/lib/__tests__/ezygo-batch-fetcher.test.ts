@@ -158,6 +158,53 @@ describe('EzyGo Batch Fetcher', () => {
       // But fetch should only be called once due to endpoint normalization
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
+
+    it('should generate distinct cache keys for undefined vs {} vs null body', async () => {
+      const mockResponse = { data: 'test' };
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const token = 'test-token';
+      const endpoint = '/endpoint';
+
+      // Make POST requests with undefined (omitted), {}, and null bodies
+      await Promise.all([
+        fetchEzygoData(endpoint, token, 'POST', undefined),
+        fetchEzygoData(endpoint, token, 'POST', {}),
+        fetchEzygoData(endpoint, token, 'POST', null),
+      ]);
+
+      // Should make 3 separate requests (distinct body semantics)
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('should deduplicate requests with same body (including undefined)', async () => {
+      const mockResponse = { data: 'test' };
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const token = 'test-token';
+      const endpoint = '/endpoint';
+
+      // Make multiple GET requests (no body = undefined)
+      const promises = [
+        fetchEzygoData(endpoint, token, 'GET'),
+        fetchEzygoData(endpoint, token, 'GET'),
+        fetchEzygoData(endpoint, token, 'GET'),
+      ];
+
+      const results = await Promise.all(promises);
+
+      // All should return the same result
+      expect(results).toEqual([mockResponse, mockResponse, mockResponse]);
+      
+      // But fetch should only be called once (deduplication)
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Rate Limiting', () => {
