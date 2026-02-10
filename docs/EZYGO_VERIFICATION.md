@@ -135,7 +135,7 @@ Risk: HIGH - May trigger rate limiting
 #### After Optimization
 ```
 Request Deduplication Layer:
-- If users load within 15s of each other, requests are shared
+- If users load within 60s of each other, requests are shared
 - Example: User 1 & 2 both need /myprofile → 1 API call instead of 2
 
 Rate Limiting Layer:
