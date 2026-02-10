@@ -144,14 +144,14 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             }, {})
           : initialData.courses
       }
-    : null;
+    : undefined;
 
   const {
     data: attendanceData,
     isLoading: isLoadingAttendance,
     refetch: refetchAttendance,
   } = useAttendanceReport({
-    initialData: initialData?.attendance,
+    initialData: initialData?.attendance ?? undefined,
   });
 
   const {

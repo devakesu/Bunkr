@@ -2,7 +2,7 @@
  * EzyGo API Batch Fetcher with Request Deduplication and Rate Limiting
  * 
  * Solves the concurrent user problem by:
- * 1. Deduplicating identical in-flight requests (15-second cache window)
+ * 1. Deduplicating identical in-flight requests (60-second cache window)
  * 2. Rate limiting concurrent requests to max 3 at a time
  * 3. Queueing additional requests to prevent overwhelming the API
  * 
@@ -34,12 +34,15 @@ class QueueTimeoutError extends NonBreakerError {
   }
 }
 
-// 1. SHORT-LIVED CACHE (15 seconds) - Handles burst traffic
-// Stores in-flight request promises and caches resolved results for up to 15 seconds
-// This allows multiple concurrent callers to await the same request and subsequent calls to reuse cached results
+// 1. LONG-LIVED CACHE (60 seconds) - Handles burst traffic and queuing delays
+// Stores in-flight request promises from the moment they are enqueued
+// TTL starts when the promise enters the cache (before queue wait + fetch)
+// TTL must be >= QUEUE_TIMEOUT_MS (30s) + fetch timeout (15s) to ensure the promise
+// doesn't expire while waiting in queue or during the fetch operation
+// Resolved results remain cached for any remaining TTL after completion
 const requestCache = new LRUCache<string, Promise<any>>({
   max: 500,
-  ttl: 15000, // 15 seconds - good balance for deduplication without stale data
+  ttl: 60000, // 60 seconds - accounts for 30s queue wait + 15s fetch + buffer
   updateAgeOnGet: false, // Don't reset TTL on access
   updateAgeOnHas: false,
 });
@@ -223,7 +226,7 @@ export async function fetchEzygoData<T>(
       rejectDeferred(error as Error);
     } finally {
       releaseSlot();
-      // Successful promises stay cached for the full TTL (15s) to enable deduplication
+      // Successful promises stay cached for remaining TTL to enable deduplication
     }
   })();
   
