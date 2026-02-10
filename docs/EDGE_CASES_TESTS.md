@@ -13,7 +13,10 @@ This file documents edge cases and provides test scenarios to verify the rate li
 
 **Implementation:**
 - LRU cache with 60s TTL deduplicates in-flight requests and caches resolved responses
-- Cache key includes token + endpoint + body
+- Cache key structure: `${method}:${hashedToken}:${normalizedEndpoint}:${hashedBody}`
+  - Token and body are SHA-256 hashed for security
+  - Endpoint is normalized (leading slashes removed)
+  - Body uses sentinel value `__SENTINEL_NO_BODY_VALUE__` when undefined
 - Same user = same cache key = shared request/cached response
 
 ## Edge Case 2: 100 Users Hit Dashboard Simultaneously
@@ -41,8 +44,8 @@ This file documents edge cases and provides test scenarios to verify the rate li
 **Scenario:** API fails during active requests
 
 **Expected Behavior:**
-- First 3 failures: Circuit remains CLOSED
-- 4th failure: Circuit OPENS
+- First 2 failures: Circuit remains CLOSED
+- 3rd failure: Circuit OPENS (threshold = 3, opens when failures >= threshold)
 - Subsequent requests: Fail fast (503 error)
 - After 60s: Circuit transitions to HALF_OPEN
 - 2 test requests: If successful, circuit CLOSES
@@ -56,9 +59,12 @@ This file documents edge cases and provides test scenarios to verify the rate li
 
 **Scenario:** Multiple users need same public data
 
-**Cache Key Structure:** `${token}:${endpoint}:${body}`
+**Cache Key Structure:** `${method}:${hashedToken}:${normalizedEndpoint}:${hashedBody}`
+- Token and body are SHA-256 hashed
+- Endpoint is normalized (leading slashes removed)
+- Body uses sentinel value `__SENTINEL_NO_BODY_VALUE__` when undefined
 
-Different users = Different tokens = Different cache keys
+Different users = Different token hashes = Different cache keys
 Result: NO deduplication across users
 
 **Reasoning:**
@@ -105,17 +111,17 @@ Result: NO deduplication across users
 
 **Expected Behavior:**
 - EzyGo returns 401 Unauthorized
-- Circuit breaker sees this as failure
-- After 3 failures → Circuit OPENS
-- User gets logged out (existing auth logic)
+- Circuit breaker treats 401 (and most 4xx) as NonBreakerError
+- 401 responses do NOT increment the circuit breaker failure count or OPEN the circuit
+- User gets logged out or re-authenticated via existing auth logic (independent of the circuit breaker)
 
 **Risk:**
-- Expired token counted as API failure
-- Could open circuit unnecessarily
+- Auth failures (401) are handled outside the circuit breaker and won't by themselves OPEN the circuit
+- Breaker state changes remain reserved for true API reliability issues (e.g. 5xx/429)
 
 **Mitigation:**
-- Token refresh mechanism should prevent this
-- Auth errors handled separately from API errors
+- Token refresh or re-authentication mechanisms handle expired tokens
+- Auth errors (401/other 4xx) are handled separately from breaker-worthy API errors (5xx/429), and only 5xx/429 increment breaker failure counts
 
 ## Edge Case 8: Slow Network + Timeout
 

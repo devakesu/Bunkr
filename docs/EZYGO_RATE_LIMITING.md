@@ -18,7 +18,7 @@ When multiple users access the dashboard simultaneously, the application makes 6
 
 This implementation uses a hybrid approach combining:
 1. **Server Components** - Fetch initial data server-side
-2. **Request Deduplication** - Share in-flight requests across users
+2. **Request Deduplication** - Share in-flight requests within the same user/session
 3. **Rate Limiting** - Maximum 3 concurrent requests at any time (default, configurable)
 4. **Circuit Breaker** - Graceful degradation when API is down
 
