@@ -47,7 +47,8 @@ export class UpstreamServerError extends Error {
     message: string,
     public status: number,
     public statusText: string,
-    public body: string
+    public body: string,
+    public headers?: Headers
   ) {
     super(message);
     this.name = 'UpstreamServerError';
