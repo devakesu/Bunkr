@@ -340,19 +340,23 @@ describe('Backend Proxy Route', () => {
       vi.useFakeTimers();
       
       try {
-        // Create a stream that never completes
-        const hangingStream = new ReadableStream({
-          start() {
-            // Stream never sends data or closes
-          }
+        // Mock fetch to reject with AbortError when signal is aborted
+        // This simulates the behavior when a timeout occurs
+        vi.mocked(mockFetch).mockImplementation(async (_url, init) => {
+          const signal = init?.signal;
+          
+          return new Promise((_resolve, reject) => {
+            if (signal) {
+              // Reject with AbortError when signal fires abort event
+              signal.addEventListener('abort', () => {
+                const abortError = new Error('The operation was aborted');
+                abortError.name = 'AbortError';
+                reject(abortError);
+              });
+            }
+            // Never resolve - simulates a hanging request
+          });
         });
-
-        vi.mocked(mockFetch).mockResolvedValue(
-          new Response(hangingStream, {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-          })
-        );
 
         const request = new NextRequest('http://localhost:3000/api/backend/users', {
           method: 'GET',
