@@ -61,6 +61,7 @@ let queueItemId = 0;
 
 interface QueuedRequest {
   id: number;
+  timeoutId: NodeJS.Timeout;
   resolve: () => void;
   reject: (error: Error) => void;
 }
@@ -101,6 +102,7 @@ function waitForSlot(): Promise<void> {
     
     requestQueue.push({
       id: itemId,
+      timeoutId,
       resolve: () => {
         clearTimeout(timeoutId);
         activeRequests++;
@@ -293,13 +295,23 @@ export function getRateLimiterStats() {
 /**
  * Reset rate limiter state (for testing only)
  * Clears all in-flight requests, queue, and cache
+ * Cancels pending timeouts and rejects queued promises
  * @internal
  */
 export function resetRateLimiterState() {
   // Reset active request counter
   activeRequests = 0;
-  // Clear request queue (setting length to 0 empties the array)
-  requestQueue.length = 0;
+  
+  // Cancel all pending timeouts and reject queued promises
+  // This prevents dangling timeouts/promises in tests with fake timers
+  while (requestQueue.length > 0) {
+    const item = requestQueue.shift();
+    if (item) {
+      clearTimeout(item.timeoutId);
+      item.reject(new Error('Rate limiter state reset'));
+    }
+  }
+  
   // Clear LRU cache
   requestCache.clear();
 }
