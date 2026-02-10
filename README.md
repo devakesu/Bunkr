@@ -362,7 +362,7 @@ This enables the service worker in development mode without requiring a producti
   - General queries: 3min stale time, 10min garbage collection
   - Refetch on window focus disabled
   - Auto-refetch interval: 15 minutes
-- EzyGo API: LRU cache with 15-second TTL and request deduplication
+- EzyGo API: LRU cache with 60-second TTL and request deduplication
 - Static assets: 1-year cache headers for fonts and `_next/static`
 - Next.js Image optimization with AVIF/WebP formats
 

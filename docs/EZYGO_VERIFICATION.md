@@ -365,7 +365,7 @@ ab -n 50 -c 50 https://your-domain.com/dashboard
 ### Configuration Optimized
 - ✅ MAX_CONCURRENT = 3 (conservative)
 - ✅ Circuit breaker = 3 failures before open
-- ✅ Cache TTL = 15s (balanced)
+- ✅ Cache TTL = 60s (balanced)
 - ✅ Recovery timeout = 60s (longer)
 
 ### Monitoring Ready
