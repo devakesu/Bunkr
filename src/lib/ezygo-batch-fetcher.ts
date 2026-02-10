@@ -138,14 +138,18 @@ export async function fetchEzygoData<T>(
   // Normalize endpoint for consistent cache key (remove leading slashes)
   const normalizedEndpoint = endpoint.replace(/^\/+/, '');
   
-  // Create secure cache key using SHA-256 hash of token + method + endpoint + body
-  // Use full hash (64 hex chars = 256 bits) to prevent cross-user collision and data exposure
-  // Explicitly encode body presence to distinguish undefined from {} or other falsy values
-  // Serialize body once and reuse for both cache key and fetch request
+  // Create a secure cache key by hashing the token and serialized body separately
+  // and concatenating those hashes with the HTTP method and normalized endpoint.
+  // This uses full SHA-256 hashes (64 hex chars) to reduce cross-user collision risk
+  // and keeps raw tokens/bodies out of long-lived cache key / LRU structures, while
+  // still using serializedBody transiently for the request. Explicitly encode body
+  // presence to distinguish undefined from {} or other falsy values.
   const tokenHash = createHash('sha256').update(token).digest('hex');
   const serializedBody = body !== undefined ? JSON.stringify(body) : undefined;
-  const bodyKey = serializedBody ?? '__SENTINEL_NO_BODY_VALUE__';
-  const cacheKey = `${method}:${tokenHash}:${normalizedEndpoint}:${bodyKey}`;
+  const bodyHash = serializedBody 
+    ? createHash('sha256').update(serializedBody).digest('hex')
+    : '__SENTINEL_NO_BODY_VALUE__';
+  const cacheKey = `${method}:${tokenHash}:${normalizedEndpoint}:${bodyHash}`;
   
   // Check if request is already in-flight
   const existingRequest = requestCache.get(cacheKey);

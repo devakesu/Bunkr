@@ -110,7 +110,7 @@ User 11-15: Request → [Queue] → [Slot Available] → API → Response (~4s w
 User 16-20: Request → [Queue] → [Slot Available] → API → Response (~6s wait)
 ```
 
-If User 2 makes same request as User 1 within 15 seconds:
+If User 2 makes same request as User 1 within 60 seconds:
 ```
 User 2: Request → [Cache Hit] → Shared Promise → Response (instant)
 ```
