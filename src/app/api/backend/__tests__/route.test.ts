@@ -357,6 +357,37 @@ describe('Backend Proxy Route', () => {
       expect(body.message).toBe(rateLimitMessage);
     });
 
+    it('should forward rate-limit headers from upstream 429 responses', async () => {
+      const rateLimitMessage = 'Rate limit exceeded';
+      vi.mocked(mockFetch).mockResolvedValue(
+        new Response(JSON.stringify({ message: rateLimitMessage }), {
+          status: 429,
+          headers: { 
+            'content-type': 'application/json',
+            'retry-after': '60',
+            'x-ratelimit-limit': '100',
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': '1707552000'
+          },
+        })
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      const response = await forward(request, 'GET', ['users']);
+      
+      // Should preserve 429 status
+      expect(response.status).toBe(429);
+      
+      // Should forward rate-limit headers to help clients back off
+      expect(response.headers.get('retry-after')).toBe('60');
+      expect(response.headers.get('x-ratelimit-limit')).toBe('100');
+      expect(response.headers.get('x-ratelimit-remaining')).toBe('0');
+      expect(response.headers.get('x-ratelimit-reset')).toBe('1707552000');
+    });
+
     it('should treat 429 as breaker-worthy error (exercises circuit breaker path)', async () => {
       // Mock the circuit breaker module to track if execute was called
       const { ezygoCircuitBreaker } = await import('@/lib/circuit-breaker');

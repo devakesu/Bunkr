@@ -344,7 +344,8 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
             `Upstream server error: ${res.status} ${res.statusText}`,
             res.status,
             res.statusText,
-            text
+            text,
+            res.headers
           );
         }
         
@@ -455,7 +456,30 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
         ? "An error occurred while processing your request" 
         : errorMessage;
       
-      return NextResponse.json({ message: clientMessage, status: error.status }, { status: error.status });
+      // For 429 responses, forward rate-limit headers to help clients back off correctly
+      const responseHeaders: Record<string, string> = {};
+      if (is429 && error.headers) {
+        // Forward common rate-limit headers from upstream
+        const headersToForward = [
+          'retry-after',
+          'x-ratelimit-limit',
+          'x-ratelimit-remaining',
+          'x-ratelimit-reset',
+          'x-ratelimit-retry-after'
+        ];
+        
+        for (const headerName of headersToForward) {
+          const headerValue = error.headers.get(headerName);
+          if (headerValue) {
+            responseHeaders[headerName] = headerValue;
+          }
+        }
+      }
+      
+      return NextResponse.json(
+        { message: clientMessage, status: error.status }, 
+        { status: error.status, headers: responseHeaders }
+      );
     }
     
     // Check if response was too large
