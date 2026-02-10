@@ -82,12 +82,12 @@ All client-side hooks use `axios` which goes through `/api/backend/*` proxy:
 
 #### Cache TTL
 ```typescript
-// Kept: ttl = 15000 (15 seconds)
+// Kept: ttl = 60000 (60 seconds)
 
 // Reasoning:
-// - Sweet spot for deduplication
-// - Not too long to serve stale data
-// - Not too short to miss deduplication opportunities
+// - Long enough to cover queue wait + fetch timeout
+// - Sweet spot for request deduplication under load
+// - Resolved results may be served from cache for the remaining TTL
 ```
 
 ---

@@ -44,8 +44,8 @@ CLOSED → OPEN → HALF_OPEN → CLOSED
 ```
 
 - **CLOSED**: Normal operation
-- **OPEN**: API is down, fail fast (30 seconds)
-- **HALF_OPEN**: Testing recovery (3 test requests)
+- **OPEN**: API is down, fail fast (60 seconds)
+- **HALF_OPEN**: Testing recovery (2 test requests)
 
 Configuration:
 - Opens after 3 consecutive failures
@@ -57,8 +57,8 @@ Configuration:
 Three-layer protection system:
 
 **Layer 1: Request Deduplication (LRU Cache)**
-- 15-second TTL cache
-- Stores in-flight promises (not results)
+- 60-second TTL cache (default, configurable)
+- Stores in-flight promises and resolved results for the duration of the TTL
 - Multiple users share the same request
 
 **Layer 2: Rate Limiting**

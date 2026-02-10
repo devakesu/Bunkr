@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AttendanceReport, CourseDetail } from "@/types";
 
 export const useAttendanceReport = (options?: { enabled?: boolean; initialData?: AttendanceReport }) => {
-  return useQuery<AttendanceReport | null>({
+  return useQuery<AttendanceReport>({
     queryKey: ["attendance-report"],
     queryFn: async () => {
       const res = await axios.post("/attendancereports/student/detailed");
