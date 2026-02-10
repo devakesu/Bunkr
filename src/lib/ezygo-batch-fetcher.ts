@@ -231,6 +231,10 @@ export async function fetchEzygoData<T>(
         
         // Only include Content-Type and body for POST requests with a body
         // to avoid runtime errors in Node/undici and make headers semantically correct
+        if (method === 'POST' && serializedBody !== undefined) {
+          headers['Content-Type'] = 'application/json';
+        }
+        
         const fetchOptions: RequestInit = {
           method,
           headers,
@@ -238,7 +242,6 @@ export async function fetchEzygoData<T>(
         };
         
         if (method === 'POST' && serializedBody !== undefined) {
-          headers['Content-Type'] = 'application/json';
           fetchOptions.body = serializedBody;
         }
         
