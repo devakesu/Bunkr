@@ -333,6 +333,68 @@ describe('Backend Proxy Route', () => {
     });
   });
 
+  describe('Timeout and Abort Handling', () => {
+    it('should return 502 with "Upstream timed out" message when request times out', async () => {
+      // Mock a fetch that takes longer than the timeout (15 seconds)
+      // We'll use fake timers to control time
+      vi.useFakeTimers();
+      
+      try {
+        // Create a stream that never completes
+        const hangingStream = new ReadableStream({
+          start() {
+            // Stream never sends data or closes
+          }
+        });
+
+        vi.mocked(mockFetch).mockResolvedValue(
+          new Response(hangingStream, {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
+
+        const request = new NextRequest('http://localhost:3000/api/backend/users', {
+          method: 'GET',
+        });
+
+        const responsePromise = forward(request, 'GET', ['users']);
+        
+        // Fast-forward past the 15-second timeout
+        await vi.advanceTimersByTimeAsync(16000);
+        
+        const response = await responsePromise;
+        
+        // Should return 502 status
+        expect(response.status).toBe(502);
+        
+        // Should return "Upstream timed out" message for AbortError
+        const body = await response.json();
+        expect(body.message).toBe('Upstream timed out');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should distinguish AbortError from other fetch failures', async () => {
+      // Mock fetch to throw a non-abort error
+      vi.mocked(mockFetch).mockRejectedValue(new Error('Network connection failed'));
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      const response = await forward(request, 'GET', ['users']);
+      
+      // Should return 502 status
+      expect(response.status).toBe(502);
+      
+      // Should return generic "Upstream fetch failed" message (not timeout-specific)
+      const body = await response.json();
+      expect(body.message).toBe('Upstream fetch failed');
+    });
+  });
+
   describe('Rate Limiting (429) Handling', () => {
     it('should treat 429 as breaker-worthy and preserve error message in production', async () => {
       const rateLimitMessage = 'Rate limit exceeded. Please try again in 60 seconds.';
