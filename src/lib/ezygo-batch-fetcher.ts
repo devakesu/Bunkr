@@ -141,8 +141,10 @@ export async function fetchEzygoData<T>(
   // Create secure cache key using SHA-256 hash of token + method + endpoint + body
   // Use full hash (64 hex chars = 256 bits) to prevent cross-user collision and data exposure
   // Explicitly encode body presence to distinguish undefined from {} or other falsy values
+  // Serialize body once and reuse for both cache key and fetch request
   const tokenHash = createHash('sha256').update(token).digest('hex');
-  const bodyKey = body !== undefined ? JSON.stringify(body) : '__SENTINEL_NO_BODY_VALUE__';
+  const serializedBody = body !== undefined ? JSON.stringify(body) : undefined;
+  const bodyKey = serializedBody ?? '__SENTINEL_NO_BODY_VALUE__';
   const cacheKey = `${method}:${tokenHash}:${normalizedEndpoint}:${bodyKey}`;
   
   // Check if request is already in-flight
@@ -199,7 +201,7 @@ export async function fetchEzygoData<T>(
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: body !== undefined ? JSON.stringify(body) : undefined,
+          body: serializedBody,
           signal: AbortSignal.timeout(15000), // 15 second timeout
         });
 
