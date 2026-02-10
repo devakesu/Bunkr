@@ -198,7 +198,8 @@ export async function fetchEzygoData<T>(
   (async () => {
     // QueueFullError and QueueTimeoutError are thrown by waitForSlot()
     // They already extend NonBreakerError so they won't trip the circuit breaker
-    let slotGeneration: number;
+    // Initialize to -1 so releaseSlot() safely ignores it if waitForSlot() throws
+    let slotGeneration: number = -1;
     try {
       slotGeneration = await waitForSlot();
     } catch (error) {
@@ -326,8 +327,8 @@ export function resetRateLimiterState() {
   activeRequests = 0;
   
   // Reject queued promises to prevent dangling handlers
-  // Note: We don't need to explicitly clearTimeout here because item.reject() 
-  // already clears the timeout in the reject wrapper (see waitForSlot)
+  // Note: We don't need to explicitly clearTimeout here because the reject 
+  // handler (defined in waitForSlot at line 120-123) already clears the timeout
   while (requestQueue.length > 0) {
     const item = requestQueue.shift();
     if (item) {
