@@ -263,10 +263,13 @@ describe('EzyGo Batch Fetcher', () => {
           method: 'GET',
           headers: expect.objectContaining({
             'Authorization': 'Bearer test-token',
-            'Content-Type': 'application/json',
           }),
         })
       );
+      
+      // Verify Content-Type is NOT set for GET requests
+      const fetchCall = (global.fetch as any).mock.calls[0][1];
+      expect(fetchCall.headers['Content-Type']).toBeUndefined();
     });
 
     it('should include body for POST requests', async () => {
@@ -283,6 +286,10 @@ describe('EzyGo Batch Fetcher', () => {
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify(body),
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer test-token',
+            'Content-Type': 'application/json',
+          }),
         })
       );
     });
