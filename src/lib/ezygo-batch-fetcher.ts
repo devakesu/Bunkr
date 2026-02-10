@@ -71,9 +71,14 @@ const requestQueue: QueuedRequest[] = [];
  * Wait for an available request slot
  * If max concurrent requests reached, queues the request
  * Throws QueueFullError if queue is full or QueueTimeoutError if wait exceeds timeout
+ * 
+ * Ensures FIFO fairness: if there are queued requests, new requests must also queue
+ * to prevent jumping the line.
  */
 function waitForSlot(): Promise<void> {
-  if (activeRequests < MAX_CONCURRENT) {
+  // Only take an immediate slot if queue is empty AND slots are available
+  // This ensures FIFO: queued requests are always processed before new arrivals
+  if (requestQueue.length === 0 && activeRequests < MAX_CONCURRENT) {
     activeRequests++;
     return Promise.resolve();
   }
