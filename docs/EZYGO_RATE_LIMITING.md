@@ -59,7 +59,7 @@ Three-layer protection system:
 **Layer 1: Request Deduplication (LRU Cache)**
 - 60-second TTL cache
 - Stores in-flight promises and resolved results for the duration of the TTL
-- Multiple users share the same request
+- Requests from the same user/token share the same cached response
 
 **Layer 2: Rate Limiting**
 - Max 3 concurrent requests

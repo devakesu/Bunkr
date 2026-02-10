@@ -216,9 +216,9 @@ export async function fetchEzygoData<T>(
 
         if (!response.ok) {
           const errorMsg = `EzyGo API error: ${response.status} ${response.statusText}`;
-          // Most 4xx errors (client errors) shouldn't trip the circuit breaker
+          // All 4xx errors (client errors) except 429 shouldn't trip the circuit breaker
           // They indicate invalid request/token/permissions/resource, not API failure
-          // Note: 429 (rate limit) is intentionally NOT included as it indicates service degradation
+          // Note: 429 (rate limit) is intentionally excluded as it indicates service degradation
           if (response.status >= 400 && response.status < 500 && response.status !== 429) {
             throw new NonBreakerError(errorMsg);
           }

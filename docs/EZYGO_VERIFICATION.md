@@ -135,8 +135,9 @@ Risk: HIGH - May trigger rate limiting
 #### After Optimization
 ```
 Request Deduplication Layer:
-- If users load within 60s of each other, requests are shared
-- Example: User 1 & 2 both need /myprofile → 1 API call instead of 2
+- If a user makes the same request within 60s, cached results are shared
+- Example: User 1 makes /myprofile twice within 60s → 1 API call instead of 2
+- Note: Deduplication is per-user/token, not across different users
 
 Rate Limiting Layer:
 - Max 3 concurrent requests from server IP
@@ -244,9 +245,9 @@ grep "Deduplicating request" logs.txt
 - We're using 3% of typical limit
 
 **2. Request Deduplication**
-- Identical requests share the same API call
-- Drastically reduces total requests
-- Example: 100 users loading dashboard = ~3 API calls (not 300)
+- Identical requests from the same user/token share the same API call
+- Reduces total requests for users with multiple tabs or rapid refreshes
+- Example: User loading dashboard in 3 tabs = ~3 API calls (not 9)
 
 **3. Circuit Breaker Protection**
 - Automatically stops requests if API is struggling
