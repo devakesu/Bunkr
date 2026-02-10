@@ -64,7 +64,7 @@
     "clsx": "^2.1.1",
     "cookies-next": "^6.1.1",
     "date-fns": "^4.1.0",
-    "framer-motion": "^12.6.5",
+    "framer-motion": "^12.34.0",
     "glob": "^13.0.1",
     "ldrs": "^1.1.6",
     "lodash-es": "^4.17.23",
