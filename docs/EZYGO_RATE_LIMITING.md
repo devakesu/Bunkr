@@ -59,7 +59,7 @@ Three-layer protection system:
 **Layer 1: Request Deduplication (LRU Cache)**
 - 60-second TTL cache
 - Stores in-flight promises and resolved results for the duration of the TTL
-- Multiple users share the same request
+- Requests from the same user/token share the same cached response
 
 **Layer 2: Rate Limiting**
 - Max 3 concurrent requests
@@ -110,10 +110,14 @@ User 11-15: Request → [Queue] → [Slot Available] → API → Response (~4s w
 User 16-20: Request → [Queue] → [Slot Available] → API → Response (~6s wait)
 ```
 
-If User 2 makes same request as User 1 within 60 seconds:
+If the same user (same token) makes the same request again within 60 seconds:
 ```
-User 2: Request → [Cache Hit] → Shared Promise → Response (instant)
+User (2nd request): Request → [Cache Hit] → Shared Promise → Response (instant)
 ```
+
+**Note:** Deduplication cache keys include the user's token hash, so requests are only 
+deduplicated within the same user/session. Different users with different tokens will 
+not share cached requests.
 
 ## Usage
 
