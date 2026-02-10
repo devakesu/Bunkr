@@ -57,7 +57,7 @@ Configuration:
 Three-layer protection system:
 
 **Layer 1: Request Deduplication (LRU Cache)**
-- 60-second TTL cache (default, configurable)
+- 60-second TTL cache
 - Stores in-flight promises and resolved results for the duration of the TTL
 - Multiple users share the same request
 

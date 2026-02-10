@@ -71,7 +71,7 @@ describe('useAttendanceReport', () => {
     expect(result.current.fetchStatus).toBe('idle')
   })
 
-  it('should normalize null initialData to undefined and trigger fetch', async () => {
+  it('should fetch data when initialData is undefined', async () => {
     const mockAttendanceReport: AttendanceReport = {
       courses: {},
       sessions: {},
