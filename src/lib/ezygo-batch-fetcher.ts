@@ -17,6 +17,22 @@ import { ezygoCircuitBreaker, NonBreakerError } from './circuit-breaker';
 import { createHash } from 'crypto';
 
 /**
+ * Create an AbortSignal with a timeout.
+ * Falls back to AbortController + setTimeout for environments where AbortSignal.timeout() is unavailable.
+ */
+function createTimeoutSignal(timeoutMs: number): AbortSignal {
+  // Use native AbortSignal.timeout() if available
+  if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
+    return AbortSignal.timeout(timeoutMs);
+  }
+  
+  // Fallback for environments without AbortSignal.timeout() (e.g., jsdom)
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), timeoutMs);
+  return controller.signal;
+}
+
+/**
  * Queue-related errors that should not trip the circuit breaker
  * These indicate local resource constraints, not API failure
  */
@@ -238,7 +254,7 @@ export async function fetchEzygoData<T>(
         const fetchOptions: RequestInit = {
           method,
           headers,
-          signal: AbortSignal.timeout(15000), // 15 second timeout
+          signal: createTimeoutSignal(15000), // 15 second timeout
         };
         
         if (method === 'POST' && serializedBody !== undefined) {
