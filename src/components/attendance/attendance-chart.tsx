@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useState, useRef } from "react";
+import { useMemo, useEffect, useState, useRef, lazy, Suspense } from "react";
 import {
   BarChart,
   Bar,
@@ -11,8 +11,6 @@ import { AttendanceReport, TrackAttendance, Course } from "@/types";
 import { useAttendanceSettings } from "@/providers/attendance-settings";
 import { generateSlotKey } from "@/lib/utils";
 import { BarChart3 } from "lucide-react";
-
-import { lazy } from "react";
 
 const XAxis = lazy(() => 
   import('recharts').then(module => ({ default: module.XAxis }))
@@ -380,13 +378,18 @@ return (
         <BarChart3 className="w-8 h-8 animate-pulse opacity-50" aria-hidden="true" />
       </div>
     ) : data.length > 0 ? (
-      <BarChart 
-        data={data} 
-        margin={{ top: 10, right: 20, left: -12, bottom: isMobile ? 30 : 25 }} 
-        barSize={getBarSize()}
-        width={dimensions.width}
-        height={dimensions.height}
-      >
+      <Suspense fallback={
+        <div className="h-full w-full flex items-center justify-center text-muted-foreground/30">
+          <BarChart3 className="w-8 h-8 animate-pulse opacity-50" aria-hidden="true" />
+        </div>
+      }>
+        <BarChart 
+          data={data} 
+          margin={{ top: 10, right: 20, left: -12, bottom: isMobile ? 30 : 25 }} 
+          barSize={getBarSize()}
+          width={dimensions.width}
+          height={dimensions.height}
+        >
             <defs>
               <pattern id="striped-green" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
                 <rect width="8" height="8" fill="#10b981" fillOpacity="0.25" />
@@ -445,6 +448,7 @@ return (
 
             <ReferenceLine y={safeTarget} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={2} strokeOpacity={1} label={renderTargetLabel} />
           </BarChart>
+      </Suspense>
     ) : (
       <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground/30">
          <BarChart3 className="w-8 h-8 mb-2 opacity-50"  aria-hidden="true" />
