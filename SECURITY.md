@@ -24,7 +24,7 @@ GhostClass implements multiple layers of security:
 - **Session Management** - Secure session handling with automatic expiration
 
 ### Data Protection
-- **HttpOnly Cookies** - Sensitive tokens stored in secure, httpOnly cookies
+- **HttpOnly Cookies** - Sensitive tokens stored in secure, HttpOnly cookies
 - **Secure Headers** - HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy
 - **Input Validation** - Zod schemas validate all user input
 - **Origin Validation** - Strict origin checking in production
