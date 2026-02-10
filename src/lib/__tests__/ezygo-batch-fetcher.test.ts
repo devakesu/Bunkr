@@ -369,13 +369,15 @@ describe('EzyGo Batch Fetcher', () => {
           json: async () => ({ error: 'Bad Request' }),
         });
 
+        let errorCaught = false;
         try {
           await fetchEzygoData(uniqueEndpoint, `test-token-${Date.now()}`);
-          expect.fail('Should have thrown an error');
         } catch (error: any) {
+          errorCaught = true;
           expect(error.name).toBe('NonBreakerError');
           expect(error.message).toContain('400');
         }
+        expect(errorCaught).toBe(true);
       });
 
       it('should throw NonBreakerError for 401 Unauthorized', async () => {
@@ -388,12 +390,15 @@ describe('EzyGo Batch Fetcher', () => {
           json: async () => ({ error: 'Unauthorized' }),
         });
 
+        let errorCaught = false;
         try {
           await fetchEzygoData(uniqueEndpoint, `test-token-${Date.now()}`);
         } catch (error: any) {
+          errorCaught = true;
           expect(error.name).toBe('NonBreakerError');
           expect(error.message).toContain('401');
         }
+        expect(errorCaught).toBe(true);
       });
 
       it('should throw NonBreakerError for 403 Forbidden', async () => {
@@ -406,12 +411,15 @@ describe('EzyGo Batch Fetcher', () => {
           json: async () => ({ error: 'Forbidden' }),
         });
 
+        let errorCaught = false;
         try {
           await fetchEzygoData(uniqueEndpoint, `test-token-${Date.now()}`);
         } catch (error: any) {
+          errorCaught = true;
           expect(error.name).toBe('NonBreakerError');
           expect(error.message).toContain('403');
         }
+        expect(errorCaught).toBe(true);
       });
 
       it('should throw NonBreakerError for 404 Not Found', async () => {
@@ -424,12 +432,15 @@ describe('EzyGo Batch Fetcher', () => {
           json: async () => ({ error: 'Not Found' }),
         });
 
+        let errorCaught = false;
         try {
           await fetchEzygoData(uniqueEndpoint, `test-token-${Date.now()}`);
         } catch (error: any) {
+          errorCaught = true;
           expect(error.name).toBe('NonBreakerError');
           expect(error.message).toContain('404');
         }
+        expect(errorCaught).toBe(true);
       });
 
       it('should throw NonBreakerError for 422 Unprocessable Entity', async () => {
@@ -442,12 +453,15 @@ describe('EzyGo Batch Fetcher', () => {
           json: async () => ({ error: 'Unprocessable Entity' }),
         });
 
+        let errorCaught = false;
         try {
           await fetchEzygoData(uniqueEndpoint, `test-token-${Date.now()}`);
         } catch (error: any) {
+          errorCaught = true;
           expect(error.name).toBe('NonBreakerError');
           expect(error.message).toContain('422');
         }
+        expect(errorCaught).toBe(true);
       });
 
       it('should throw regular Error (not NonBreakerError) for 429 Rate Limited', async () => {
@@ -460,13 +474,16 @@ describe('EzyGo Batch Fetcher', () => {
           json: async () => ({ error: 'Rate Limited' }),
         });
 
+        let errorCaught = false;
         try {
           await fetchEzygoData(uniqueEndpoint, `test-token-${Date.now()}`);
         } catch (error: any) {
+          errorCaught = true;
           expect(error.name).not.toBe('NonBreakerError');
           expect(error.name).toBe('Error');
           expect(error.message).toContain('429');
         }
+        expect(errorCaught).toBe(true);
       });
 
       it('should throw regular Error (not NonBreakerError) for 500 Internal Server Error', async () => {
@@ -479,13 +496,16 @@ describe('EzyGo Batch Fetcher', () => {
           json: async () => ({ error: 'Server Error' }),
         });
 
+        let errorCaught = false;
         try {
           await fetchEzygoData(uniqueEndpoint, `test-token-${Date.now()}`);
         } catch (error: any) {
+          errorCaught = true;
           expect(error.name).not.toBe('NonBreakerError');
           expect(error.name).toBe('Error');
           expect(error.message).toContain('500');
         }
+        expect(errorCaught).toBe(true);
       });
 
       it('should throw regular Error (not NonBreakerError) for 502 Bad Gateway', async () => {
@@ -498,13 +518,16 @@ describe('EzyGo Batch Fetcher', () => {
           json: async () => ({ error: 'Bad Gateway' }),
         });
 
+        let errorCaught = false;
         try {
           await fetchEzygoData(uniqueEndpoint, `test-token-${Date.now()}`);
         } catch (error: any) {
+          errorCaught = true;
           expect(error.name).not.toBe('NonBreakerError');
           expect(error.name).toBe('Error');
           expect(error.message).toContain('502');
         }
+        expect(errorCaught).toBe(true);
       });
 
       it('should throw regular Error (not NonBreakerError) for 503 Service Unavailable', async () => {
@@ -517,13 +540,16 @@ describe('EzyGo Batch Fetcher', () => {
           json: async () => ({ error: 'Service Unavailable' }),
         });
 
+        let errorCaught = false;
         try {
           await fetchEzygoData(uniqueEndpoint, `test-token-${Date.now()}`);
         } catch (error: any) {
+          errorCaught = true;
           expect(error.name).not.toBe('NonBreakerError');
           expect(error.name).toBe('Error');
           expect(error.message).toContain('503');
         }
+        expect(errorCaught).toBe(true);
       });
     });
   });
