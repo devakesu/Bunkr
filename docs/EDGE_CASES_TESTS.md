@@ -261,13 +261,28 @@ After 3 timeouts → Circuit OPENS
 
 ### Test 8: Health Check Endpoint
 
+#### Test 8a: Development/Test Environment Response
+
 **Setup:**
-- Call GET /api/health/ezygo in development/test environment
+- Set `NODE_ENV=development` or `NODE_ENV=test`
+- Call GET /api/health/ezygo
 
 **Assertions:**
-- Response includes rate limiter stats (development/test only)
-- Response includes circuit breaker state (development/test only)
-- Production responses include only status and timestamp
+- Response includes `status` and `timestamp`
+- Response includes `rateLimiter` object with stats
+- Response includes `circuitBreaker` object with state
+- Status 200 when healthy
+- Status 503 when circuit open
+
+#### Test 8b: Production Environment Response
+
+**Setup:**
+- Set `NODE_ENV=production` (or unset NODE_ENV)
+- Call GET /api/health/ezygo
+
+**Assertions:**
+- Response includes only `status` and `timestamp`
+- Response does NOT include `rateLimiter` or `circuitBreaker` fields
 - Status 200 when healthy
 - Status 503 when circuit open
 

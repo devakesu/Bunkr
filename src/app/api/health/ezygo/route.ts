@@ -4,7 +4,8 @@ import { ezygoCircuitBreaker } from "@/lib/circuit-breaker";
 
 /**
  * Health check endpoint for EzyGo API integration
- * Returns rate limiter and circuit breaker status
+ * Returns health status and timestamp in all environments.
+ * In development/test, also returns detailed rate limiter and circuit breaker metrics.
  * 
  * GET /api/health/ezygo
  */
@@ -29,7 +30,7 @@ export async function GET() {
     timestamp: new Date().toISOString(),
   };
   
-  const detailedPayload = includeDetails ? {
+  const payload = includeDetails ? {
     ...basePayload,
     rateLimiter: {
       activeRequests: rateLimiterStats.activeRequests,
@@ -50,7 +51,7 @@ export async function GET() {
     },
   } : basePayload;
   
-  return NextResponse.json(detailedPayload, {
+  return NextResponse.json(payload, {
     status: circuitBreakerStatus.isOpen ? 503 : 200,
     headers: {
       'Cache-Control': 'no-store, max-age=0',
