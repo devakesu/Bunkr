@@ -352,7 +352,7 @@ This enables the service worker in development mode without requiring a producti
 
 **Code Splitting & Loading Strategy**
 - Next.js App Router automatic route-based code splitting for pages and layouts
-- Lazy loaded Recharts components (XAxis, YAxis, Tooltip) for reduced initial bundle
+- Recharts chart components (XAxis, YAxis, Tooltip) imported directly from `recharts`
 - Lazy loaded Framer Motion with `domAnimation` features only
 - Direct dimension measurement for charts (eliminates ResponsiveContainer warnings)
 

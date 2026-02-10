@@ -130,7 +130,16 @@ export function AttendanceChart({ attendanceData, trackingData, coursesData }: A
 
     const updateDimensions = () => {
       const rect = element.getBoundingClientRect();
-      setDimensions({ width: rect.width, height: rect.height });
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+
+      setDimensions((prev) => {
+        if (prev.width === width && prev.height === height) {
+          return prev;
+        }
+
+        return { width, height };
+      });
     };
 
     let resizeObserver: ResizeObserver | null = null;

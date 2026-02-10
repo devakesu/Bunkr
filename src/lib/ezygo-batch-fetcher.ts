@@ -150,7 +150,7 @@ function releaseSlot(slotGeneration: number) {
  * @param endpoint - API endpoint path (e.g., '/myprofile')
  * @param token - EzyGo access token
  * @param method - HTTP method (default: 'GET')
- * @param body - Request body for POST/PUT
+ * @param body - Request body for POST requests
  * @returns Promise with API response data
  */
 export async function fetchEzygoData<T>(
