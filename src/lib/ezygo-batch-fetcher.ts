@@ -19,7 +19,7 @@ import { createHash } from 'crypto';
 /**
  * Create an AbortSignal with a timeout.
  * Falls back to AbortController + setTimeout for environments where AbortSignal.timeout() is unavailable.
- * Returns an object with the signal and an optional cleanup function.
+ * Returns an object with the signal and a cleanup function.
  */
 function createTimeoutSignal(timeoutMs: number): { signal: AbortSignal; cleanup: () => void } {
   // Use native AbortSignal.timeout() if available

@@ -248,6 +248,103 @@ describe('EzyGo Batch Fetcher', () => {
     });
   });
 
+  describe('Timeout Signal Cleanup', () => {
+    it('should clean up timeout timers after successful fetch', async () => {
+      // Mock AbortSignal.timeout to be unavailable to force fallback path with setTimeout
+      const originalTimeout = AbortSignal.timeout;
+      (AbortSignal as any).timeout = undefined;
+      
+      try {
+        const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
+        
+        const mockResponse = { data: 'test' };
+        (global.fetch as any).mockResolvedValue({
+          ok: true,
+          json: async () => mockResponse,
+        });
+
+        const token = 'test-token';
+        const endpoint = '/myprofile';
+
+        // Make a request
+        await fetchEzygoData(endpoint, token);
+        
+        // clearTimeout should be called to clean up the timer
+        expect(clearTimeoutSpy).toHaveBeenCalled();
+        
+        clearTimeoutSpy.mockRestore();
+      } finally {
+        (AbortSignal as any).timeout = originalTimeout;
+        resetRateLimiterState();
+      }
+    });
+
+    it('should clean up timeout timers after failed fetch', async () => {
+      // Mock AbortSignal.timeout to be unavailable to force fallback path with setTimeout
+      const originalTimeout = AbortSignal.timeout;
+      (AbortSignal as any).timeout = undefined;
+      
+      try {
+        const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
+        
+        const mockError = new Error('Network error');
+        (global.fetch as any).mockRejectedValue(mockError);
+
+        const token = 'test-token';
+        const endpoint = '/myprofile';
+
+        // Make a request that will fail
+        try {
+          await fetchEzygoData(endpoint, token);
+          expect.fail('Should have thrown an error');
+        } catch (error: any) {
+          expect(error.message).toBe('Network error');
+        }
+        
+        // clearTimeout should be called even after error
+        expect(clearTimeoutSpy).toHaveBeenCalled();
+        
+        clearTimeoutSpy.mockRestore();
+      } finally {
+        (AbortSignal as any).timeout = originalTimeout;
+        resetRateLimiterState();
+      }
+    });
+
+    it('should clean up timeout timers for multiple concurrent requests', async () => {
+      // Mock AbortSignal.timeout to be unavailable to force fallback path with setTimeout
+      const originalTimeout = AbortSignal.timeout;
+      (AbortSignal as any).timeout = undefined;
+      
+      try {
+        const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
+        
+        const mockResponse = { data: 'test' };
+        (global.fetch as any).mockResolvedValue({
+          ok: true,
+          json: async () => mockResponse,
+        });
+
+        const token = 'test-token';
+
+        // Make multiple requests with different endpoints (no deduplication)
+        await Promise.all([
+          fetchEzygoData('/endpoint1', token),
+          fetchEzygoData('/endpoint2', token),
+          fetchEzygoData('/endpoint3', token),
+        ]);
+        
+        // clearTimeout should be called for each request
+        expect(clearTimeoutSpy).toHaveBeenCalledTimes(3);
+        
+        clearTimeoutSpy.mockRestore();
+      } finally {
+        (AbortSignal as any).timeout = originalTimeout;
+        resetRateLimiterState();
+      }
+    });
+  });
+
   describe('API Request Construction', () => {
     it('should construct correct URL for GET requests', async () => {
       (global.fetch as any).mockResolvedValue({

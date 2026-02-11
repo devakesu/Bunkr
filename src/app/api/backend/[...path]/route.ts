@@ -200,7 +200,12 @@ async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: num
     if (value) {
       received += value.length;
       if (received > limit) {
-        reader.cancel();
+        try {
+          await reader.cancel();
+        } catch (cancelError) {
+          // Swallow cancellation errors - we're throwing UpstreamResponseTooLargeError anyway
+          // Log for debugging but don't let cancel() rejection prevent the size limit error
+        }
         throw new UpstreamResponseTooLargeError("Upstream response exceeded safety limit");
       }
       chunks.push(value);
