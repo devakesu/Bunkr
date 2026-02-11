@@ -19,17 +19,26 @@ import { createHash } from 'crypto';
 /**
  * Create an AbortSignal with a timeout.
  * Falls back to AbortController + setTimeout for environments where AbortSignal.timeout() is unavailable.
+ * Returns an object with the signal and an optional cleanup function.
  */
-function createTimeoutSignal(timeoutMs: number): AbortSignal {
+function createTimeoutSignal(timeoutMs: number): { signal: AbortSignal; cleanup: () => void } {
   // Use native AbortSignal.timeout() if available
-  if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
-    return AbortSignal.timeout(timeoutMs);
+  if (typeof AbortSignal !== 'undefined' && 
+      'timeout' in AbortSignal && 
+      typeof AbortSignal.timeout === 'function') {
+    return { 
+      signal: AbortSignal.timeout(timeoutMs),
+      cleanup: () => {} // Native timeout doesn't need cleanup
+    };
   }
   
   // Fallback for environments without AbortSignal.timeout() (e.g., jsdom)
   const controller = new AbortController();
-  setTimeout(() => controller.abort(), timeoutMs);
-  return controller.signal;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { 
+    signal: controller.signal,
+    cleanup: () => clearTimeout(timeoutId)
+  };
 }
 
 /**
@@ -251,31 +260,36 @@ export async function fetchEzygoData<T>(
           headers['Content-Type'] = 'application/json';
         }
         
+        const { signal, cleanup } = createTimeoutSignal(15000); // 15 second timeout
         const fetchOptions: RequestInit = {
           method,
           headers,
-          signal: createTimeoutSignal(15000), // 15 second timeout
+          signal,
         };
         
         if (method === 'POST' && serializedBody !== undefined) {
           fetchOptions.body = serializedBody;
         }
         
-        const response = await fetch(url, fetchOptions);
+        try {
+          const response = await fetch(url, fetchOptions);
 
-        if (!response.ok) {
-          const errorMsg = `EzyGo API error: ${response.status} ${response.statusText}`;
-          // All 4xx errors (client errors) except 429 shouldn't trip the circuit breaker
-          // They indicate invalid request/token/permissions/resource, not API failure
-          // Note: 429 (rate limit) is intentionally excluded as it indicates service degradation
-          if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-            throw new NonBreakerError(errorMsg);
+          if (!response.ok) {
+            const errorMsg = `EzyGo API error: ${response.status} ${response.statusText}`;
+            // All 4xx errors (client errors) except 429 shouldn't trip the circuit breaker
+            // They indicate invalid request/token/permissions/resource, not API failure
+            // Note: 429 (rate limit) is intentionally excluded as it indicates service degradation
+            if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+              throw new NonBreakerError(errorMsg);
+            }
+            // 5xx errors (server errors) and 429 should trip the circuit breaker
+            throw new Error(errorMsg);
           }
-          // 5xx errors (server errors) and 429 should trip the circuit breaker
-          throw new Error(errorMsg);
-        }
 
-        return response.json();
+          return response.json();
+        } finally {
+          cleanup();
+        }
       });
       
       resolveDeferred(result);
