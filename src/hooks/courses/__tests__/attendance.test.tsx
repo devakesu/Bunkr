@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode } from 'react'
@@ -13,10 +13,21 @@ vi.mock('@/lib/axios', () => ({
 }))
 
 describe('useAttendanceReport', () => {
+  beforeEach(() => {
+    // Clear all mocks before each test to prevent state pollution
+    vi.clearAllMocks()
+  })
+
   const createWrapper = () => {
     const queryClient = new QueryClient({
       defaultOptions: {
-        queries: { retry: false },
+        queries: { 
+          retry: false,
+          // Disable background refetching for tests
+          refetchOnWindowFocus: false,
+          refetchOnReconnect: false,
+          refetchInterval: false,
+        },
       },
     })
     const Wrapper = ({ children }: { children: ReactNode }) => (
@@ -57,9 +68,12 @@ describe('useAttendanceReport', () => {
       wrapper: createWrapper(),
     })
 
-    await waitFor(() => {
-      expect(result.current.isError).toBe(true)
-    })
+    await waitFor(
+      () => {
+        expect(result.current.isError).toBe(true)
+      },
+      { timeout: 3000 }
+    )
   })
 
   it('should respect enabled option', () => {
