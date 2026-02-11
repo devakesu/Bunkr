@@ -329,7 +329,7 @@ GhostClass is optimized for maximum performance:
 
 **Progressive Web App (PWA)**
 - Service worker with Serwist for offline functionality and caching
-- **Note**: Webpack bundler is explicitly enabled via `TURBOPACK=0` environment variable (set in Dockerfile for production builds) because Serwist doesn't support Turbopack yet. This ensures PWA functionality works correctly in production. Development scripts use `--webpack` flag for local testing.
+- **Note**: Webpack bundler is explicitly enabled via `TURBOPACK=0` environment variable (set in Dockerfile for production builds) because Serwist doesn't support Turbopack yet. This ensures PWA functionality works correctly in production. Local development commands (`npm run dev`) use `--webpack` flag since they don't run in the Docker environment.
 - Manifest file for installable web app experience
 - Intelligent caching strategies:
   - Static assets: StaleWhileRevalidate for CSS/JS/workers
