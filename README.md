@@ -329,6 +329,7 @@ GhostClass is optimized for maximum performance:
 
 **Progressive Web App (PWA)**
 - Service worker with Serwist for offline functionality and caching
+- **Note**: Webpack bundler is explicitly enabled (`--webpack`) because Serwist doesn't support Turbopack yet. We use Webpack for production builds to ensure PWA functionality works correctly.
 - Manifest file for installable web app experience
 - Intelligent caching strategies:
   - Static assets: StaleWhileRevalidate for CSS/JS/workers

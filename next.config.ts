@@ -92,7 +92,6 @@ const nextConfig: NextConfig = {
 
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'framer-motion'],
-    // Turbopack enabled by default in Next.js 15+
   },
 
   // Performance: Minimize JavaScript bundle
