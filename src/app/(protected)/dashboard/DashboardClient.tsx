@@ -628,14 +628,14 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                     <>
                       <div className="bg-primary h-full transition-all duration-500 ease-in-out" style={{ width: `${Math.min(officialWidth, 100)}%` }} />
                       <div className="bg-green-500/60 h-full relative transition-all duration-500 ease-in-out border-l border-background/20" style={{ width: `${Math.min(diffWidth, 100)}%` }}>
-                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.3)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.3)_50%,rgba(255,255,255,0.3)_75%,transparent_75%,transparent)] bg-size-[6px_6px]" />
+                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.3)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.3)_50%,rgba(255,255,255,0.3)_75%,transparent_75%,transparent)] [background-size:6px_6px]" />
                       </div>
                     </>
                   ) : (
                     <>
                       <div className="bg-primary h-full transition-all duration-500 ease-in-out" style={{ width: `${Math.min(stats.rawPercentage, 100)}%` }} />
                       <div className="bg-red-500/75 h-full relative transition-all duration-500 ease-in-out border-l border-background/20" style={{ width: `${Math.min(diffWidth, 100)}%` }}>
-                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-size-[6px_6px]" />
+                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] [background-size:6px_6px]" />
                       </div>
                     </>
                   )}
