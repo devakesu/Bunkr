@@ -35,7 +35,7 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 ## 🛠️ Tech Stack
 
 **Core Framework**
-- **Next.js 16.1.6** - React 19 with App Router and Turbopack
+- **Next.js 16.1.6** - React 19 with App Router (Webpack bundler for Serwist compatibility)
 - **TypeScript 5.9.3** - Strict mode for type safety
 - **Node.js** - v20.19.0+ or v22.12.0+
 
