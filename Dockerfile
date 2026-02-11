@@ -126,6 +126,7 @@ RUN set -e; \
 # Build with minimal resources and clean cache
 RUN --mount=type=secret,id=sentry_token \
     export SENTRY_AUTH_TOKEN=$(cat /run/secrets/sentry_token) && \
+    export NEXT_PUBLIC_ENABLE_SW_IN_DEV=true && \
     npm run build && \
     rm -rf .next/cache
 
