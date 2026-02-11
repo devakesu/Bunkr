@@ -374,7 +374,7 @@ This enables the service worker in development mode without requiring a producti
 - Blur placeholders for instant image feedback
 
 **Development Experience**
-- Turbopack enabled by default (Next.js 15+)
+- Webpack bundler (for Serwist PWA compatibility)
 - Origin validation skipped in dev mode
 - Fast Refresh with React 19
 - No NProgress blur on login page
