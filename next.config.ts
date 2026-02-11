@@ -2,9 +2,8 @@ import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
 
-const isProduction = process.env.NODE_ENV === "production";
-const enableSwInDev = process.env.NEXT_PUBLIC_ENABLE_SW_IN_DEV === "true";
-
+// Simplified: Only disable SW in development, unless explicitly enabled
+// In production builds, SW is ALWAYS enabled (disable: false)
 const withSerwist = withSerwistInit({
   // Source TypeScript service worker implementation
   swSrc: "src/sw.ts",
@@ -20,7 +19,12 @@ const withSerwist = withSerwistInit({
   // To test PWA / offline functionality locally, start Next.js in development mode with NEXT_PUBLIC_ENABLE_SW_IN_DEV="true"
   // Example: NEXT_PUBLIC_ENABLE_SW_IN_DEV="true" npm run dev
   // This behavior should be documented in README.md for team members testing PWA features.
-  disable: isProduction ? false : !enableSwInDev,
+  // Disable only if:
+  // 1. We're explicitly NOT in production (npm run dev)
+  // AND
+  // 2. The dev SW flag is NOT set to true
+  // This ensures production builds ALWAYS generate the service worker
+  disable: process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_ENABLE_SW_IN_DEV !== "true",
   // Ensure service worker is accessible at the root path for proper scope
   // This is critical for standalone builds where static files need explicit handling
   reloadOnOnline: true,
