@@ -55,7 +55,7 @@ export const Footer = ({ className }: { className?: string }) => {
               href={authorUrl || "#"}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-foreground hover:text-transparent hover:bg-clip-text hover:bg-linear-to-r hover:from-red-500 hover:to-orange-500 transition-all duration-300"
+              className="font-medium text-foreground hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-red-500 hover:to-orange-500 transition-all duration-300"
               aria-label={`Visit ${authorName}'s profile`}
             >
               {authorName}

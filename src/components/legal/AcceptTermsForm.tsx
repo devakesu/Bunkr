@@ -64,7 +64,7 @@ export function AcceptTermsForm() {
       <div className="px-6 py-2">
         <div className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">
           <div className="prose prose-sm prose-invert max-w-none text-zinc-300">
-            <ReactMarkdown 
+            <ReactMarkdown
               components={{
                 h1: ({node: _node, ...props}) => <h1 className="text-sm font-bold text-white uppercase tracking-wider mb-2 mt-4" {...props} />,
                 p: ({node: _node, ...props}) => <p className="text-xs leading-relaxed text-zinc-400 mb-1.5" {...props} />,
@@ -82,9 +82,9 @@ export function AcceptTermsForm() {
       {/* Footer Actions */}
       <div className="p-6 pt-2 flex flex-col gap-4">
         <label className="flex items-center space-x-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 hover:bg-zinc-900/80 transition-colors cursor-pointer">
-          <Checkbox 
-            id="terms" 
-            checked={checked} 
+          <Checkbox
+            id="terms"
+            checked={checked}
             onCheckedChange={(c) => setChecked(!!c)}
             aria-labelledby="terms-label"
             className="border-zinc-600 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
@@ -92,24 +92,24 @@ export function AcceptTermsForm() {
 
           <span id="terms-label" className="text-xs text-zinc-400 font-normal select-none">
             I have read and accept the{" "}
-            <Link 
-              href="/legal" 
-              target="_blank" 
+            <Link
+              href="/legal"
+              target="_blank"
               className="text-white hover:underline hover:text-purple-400 transition-colors"
-              onClick={(e) => e.stopPropagation()} 
+              onClick={(e) => e.stopPropagation()}
             >
               above Disclaimer and all Policies listed here
             </Link>.
           </span>
         </label>
 
-        <Button 
-          onClick={handleAgree} 
+        <Button
+          onClick={handleAgree}
           disabled={loading || !checked}
           className={cn(
             "w-full h-11 font-semibold transition-all duration-300",
-            checked 
-              ? "bg-linear-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 shadow-[0_0_30px_-5px_rgba(168,85,247,0.5)]" 
+            checked
+              ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 shadow-[0_0_30px_-5px_rgba(168,85,247,0.5)]"
               : "bg-zinc-800 text-zinc-500 hover:bg-zinc-800"
           )}
           aria-live="polite"
