@@ -35,7 +35,7 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 ## 🛠️ Tech Stack
 
 **Core Framework**
-- **Next.js 16.1.6** - React 19 with App Router (Webpack bundler for Serwist compatibility)
+- **Next.js 16.1.6** - React 19 with App Router (Webpack bundler via `TURBOPACK=0` for Serwist compatibility)
 - **TypeScript 5.9.3** - Strict mode for type safety
 - **Node.js** - v20.19.0+ or v22.12.0+
 
@@ -329,7 +329,7 @@ GhostClass is optimized for maximum performance:
 
 **Progressive Web App (PWA)**
 - Service worker with Serwist for offline functionality and caching
-- **Note**: Webpack bundler is explicitly enabled (`--webpack`) because Serwist doesn't support Turbopack yet. We use Webpack for production builds to ensure PWA functionality works correctly.
+- **Note**: Webpack bundler is explicitly enabled via `TURBOPACK=0` environment variable (set in Dockerfile for production builds) because Serwist doesn't support Turbopack yet. This ensures PWA functionality works correctly in production. Local development commands (`npm run dev`) use `--webpack` flag since they don't run in the Docker environment.
 - Manifest file for installable web app experience
 - Intelligent caching strategies:
   - Static assets: StaleWhileRevalidate for CSS/JS/workers
