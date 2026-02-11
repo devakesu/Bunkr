@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode } from 'react'
@@ -15,11 +15,6 @@ vi.mock('@/lib/axios', () => ({
 describe('useAttendanceReport', () => {
   beforeEach(() => {
     // Clear all mocks before each test to prevent state pollution
-    vi.clearAllMocks()
-  })
-
-  afterEach(() => {
-    // Clean up after each test
     vi.clearAllMocks()
   })
 
