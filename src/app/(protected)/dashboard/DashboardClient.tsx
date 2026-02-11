@@ -83,11 +83,18 @@ const getOfficialSessionRaw = (session: any, sessionKey: string | number): strin
   return sessionKey;
 };
 
-export default function DashboardClient() {
+interface DashboardClientProps {
+  initialData?: {
+    courses: any;
+    attendance: any;
+  } | null;
+}
+
+export default function DashboardClient({ initialData }: DashboardClientProps) {
   const { data: profile } = useProfile();
   const { data: user } = useUser();
   const queryClient = useQueryClient();
-  
+
   const { data: semesterData, isLoading: isLoadingSemester, isError: isSemesterError } = useFetchSemester();
   const { data: academicYearData, isLoading: isLoadingAcademicYear, isError: isAcademicYearError } = useFetchAcademicYear();
   
@@ -127,17 +134,33 @@ export default function DashboardClient() {
     return { currentSemester, currentYearStr };
   }, []);
 
+  // Transform initial courses data into expected format
+  const initialCoursesData = initialData?.courses 
+    ? {
+        courses: Array.isArray(initialData.courses)
+          ? initialData.courses.reduce((acc: Record<string, any>, course: any) => {
+              acc[course.id.toString()] = course;
+              return acc;
+            }, {})
+          : initialData.courses
+      }
+    : undefined;
+
   const {
     data: attendanceData,
     isLoading: isLoadingAttendance,
     refetch: refetchAttendance,
-  } = useAttendanceReport();
+  } = useAttendanceReport({
+    initialData: initialData?.attendance ?? undefined,
+  });
 
   const {
     data: coursesData,
     isLoading: isLoadingCourses,
     refetch: refetchCourses,
-  } = useFetchCourses();
+  } = useFetchCourses({
+    initialData: initialCoursesData,
+  });
   
   const { 
     data: trackingData, 
@@ -605,14 +628,14 @@ export default function DashboardClient() {
                     <>
                       <div className="bg-primary h-full transition-all duration-500 ease-in-out" style={{ width: `${Math.min(officialWidth, 100)}%` }} />
                       <div className="bg-green-500/60 h-full relative transition-all duration-500 ease-in-out border-l border-background/20" style={{ width: `${Math.min(diffWidth, 100)}%` }}>
-                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.3)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.3)_50%,rgba(255,255,255,0.3)_75%,transparent_75%,transparent)] bg-[length:6px_6px]" />
+                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.3)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.3)_50%,rgba(255,255,255,0.3)_75%,transparent_75%,transparent)] [background-size:6px_6px]" />
                       </div>
                     </>
                   ) : (
                     <>
                       <div className="bg-primary h-full transition-all duration-500 ease-in-out" style={{ width: `${Math.min(stats.rawPercentage, 100)}%` }} />
                       <div className="bg-red-500/75 h-full relative transition-all duration-500 ease-in-out border-l border-background/20" style={{ width: `${Math.min(diffWidth, 100)}%` }}>
-                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:6px_6px]" />
+                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] [background-size:6px_6px]" />
                       </div>
                     </>
                   )}
@@ -655,7 +678,7 @@ export default function DashboardClient() {
                         <AttendanceChart 
                           attendanceData={filteredChartData} 
                           trackingData={trackingData} 
-                          coursesData={coursesData} 
+                          coursesData={coursesData ?? undefined} 
                         />
                       </ErrorBoundary>
                     ) : (
@@ -738,7 +761,7 @@ export default function DashboardClient() {
               <div className="w-full overflow-auto">
                 <table className="w-full caption-bottom text-sm">
                   <thead className="relative">
-                    <tr className="border-b-2 border-[#2B2B2B]/[0.6]">
+                    <tr className="border-b-2 border-[#2B2B2B]/60">
                       <th scope="col" className="h-10 px-4 text-left font-medium text-muted-foreground bg-[rgb(31,31,32)]">Course</th>
                       <th scope="col" className="h-10 px-4 text-left font-medium text-muted-foreground bg-[rgb(31,31,32)]">Instructor</th>
                     </tr>
@@ -749,7 +772,7 @@ export default function DashboardClient() {
                       return instructors.length > 0 ? (instructors.map((instructor: any, index: number) => (
                         <tr 
                           key={`${courseId}-${instructor.id}`} 
-                          className={`group transition-colors border-[#2B2B2B]/[0.8] ${hoveredCourseId === courseId ? "bg-muted/25" : ""}`} 
+                          className={`group transition-colors border-[#2B2B2B]/80 ${hoveredCourseId === courseId ? "bg-muted/25" : ""}`} 
                           onMouseEnter={() => setHoveredCourseId(courseId)} 
                           onMouseLeave={() => setHoveredCourseId(null)}
                         >
@@ -757,7 +780,7 @@ export default function DashboardClient() {
                             <td className="p-4 align-top" rowSpan={instructors.length}>
                               <div className="font-medium">{course.code}</div>
                               <div className="text-sm text-muted-foreground capitalize">{course.name.toLowerCase()}</div>
-                              {instructors.length > 1 && (<div className="mt-2"><span className="inline-flex items-center rounded-full border px-2 min-h-5 pt-[0.05px] justify-center text-xs font-semibold bg-blue-50/3 text-white/60 border-[#2B2B2B]/[0.8]">{instructors.length} instructors</span></div>)}
+                              {instructors.length > 1 && (<div className="mt-2"><span className="inline-flex items-center rounded-full border px-2 min-h-5 pt-[0.05px] justify-center text-xs font-semibold bg-blue-50/3 text-white/60 border-[#2B2B2B]/80">{instructors.length} instructors</span></div>)}
                             </td>
                           ) : null}
                           <td className="p-4"><div className="font-medium">{instructor.first_name} {instructor.last_name}</div></td>

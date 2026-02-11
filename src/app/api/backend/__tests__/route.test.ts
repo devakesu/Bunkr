@@ -332,4 +332,205 @@ describe('Backend Proxy Route', () => {
       expect(response.status).toBe(200);
     });
   });
+
+  describe('Timeout and Abort Handling', () => {
+    it('should return 502 with "Upstream timed out" message when request times out', async () => {
+      // Mock a fetch that takes longer than the timeout (15 seconds)
+      // We'll use fake timers to control time
+      vi.useFakeTimers();
+      
+      try {
+        // Mock fetch to reject with AbortError when signal is aborted
+        // This simulates the behavior when a timeout occurs
+        vi.mocked(mockFetch).mockImplementation(async (_url, init) => {
+          const signal = init?.signal;
+          
+          // Fail fast if no AbortSignal is provided so the test doesn't hang silently
+          if (!signal) {
+            return Promise.reject(
+              new Error('Missing AbortSignal in timeout test fetch mock')
+            );
+          }
+
+          // If the signal is already aborted when fetch is called, reject immediately
+          if (signal.aborted) {
+            const abortError = new Error('The operation was aborted');
+            abortError.name = 'AbortError';
+            return Promise.reject(abortError);
+          }
+          
+          return new Promise((_resolve, reject) => {
+            // Reject with AbortError when signal fires abort event
+            signal.addEventListener(
+              'abort',
+              () => {
+                const abortError = new Error('The operation was aborted');
+                abortError.name = 'AbortError';
+                reject(abortError);
+              },
+              { once: true }
+            );
+            // Never resolve - simulates a hanging request until aborted
+          });
+        });
+
+        const request = new NextRequest('http://localhost:3000/api/backend/users', {
+          method: 'GET',
+        });
+
+        const responsePromise = forward(request, 'GET', ['users']);
+        
+        // Fast-forward past the 15-second timeout
+        await vi.advanceTimersByTimeAsync(16000);
+        
+        const response = await responsePromise;
+        
+        // Should return 502 status
+        expect(response.status).toBe(502);
+        
+        // Should return "Upstream timed out" message for AbortError
+        const body = await response.json();
+        expect(body.message).toBe('Upstream timed out');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should distinguish AbortError from other fetch failures', async () => {
+      // Mock fetch to throw a non-abort error
+      vi.mocked(mockFetch).mockRejectedValue(new Error('Network connection failed'));
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      const response = await forward(request, 'GET', ['users']);
+      
+      // Should return 502 status
+      expect(response.status).toBe(502);
+      
+      // Should return generic "Upstream fetch failed" message (not timeout-specific)
+      const body = await response.json();
+      expect(body.message).toBe('Upstream fetch failed');
+    });
+  });
+
+  describe('Rate Limiting (429) Handling', () => {
+    beforeEach(async () => {
+      // Reset circuit breaker before each test to ensure clean state
+      const { ezygoCircuitBreaker } = await import('@/lib/circuit-breaker');
+      ezygoCircuitBreaker.reset();
+    });
+
+    it('should treat 429 as breaker-worthy and preserve error message in production', async () => {
+      const rateLimitMessage = 'Rate limit exceeded. Please try again in 60 seconds.';
+      vi.mocked(mockFetch).mockResolvedValue(
+        new Response(JSON.stringify({ message: rateLimitMessage }), {
+          status: 429,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      const response = await forward(request, 'GET', ['users']);
+      
+      // Should preserve 429 status
+      expect(response.status).toBe(429);
+      
+      // Should preserve rate-limit message even in production (not sanitized like 5xx)
+      const body = await response.json();
+      expect(body.message).toBe(rateLimitMessage);
+    });
+
+    it('should forward rate-limit headers from upstream 429 responses', async () => {
+      const rateLimitMessage = 'Rate limit exceeded';
+      vi.mocked(mockFetch).mockResolvedValue(
+        new Response(JSON.stringify({ message: rateLimitMessage }), {
+          status: 429,
+          headers: { 
+            'content-type': 'application/json',
+            'retry-after': '60',
+            'x-ratelimit-limit': '100',
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': '1707552000'
+          },
+        })
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      const response = await forward(request, 'GET', ['users']);
+      
+      // Should preserve 429 status
+      expect(response.status).toBe(429);
+      
+      // Should forward rate-limit headers to help clients back off
+      expect(response.headers.get('retry-after')).toBe('60');
+      expect(response.headers.get('x-ratelimit-limit')).toBe('100');
+      expect(response.headers.get('x-ratelimit-remaining')).toBe('0');
+      expect(response.headers.get('x-ratelimit-reset')).toBe('1707552000');
+    });
+
+    it('should treat 429 as breaker-worthy error (exercises circuit breaker path)', async () => {
+      // Mock the circuit breaker module to track if execute was called
+      const { ezygoCircuitBreaker } = await import('@/lib/circuit-breaker');
+      const executeSpy = vi.spyOn(ezygoCircuitBreaker, 'execute');
+      
+      vi.mocked(mockFetch).mockResolvedValue(
+        new Response('Too Many Requests', {
+          status: 429,
+          headers: { 'content-type': 'text/plain' },
+        })
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      const response = await forward(request, 'GET', ['users']);
+      
+      // Circuit breaker execute should have been called
+      expect(executeSpy).toHaveBeenCalled();
+      
+      // Should return 429 status
+      expect(response.status).toBe(429);
+      
+      // Clean up
+      executeSpy.mockRestore();
+    });
+
+    it('should log 429 as warning (not error)', async () => {
+      const { logger } = await import('@/lib/logger');
+      const warnSpy = vi.spyOn(logger, 'warn');
+      
+      vi.mocked(mockFetch).mockResolvedValue(
+        new Response('Rate limited', {
+          status: 429,
+          headers: { 'content-type': 'text/plain' },
+        })
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/backend/users', {
+        method: 'GET',
+      });
+
+      await forward(request, 'GET', ['users']);
+      
+      // Should log as warning with 429 context
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Proxy upstream rate limit (429)',
+        expect.objectContaining({
+          status: 429
+        })
+      );
+      
+      // Clean up
+      warnSpy.mockRestore();
+    });
+  });
 });

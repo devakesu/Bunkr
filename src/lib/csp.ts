@@ -214,9 +214,15 @@ export const getCspHeader = (nonce?: string) => {
       })();
   
   // style-src-attr: Controls inline style attributes (e.g., <div style="color: red;">)
-  // Recharts and Sonner use inline style attributes for positioning/animations
-  // This is a security tradeoff but safer than allowing arbitrary <style> injection
-  const styleSrcAttrDirective = `style-src-attr 'unsafe-inline';`;
+  // Recharts, Sonner, and shadcn/ui components use inline style attributes for positioning/animations
+  // We allow 'unsafe-inline' here because:
+  // 1. Inline style attributes are less of a security concern than inline <style> elements
+  // 2. Using hashes is impractical - each unique inline style needs its own hash
+  // 3. Modern UI libraries legitimately use dynamic inline styles for animations/positioning
+  // Note: style-src-attr contains only 'unsafe-inline', so it will be honored by browsers
+  const styleSrcAttrParts = ["'unsafe-inline'"];
+  
+  const styleSrcAttrDirective = `style-src-attr ${styleSrcAttrParts.join(" ")};`;
   
   // Fallback style-src for CSP Level 2 browsers (no style-src-elem/style-src-attr support)
   // Include nonce and all hashes for backwards compatibility with older browsers
@@ -260,7 +266,7 @@ export const getCspHeader = (nonce?: string) => {
       https://stats.g.doubleclick.net
       https://www.google-analytics.com
       https://analytics.google.com
-      ${process.env.NODE_ENV !== 'production' ? 'ws://localhost:3000 ws://127.0.0.1:3000' : ''}
+      ${process.env.NODE_ENV !== 'production' ? 'ws://localhost:3000 ws://127.0.0.1:3000 wss://localhost:3000 wss://127.0.0.1:3000' : ''}
       ${process.env.NODE_ENV !== 'production' ? 'http://localhost:3000 http://127.0.0.1:3000' : ''}
       ${process.env.NODE_ENV !== 'production' ? 'https://localhost:3000 https://127.0.0.1:3000' : ''};
     ${process.env.NODE_ENV === 'production' ? 'upgrade-insecure-requests;' : ''}

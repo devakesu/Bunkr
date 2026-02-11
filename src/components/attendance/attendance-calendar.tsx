@@ -672,7 +672,7 @@ export function AttendanceCalendar({
                     const renderActions = () => {
                         if (event.isExtra) {
                             return (
-                                <div className="flex-shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
+                                <div className="shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
                                     <Badge variant="outline" className="text-[10px] h-6 px-2 bg-indigo-500/10 text-indigo-400 border-indigo-500/20 gap-1.5"><Sparkles className="w-3 h-3" aria-hidden="true" />Self-Marked</Badge>
                                     <Button 
                                         variant="ghost" 
@@ -696,7 +696,7 @@ export function AttendanceCalendar({
                         
                         if (hasTracking) {
                             return (
-                                <div className="flex-shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
+                                <div className="shrink-0 w-full sm:w-auto flex items-center justify-end gap-2">
                                     {event.isCorrection && (
                                         <Badge variant="outline" className="text-[10px] h-6 px-2 bg-orange-500/10 text-orange-400 border-orange-500/20 gap-1.5">
                                             <AlertTriangle className="w-3 h-3" aria-hidden="true" />Official: {event.originalStatus}
@@ -712,10 +712,10 @@ export function AttendanceCalendar({
                         
                         if (event.status === "Absent") {
                             return (
-                                <div className="flex-shrink-0 w-full sm:w-auto">
+                                <div className="shrink-0 w-full sm:w-auto">
                                     <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full">
-                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 225, "Duty Leave"); }} aria-label={`Mark ${event.title} as Duty Leave for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-[32px] py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-yellow-500/40 text-yellow-600 hover:bg-yellow-500/10 hover:border-yellow-500 hover:text-yellow-700 dark:text-yellow-500"}`}>{isLoading ? "..." : <><Briefcase className="w-3 h-3 shrink-0" aria-hidden="true"/><span className="truncate">Mark DL</span></>}</Button>
-                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 110, "Incorrectly marked absent"); }} aria-label={`Mark ${event.title} as Present for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-[32px] py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500 hover:text-green-700 dark:text-green-500"}`}>{isLoading ? "..." : <><CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" /><span className="truncate">Mark Present</span></>}</Button>
+                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 225, "Duty Leave"); }} aria-label={`Mark ${event.title} as Duty Leave for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-8 py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-yellow-500/40 text-yellow-600 hover:bg-yellow-500/10 hover:border-yellow-500 hover:text-yellow-700 dark:text-yellow-500"}`}>{isLoading ? "..." : <><Briefcase className="w-3 h-3 shrink-0" aria-hidden="true"/><span className="truncate">Mark DL</span></>}</Button>
+                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 110, "Incorrectly marked absent"); }} aria-label={`Mark ${event.title} as Present for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-8 py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500 hover:text-green-700 dark:text-green-500"}`}>{isLoading ? "..." : <><CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" /><span className="truncate">Mark Present</span></>}</Button>
                                     </div>
                                 </div>
                             );

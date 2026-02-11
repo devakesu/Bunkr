@@ -1,9 +1,16 @@
 # GhostClass
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Next.js](https://img.shields.io/badge/Next.js-16.1.6-black)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/devakesu/GhostClass/badge)](https://securityscorecards.dev/viewer/?uri=github.com/devakesu/GhostClass)
+[![Security: SLSA Level 3](https://img.shields.io/badge/SLSA-Level%203-brightgreen)](https://slsa.dev)
+[![Security Scan: Trivy](https://img.shields.io/badge/Security-Trivy%20Scanned-blue)](.github/workflows/deploy.yml)
+[![Build Status](https://img.shields.io/badge/Build-Passing-success)](.github/workflows/deploy.yml)
+
+[![Next.js](https://img.shields.io/badge/Next.js-16.1.6-black?logo=next.js)](https://nextjs.org)
+[![React](https://img.shields.io/badge/React-19.2.3-61DAFB?logo=react&logoColor=white)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+[![Node.js](https://img.shields.io/badge/Node.js-20.19.0%2B%20%7C%2022.12.0%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![Tests](https://img.shields.io/badge/Tests-Vitest%20%2B%20Playwright-green)](https://vitest.dev/)
 
 ## Overview
@@ -29,7 +36,7 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 
 **Core Framework**
 - **Next.js 16.1.6** - React 19 with App Router and Turbopack
-- **TypeScript 5** - Strict mode for type safety
+- **TypeScript 5.9.3** - Strict mode for type safety
 - **Node.js** - v20.19.0+ or v22.12.0+
 
 **Styling & UI**
@@ -40,9 +47,9 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 - **Lucide Icons** - Modern, customizable icon library
 
 **Data & State Management**
-- **TanStack Query (React Query)** - Server state management
-- **React Hook Form + Zod** - Form validation
-- **Recharts** - Interactive data visualizations
+- **TanStack Query (React Query) v5** - Server state management with smart caching
+- **React Hook Form + Zod v4** - Form validation with schema validation
+- **Recharts v3** - Interactive data visualizations with responsive charts
 
 **API & Documentation**
 - **OpenAPI 3.1** - API specification standard
@@ -52,7 +59,8 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 **Backend & Database**
 - **Supabase** - PostgreSQL database with Row Level Security
 - **Supabase Auth** - Secure authentication system
-- **Axios** - HTTP client for API requests
+- **Axios v1** - HTTP client for API requests with retry logic
+- **LRU Cache v11** - In-memory caching for API responses
 
 **Security & Monitoring**
 - **AES-256-GCM Encryption** - Secure token storage
@@ -61,10 +69,13 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 - **Sentry** - Error tracking and performance monitoring
 - **GA4 Measurement Protocol** - Server-side analytics (CSP-compatible)
 - **Cloudflare Turnstile** - Bot protection
+- **OSSF Scorecard** - Security best practices monitoring
 
 **DevOps & Deployment**
 - **Docker** - Containerized deployment with multi-stage builds
 - **GitHub Actions** - CI/CD pipeline with reproducible builds
+- **SLSA Level 3** - Supply chain security with provenance attestation
+- **Trivy** - Container image vulnerability scanning
 - **Coolify** - Self-hosted deployment platform
 - **Playwright** - E2E testing
 - **Vitest** - Unit and component testing
@@ -112,6 +123,7 @@ src/
 │   ├── logic/          # Business logic
 │   │   └── bunk.ts     # Attendance calculation algorithm
 │   ├── supabase/       # Supabase client configuration
+│   ├── ezygo-batch-fetcher.ts # Rate-limited EzyGo API client
 │   ├── email.ts        # Email service (Brevo/SendPulse)
 │   ├── crypto.ts       # AES-256-GCM encryption
 │   ├── ratelimit.ts    # Upstash Redis rate limiting
@@ -340,8 +352,9 @@ This enables the service worker in development mode without requiring a producti
 
 **Code Splitting & Loading Strategy**
 - Next.js App Router automatic route-based code splitting for pages and layouts
-- Lazy loaded Recharts components (XAxis, YAxis, Tooltip, ResponsiveContainer)
+- Recharts chart components (XAxis, YAxis, Tooltip) imported directly from `recharts`
 - Lazy loaded Framer Motion with `domAnimation` features only
+- Direct dimension measurement for charts (eliminates ResponsiveContainer warnings)
 
 **Caching Strategy**
 - React Query with smart cache timing:
@@ -349,6 +362,7 @@ This enables the service worker in development mode without requiring a producti
   - General queries: 3min stale time, 10min garbage collection
   - Refetch on window focus disabled
   - Auto-refetch interval: 15 minutes
+- EzyGo API: LRU cache with 60-second TTL and request deduplication
 - Static assets: 1-year cache headers for fonts and `_next/static`
 - Next.js Image optimization with AVIF/WebP formats
 
@@ -484,8 +498,6 @@ GhostClass implements multiple layers of security:
 - **HttpOnly Cookies** - Sensitive data stored in secure, httpOnly cookies
 - **Origin Validation** - Strict origin checking in production (disabled in dev)
 - **Cloudflare Turnstile** - Bot protection on public endpoints
-
-For detailed security implementation, see [SECURITY.md](docs/SECURITY.md).
 
 To report security vulnerabilities, please email: [admin@ghostclass.devakesu.com](mailto:admin@ghostclass.devakesu.com)
 

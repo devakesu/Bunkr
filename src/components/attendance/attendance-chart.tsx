@@ -1,31 +1,19 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useRef } from "react";
 import {
   BarChart,
   Bar,
   CartesianGrid,
   ReferenceLine,
+  XAxis,
+  YAxis,
+  Tooltip,
 } from "recharts";
 import { AttendanceReport, TrackAttendance, Course } from "@/types";
 import { useAttendanceSettings } from "@/providers/attendance-settings";
 import { generateSlotKey } from "@/lib/utils";
 import { BarChart3 } from "lucide-react";
-
-import { lazy } from "react";
-
-const XAxis = lazy(() => 
-  import('recharts').then(module => ({ default: module.XAxis }))
-);
-const YAxis = lazy(() => 
-  import('recharts').then(module => ({ default: module.YAxis }))
-);
-const Tooltip = lazy(() => 
-  import('recharts').then(module => ({ default: module.Tooltip }))
-);
-const ResponsiveContainer = lazy(() => 
-  import('recharts').then(module => ({ default: module.ResponsiveContainer }))
-);
 
 // --- HELPERS ---
 const formatCourseCode = (code: string | undefined, fallback?: string) => {
@@ -125,12 +113,57 @@ const CustomTargetLabel = (props: LabelProps) => {
 };
 
 export function AttendanceChart({ attendanceData, trackingData, coursesData }: AttendanceChartProps) {
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(max-width: 640px)").matches;
   });
   const { targetPercentage } = useAttendanceSettings();
   const safeTarget = Number(targetPercentage) > 0 ? Number(targetPercentage) : 75;
+
+  useEffect(() => {
+    // Measure container dimensions and keep them in sync with container size
+    if (!containerRef.current) return;
+
+    const element = containerRef.current;
+
+    const updateDimensions = () => {
+      const rect = element.getBoundingClientRect();
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+
+      setDimensions((prev) => {
+        if (prev.width === width && prev.height === height) {
+          return prev;
+        }
+
+        return { width, height };
+      });
+    };
+
+    let resizeObserver: ResizeObserver | null = null;
+
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        updateDimensions();
+      });
+      resizeObserver.observe(element);
+    } else {
+      window.addEventListener("resize", updateDimensions);
+    }
+
+    // Initial measurement
+    updateDimensions();
+
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      } else {
+        window.removeEventListener("resize", updateDimensions);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -337,76 +370,81 @@ const renderTargetLabel = (props: LabelProps) => {
 
 return (
   <div
-    className="w-full h-full min-h-[220px]"
+    ref={containerRef}
+    className="w-full h-full min-h-[200px]"
     role="img"
     aria-label="Attendance overview bar chart"
   >
-    {data.length > 0 ? (
-      <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={300} debounce={1}>
-        <BarChart 
-          data={data} 
-          margin={{ top: 10, right: 20, left: -12, bottom: 18 }} 
-          barSize={getBarSize()}
-        >
-            <defs>
-              <pattern id="striped-green" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-                <rect width="8" height="8" fill="#10b981" fillOpacity="0.25" />
-                <line x1="0" y="0" x2="0" y2="8" stroke="#10b981" strokeWidth="4" strokeOpacity={0.4} />
-              </pattern>
-              <pattern id="striped-red" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-                <rect width="8" height="8" fill="#ef4444" fillOpacity="0.25" />
-                <line x1="0" y="0" x2="0" y2="8" stroke="#ef4444" strokeWidth="4" strokeOpacity={0.4} />
-              </pattern>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.2} />
-            
-            <XAxis 
-              dataKey="name" 
-              interval={0} 
-              textAnchor="end" 
-              angle={isMobile ? -90 : -45} 
-              height={isMobile ? 72 : 58} 
-              tick={{ fontSize: 11, fill: "#888", dy: 22 }} 
-              tickMargin={isMobile ? 16 : 16} 
-            />
-            <YAxis domain={[yAxisMin, 100]} type="number" allowDecimals={false} allowDataOverflow={true} tickCount={Math.ceil((100 - yAxisMin) / 5) + 1} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
-            <Tooltip
-              contentStyle={{ backgroundColor: "rgba(20, 20, 20, 0.95)", border: "1px solid #333", borderRadius: "8px", fontSize: "13px", boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)" }}
-              itemStyle={{ color: "#ffffff", padding: 0 }} labelStyle={{ color: "#a1a1aa", marginBottom: '0.5rem' }} cursor={{ fill: "rgba(255, 255, 255, 0.05)" }} formatter={() => null} 
-              content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const d = payload[0].payload;
-                    return (
-                      <div className="bg-[#141414] border border-[#333] p-3 rounded-lg shadow-md text-xs">
-                        <p className="text-gray-400 mb-2 font-medium">{d.fullName}</p>
-                        <div className="flex justify-between gap-4 mb-1">
-                          <span className="text-gray-500">Official:</span>
-                          <span className={`font-mono font-bold ${d.officialPercentage < safeTarget ? 'text-red-400' : 'text-green-400'}`}>
-                            {d.officialPercentage}% <span className="text-gray-600 font-normal">({d.present}/{d.total})</span>
-                          </span>
-                        </div>
-                        {(d.displayedExtra > 0) && (
-                            <div className="flex justify-between gap-4">
-                              <span className="text-primary">{d.isLoss ? "Adjusted (Loss):" : "Adjusted (Gain):"}</span>
-                              <span className={`font-mono font-bold ${d.totalPercentage < safeTarget ? 'text-red-400' : 'text-green-400'}`}>
-                                {d.totalPercentage}% <span className="text-gray-600 font-normal">({d.mergedPresent}/{d.mergedTotal})</span>
-                              </span>
-                            </div>
-                        )}
+    {!dimensions.width || !dimensions.height ? (
+      <div className="h-full w-full flex items-center justify-center text-muted-foreground/30">
+        <BarChart3 className="w-8 h-8 animate-pulse opacity-50" aria-hidden="true" />
+      </div>
+    ) : data.length > 0 ? (
+      <BarChart 
+        data={data} 
+        margin={{ top: 10, right: 20, left: -12, bottom: isMobile ? 30 : 25 }} 
+        barSize={getBarSize()}
+        width={dimensions.width}
+        height={dimensions.height}
+      >
+          <defs>
+            <pattern id="striped-green" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+              <rect width="8" height="8" fill="#10b981" fillOpacity="0.25" />
+              <line x1="0" y="0" x2="0" y2="8" stroke="#10b981" strokeWidth="4" strokeOpacity={0.4} />
+            </pattern>
+            <pattern id="striped-red" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+              <rect width="8" height="8" fill="#ef4444" fillOpacity="0.25" />
+              <line x1="0" y="0" x2="0" y2="8" stroke="#ef4444" strokeWidth="4" strokeOpacity={0.4} />
+            </pattern>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.2} />
+          
+          <XAxis 
+            dataKey="name" 
+            interval={0} 
+            textAnchor="end" 
+            angle={isMobile ? -90 : -45} 
+            height={isMobile ? 72 : 58} 
+            tick={{ fontSize: 11, fill: "#888", dy: 22 }} 
+            tickMargin={isMobile ? 16 : 16} 
+          />
+          <YAxis domain={[yAxisMin, 100]} type="number" allowDecimals={false} allowDataOverflow={true} tickCount={Math.ceil((100 - yAxisMin) / 5) + 1} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 11, fill: "#888" }} axisLine={false} tickLine={false} />
+          <Tooltip
+            contentStyle={{ backgroundColor: "rgba(20, 20, 20, 0.95)", border: "1px solid #333", borderRadius: "8px", fontSize: "13px", boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)" }}
+            itemStyle={{ color: "#ffffff", padding: 0 }} labelStyle={{ color: "#a1a1aa", marginBottom: '0.5rem' }} cursor={{ fill: "rgba(255, 255, 255, 0.05)" }} formatter={() => null} 
+            content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const d = payload[0].payload;
+                  return (
+                    <div className="bg-[#141414] border border-[#333] p-3 rounded-lg shadow-md text-xs">
+                      <p className="text-gray-400 mb-2 font-medium">{d.fullName}</p>
+                      <div className="flex justify-between gap-4 mb-1">
+                        <span className="text-gray-500">Official:</span>
+                        <span className={`font-mono font-bold ${d.officialPercentage < safeTarget ? 'text-red-400' : 'text-green-400'}`}>
+                          {d.officialPercentage}% <span className="text-gray-600 font-normal">({d.present}/{d.total})</span>
+                        </span>
                       </div>
-                    );
-                  }
-                  return null;
-              }}
-            />
-            <Bar dataKey="baseSuccess" stackId="a" isAnimationActive={false} fill="#10b981" shape={renderBottomBar} />
-            <Bar dataKey="baseDanger" stackId="a" isAnimationActive={false} fill="#ef4444" shape={renderBottomBar} />
-            <Bar dataKey="extraSuccess" stackId="a" isAnimationActive={false} fill="url(#striped-green)" stroke="#10b981" shape={renderHatchedBar} />
-            <Bar dataKey="extraDanger" stackId="a" isAnimationActive={false} fill="url(#striped-red)" stroke="#ef4444" shape={renderHatchedBar} />
+                      {(d.displayedExtra > 0) && (
+                          <div className="flex justify-between gap-4">
+                            <span className="text-primary">{d.isLoss ? "Adjusted (Loss):" : "Adjusted (Gain):"}</span>
+                            <span className={`font-mono font-bold ${d.totalPercentage < safeTarget ? 'text-red-400' : 'text-green-400'}`}>
+                              {d.totalPercentage}% <span className="text-gray-600 font-normal">({d.mergedPresent}/{d.mergedTotal})</span>
+                            </span>
+                          </div>
+                      )}
+                    </div>
+                  );
+                }
+                return null;
+            }}
+          />
+          <Bar dataKey="baseSuccess" stackId="a" isAnimationActive={false} fill="#10b981" shape={renderBottomBar} />
+          <Bar dataKey="baseDanger" stackId="a" isAnimationActive={false} fill="#ef4444" shape={renderBottomBar} />
+          <Bar dataKey="extraSuccess" stackId="a" isAnimationActive={false} fill="url(#striped-green)" stroke="#10b981" shape={renderHatchedBar} />
+          <Bar dataKey="extraDanger" stackId="a" isAnimationActive={false} fill="url(#striped-red)" stroke="#ef4444" shape={renderHatchedBar} />
 
-            <ReferenceLine y={safeTarget} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={2} strokeOpacity={1} label={renderTargetLabel} />
-          </BarChart>
-      </ResponsiveContainer>
+          <ReferenceLine y={safeTarget} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={2} strokeOpacity={1} label={renderTargetLabel} />
+        </BarChart>
     ) : (
       <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground/30">
          <BarChart3 className="w-8 h-8 mb-2 opacity-50"  aria-hidden="true" />

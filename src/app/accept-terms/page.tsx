@@ -22,7 +22,7 @@ export default function AcceptTermsPage() {
           
           {/* Dot grid pattern */}
           <div 
-            className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle,_rgba(255,255,255,0.8)_1px,_transparent_1px)] [background-size:50px_50px]"
+            className="absolute inset-0 opacity-20 bg-[radial-gradient(circle,rgba(255,255,255,0.8)_1px,transparent_1px)] [background-size:50px_50px]"
           ></div>
         </div>
         

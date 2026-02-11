@@ -3,6 +3,7 @@ import { Buffer } from "buffer";
 import { getAuthTokenServer } from "@/lib/security/auth-cookie";
 import { validateCsrfToken } from "@/lib/security/csrf";
 import { logger } from "@/lib/logger";
+import { ezygoCircuitBreaker, CircuitBreakerOpenError, UpstreamServerError, NonBreakerError } from "@/lib/circuit-breaker";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
@@ -171,6 +172,17 @@ const UPSTREAM_TIMEOUT_MS = 15_000;
 // exposing sensitive information in server logs (database errors, internal paths, etc.)
 const MAX_ERROR_BODY_LOG_LENGTH = 500;
 
+/**
+ * Custom error for oversized upstream responses
+ * This is a local safety limit, not an upstream failure, so it should not trip the circuit breaker
+ */
+class UpstreamResponseTooLargeError extends NonBreakerError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UpstreamResponseTooLargeError';
+  }
+}
+
 async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: number, signal: AbortSignal) {
   if (!body) return "";
   const reader = body.getReader();
@@ -180,11 +192,21 @@ async function readWithLimit(body: ReadableStream<Uint8Array> | null, limit: num
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    if (signal.aborted) throw new Error("Upstream fetch aborted");
+    if (signal.aborted) {
+      const abortError = new Error("Upstream fetch aborted");
+      abortError.name = "AbortError";
+      throw abortError;
+    }
     if (value) {
       received += value.length;
       if (received > limit) {
-        throw new Error("Upstream response exceeded safety limit");
+        try {
+          await reader.cancel();
+        } catch (cancelError) {
+          // Swallow cancellation errors - we're throwing UpstreamResponseTooLargeError anyway
+          // Don't let cancel() rejection prevent the size limit error
+        }
+        throw new UpstreamResponseTooLargeError("Upstream response exceeded safety limit");
       }
       chunks.push(value);
     }
@@ -301,33 +323,50 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+    // Wrap fetch in circuit breaker for automatic failure handling
+    // This protects against cascading failures when EzyGo API is down
+    const result = await ezygoCircuitBreaker.execute(async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
-    const res = await fetch(target, {
-      method,
-      headers: {
-        ...(isPublic ? {} : { Authorization: `Bearer ${token}` }),
-        "content-type": req.headers.get("content-type") || "application/json",
-        accept: req.headers.get("accept") || "application/json",
-      },
-      body: hasBody ? body : undefined,
-      // duplex is required for streaming request bodies
-      // See: https://github.com/nodejs/undici/issues/1583
-      ...(hasBody ? { duplex: "half" as const } : {}),
-      signal: controller.signal,
+      try {
+        const res = await fetch(target, {
+          method,
+          headers: {
+            ...(isPublic ? {} : { Authorization: `Bearer ${token}` }),
+            "content-type": req.headers.get("content-type") || "application/json",
+            accept: req.headers.get("accept") || "application/json",
+          },
+          body: hasBody ? body : undefined,
+          // duplex is required for streaming request bodies
+          // See: https://github.com/nodejs/undici/issues/1583
+          ...(hasBody ? { duplex: "half" as const } : {}),
+          signal: controller.signal,
+        });
+
+        const text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
+
+        // Check for server errors (5xx) and rate limiting (429) and throw to trip circuit breaker
+        // Use UpstreamServerError to preserve response details for proper proxying
+        // 429 is treated as a breaker-worthy error to prevent retry storms during upstream rate limiting
+        if (res.status >= 500 || res.status === 429) {
+          throw new UpstreamServerError(
+            `Upstream server error: ${res.status} ${res.statusText}`,
+            res.status,
+            res.statusText,
+            text,
+            res.headers
+          );
+        }
+        
+        // Always return consistent shape
+        return { res, text };
+      } finally {
+        clearTimeout(timeout);
+      }
     });
 
-    clearTimeout(timeout);
-
-    let text: string;
-    try {
-      text = await readWithLimit(res.body, MAX_RESPONSE_BYTES, controller.signal);
-    } catch (sizeErr) {
-      logger.error("Proxy response too large", { target, error: (sizeErr as Error)?.message });
-      return NextResponse.json({ message: "Upstream response too large" }, { status: 502 });
-    }
-
+    const { res, text } = result;
     const contentType = res.headers.get("content-type") || "application/json";
 
     if (!res.ok) {
@@ -369,6 +408,7 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
       // - Consider a separate DEBUG flag for controlled verbose logging if needed
       
       const is5xxError = res.status >= 500;
+      // Only sanitize 5xx errors in production as they may expose internal implementation details
       const clientMessage = (IS_PRODUCTION && is5xxError)
         ? "An error occurred while processing your request" 
         : errorMessage;
@@ -379,6 +419,88 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
     return new NextResponse(text, { status: res.status, headers: { "content-type": contentType } });
   } catch (err) {
     const error = err as Error;
+    
+    // Check if circuit breaker is open using instanceof
+    if (error instanceof CircuitBreakerOpenError) {
+      logger.warn("Circuit breaker is open - EzyGo API may be experiencing issues", { 
+        target,
+        path: pathSegments.join("/")
+      });
+      return NextResponse.json(
+        { message: "Service temporarily unavailable - please try again shortly" }, 
+        { status: 503 }
+      );
+    }
+    
+    // Check if this is an upstream server error (5xx or 429) - preserve response semantics
+    if (error instanceof UpstreamServerError) {
+      const is429 = error.status === 429;
+      
+      // Log 429 as warning, 5xx as error
+      if (is429) {
+        logger.warn("Proxy upstream rate limit (429)", { 
+          status: error.status, 
+          target,
+          bodyPreview: error.body.substring(0, MAX_ERROR_BODY_LOG_LENGTH)
+        });
+      } else {
+        logger.error("Proxy upstream 5xx error", { 
+          status: error.status, 
+          target,
+          bodyPreview: error.body.substring(0, MAX_ERROR_BODY_LOG_LENGTH)
+        });
+      }
+      
+      let errorMessage: string = error.body;
+      try {
+        // Try to parse JSON error message from upstream
+        const parsed = JSON.parse(error.body);
+        errorMessage = parsed.message || error.body;
+      } catch {
+        // Not JSON, use raw text as error message
+      }
+      
+      // Preserve 429 rate-limit messages even in production as they contain actionable info
+      // Only sanitize 5xx errors which may expose internal implementation details
+      const clientMessage = (IS_PRODUCTION && error.status >= 500)
+        ? "An error occurred while processing your request" 
+        : errorMessage;
+      
+      // For 429 responses, forward rate-limit headers to help clients back off correctly
+      const responseHeaders: Record<string, string> = {};
+      if (is429 && error.headers) {
+        // Forward common rate-limit headers from upstream
+        const headersToForward = [
+          'retry-after',
+          'x-ratelimit-limit',
+          'x-ratelimit-remaining',
+          'x-ratelimit-reset',
+          'x-ratelimit-retry-after'
+        ];
+        
+        for (const headerName of headersToForward) {
+          const headerValue = error.headers.get(headerName);
+          if (headerValue) {
+            responseHeaders[headerName] = headerValue;
+          }
+        }
+      }
+      
+      return NextResponse.json(
+        { message: clientMessage, status: error.status }, 
+        { status: error.status, headers: responseHeaders }
+      );
+    }
+    
+    // Check if response was too large
+    if (error instanceof UpstreamResponseTooLargeError) {
+      logger.error("Proxy response too large", { target, error: error.message });
+      return NextResponse.json(
+        { message: "Upstream response too large" },
+        { status: 502 }
+      );
+    }
+    
     logger.error("Proxy fetch failed", { target, error: error?.message });
     const isAbort = error?.name === "AbortError";
     return NextResponse.json({ message: isAbort ? "Upstream timed out" : "Upstream fetch failed" }, { status: 502 });

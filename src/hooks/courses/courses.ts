@@ -11,6 +11,7 @@ import { Course } from "@/types";
  * 
  * @param options - Optional configuration object
  * @param options.enabled - Whether the query should run (default: true)
+ * @param options.initialData - Initial data to hydrate the query (from SSR)
  * @returns Query result with courses object
  * 
  * Query Configuration:
@@ -25,8 +26,11 @@ import { Course } from "@/types";
  * const course = data?.courses["101"];
  * ```
  */
-export const useFetchCourses = (options?: { enabled?: boolean }) => {
-  return useQuery({
+export const useFetchCourses = (options?: { 
+  enabled?: boolean; 
+  initialData?: { courses: Record<string, Course> }
+}) => {
+  return useQuery<{ courses: Record<string, Course> }>({
     queryKey: ["courses"],
     queryFn: async () => {
       const res = await axios.get("/institutionuser/courses/withusers");
@@ -47,6 +51,7 @@ export const useFetchCourses = (options?: { enabled?: boolean }) => {
       return formattedData;
     },
     enabled: options?.enabled,
+    initialData: options?.initialData ?? undefined,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,

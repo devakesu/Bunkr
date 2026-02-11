@@ -21,6 +21,10 @@ const withSerwist = withSerwistInit({
   // Example: NEXT_PUBLIC_ENABLE_SW_IN_DEV="true" npm run dev
   // This behavior should be documented in README.md for team members testing PWA features.
   disable: isProduction ? false : !enableSwInDev,
+  // Ensure service worker is accessible at the root path for proper scope
+  // This is critical for standalone builds where static files need explicit handling
+  reloadOnOnline: true,
+  cacheOnNavigation: true,
 });
 
 // Suppress Serwist Turbopack warning (Serwist doesn't support Turbopack yet)

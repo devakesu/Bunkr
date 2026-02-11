@@ -5,7 +5,7 @@ import axios from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 import { AttendanceReport, CourseDetail } from "@/types";
 
-export const useAttendanceReport = (options?: { enabled?: boolean }) => {
+export const useAttendanceReport = (options?: { enabled?: boolean; initialData?: AttendanceReport }) => {
   return useQuery<AttendanceReport>({
     queryKey: ["attendance-report"],
     queryFn: async () => {
@@ -14,6 +14,7 @@ export const useAttendanceReport = (options?: { enabled?: boolean }) => {
       return res.data;
     },
     enabled: options?.enabled,
+    initialData: options?.initialData ?? undefined,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,

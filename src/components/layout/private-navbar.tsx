@@ -213,7 +213,7 @@ export const Navbar = () => {
                 {[75, 80, 85, 90, 95].map((percentage) => (
                   <SelectItem key={percentage} value={percentage.toString()}>
                     <div className="flex items-center cursor-pointer">
-                      <Percent className="mr-2 h-4 w-4 flex-shrink-0" />
+                      <Percent className="mr-2 h-4 w-4 shrink-0" />
                       <span className="font-medium">{percentage}%</span>
                     </div>
                   </SelectItem>
@@ -252,7 +252,7 @@ export const Navbar = () => {
                   {institutions.map((inst) => (
                     <SelectItem key={inst.id} value={inst.id.toString()}>
                       <div className="flex items-center cursor-pointer">
-                        <Building2 className="mr-2 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                        <Building2 className="mr-2 h-4 w-4 shrink-0" aria-hidden="true" />
                         <span className="font-medium">
                           {inst.institution.name}
                         </span>
@@ -319,7 +319,7 @@ export const Navbar = () => {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="min-w-56 z-50 mt-1 custom-dropdown pr-1 mr-[-4px]" align="end" role="menu">
+            <DropdownMenuContent className="min-w-56 z-50 mt-1 custom-dropdown pr-1 -mr-1" align="end" role="menu">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium lowercase">{user?.username}</p>
@@ -385,7 +385,7 @@ export const Navbar = () => {
                         });
                       }}
                     >
-                      <SelectTrigger className="w-[80px] h-8 text-xs bg-background/50 border-white/10">
+                      <SelectTrigger className="w-20 h-8 text-xs bg-background/50 border-white/10">
                         <SelectValue placeholder={`${currentTarget}%`} />
                       </SelectTrigger>
                       <SelectContent className="custom-dropdown z-[60]">

@@ -10,11 +10,11 @@ import { handleLogout } from "@/lib/security/auth";
 /**
  * Loading screen component with timeout warning and logout option.
  * Displays when waiting for external services (e.g., Ezygo authentication).
- * Shows a warning message after 5 seconds with option to logout.
+ * Shows a warning message after 15 seconds with option to logout.
  * 
  * Features:
  * - Animated spinner with accessible labels
- * - Timeout warning after 5 seconds
+ * - Timeout warning after 15 seconds
  * - Logout button for stuck states
  * - Humorous loading message
  * 
@@ -62,7 +62,7 @@ export function Loading() {
           {/* Text Group with gap */}
           <div className="flex flex-col gap-20">
             <div className="text-center text-sm text-muted-foreground/80">
-              The site will not load if EzyGo is down.
+              The site will not load if EzyGo is down. EzyGo response time is slow, sorry for the wait!
             </div>
             <div className="text-center text-sm text-muted-foreground/80">
               Taking too long ({">"} 1 min)?

@@ -132,7 +132,7 @@ export const Footer = ({ className }: { className?: string }) => {
             </div>
           </div>
 
-          <div className="hidden sm:block h-4 w-[1px] bg-border/60" />
+          <div className="hidden sm:block h-4 w-px bg-border/60" />
 
           {/* Action Buttons with Semantic Links */}
           <div className="flex items-center gap-2">

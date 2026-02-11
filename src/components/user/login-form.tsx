@@ -397,7 +397,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
             variants={logoVariants}
           >
             <div className="flex justify-center items-center flex-col">
-              <div className="relative w-[340px] h-[120px] sm:w-[520px] sm:h-[180px] overflow-hidden"> 
+              <div className="relative w-[340px] h-[120px] sm:w-[520px] sm:h-[180px] overflow-hidden">
                 <Image 
                   src="/logo.png" 
                   alt="GhostClass Logo"
@@ -411,7 +411,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
               </div>
             </div>
             
-            <p className="text-center text-sm font-medium max-w-[322px] text-muted-foreground/80 -mt-2"> 
+            <p className="text-center text-sm font-medium max-w-[322px] text-muted-foreground/80 -mt-2">
               {"Drop your ezygo credentials - we're just the aesthetic upgrade you deserved."}
             </p>
           </motion.div>
