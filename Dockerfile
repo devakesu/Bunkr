@@ -130,13 +130,32 @@ RUN --mount=type=secret,id=sentry_token \
     npm run build && \
     rm -rf .next/cache
 
-# Verify service worker was generated
+# Debug: Show where files were generated
+RUN echo "=== Checking for service worker generation ===" && \
+    echo "Contents of public/:" && ls -la public/ && \
+    echo "Contents of .next/static/:" && (ls -la .next/static/ || echo "No .next/static/ directory") && \
+    echo "Contents of .next/standalone/public/:" && (ls -la .next/standalone/public/ || echo "No .next/standalone/public/ directory") && \
+    echo "Searching for sw.js files:" && (find . -name "sw.js" -type f || echo "No sw.js found")
+
+# Copy service worker to public/ if it was generated elsewhere
+RUN if [ ! -f "public/sw.js" ]; then \
+      if [ -f ".next/static/sw.js" ]; then \
+        echo "Found sw.js in .next/static/, copying to public/"; \
+        cp .next/static/sw.js public/sw.js; \
+      elif [ -f ".next/standalone/public/sw.js" ]; then \
+        echo "Found sw.js in .next/standalone/public/, copying to public/"; \
+        cp .next/standalone/public/sw.js public/sw.js; \
+      fi; \
+    fi
+
+# Verify service worker was generated or copied
 RUN if [ ! -f "public/sw.js" ]; then \
       echo "ERROR: Service worker (public/sw.js) was not generated during build!"; \
       echo "This is required for PWA functionality."; \
+      echo "Checked locations: public/, .next/static/, .next/standalone/public/"; \
       exit 1; \
     fi && \
-    echo "Service worker generated successfully at public/sw.js"
+    echo "✓ Service worker generated successfully at public/sw.js"
 
 # 2. Normalize timestamps
 RUN find .next -exec touch -d "@${SOURCE_DATE_EPOCH}" {} +
