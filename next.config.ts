@@ -31,9 +31,6 @@ const withSerwist = withSerwistInit({
   cacheOnNavigation: true,
 });
 
-// Suppress Serwist Turbopack warning (Serwist doesn't support Turbopack yet)
-process.env.SERWIST_SUPPRESS_TURBOPACK_WARNING = "1";
-
 const nextConfig: NextConfig = {
   output: "standalone",
 
