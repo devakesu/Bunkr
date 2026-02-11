@@ -7,9 +7,9 @@
     "npm": ">=10"
   },
   "scripts": {
-    "dev": "next dev --no-turbopack",
-    "dev:https": "node -e \"const fs=require('fs');const files=['./certificates/localhost-key.pem','./certificates/localhost.pem'];if(files.some(f=>!fs.existsSync(f))){console.error('Error: Missing HTTPS certificates. Expected ./certificates/localhost-key.pem and ./certificates/localhost.pem. Please create these files in the ./certificates directory.');process.exit(1);}\" && next dev --no-turbopack --experimental-https --experimental-https-key ./certificates/localhost-key.pem --experimental-https-cert ./certificates/localhost.pem",
-    "build": "next build --no-turbopack",
+    "dev": "next dev --webpack",
+    "dev:https": "node -e \"const fs=require('fs');const files=['./certificates/localhost-key.pem','./certificates/localhost.pem'];if(files.some(f=>!fs.existsSync(f))){console.error('Error: Missing HTTPS certificates. Expected ./certificates/localhost-key.pem and ./certificates/localhost.pem. Please create these files in the ./certificates directory.');process.exit(1);}\" && next dev --webpack --experimental-https --experimental-https-key ./certificates/localhost-key.pem --experimental-https-cert ./certificates/localhost.pem",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
     "prepare": "husky install",
