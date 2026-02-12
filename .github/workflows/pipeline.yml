@@ -272,7 +272,7 @@ jobs:
           # Check if package.json version actually changed in this push
           PREVIOUS_VERSION=""
           if git cat-file -e ${{ github.event.before }}:package.json 2>/dev/null; then
-            PREVIOUS_VERSION=$(git show ${{ github.event.before }}:package.json | node -p "try { JSON.parse(require('fs').readFileSync(0, 'utf-8')).version } catch(e) { '' }")
+            PREVIOUS_VERSION=$(git show ${{ github.event.before }}:package.json | node -pe 'JSON.parse(require("fs").readFileSync("/dev/stdin", "utf8")).version')
           fi
           
           echo "Previous version: ${PREVIOUS_VERSION:-<none>}"
@@ -333,6 +333,10 @@ jobs:
           
           VERSION_TAG="${{ steps.version-check.outputs.current_version }}"
           echo "Triggering release workflow for ${VERSION_TAG}"
+          
+          # Wait briefly for tag to be visible in GitHub API (replication lag)
+          echo "Waiting 5 seconds for tag to replicate..."
+          sleep 5
           
           # Trigger release.yml workflow via workflow_dispatch
           # Note: The tag already exists, so release.yml will use it
