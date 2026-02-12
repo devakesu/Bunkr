@@ -69,6 +69,22 @@ try {
     }
   });
 
+  // 5. Update OpenAPI documentation version
+  const openApiPath = path.join(process.cwd(), 'public', 'api-docs', 'openapi.yaml');
+  
+  if (fs.existsSync(openApiPath)) {
+    let openApiContent = fs.readFileSync(openApiPath, 'utf8');
+    
+    // Update version in info section (YAML format: "  version: x.y.z")
+    const versionRegex = /^(\s*version:\s*)\d+\.\d+\.\d+$/gm;
+    openApiContent = openApiContent.replace(versionRegex, `$1${newVersion}`);
+    
+    fs.writeFileSync(openApiPath, openApiContent);
+    console.log(`${GREEN}   ✔ Updated public/api-docs/openapi.yaml${RESET}`);
+  } else {
+    console.log(`${YELLOW}   ⚠  OpenAPI file not found, skipping.${RESET}`);
+  }
+
   console.log(`\n${GREEN}✅ Successfully bumped all files to v${newVersion}.${RESET}\n`);
 
 } catch (_err) {

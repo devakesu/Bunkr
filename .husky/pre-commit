@@ -1,12 +1,19 @@
 npm run verify-version
 npx lint-staged
 
-# Secret sync is opt-in to avoid blocking commits when prerequisites aren't met
-# Enable by setting: export SYNC_SECRETS=1
+# Always sync critical secrets (like version)
+# Full secret sync is opt-in: export SYNC_SECRETS=1
 # Auto-skipped in CI environments
-if [ "$SYNC_SECRETS" = "1" ] && [ -z "$CI" ]; then
-  echo "📦 .env Syncing secrets to GitHub..."
-  echo ""
-  node scripts/sync-secrets.js
-  echo ""
+if [ -z "$CI" ]; then
+  if [ "$SYNC_SECRETS" = "1" ]; then
+    echo "📦 Syncing all secrets to GitHub..."
+    echo ""
+    node scripts/sync-secrets.js
+    echo ""
+  else
+    echo "🔄 Auto-syncing critical secrets (NEXT_PUBLIC_APP_VERSION)..."
+    echo ""
+    SYNC_CRITICAL_ONLY=1 node scripts/sync-secrets.js
+    echo ""
+  fi
 fi

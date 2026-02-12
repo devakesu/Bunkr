@@ -10,8 +10,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
-  id-token: write
 
 jobs:
   # This job acts as your "Guard". It runs on EVERY PR and Push.
@@ -20,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
   # This job only runs if guard passes AND we are pushing to main (merging)
   build-push-sign:
@@ -28,15 +26,20 @@ jobs:
     needs: guard
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -56,7 +59,7 @@ jobs:
 
       - name: Build & push image
         id: build-push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ff35287ac295c1ffc2bbda4eae8cd86932f40f4c # v5.4.0
         with:
           context: .
           push: true
@@ -105,69 +108,41 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.created=${{ steps.prep.outputs.created }}
 
-      # Install cosign
-      - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+      # ATTEST BUILD PROVENANCE (shows on GitHub attestations page)
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@5e2ff5a78620b71e73c10fafd6b8971c83af0e90 # v3.2.0
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}
+          subject-digest: ${{ steps.build-push.outputs.digest }}
+          push-to-registry: true
 
       # GENERATE SBOM
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@062f391c7a3b56a3b8a92567163fdac5c5419f2e # v0.18.2
         with:
           image: ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
           format: cyclonedx-json
           output-file: sbom.json
       
-      - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+      # ATTEST SBOM (shows on GitHub attestations page)
+      - name: Attest SBOM
+        uses: actions/attest-sbom@69759e1f2f460dda5c322144be03c55457a769b8 # v2.0.1
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}
+          subject-digest: ${{ steps.build-push.outputs.digest }}
+          sbom-path: sbom.json
+          push-to-registry: true
+
+      - name: Upload SBOM Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.5.0
         with:
           name: sbom
           path: sbom.json
 
-      # ATTEST SBOM
-      - name: Attest SBOM
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          cosign attest \
-            --yes \
-            --predicate sbom.json \
-            --type cyclonedx \
-            ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
-        
-      # GENERATE PROVENANCE (SLSA)
-      - name: Generate provenance
-        run: |
-          cat <<EOF > provenance.json
-          {
-            "builder": {
-              "id": "${{ github.server_url }}/${{ github.repository }}/.github/workflows/${{ github.workflow }}"
-            },
-            "buildType": "https://github.com/slsa-framework/slsa-github-generator/container@v1",
-            "invocation": {
-              "configSource": {
-                "uri": "${{ github.server_url }}/${{ github.repository }}",
-                "digest": {
-                  "gitCommit": "${{ github.sha }}"
-                }
-              }
-            },
-            "metadata": {
-              "buildInvocationID": "${{ github.run_id }}",
-              "startedOn": "${{ steps.prep.outputs.started_on }}"
-            }
-          }
-          EOF
+      # SIGN IMAGE with Cosign (additional verification)
+      - name: Install cosign
+        uses: sigstore/cosign-installer@3454bb5c20fa3e4855355e400e6d6ab22fd63b7c # v3.7.0
 
-      # ATTEST PROVENANCE (SLSA)
-      - name: Attest provenance (SLSA)
-        run: |
-          cosign attest \
-            --yes \
-            --predicate provenance.json \
-            --type slsaprovenance \
-            ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
-
-      # SIGN IMAGE (keyless)
       - name: Sign image (keyless)
         env:
           COSIGN_EXPERIMENTAL: "true"
