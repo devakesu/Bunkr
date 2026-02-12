@@ -88,16 +88,20 @@ Each release includes:
 
 Images are pushed to GitHub Container Registry (GHCR) with multiple tags:
 
+**Format:** `ghcr.io/{OWNER}/{REPO}:{TAG}`
+
 ```bash
-# Pull by version tag
+# Pull by version tag (example)
 docker pull ghcr.io/devakesu/ghostclass:v1.3.0
 
-# Pull by version (no 'v' prefix)
+# Pull by version without 'v' prefix
 docker pull ghcr.io/devakesu/ghostclass:1.3.0
 
-# Pull latest
+# Pull latest (only updated for manual dispatch releases)
 docker pull ghcr.io/devakesu/ghostclass:latest
 ```
+
+**Note**: Replace `devakesu/ghostclass` with your `{OWNER}/{REPO}` (repository name in lowercase).
 
 **Platforms**: `linux/amd64`, `linux/arm64`
 
@@ -131,13 +135,21 @@ brew install gh  # macOS
 
 Using cosign with keyless verification (OIDC):
 
-**Note**: Replace `{VERSION}` with your target release version (e.g., `v1.3.0`).
+**Note**: Replace `{VERSION}` with your target release version (e.g., `v1.3.0`), `{OWNER}` with the repository owner, and `{REPO}` with the repository name (lowercase).
 
+```bash
+cosign verify \
+  --certificate-identity-regexp="^https://github.com/{OWNER}/{REPO}" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  ghcr.io/{OWNER}/{REPO}:{VERSION}
+```
+
+**Example for this repository:**
 ```bash
 cosign verify \
   --certificate-identity-regexp="^https://github.com/devakesu/GhostClass" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-  ghcr.io/devakesu/ghostclass:{VERSION}
+  ghcr.io/devakesu/ghostclass:v1.3.0
 ```
 
 **Expected output**: Verification success with certificate details and signature metadata.
@@ -147,7 +159,12 @@ cosign verify \
 Using GitHub CLI:
 
 ```bash
-gh attestation verify oci://ghcr.io/devakesu/ghostclass:{VERSION} --owner devakesu
+gh attestation verify oci://ghcr.io/{OWNER}/{REPO}:{VERSION} --owner {OWNER}
+```
+
+**Example for this repository:**
+```bash
+gh attestation verify oci://ghcr.io/devakesu/ghostclass:v1.3.0 --owner devakesu
 ```
 
 **Expected output**: Attestation verification success with build provenance details.
@@ -166,13 +183,13 @@ cosign verify-blob \
 
 Download artifacts and verify their checksums:
 
-**Note**: Replace `{VERSION}` with your target release version (e.g., `v1.3.0`).
+**Note**: Replace `{OWNER}`, `{REPO}`, and `{VERSION}` with your values.
 
 ```bash
 # Download the checksums file and artifacts to the same directory
-wget https://github.com/devakesu/GhostClass/releases/download/{VERSION}/checksums.txt
-wget https://github.com/devakesu/GhostClass/releases/download/{VERSION}/sbom.json
-wget https://github.com/devakesu/GhostClass/releases/download/{VERSION}/sbom.json.bundle
+wget https://github.com/{OWNER}/{REPO}/releases/download/{VERSION}/checksums.txt
+wget https://github.com/{OWNER}/{REPO}/releases/download/{VERSION}/sbom.json
+wget https://github.com/{OWNER}/{REPO}/releases/download/{VERSION}/sbom.json.bundle
 
 # Verify checksums (extract only valid checksum lines)
 grep -E '^[0-9a-f]{64}\s+\S+$' checksums.txt | sha256sum -c
@@ -181,11 +198,19 @@ grep -E '^[0-9a-f]{64}\s+\S+$' checksums.txt | sha256sum -c
 sha256sum sbom.json sbom.json.bundle
 ```
 
+**Example for this repository:**
+```bash
+wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/checksums.txt
+wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/sbom.json
+wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/sbom.json.bundle
+grep -E '^[0-9a-f]{64}\s+\S+$' checksums.txt | sha256sum -c
+```
+
 **Note**: All artifact files must be in the same directory as `checksums.txt` for verification to work.
 
 ### Complete Verification Example
 
-**Note**: Replace `v1.3.0` with your target release version.
+**Note**: Replace values with your repository details. Example below uses `devakesu/GhostClass` and `v1.3.0`.
 
 ```bash
 # 1. Verify image signature
