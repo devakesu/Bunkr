@@ -100,6 +100,8 @@ try {
   const isRenovateBranch = branchName.startsWith('renovate/');
   const isAutomationBranch = isCopilotBranch || isDependabotBranch || isRenovateBranch;
   
+  const warnings = [];
+  
   if (!isAutomationBranch) {
     if (envVersion === null) {
       errors.push(`Critical: .env file is missing.`);
@@ -112,7 +114,7 @@ try {
 
   // Check 3: .example.env
   if (exampleEnvVersion === null) {
-    errors.push(`Warning: .example.env file is missing (Good practice to keep it).`);
+    warnings.push(`Warning: .example.env file is missing (Good practice to keep it).`);
   } else if (exampleEnvVersion === undefined) {
     errors.push(`Critical: 'NEXT_PUBLIC_APP_VERSION' is missing from .example.env`);
   } else if (exampleEnvVersion !== pkgVersion) {
@@ -121,7 +123,7 @@ try {
 
   // Check 4: OpenAPI spec
   if (openApiVersion === null) {
-    errors.push(`Warning: openapi.yaml file is missing.`);
+    warnings.push(`Warning: openapi.yaml file is missing.`);
   } else if (openApiVersion === undefined) {
     errors.push(`Critical: 'version' is missing from openapi.yaml`);
   } else if (openApiVersion !== pkgVersion) {
@@ -136,6 +138,11 @@ try {
   }
 
   // --- FINAL RESULT ---
+  if (warnings.length > 0) {
+    console.warn(`\n${YELLOW}⚠️  WARNINGS:${RESET}`);
+    warnings.forEach(w => console.warn(`${YELLOW} - ${w}${RESET}`));
+  }
+  
   if (errors.length > 0) {
     console.error(`\n${RED}⛔ VALIDATION FAILED:${RESET}`);
     errors.forEach(e => console.error(`${RED} - ${e}${RESET}`));

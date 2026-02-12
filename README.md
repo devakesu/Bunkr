@@ -343,8 +343,8 @@ GhostClass is optimized for maximum performance:
 - Service worker with Serwist for offline functionality and caching
 - **Production Build**: Service worker compiled via esbuild in Docker (standalone mode compatibility workaround)
   - `@serwist/next` doesn't generate SW with Next.js `output: "standalone"` mode
-  - Docker build uses `npx esbuild src/sw.ts` to compile SW with all Serwist features
-  - Preserves full PWA functionality: precaching, caching strategies, offline support
+  - Docker build uses `npx esbuild src/sw.ts` to compile SW with runtime caching strategies
+  - Runtime caching enables offline access only for previously cached pages and assets (precaching disabled since no build-time manifest is available; first-time visits still require a network connection)
 - **Development**: Webpack bundler via `--webpack` flag (Serwist compatibility)
 - Manifest file for installable web app experience
 - Intelligent caching strategies:

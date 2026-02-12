@@ -129,8 +129,10 @@ RUN --mount=type=secret,id=sentry_token \
     npm run build && \
     rm -rf .next/cache
 
-# Compile service worker with full PWA functionality
+# Compile service worker with runtime caching
 # @serwist/next doesn't generate SW with standalone mode, so we compile src/sw.ts manually using esbuild
+# Note: Precaching is disabled (self.__SW_MANIFEST='[]') since we don't have a build-time manifest;
+# runtime caching strategies (NetworkFirst, CacheFirst, StaleWhileRevalidate) can only serve previously cached resources offline (full offline support would require precaching or explicit caching logic)
 RUN if [ ! -f "public/sw.js" ]; then \
       echo "Compiling service worker from src/sw.ts..."; \
       npx esbuild src/sw.ts \
