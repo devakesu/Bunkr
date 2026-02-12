@@ -346,7 +346,6 @@ export function AddAttendanceDialog({
         // Check for duty leave constraint violation
         if (isDutyLeaveConstraintError(error)) {
           toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
-          setIsSubmitting(false);
           return;
         }
         throw error;
