@@ -118,8 +118,7 @@ go install github.com/sigstore/cosign/v2/cmd/cosign@latest
 
 # Install GitHub CLI
 brew install gh  # macOS
-# OR
-https://cli.github.com/
+# OR see https://cli.github.com/
 ```
 
 ### Verify Docker Image Signature
@@ -160,7 +159,14 @@ cosign verify-blob \
 Download artifacts and verify their checksums:
 
 ```bash
-sha256sum -c checksums.txt
+# Download the checksums file
+wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/checksums.txt
+
+# Verify checksums (filtering out headers and metadata)
+grep -v '^#' checksums.txt | grep -v '^$' | grep -v '^Generated' | sha256sum -c
+
+# Or verify individual files manually
+sha256sum sbom.json sbom.json.bundle
 ```
 
 ### Complete Verification Example
@@ -182,7 +188,7 @@ cosign verify-blob --bundle sbom.json.bundle sbom.json
 
 # 4. Verify checksums
 wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/checksums.txt
-sha256sum -c checksums.txt
+grep -v '^#' checksums.txt | grep -v '^$' | grep -v '^Generated' | sha256sum -c
 ```
 
 ## Release Checklist

@@ -121,7 +121,12 @@ jobs:
           echo "sitemap_url=https://${APP_DOMAIN}/sitemap.xml" >> $GITHUB_OUTPUT
           echo "app_email=@${APP_DOMAIN}" >> $GITHUB_OUTPUT
           echo "legal_email=legal@${APP_DOMAIN}" >> $GITHUB_OUTPUT
-          TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          # Use the event timestamp for reproducibility
+          TIMESTAMP="${{ github.event.head_commit.timestamp }}"
+          if [ -z "$TIMESTAMP" ]; then
+            # Fallback for tag pushes which don't have head_commit
+            TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          fi
           echo "created=$TIMESTAMP" >> $GITHUB_OUTPUT
 
       - name: Build & push multi-platform image
@@ -193,8 +198,16 @@ jobs:
       # Generate SHA256 checksums
       - name: Generate checksums
         run: |
-          sha256sum sbom.json > checksums.txt
-          echo "SBOM Checksum:" >> checksums.txt
+          echo "# Release Artifact Checksums" > checksums.txt
+          echo "" >> checksums.txt
+          echo "## SBOM" >> checksums.txt
+          sha256sum sbom.json >> checksums.txt
+          echo "" >> checksums.txt
+          echo "## Signature Bundle" >> checksums.txt
+          sha256sum sbom.json.bundle >> checksums.txt
+          echo "" >> checksums.txt
+          echo "Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> checksums.txt
+          echo "" >> checksums.txt
           cat checksums.txt
 
       # Sign image with cosign (keyless signing using OIDC)
@@ -252,6 +265,26 @@ jobs:
           echo "Checksums:"
           cat ./artifacts/checksums.txt
 
+      - name: Calculate previous version for changelog
+        id: prev_version
+        run: |
+          # Get all tags sorted by version
+          CURRENT_TAG="${{ needs.calculate-version.outputs.version_tag }}"
+          
+          # Get the tag before current one
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -n1 || echo "")
+          
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tag found, using initial commit"
+            PREV_REF=$(git rev-list --max-parents=0 HEAD)
+            echo "prev_ref=${PREV_REF}" >> $GITHUB_OUTPUT
+            echo "changelog_text=...${PREV_REF:0:7}" >> $GITHUB_OUTPUT
+          else
+            echo "Previous tag: ${PREV_TAG}"
+            echo "prev_ref=${PREV_TAG}" >> $GITHUB_OUTPUT
+            echo "changelog_text=${PREV_TAG}...${CURRENT_TAG}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Generate verification instructions
         run: |
           cat > ./artifacts/VERIFY.md << 'EOF'
@@ -290,8 +323,14 @@ jobs:
 
           ## Verify Checksums
 
+          Download the checksums file and verify the artifacts:
+
           ```bash
-          sha256sum -c checksums.txt
+          # Verify all artifacts
+          grep -v '^#' checksums.txt | grep -v '^$' | grep -v '^Generated' | sha256sum -c
+          
+          # Or verify individual files
+          sha256sum sbom.json sbom.json.bundle
           ```
 
           ## Image Information
@@ -356,7 +395,7 @@ jobs:
 
             ---
 
-            **Full Changelog**: ${{ github.server_url }}/${{ github.repository }}/compare/${{ needs.calculate-version.outputs.version_tag }}...HEAD
+            **Full Changelog**: ${{ github.server_url }}/${{ github.repository }}/compare/${{ steps.prev_version.outputs.changelog_text }}
           files: |
             ./artifacts/sbom.json
             ./artifacts/sbom.json.bundle
