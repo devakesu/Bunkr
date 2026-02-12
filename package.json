@@ -1,10 +1,10 @@
 {
   "name": "ghostclass",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "private": true,
   "engines": {
     "node": "^20.19.0 || >=22.12.0",
-    "npm": ">=10"
+    "npm": ">=11"
   },
   "scripts": {
     "dev": "next dev --webpack",
@@ -12,7 +12,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "prepare": "husky install",
     "docs:validate": "npx @redocly/cli lint public/api-docs/openapi.yaml",
     "verify-version": "node scripts/verify-version.js",
     "bump-version": "node scripts/bump-version.js",
@@ -29,7 +28,9 @@
   "overrides": {
     "tar": "^7.5.6",
     "fast-xml-parser": "^5.3.4",
-    "js-yaml": "^4.1.1"
+    "js-yaml": "^4.1.1",
+    "glob": "^13.0.1",
+    "source-map": "^0.7.4"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",

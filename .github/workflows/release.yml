@@ -17,10 +17,7 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: write
-  packages: write
-  id-token: write
-  attestations: write
+  contents: read
 
 jobs:
   # Reuse the guard job from pipeline.yml as a prerequisite
@@ -103,6 +100,11 @@ jobs:
     name: Build & Release
     needs: calculate-version
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
     outputs:
       digest: ${{ steps.build-push.outputs.digest }}
       image_name: ${{ steps.prep.outputs.image_name }}
@@ -261,6 +263,8 @@ jobs:
     name: Create GitHub Release
     needs: [calculate-version, build-and-release]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -268,7 +272,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@47871fc5f64db8d41ab8c8eb790359322098b0f2 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: release-artifacts
           path: ./artifacts
@@ -374,7 +378,7 @@ jobs:
       - name: Create GitHub Release
         env:
           IMAGE_NAME: ${{ needs.build-and-release.outputs.image_name }}
-        uses: softprops/action-gh-release@bfe2b3861fc1bdcb716f8e3d68ac2aadc99a97d5 # v2.2.0
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           tag_name: ${{ needs.calculate-version.outputs.version_tag }}
           name: Release ${{ needs.calculate-version.outputs.version_tag }}
