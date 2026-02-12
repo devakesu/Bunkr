@@ -356,14 +356,15 @@ export function AddAttendanceDialog({
       onOpenChange(false);
 
     } catch (error: any) {
-      logger.error("Add Record Failed:", error);
-      
       // Check for duty leave constraint violation in catch block as well
       if (isDutyLeaveConstraintError(error)) {
         toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
-        // Expected business constraint violation; do not report to Sentry
+        // Expected business constraint violation; do not report to Sentry or log as error
         return;
-      } 
+      }
+      
+      // Only log and report unexpected errors
+      logger.error("Add Record Failed:", error);
       toast.error("Failed to add record");
       
       Sentry.captureException(error, {

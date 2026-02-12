@@ -52,6 +52,37 @@ describe('Duty Leave Constraint Error Handling', () => {
     it('should handle undefined error gracefully', () => {
       expect(isDutyLeaveConstraintError(undefined)).toBe(false);
     });
+
+    it('should match P0001 error using message fallback when hint is missing', () => {
+      const error = {
+        code: 'P0001',
+        message: 'Maximum 5 Duty Leaves exceeded for course: 12345'
+      };
+
+      expect(isDutyLeaveConstraintError(error)).toBe(true);
+    });
+
+    it('should match P0001 error when nested in details property', () => {
+      const error = {
+        details: {
+          code: 'P0001',
+          hint: 'Only 5 duty leaves allowed per semester per course',
+          message: 'Maximum 5 Duty Leaves exceeded for course: 72329'
+        }
+      };
+
+      expect(isDutyLeaveConstraintError(error)).toBe(true);
+    });
+
+    it('should still use message fallback when details is a non-object value', () => {
+      const error = {
+        code: 'P0001',
+        message: 'Maximum 5 Duty Leaves exceeded for course: 72329',
+        details: 'Additional error context'
+      };
+
+      expect(isDutyLeaveConstraintError(error)).toBe(true);
+    });
   });
 
   describe('getDutyLeaveErrorMessage', () => {
