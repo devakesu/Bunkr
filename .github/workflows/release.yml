@@ -326,8 +326,8 @@ jobs:
           Download the checksums file and verify the artifacts:
 
           ```bash
-          # Verify all artifacts
-          grep -v '^#' checksums.txt | grep -v '^$' | grep -v '^Generated' | sha256sum -c
+          # Verify all artifacts (extract only checksum lines)
+          grep -E '^[a-f0-9]{64}\s+\S+$' checksums.txt | sha256sum -c
           
           # Or verify individual files
           sha256sum sbom.json sbom.json.bundle

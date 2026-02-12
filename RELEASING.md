@@ -162,8 +162,8 @@ Download artifacts and verify their checksums:
 # Download the checksums file
 wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/checksums.txt
 
-# Verify checksums (filtering out headers and metadata)
-grep -v '^#' checksums.txt | grep -v '^$' | grep -v '^Generated' | sha256sum -c
+# Verify checksums (extract only valid checksum lines)
+grep -E '^[a-f0-9]{64}\s+\S+$' checksums.txt | sha256sum -c
 
 # Or verify individual files manually
 sha256sum sbom.json sbom.json.bundle
@@ -188,7 +188,7 @@ cosign verify-blob --bundle sbom.json.bundle sbom.json
 
 # 4. Verify checksums
 wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/checksums.txt
-grep -v '^#' checksums.txt | grep -v '^$' | grep -v '^Generated' | sha256sum -c
+grep -E '^[a-f0-9]{64}\s+\S+$' checksums.txt | sha256sum -c
 ```
 
 ## Release Checklist
