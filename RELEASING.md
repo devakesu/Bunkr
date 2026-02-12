@@ -66,7 +66,7 @@ npm version patch  # or minor, or major
 
 # Commit and push to main
 git add package.json
-git commit -m "chore: bump version to 1.5.4"
+git commit -m "chore: bump version to v1.5.4"
 git push origin main
 ```
 
