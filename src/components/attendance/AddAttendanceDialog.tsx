@@ -44,6 +44,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { normalizeSession, toRoman, formatSessionName, normalizeDate } from "@/lib/utils";
+import { isDutyLeaveConstraintError, getDutyLeaveErrorMessage } from "@/lib/error-handling";
 import { AttendanceReport, TrackAttendance, Course } from "@/types";
 
 interface User {
@@ -341,7 +342,14 @@ export function AddAttendanceDialog({
           remarks: `Self-Marked: ${statusType}`,
         });
 
-      if (error) throw error;
+      if (error) {
+        // Check for duty leave constraint violation
+        if (isDutyLeaveConstraintError(error)) {
+          toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
+          return;
+        }
+        throw error;
+      }
 
       toast.success("Extra class added successfully");
       onSuccess();
@@ -349,6 +357,13 @@ export function AddAttendanceDialog({
 
     } catch (error: any) {
       logger.error("Add Record Failed:", error);
+      
+      // Check for duty leave constraint violation in catch block as well
+      if (isDutyLeaveConstraintError(error)) {
+        toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
+        // Expected business constraint violation; do not report to Sentry
+        return;
+      } 
       toast.error("Failed to add record");
       
       Sentry.captureException(error, {

@@ -1,15 +1,18 @@
 # GhostClass
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/devakesu/GhostClass/badge)](https://securityscorecards.dev/viewer/?uri=github.com/devakesu/GhostClass)
-[![Security: SLSA Level 3](https://img.shields.io/badge/SLSA-Level%203-brightgreen)](https://slsa.dev)
-[![Security Scan: Trivy](https://img.shields.io/badge/Security-Trivy%20Scanned-blue)](.github/workflows/deploy.yml)
-[![Build Status](https://img.shields.io/badge/Build-Passing-success)](.github/workflows/deploy.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/devakesu/GhostClass/badge)](https://scorecard.dev/viewer/?uri=github.com/devakesu/GhostClass)
+[![SLSA Level 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
+[![Attestations](https://img.shields.io/badge/Attestations-View-brightgreen?logo=github)](https://github.com/devakesu/GhostClass/attestations)
+[![Security Scan: Trivy](https://img.shields.io/badge/Security-Trivy%20Scanned-blue)](.github/workflows/pipeline.yml)
+[![Build Status](https://img.shields.io/badge/Build-Passing-success)](.github/workflows/pipeline.yml)
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.1.6-black?logo=next.js)](https://nextjs.org)
 [![React](https://img.shields.io/badge/React-19.2.3-61DAFB?logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+[![TanStack Query](https://img.shields.io/badge/TanStack%20Query-5.90.17-FF4154?logo=react-query&logoColor=white)](https://tanstack.com/query)
+[![Recharts](https://img.shields.io/badge/Recharts-3.6.0-22B5BF)](https://recharts.org)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19.0%2B%20%7C%2022.12.0%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![Tests](https://img.shields.io/badge/Tests-Vitest%20%2B%20Playwright-green)](https://vitest.dev/)
 
@@ -204,6 +207,15 @@ The course card combines official attendance data with manual tracking:
    - `safeMetrics`: Based on official data only (fail-safe)
    - `extraMetrics`: Includes manual tracking (what user sees)
 
+### Duty Leave Business Rules
+
+**Attendance Code 225 Limit**: Maximum 5 duty leave entries (attendance = 225) per course per semester.
+
+- **Enforcement**: Database trigger validates before INSERT/UPDATE on `tracker` table
+- **Scope**: Per user + course + semester + year combination
+- **Error**: Raises exception when limit exceeded: `"Maximum 5 Duty Leaves exceeded for course: <course>"`
+- **Implementation**: PostgreSQL trigger function `check_225_attendance_limit()` (see `supabase/migrations/`)
+
 ### Example Scenarios
 
 **Scenario 1: Need More Classes**
@@ -329,7 +341,11 @@ GhostClass is optimized for maximum performance:
 
 **Progressive Web App (PWA)**
 - Service worker with Serwist for offline functionality and caching
-- **Note**: Webpack bundler is explicitly enabled via `TURBOPACK=0` environment variable (set in Dockerfile for production builds) because Serwist doesn't support Turbopack yet. This ensures PWA functionality works correctly in production. Local development commands (`npm run dev`) use `--webpack` flag since they don't run in the Docker environment.
+- **Production Build**: Service worker compiled via esbuild in Docker (standalone mode compatibility workaround)
+  - `@serwist/next` doesn't generate SW with Next.js `output: "standalone"` mode
+  - Docker build uses `npx esbuild src/sw.ts` to compile SW with runtime caching strategies
+  - Runtime caching enables offline access only for previously cached pages and assets (precaching disabled since no build-time manifest is available; first-time visits still require a network connection)
+- **Development**: Webpack bundler via `--webpack` flag (Serwist compatibility)
 - Manifest file for installable web app experience
 - Intelligent caching strategies:
   - Static assets: StaleWhileRevalidate for CSS/JS/workers
@@ -538,6 +554,8 @@ DOCKER_BUILDKIT=1 docker build -t ghostclass .
 # Run container
 docker run -p 3000:3000 --env-file .env ghostclass
 ```
+
+**Service Worker Handling**: Docker build automatically compiles `src/sw.ts` using esbuild if `@serwist/next` doesn't generate it (standalone mode compatibility). This ensures full PWA functionality in production.
 
 ### CI/CD Pipeline
 - **GitHub Actions** - Automated builds on push
