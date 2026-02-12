@@ -45,6 +45,7 @@ import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useFetchSemester, useFetchAcademicYear } from "@/hooks/users/settings";
 import { useTrackingCount } from "@/hooks/tracker/useTrackingCount";
 import { useFetchCourses } from "@/hooks/courses/courses";
+import { isDutyLeaveConstraintError, getDutyLeaveErrorMessage } from "@/lib/error-handling";
 import Link from "next/link";
 import { formatSessionName, generateSlotKey, normalizeSession, toRoman } from "@/lib/utils";
 
@@ -197,11 +198,24 @@ export function AttendanceCalendar({
                 remarks 
             });
 
-        if (error) throw error;
+        if (error) {
+          // Check for duty leave constraint violation
+          if (isDutyLeaveConstraintError(error)) {
+            toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
+            return;
+          }
+          throw error;
+        }
         toast.success("Added to tracking", { style: { backgroundColor: "rgba(34, 197, 94, 0.1)", color: "rgb(74, 222, 128)", border: "1px solid rgba(34, 197, 94, 0.2)", backdropFilter: "blur(5px)" } });
         await refetchTrackData(); 
         await refetchCount();
       } catch (error: any) { 
+        // Check for duty leave constraint violation in catch block as well
+        if (isDutyLeaveConstraintError(error)) {
+          toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
+          // Expected business constraint violation; do not report to Sentry
+          return;
+        } 
         toast.error("Failed to add record");
         Sentry.captureException(error, { tags: { type: "tracking_add_error", location: "AttendanceCalendar/handleWriteTracking" }, extra: { courseId, dateStr, status, sessionName, attendanceCode, remarks } });
       } finally { 
