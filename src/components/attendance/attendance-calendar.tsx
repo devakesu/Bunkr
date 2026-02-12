@@ -213,9 +213,10 @@ export function AttendanceCalendar({
         // Check for duty leave constraint violation in catch block as well
         if (isDutyLeaveConstraintError(error)) {
           toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
-        } else {
-          toast.error("Failed to add record");
-        }
+          // Expected business constraint violation; do not report to Sentry
+          return;
+        } 
+        toast.error("Failed to add record");
         Sentry.captureException(error, { tags: { type: "tracking_add_error", location: "AttendanceCalendar/handleWriteTracking" }, extra: { courseId, dateStr, status, sessionName, attendanceCode, remarks } });
       } finally { 
         setLoadingStates((prev) => ({ ...prev, [buttonKey]: false })); 

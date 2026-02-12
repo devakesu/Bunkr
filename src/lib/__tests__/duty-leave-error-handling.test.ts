@@ -44,6 +44,14 @@ describe('Duty Leave Constraint Error Handling', () => {
 
       expect(isDutyLeaveConstraintError(error)).toBe(false);
     });
+
+    it('should handle null error gracefully', () => {
+      expect(isDutyLeaveConstraintError(null)).toBe(false);
+    });
+
+    it('should handle undefined error gracefully', () => {
+      expect(isDutyLeaveConstraintError(undefined)).toBe(false);
+    });
   });
 
   describe('getDutyLeaveErrorMessage', () => {

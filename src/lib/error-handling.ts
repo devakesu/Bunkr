@@ -27,7 +27,8 @@ export interface DatabaseError {
  * }
  * ```
  */
-export function isDutyLeaveConstraintError(error: DatabaseError): boolean {
+export function isDutyLeaveConstraintError(error: DatabaseError | null | undefined): boolean {
+  if (!error) return false;
   return (
     error.code === "P0001" && 
     error.hint === "Only 5 duty leaves allowed per semester per course"
