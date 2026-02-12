@@ -129,32 +129,25 @@ RUN --mount=type=secret,id=sentry_token \
     npm run build && \
     rm -rf .next/cache
 
-# Debug: Show where files were generated
-RUN echo "=== Checking for service worker generation ===" && \
-    echo "Contents of public/:" && ls -la public/ && \
-    echo "Contents of .next/static/:" && (ls -la .next/static/ || echo "No .next/static/ directory") && \
-    echo "Contents of .next/standalone/public/:" && (ls -la .next/standalone/public/ || echo "No .next/standalone/public/ directory") && \
-    echo "Searching for sw.js files:" && (find . -name "sw.js" -type f || echo "No sw.js found")
-
-# Copy service worker to public/ if it was generated elsewhere
+# Compile service worker with runtime caching
+# @serwist/next doesn't generate SW with standalone mode, so we compile src/sw.ts manually using esbuild
+# Note: Precaching is disabled (self.__SW_MANIFEST='[]') since we don't have a build-time manifest;
+# runtime caching strategies (NetworkFirst, CacheFirst, StaleWhileRevalidate) can only serve previously cached resources offline (full offline support would require precaching or explicit caching logic)
 RUN if [ ! -f "public/sw.js" ]; then \
-      if [ -f ".next/static/sw.js" ]; then \
-        echo "Found sw.js in .next/static/, copying to public/"; \
-        cp .next/static/sw.js public/sw.js; \
-      elif [ -f ".next/standalone/public/sw.js" ]; then \
-        echo "Found sw.js in .next/standalone/public/, copying to public/"; \
-        cp .next/standalone/public/sw.js public/sw.js; \
-      fi; \
+      echo "Compiling service worker from src/sw.ts..."; \
+      npx esbuild src/sw.ts \
+        --bundle \
+        --outfile=public/sw.js \
+        --format=iife \
+        --target=es2020 \
+        --minify \
+        --define:self.__SW_MANIFEST='[]' \
+        --platform=browser \
+        --log-level=warning && \
+      echo "✓ Service worker compiled: $(du -h public/sw.js | cut -f1)"; \
+    else \
+      echo "✓ Service worker already exists"; \
     fi
-
-# Verify service worker was generated or copied
-RUN if [ ! -f "public/sw.js" ]; then \
-      echo "ERROR: Service worker (public/sw.js) was not generated during build!"; \
-      echo "This is required for PWA functionality."; \
-      echo "Checked locations: public/, .next/static/, .next/standalone/public/"; \
-      exit 1; \
-    fi && \
-    echo "✓ Service worker generated successfully at public/sw.js"
 
 # 2. Normalize timestamps
 RUN find .next -exec touch -d "@${SOURCE_DATE_EPOCH}" {} +
@@ -195,8 +188,8 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy public folder including the generated service worker
-# The sw.js file is generated during build by @serwist/next into /app/public/
-# and must be explicitly copied as it's in .gitignore (build artifact)
+# The sw.js file is compiled by esbuild during Docker build (standalone mode workaround)
+# as @serwist/next doesn't generate it with output: "standalone"
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # Clean up
