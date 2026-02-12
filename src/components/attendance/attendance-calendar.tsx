@@ -202,8 +202,6 @@ export function AttendanceCalendar({
           // Check for duty leave constraint violation
           if (isDutyLeaveConstraintError(error)) {
             toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
-            setLoadingStates((prev) => ({ ...prev, [buttonKey]: false }));
-            clickedButtons.current?.delete(buttonKey);
             return;
           }
           throw error;
