@@ -222,3 +222,47 @@ jobs:
           curl \
             "$COOLIFY_BASE_URL/api/v1/deploy?uuid=$COOLIFY_APP_ID" \
             -H "Authorization: Bearer $COOLIFY_API_TOKEN"
+
+  # Auto-create release tags when package.json version changes
+  # This job has contents:write permission to push tags, which then triggers release.yml
+  auto-tag-release:
+    name: Auto Tag Release
+    needs: build-push-sign
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Check for version bump
+        id: version-check
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "current_version=v${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          
+          # Check if tag exists for this version
+          if git ls-remote --tags origin | grep -q "refs/tags/v${CURRENT_VERSION}$"; then
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+            echo "Tag v${CURRENT_VERSION} already exists"
+          else
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+            echo "New version detected: v${CURRENT_VERSION}"
+          fi
+
+      - name: Create and push release tag
+        if: steps.version-check.outputs.version_changed == 'true'
+        run: |
+          VERSION_TAG="${{ steps.version-check.outputs.current_version }}"
+          echo "Creating and pushing tag ${VERSION_TAG}"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"
+          git push origin "${VERSION_TAG}"
+          
+          echo "✓ Release tag ${VERSION_TAG} created and pushed"
+          echo "This will trigger the release.yml workflow automatically"
