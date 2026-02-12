@@ -223,21 +223,27 @@ jobs:
             "$COOLIFY_BASE_URL/api/v1/deploy?uuid=$COOLIFY_APP_ID" \
             -H "Authorization: Bearer $COOLIFY_API_TOKEN"
 
-  # Auto-create release tags when package.json version changes
-  # This job has contents:write permission to push tags, which then triggers release.yml
+  # Auto-create release tags when package.json version changes in this push
+  # This job has contents:write permission to push tags and trigger release workflow
   auto-tag-release:
     name: Auto Tag Release
     needs: build-push-sign
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
-      - name: Check for version bump
+      - name: Setup Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '20'
+
+      - name: Check for version bump in this push
         id: version-check
         run: |
           set -euo pipefail
@@ -248,7 +254,7 @@ jobs:
             exit 1
           fi
           
-          # Extract version with error handling
+          # Extract current version with error handling
           if ! CURRENT_VERSION=$(node -p "require('./package.json').version" 2>&1); then
             echo "ERROR: Failed to read version from package.json"
             echo "${CURRENT_VERSION}"
@@ -263,7 +269,21 @@ jobs:
           echo "current_version=v${CURRENT_VERSION}" >> $GITHUB_OUTPUT
           echo "Current version from package.json: v${CURRENT_VERSION}"
           
-          # Check if tag exists for this version (with error handling)
+          # Check if package.json version actually changed in this push
+          PREVIOUS_VERSION=""
+          if git cat-file -e ${{ github.event.before }}:package.json 2>/dev/null; then
+            PREVIOUS_VERSION=$(git show ${{ github.event.before }}:package.json | node -p "try { JSON.parse(require('fs').readFileSync(0, 'utf-8')).version } catch(e) { '' }")
+          fi
+          
+          echo "Previous version: ${PREVIOUS_VERSION:-<none>}"
+          
+          if [ "$PREVIOUS_VERSION" = "$CURRENT_VERSION" ] && [ -n "$PREVIOUS_VERSION" ]; then
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+            echo "Version unchanged in this push (both are ${CURRENT_VERSION})"
+            exit 0
+          fi
+          
+          # Check if tag already exists for this version
           if ! git ls-remote --tags origin > /tmp/remote_tags.txt 2>&1; then
             echo "ERROR: Failed to fetch remote tags"
             cat /tmp/remote_tags.txt
@@ -275,7 +295,7 @@ jobs:
             echo "Tag v${CURRENT_VERSION} already exists"
           else
             echo "version_changed=true" >> $GITHUB_OUTPUT
-            echo "New version detected: v${CURRENT_VERSION}"
+            echo "Version changed: ${PREVIOUS_VERSION:-<none>} → ${CURRENT_VERSION}"
           fi
 
       - name: Create and push release tag
@@ -303,4 +323,24 @@ jobs:
           fi
           
           echo "✓ Release tag ${VERSION_TAG} created and pushed"
-          echo "This will trigger the release.yml workflow automatically"
+
+      - name: Trigger release workflow
+        if: steps.version-check.outputs.version_changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          
+          VERSION_TAG="${{ steps.version-check.outputs.current_version }}"
+          echo "Triggering release workflow for ${VERSION_TAG}"
+          
+          # Trigger release.yml workflow via workflow_dispatch
+          # Note: The tag already exists, so release.yml will use it
+          gh workflow run release.yml --ref "${VERSION_TAG}" || {
+            echo "WARNING: Failed to trigger release workflow via workflow_dispatch"
+            echo "The tag ${VERSION_TAG} has been created and pushed."
+            echo "Release workflow should be triggered by the tag push event."
+            exit 0
+          }
+          
+          echo "✓ Release workflow triggered for ${VERSION_TAG}"
