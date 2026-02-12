@@ -124,7 +124,11 @@ jobs:
           # Use the event timestamp for reproducibility
           TIMESTAMP="${{ github.event.head_commit.timestamp }}"
           if [ -z "$TIMESTAMP" ]; then
-            # Fallback for tag pushes which don't have head_commit
+            # Fallback for tag pushes: use repository updated_at timestamp
+            TIMESTAMP="${{ github.event.repository.updated_at }}"
+          fi
+          if [ -z "$TIMESTAMP" ]; then
+            # Final fallback: current time
             TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           fi
           echo "created=$TIMESTAMP" >> $GITHUB_OUTPUT
@@ -195,21 +199,6 @@ jobs:
           sbom-path: sbom.json
           push-to-registry: true
 
-      # Generate SHA256 checksums
-      - name: Generate checksums
-        run: |
-          echo "# Release Artifact Checksums" > checksums.txt
-          echo "" >> checksums.txt
-          echo "## SBOM" >> checksums.txt
-          sha256sum sbom.json >> checksums.txt
-          echo "" >> checksums.txt
-          echo "## Signature Bundle" >> checksums.txt
-          sha256sum sbom.json.bundle >> checksums.txt
-          echo "" >> checksums.txt
-          echo "Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> checksums.txt
-          echo "" >> checksums.txt
-          cat checksums.txt
-
       # Sign image with cosign (keyless signing using OIDC)
       - name: Install cosign
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
@@ -229,6 +218,21 @@ jobs:
           cosign sign-blob --yes \
             --bundle sbom.json.bundle \
             sbom.json
+
+      # Generate SHA256 checksums (after all artifacts are created)
+      - name: Generate checksums
+        run: |
+          echo "# Release Artifact Checksums" > checksums.txt
+          echo "" >> checksums.txt
+          echo "## SBOM" >> checksums.txt
+          sha256sum sbom.json >> checksums.txt
+          echo "" >> checksums.txt
+          echo "## Signature Bundle" >> checksums.txt
+          sha256sum sbom.json.bundle >> checksums.txt
+          echo "" >> checksums.txt
+          echo "Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> checksums.txt
+          echo "" >> checksums.txt
+          cat checksums.txt
 
       # Upload artifacts for the release job
       - name: Upload release artifacts
