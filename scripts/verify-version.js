@@ -50,7 +50,16 @@ try {
   const exampleEnvPath = path.join(process.cwd(), '.example.env');
   const exampleEnvVersion = extractVersion(exampleEnvPath);
 
-  // 5. Git Branch
+  // 5. OpenAPI spec
+  const openApiPath = path.join(process.cwd(), 'public', 'api-docs', 'openapi.yaml');
+  let openApiVersion = null;
+  if (fs.existsSync(openApiPath)) {
+    const openApiContent = fs.readFileSync(openApiPath, 'utf8');
+    const versionMatch = openApiContent.match(/^\s*version:\s*(\d+\.\d+\.\d+)$/m);
+    openApiVersion = versionMatch ? versionMatch[1] : undefined;
+  }
+
+  // 6. Git Branch
   let branchName = 'unknown';
   try {
     branchName = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
@@ -69,6 +78,10 @@ try {
   if (exampleEnvVersion === null) console.log(`   📝 .example.env:     ${RED}MISSING FILE${RESET}`);
   else if (exampleEnvVersion === undefined) console.log(`   📝 .example.env:     ${RED}KEY MISSING${RESET}`);
   else console.log(`   📝 .example.env:     ${exampleEnvVersion}`);
+
+  if (openApiVersion === null) console.log(`   📚 openapi.yaml:     ${RED}MISSING FILE${RESET}`);
+  else if (openApiVersion === undefined) console.log(`   📚 openapi.yaml:     ${RED}VERSION MISSING${RESET}`);
+  else console.log(`   📚 openapi.yaml:     ${openApiVersion}`);
 
   console.log(`   🌿 Git Branch:       ${branchName}`);
 
@@ -106,7 +119,16 @@ try {
     errors.push(`Mismatch: .example.env version (${exampleEnvVersion}) !== package.json (${pkgVersion})`);
   }
 
-  // Check 4: Branch validation (for non-protected, non-automation branches)
+  // Check 4: OpenAPI spec
+  if (openApiVersion === null) {
+    errors.push(`Warning: openapi.yaml file is missing.`);
+  } else if (openApiVersion === undefined) {
+    errors.push(`Critical: 'version' is missing from openapi.yaml`);
+  } else if (openApiVersion !== pkgVersion) {
+    errors.push(`Mismatch: openapi.yaml version (${openApiVersion}) !== package.json (${pkgVersion})`);
+  }
+
+  // Check 5: Branch validation (for non-protected, non-automation branches)
   const protectedBranches = ['main', 'master', 'dev', 'development', 'staging', 'HEAD', 'unknown'];
   
   if (!protectedBranches.includes(branchName) && !isAutomationBranch && normalizedBranch !== pkgVersion) {

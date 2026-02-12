@@ -73,6 +73,46 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
+CREATE OR REPLACE FUNCTION "public"."check_225_attendance_limit"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+  attendance_225_count INTEGER;
+BEGIN
+  -- Only check if attendance is 225
+  IF NEW.attendance != 225 THEN
+    RETURN NEW;
+  END IF;
+
+  -- Count existing 225 attendance records for this course in this semester/year
+  SELECT COUNT(*)
+  INTO attendance_225_count
+  FROM tracker
+  WHERE auth_user_id = NEW.auth_user_id
+    AND course = NEW.course
+    AND semester = NEW.semester
+    AND year = NEW.year
+    AND attendance = 225
+    AND id != COALESCE(NEW.id, 0); -- Exclude current record for updates
+
+  -- Enforce limit
+  IF attendance_225_count >= 5 THEN
+    RAISE EXCEPTION 'Maximum 5 Duty Leaves exceeded for course: %', NEW.course
+      USING HINT = 'Only 5 duty leaves allowed per semester per course';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."check_225_attendance_limit"() OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."check_225_attendance_limit"() IS 'Enforces maximum 5 DLs per semester per course';
+
+
+
 CREATE OR REPLACE FUNCTION "public"."delete_user_account"() RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -380,6 +420,10 @@ CREATE INDEX "idx_users_sync_priority" ON "public"."users" USING "btree" ("last_
 
 
 COMMENT ON INDEX "public"."idx_users_sync_priority" IS 'Optimizes cron sync queries that order by last_synced_at for users with tokens';
+
+
+
+CREATE OR REPLACE TRIGGER "enforce_225_attendance_limit" BEFORE INSERT OR UPDATE ON "public"."tracker" FOR EACH ROW WHEN (("new"."attendance" = (225)::numeric)) EXECUTE FUNCTION "public"."check_225_attendance_limit"();
 
 
 
@@ -697,6 +741,12 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
+
+
+
+GRANT ALL ON FUNCTION "public"."check_225_attendance_limit"() TO "anon";
+GRANT ALL ON FUNCTION "public"."check_225_attendance_limit"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."check_225_attendance_limit"() TO "service_role";
 
 
 
