@@ -1,0 +1,368 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+jobs:
+  # Reuse the guard job from pipeline.yml as a prerequisite
+  guard:
+    name: Build Guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+  # Calculate the next version based on trigger type
+  calculate-version:
+    name: Calculate Version
+    needs: guard
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_tag: ${{ steps.version.outputs.version_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Calculate version
+        id: version
+        run: |
+          # If triggered by a tag, use the tag version
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION_TAG="${VERSION}"
+            # Remove 'v' prefix if present for version number
+            VERSION_NUMBER="${VERSION#v}"
+            echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
+            echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+            echo "Using tag version: ${VERSION_NUMBER}"
+          else
+            # Manual dispatch: calculate next version from latest tag
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            echo "Latest tag: ${LATEST_TAG}"
+            
+            # Remove 'v' prefix
+            LATEST_VERSION="${LATEST_TAG#v}"
+            
+            # Parse version components
+            IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST_VERSION}"
+            
+            # Bump version based on input
+            case "${{ github.event.inputs.bump_type }}" in
+              major)
+                MAJOR=$((MAJOR + 1))
+                MINOR=0
+                PATCH=0
+                ;;
+              minor)
+                MINOR=$((MINOR + 1))
+                PATCH=0
+                ;;
+              patch)
+                PATCH=$((PATCH + 1))
+                ;;
+            esac
+            
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            VERSION_TAG="v${NEW_VERSION}"
+            
+            echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+            echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+            echo "Calculated new version: ${NEW_VERSION} (${VERSION_TAG})"
+          fi
+
+  # Build, sign, and push Docker images
+  build-and-release:
+    name: Build & Release
+    needs: calculate-version
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build-push.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Login to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare derived values
+        id: prep
+        run: |
+          APP_DOMAIN="${{ secrets.NEXT_PUBLIC_APP_DOMAIN }}"
+          echo "app_url=https://${APP_DOMAIN}" >> $GITHUB_OUTPUT
+          echo "sitemap_url=https://${APP_DOMAIN}/sitemap.xml" >> $GITHUB_OUTPUT
+          echo "app_email=@${APP_DOMAIN}" >> $GITHUB_OUTPUT
+          echo "legal_email=legal@${APP_DOMAIN}" >> $GITHUB_OUTPUT
+          TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          echo "created=$TIMESTAMP" >> $GITHUB_OUTPUT
+
+      - name: Build & push multi-platform image
+        id: build-push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}:latest
+            ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}:${{ needs.calculate-version.outputs.version_tag }}
+            ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}:${{ needs.calculate-version.outputs.version }}
+          secrets: |
+            sentry_token=${{ secrets.SENTRY_AUTH_TOKEN }}
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            APP_COMMIT_SHA=${{ github.sha }}
+            SOURCE_DATE_EPOCH=${{ secrets.SOURCE_DATE_EPOCH }}
+            NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_GITHUB_URL=${{ secrets.NEXT_PUBLIC_GITHUB_URL }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+            NEXT_PUBLIC_GA_ID=${{ secrets.NEXT_PUBLIC_GA_ID }}
+            SENTRY_ORG=${{ secrets.SENTRY_ORG }}
+            SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
+            NEXT_PUBLIC_APP_NAME=${{ secrets.NEXT_PUBLIC_APP_NAME }}
+            NEXT_PUBLIC_APP_VERSION=${{ needs.calculate-version.outputs.version }}
+            NEXT_PUBLIC_APP_DOMAIN=${{ secrets.NEXT_PUBLIC_APP_DOMAIN }}
+            NEXT_PUBLIC_AUTHOR_NAME=${{ secrets.NEXT_PUBLIC_AUTHOR_NAME }}
+            NEXT_PUBLIC_AUTHOR_URL=${{ secrets.NEXT_PUBLIC_AUTHOR_URL }}
+            NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE=${{ secrets.NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE }}
+            NEXT_PUBLIC_APP_URL=${{ steps.prep.outputs.app_url }}
+            NEXT_PUBLIC_SITEMAP_URL=${{ steps.prep.outputs.sitemap_url }}
+            NEXT_PUBLIC_APP_EMAIL=${{ steps.prep.outputs.app_email }}
+            NEXT_PUBLIC_LEGAL_EMAIL=${{ steps.prep.outputs.legal_email }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.created=${{ steps.prep.outputs.created }}
+            org.opencontainers.image.version=${{ needs.calculate-version.outputs.version }}
+
+      # Attest build provenance
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}
+          subject-digest: ${{ steps.build-push.outputs.digest }}
+          push-to-registry: true
+
+      # Generate SBOM
+      - name: Generate SBOM
+        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
+          format: cyclonedx-json
+          output-file: sbom.json
+
+      # Attest SBOM
+      - name: Attest SBOM
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3.0.0
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}
+          subject-digest: ${{ steps.build-push.outputs.digest }}
+          sbom-path: sbom.json
+          push-to-registry: true
+
+      # Generate SHA256 checksums
+      - name: Generate checksums
+        run: |
+          sha256sum sbom.json > checksums.txt
+          echo "SBOM Checksum:" >> checksums.txt
+          cat checksums.txt
+
+      # Sign image with cosign (keyless signing using OIDC)
+      - name: Install cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: Sign image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign --yes \
+            ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
+
+      # Sign SBOM file
+      - name: Sign SBOM artifact
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign-blob --yes \
+            --bundle sbom.json.bundle \
+            sbom.json
+
+      # Upload artifacts for the release job
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: release-artifacts
+          path: |
+            sbom.json
+            sbom.json.bundle
+            checksums.txt
+
+  # Create GitHub Release with artifacts
+  create-github-release:
+    name: Create GitHub Release
+    needs: [calculate-version, build-and-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@47871fc5f64db8d41ab8c8eb790359322098b0f2 # v6.0.0
+        with:
+          name: release-artifacts
+          path: ./artifacts
+
+      - name: Verify downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          ls -lah ./artifacts/
+          echo ""
+          echo "Checksums:"
+          cat ./artifacts/checksums.txt
+
+      - name: Generate verification instructions
+        run: |
+          cat > ./artifacts/VERIFY.md << 'EOF'
+          # Release Verification Instructions
+
+          This release includes signed artifacts and attestations for supply chain security.
+
+          ## Verify Docker Image Signature
+
+          Using cosign (keyless verification):
+
+          ```bash
+          cosign verify \
+            --certificate-identity-regexp="^https://github.com/${{ github.repository }}" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+            ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}:${{ needs.calculate-version.outputs.version_tag }}
+          ```
+
+          ## Verify Build Attestation
+
+          Using GitHub CLI:
+
+          ```bash
+          gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}:${{ needs.calculate-version.outputs.version_tag }} --owner ${{ github.repository_owner }}
+          ```
+
+          ## Verify SBOM Signature
+
+          Using cosign:
+
+          ```bash
+          cosign verify-blob \
+            --bundle sbom.json.bundle \
+            sbom.json
+          ```
+
+          ## Verify Checksums
+
+          ```bash
+          sha256sum -c checksums.txt
+          ```
+
+          ## Image Information
+
+          - **Image**: `ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}:${{ needs.calculate-version.outputs.version_tag }}`
+          - **Digest**: `${{ needs.build-and-release.outputs.digest }}`
+          - **Platforms**: `linux/amd64`, `linux/arm64`
+          - **Version**: `${{ needs.calculate-version.outputs.version }}`
+
+          ## Additional Tags
+
+          This release is also available under the following tags:
+          - `ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}:latest`
+          - `ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}:${{ needs.calculate-version.outputs.version }}`
+
+          ## Learn More
+
+          - [Sigstore Cosign Documentation](https://docs.sigstore.dev/cosign/overview/)
+          - [GitHub Attestations Documentation](https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)
+          - [SBOM Overview](https://www.cisa.gov/sbom)
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@bfe2b3861fc1bdcb716f8e3d68ac2aadc99a97d5 # v2.2.0
+        with:
+          tag_name: ${{ needs.calculate-version.outputs.version_tag }}
+          name: Release ${{ needs.calculate-version.outputs.version_tag }}
+          body: |
+            ## Release ${{ needs.calculate-version.outputs.version_tag }}
+
+            This release includes:
+            - 🐳 Multi-platform Docker images (linux/amd64, linux/arm64)
+            - 🔐 Signed images and artifacts using Sigstore cosign
+            - 📋 Software Bill of Materials (SBOM) in CycloneDX format
+            - ✅ Build provenance attestations
+            - 🔍 SHA256 checksums for all artifacts
+
+            ### Docker Images
+
+            ```bash
+            docker pull ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}:${{ needs.calculate-version.outputs.version_tag }}
+            ```
+
+            **Image Digest**: `${{ needs.build-and-release.outputs.digest }}`
+
+            ### Verification
+
+            See [VERIFY.md](./VERIFY.md) for detailed verification instructions.
+
+            ### Quick Verification
+
+            ```bash
+            # Verify image signature
+            cosign verify \
+              --certificate-identity-regexp="^https://github.com/${{ github.repository }}" \
+              --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+              ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}:${{ needs.calculate-version.outputs.version_tag }}
+
+            # Verify attestation
+            gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}:${{ needs.calculate-version.outputs.version_tag }} --owner ${{ github.repository_owner }}
+            ```
+
+            ---
+
+            **Full Changelog**: ${{ github.server_url }}/${{ github.repository }}/compare/${{ needs.calculate-version.outputs.version_tag }}...HEAD
+          files: |
+            ./artifacts/sbom.json
+            ./artifacts/sbom.json.bundle
+            ./artifacts/checksums.txt
+            ./artifacts/VERIFY.md
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          fail_on_unmatched_files: true
