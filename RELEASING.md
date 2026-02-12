@@ -35,9 +35,11 @@ We follow [Semantic Versioning 2.0.0](https://semver.org/):
 
 ### Version Bumping Guidelines
 
-- **Patch**: Bug fixes, security patches, documentation updates
+- **Patch**: Bug fixes, security patches, minor documentation updates
 - **Minor**: New features, enhancements, non-breaking API additions
 - **Major**: Breaking changes, major refactors, incompatible API changes
+
+**Note**: Trivial documentation fixes (typos, formatting) typically don't require a release. Only substantial changes warrant version bumps.
 
 ## Creating a Release
 

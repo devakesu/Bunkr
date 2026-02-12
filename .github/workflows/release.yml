@@ -59,7 +59,7 @@ jobs:
             echo "Using tag version: ${VERSION_NUMBER}"
           else
             # Manual dispatch: calculate next version from latest tag
-            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            LATEST_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | head -n1 || echo "v0.0.0")
             echo "Latest tag: ${LATEST_TAG}"
             
             # Remove 'v' prefix
@@ -272,11 +272,11 @@ jobs:
       - name: Calculate previous version for changelog
         id: prev_version
         run: |
-          # Get all tags sorted by version
+          # Get all version tags sorted by version, excluding the current tag
           CURRENT_TAG="${{ needs.calculate-version.outputs.version_tag }}"
           
-          # Get the tag before current one
-          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -n1 || echo "")
+          # Get the previous version tag (only v*.*.* pattern)
+          PREV_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -n1 || echo "")
           
           if [ -z "$PREV_TAG" ]; then
             echo "No previous tag found, using initial commit"
