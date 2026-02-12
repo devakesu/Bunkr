@@ -73,6 +73,16 @@ describe('Duty Leave Constraint Error Handling', () => {
 
       expect(isDutyLeaveConstraintError(error)).toBe(true);
     });
+
+    it('should still use message fallback when details is a non-object value', () => {
+      const error = {
+        code: 'P0001',
+        message: 'Maximum 5 Duty Leaves exceeded for course: 72329',
+        details: 'Additional error context'
+      };
+
+      expect(isDutyLeaveConstraintError(error)).toBe(true);
+    });
   });
 
   describe('getDutyLeaveErrorMessage', () => {
