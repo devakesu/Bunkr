@@ -1,7 +1,7 @@
 # ===============================
 # 0. Global deterministic settings
 # ===============================
-ARG NODE_IMAGE=node:20.19.0-alpine3.20
+ARG NODE_IMAGE=node:20.19.0-alpine3.20@sha256:9a9c00587bcb88209b164b2dba1f59c7389ac3a2cec2cfe490fc43cd947ed531
 ARG SOURCE_DATE_EPOCH=1767225600
 
 # ===============================
@@ -30,8 +30,7 @@ COPY package.json package-lock.json ./
 # The multi-stage build ensures the npm cache is not included in the final image.
 # Next.js standalone output (used in builder stage) automatically tree-shakes dependencies,
 # excluding devDependencies from the final production bundle in .next/standalone/node_modules.
-RUN npm install -g npm@latest && \
-    npm ci \
+RUN npm ci \
     --ignore-scripts \
     --no-audit \
     --no-fund \
@@ -41,7 +40,6 @@ RUN npm install -g npm@latest && \
 # 2. Build layer
 # ===============================
 FROM ${NODE_IMAGE} AS builder
-RUN npm install -g npm@latest
 
 ARG SOURCE_DATE_EPOCH
 ARG APP_COMMIT_SHA
