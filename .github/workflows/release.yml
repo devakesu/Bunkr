@@ -105,6 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       digest: ${{ steps.build-push.outputs.digest }}
+      image_name: ${{ steps.prep.outputs.image_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -301,10 +302,9 @@ jobs:
           fi
 
       - name: Generate verification instructions
+        env:
+          IMAGE_NAME: ${{ needs.build-and-release.outputs.image_name }}
         run: |
-          # Derive image name from repository (lowercase)
-          IMAGE_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
-          
           cat > ./artifacts/VERIFY.md << EOF
           # Release Verification Instructions
 
@@ -373,7 +373,7 @@ jobs:
 
       - name: Create GitHub Release
         env:
-          IMAGE_NAME: ${{ steps.prep.outputs.image_name }}
+          IMAGE_NAME: ${{ needs.build-and-release.outputs.image_name }}
         uses: softprops/action-gh-release@bfe2b3861fc1bdcb716f8e3d68ac2aadc99a97d5 # v2.2.0
         with:
           tag_name: ${{ needs.calculate-version.outputs.version_tag }}
@@ -391,7 +391,7 @@ jobs:
             ### Docker Images
 
             ```bash
-            docker pull ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}
+            docker pull ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}
             ```
 
             **Image Digest**: `${{ needs.build-and-release.outputs.digest }}`
@@ -407,10 +407,10 @@ jobs:
             cosign verify \
               --certificate-identity-regexp="^https://github.com/${{ github.repository }}" \
               --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-              ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}
+              ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}
 
             # Verify attestation
-            gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }} --owner ${{ github.repository_owner }}
+            gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }} --owner ${{ github.repository_owner }}
             ```
 
             ---
