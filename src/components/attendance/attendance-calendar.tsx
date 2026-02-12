@@ -45,6 +45,7 @@ import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useFetchSemester, useFetchAcademicYear } from "@/hooks/users/settings";
 import { useTrackingCount } from "@/hooks/tracker/useTrackingCount";
 import { useFetchCourses } from "@/hooks/courses/courses";
+import { isDutyLeaveConstraintError, getDutyLeaveErrorMessage } from "@/lib/error-handling";
 import Link from "next/link";
 import { formatSessionName, generateSlotKey, normalizeSession, toRoman } from "@/lib/utils";
 
@@ -199,9 +200,8 @@ export function AttendanceCalendar({
 
         if (error) {
           // Check for duty leave constraint violation
-          if (error.code === "P0001" && error.hint === "Only 5 duty leaves allowed per semester per course") {
-            const courseName = coursesData?.courses?.[courseId]?.name || `course ${courseId}`;
-            toast.error(`Cannot add Duty Leave: Maximum of 5 duty leaves per semester exceeded for ${courseName}`);
+          if (isDutyLeaveConstraintError(error)) {
+            toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
             setLoadingStates((prev) => ({ ...prev, [buttonKey]: false }));
             clickedButtons.current?.delete(buttonKey);
             return;
@@ -213,9 +213,8 @@ export function AttendanceCalendar({
         await refetchCount();
       } catch (error: any) { 
         // Check for duty leave constraint violation in catch block as well
-        if (error.code === "P0001" && error.hint === "Only 5 duty leaves allowed per semester per course") {
-          const courseName = coursesData?.courses?.[courseId]?.name || `course ${courseId}`;
-          toast.error(`Cannot add Duty Leave: Maximum of 5 duty leaves per semester exceeded for ${courseName}`);
+        if (isDutyLeaveConstraintError(error)) {
+          toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
         } else {
           toast.error("Failed to add record");
         }

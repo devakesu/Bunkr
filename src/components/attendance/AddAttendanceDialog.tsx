@@ -44,6 +44,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { normalizeSession, toRoman, formatSessionName, normalizeDate } from "@/lib/utils";
+import { isDutyLeaveConstraintError, getDutyLeaveErrorMessage } from "@/lib/error-handling";
 import { AttendanceReport, TrackAttendance, Course } from "@/types";
 
 interface User {
@@ -343,9 +344,8 @@ export function AddAttendanceDialog({
 
       if (error) {
         // Check for duty leave constraint violation
-        if (error.code === "P0001" && error.hint === "Only 5 duty leaves allowed per semester per course") {
-          const courseName = coursesData?.courses?.[courseId]?.name || `course ${courseId}`;
-          toast.error(`Cannot add Duty Leave: Maximum of 5 duty leaves per semester exceeded for ${courseName}`);
+        if (isDutyLeaveConstraintError(error)) {
+          toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
           setIsSubmitting(false);
           return;
         }
@@ -360,9 +360,8 @@ export function AddAttendanceDialog({
       logger.error("Add Record Failed:", error);
       
       // Check for duty leave constraint violation in catch block as well
-      if (error.code === "P0001" && error.hint === "Only 5 duty leaves allowed per semester per course") {
-        const courseName = coursesData?.courses?.[courseId]?.name || `course ${courseId}`;
-        toast.error(`Cannot add Duty Leave: Maximum of 5 duty leaves per semester exceeded for ${courseName}`);
+      if (isDutyLeaveConstraintError(error)) {
+        toast.error(getDutyLeaveErrorMessage(courseId, coursesData));
       } else {
         toast.error("Failed to add record");
       }
