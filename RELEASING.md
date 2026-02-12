@@ -192,7 +192,7 @@ wget https://github.com/{OWNER}/{REPO}/releases/download/{VERSION}/sbom.json
 wget https://github.com/{OWNER}/{REPO}/releases/download/{VERSION}/sbom.json.bundle
 
 # Verify checksums (extract only valid checksum lines)
-grep -E '^[0-9a-f]{64}\s+\S+$' checksums.txt | sha256sum -c
+grep -E '^[0-9a-f]{64}  ' checksums.txt | sha256sum -c
 
 # Or verify individual files manually
 sha256sum sbom.json sbom.json.bundle
@@ -203,7 +203,7 @@ sha256sum sbom.json sbom.json.bundle
 wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/checksums.txt
 wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/sbom.json
 wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/sbom.json.bundle
-grep -E '^[0-9a-f]{64}\s+\S+$' checksums.txt | sha256sum -c
+grep -E '^[0-9a-f]{64}  ' checksums.txt | sha256sum -c
 ```
 
 **Note**: All artifact files must be in the same directory as `checksums.txt` for verification to work.
@@ -229,7 +229,7 @@ cosign verify-blob --bundle sbom.json.bundle sbom.json
 
 # 4. Verify checksums
 wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/checksums.txt
-grep -E '^[0-9a-f]{64}\s+\S+$' checksums.txt | sha256sum -c
+grep -E '^[0-9a-f]{64}  ' checksums.txt | sha256sum -c
 ```
 
 ## Release Checklist
