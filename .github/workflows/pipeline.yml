@@ -249,7 +249,11 @@ jobs:
           fi
           
           # Extract version with error handling
-          CURRENT_VERSION=$(node -p "try { require('./package.json').version } catch(e) { throw new Error('Failed to read version from package.json: ' + e.message); }")
+          if ! CURRENT_VERSION=$(node -p "require('./package.json').version" 2>&1); then
+            echo "ERROR: Failed to read version from package.json"
+            echo "${CURRENT_VERSION}"
+            exit 1
+          fi
           
           if [ -z "$CURRENT_VERSION" ]; then
             echo "ERROR: Version field is empty in package.json"
