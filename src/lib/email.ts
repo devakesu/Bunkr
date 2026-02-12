@@ -1,6 +1,7 @@
 // src/lib/email.ts
 import axios from "axios";
 import * as Sentry from "@sentry/nextjs";
+import sanitizeHtml from "sanitize-html";
 import { redact } from "./utils";
 import { logger } from "./logger";
 
@@ -114,7 +115,7 @@ async function sendViaSendPulse({ to, subject, html, text }: SendEmailProps): Pr
     const payload = {
       email: {
         html: Buffer.from(html).toString("base64"), 
-        text: text || html.replace(/<[^>]*>?/gm, ""),
+        text: text || sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} }),
         subject,
         from: CONFIG.sender,
         to: [{ email: to, name: "User" }],
@@ -145,7 +146,7 @@ async function sendViaBrevo({ to, subject, html, text }: SendEmailProps): Promis
       to: [{ email: to }],
       subject,
       htmlContent: html,
-      textContent: text || html.replace(/<[^>]*>?/gm, ""),
+      textContent: text || sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} }),
     };
 
     const { data } = await axios.post(CONFIG.brevo.url, payload, {
