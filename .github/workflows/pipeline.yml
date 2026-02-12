@@ -146,10 +146,11 @@ jobs:
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Sign image (keyless)
-        env:
-          COSIGN_EXPERIMENTAL: "true"
         run: |
           cosign sign --yes \
+            -a "repo=${{ github.repository }}" \
+            -a "workflow=${{ github.workflow }}" \
+            -a "ref=${{ github.ref }}" \
             ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
 
       # Trigger deployment in Coolify

@@ -1,0 +1,178 @@
+# Cosign Signature Verification Guide
+
+This document explains how to verify Docker image signatures created by the CI/CD pipeline using Sigstore Cosign.
+
+## Understanding Keyless Signing
+
+Our pipeline uses **keyless signing** with Sigstore Cosign, which means:
+- No private keys to manage or secure
+- Signatures are linked to GitHub Actions OIDC tokens
+- Certificate identity reflects the exact workflow that signed the image
+
+## Certificate Identity Format
+
+When GitHub Actions signs an image, the certificate identity follows this format:
+```
+https://github.com/{OWNER}/{REPO}/.github/workflows/{WORKFLOW}.yml@refs/heads/{BRANCH}
+```
+
+For our main branch pipeline:
+```
+https://github.com/devakesu/GhostClass/.github/workflows/pipeline.yml@refs/heads/main
+```
+
+For releases:
+```
+https://github.com/devakesu/GhostClass/.github/workflows/release.yml@refs/tags/{VERSION}
+```
+
+## Verification Methods
+
+### Method 1: Regex Pattern (Recommended for Automation)
+
+This method is flexible and works across different workflows and tags:
+
+```bash
+cosign verify \
+  --certificate-identity-regexp="^https://github.com/devakesu/GhostClass/.github/workflows/" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  ghcr.io/devakesu/ghostclass:main
+```
+
+**Advantages:**
+- Works for both `pipeline.yml` and `release.yml`
+- Works for all branches and tags
+- Simpler to maintain
+
+### Method 2: Exact Identity Match (Strict Verification)
+
+For maximum security when you know the exact workflow:
+
+```bash
+# For main branch (pipeline.yml)
+cosign verify \
+  --certificate-identity="https://github.com/devakesu/GhostClass/.github/workflows/pipeline.yml@refs/heads/main" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  ghcr.io/devakesu/ghostclass:main
+
+# For releases (release.yml)
+cosign verify \
+  --certificate-identity="https://github.com/devakesu/GhostClass/.github/workflows/release.yml@refs/tags/v1.3.0" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  ghcr.io/devakesu/ghostclass:v1.3.0
+```
+
+**Advantages:**
+- Most restrictive
+- Ensures signature came from specific workflow and branch
+
+**Disadvantages:**
+- Must update for different workflows or branches
+- Harder to automate
+
+## Deployment System Integration
+
+### Coolify
+
+If you're using Coolify or similar deployment systems that run health checks, update your verification script:
+
+```bash
+#!/bin/bash
+set -e
+
+# Download cosign
+wget -qO /tmp/cosign https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64
+chmod +x /tmp/cosign
+
+# Verify signature using regex pattern (more flexible)
+/tmp/cosign verify \
+  --certificate-identity-regexp="^https://github.com/devakesu/GhostClass/.github/workflows/" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  ghcr.io/devakesu/ghostclass:main
+
+# Verify attestation
+/tmp/cosign verify-attestation \
+  --type cyclonedx \
+  --certificate-identity-regexp="^https://github.com/devakesu/GhostClass/.github/workflows/" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  ghcr.io/devakesu/ghostclass:main
+
+echo "✓ Image signature and attestation verified successfully"
+```
+
+### Docker Compose / Kubernetes
+
+Add an init container or pre-deployment job:
+
+```yaml
+# Example init container for Kubernetes
+initContainers:
+  - name: verify-signature
+    image: gcr.io/projectsigstore/cosign:v2.2.4
+    command:
+      - sh
+      - -c
+      - |
+        cosign verify \
+          --certificate-identity-regexp="^https://github.com/devakesu/GhostClass/.github/workflows/" \
+          --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+          ghcr.io/devakesu/ghostclass:main
+```
+
+## Troubleshooting
+
+### Error: "no signatures found"
+
+**Possible causes:**
+1. Image was built before signing was implemented
+2. Signing step failed in CI/CD pipeline
+3. Using wrong certificate identity or OIDC issuer
+4. Image digest doesn't match (use `@sha256:...` instead of tags when possible)
+
+**Solutions:**
+```bash
+# Check if signature exists
+cosign tree ghcr.io/devakesu/ghostclass:main
+
+# Verify with more verbose output
+cosign verify \
+  --certificate-identity-regexp="^https://github.com/devakesu/GhostClass" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  ghcr.io/devakesu/ghostclass:main \
+  --verbose
+```
+
+### Error: "certificate identity mismatch"
+
+Your certificate identity doesn't match what was used during signing.
+
+**Solution:** Use regex pattern instead of exact match:
+```bash
+# ❌ Too specific
+--certificate-identity="https://github.com/devakesu/GhostClass"
+
+# ✅ Flexible regex
+--certificate-identity-regexp="^https://github.com/devakesu/GhostClass/.github/workflows/"
+```
+
+### Verifying Specific Image Digest
+
+For maximum security, verify using the image digest instead of tags:
+
+```bash
+# Get the digest
+docker pull ghcr.io/devakesu/ghostclass:main
+docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/devakesu/ghostclass:main
+
+# Verify the digest
+cosign verify \
+  --certificate-identity-regexp="^https://github.com/devakesu/GhostClass/.github/workflows/" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  ghcr.io/devakesu/ghostclass@sha256:abc123...
+```
+
+## Reference
+
+- [Sigstore Cosign Documentation](https://docs.sigstore.dev/cosign/overview/)
+- [GitHub Actions OIDC](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect)
+- [Keyless Signing Explained](https://docs.sigstore.dev/cosign/keyless/)

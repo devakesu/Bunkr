@@ -27,12 +27,33 @@ export interface DatabaseError {
  * }
  * ```
  */
-export function isDutyLeaveConstraintError(error: DatabaseError | null | undefined): boolean {
+export function isDutyLeaveConstraintError(error: DatabaseError | any | null | undefined): boolean {
   if (!error) return false;
-  return (
+  
+  // Check direct error properties
+  const isDirectMatch = (
     error.code === "P0001" && 
     error.hint === "Only 5 duty leaves allowed per semester per course"
   );
+  
+  if (isDirectMatch) return true;
+  
+  // Check if error is wrapped in a details property or other nested structure
+  if (error.details) {
+    return (
+      error.details.code === "P0001" &&
+      error.details.hint === "Only 5 duty leaves allowed per semester per course"
+    );
+  }
+  
+  // Check error message as fallback
+  if (error.message && typeof error.message === 'string') {
+    return error.message.includes('Maximum') && 
+           error.message.includes('Duty Leaves exceeded') &&
+           error.code === "P0001";
+  }
+  
+  return false;
 }
 
 /**
