@@ -145,13 +145,103 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
-      - name: Sign image (keyless)
+      - name: Authenticate cosign with registry
         run: |
-          cosign sign --yes \
-            -a "repo=${{ github.repository }}" \
-            -a "workflow=${{ github.workflow }}" \
-            -a "ref=${{ github.ref }}" \
-            ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Sign image (keyless)
+        env:
+          COSIGN_YES: "true"
+          IMAGE_URI: ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          
+          echo "=== Cosign Signing ==="
+          echo "Image URI: ${IMAGE_URI}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Ref: ${{ github.ref }}"
+          
+          # Check cosign version
+          cosign version
+          
+          # Retry logic for signing (Sigstore services can be flaky)
+          MAX_ATTEMPTS=3
+          ATTEMPT=1
+          
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Signing attempt $ATTEMPT of $MAX_ATTEMPTS..."
+            
+            if timeout 300 cosign sign \
+              -a "repo=${{ github.repository }}" \
+              -a "workflow=${{ github.workflow }}" \
+              -a "ref=${{ github.ref }}" \
+              "${IMAGE_URI}"; then
+              echo "✓ Image signed successfully on attempt $ATTEMPT"
+              break
+            else
+              EXIT_CODE=$?
+              echo "⚠ Signing attempt $ATTEMPT failed with exit code $EXIT_CODE"
+              
+              if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+                echo "ERROR: All signing attempts failed"
+                exit 1
+              fi
+              
+              echo "Waiting 10 seconds before retry..."
+              sleep 10
+              ATTEMPT=$((ATTEMPT + 1))
+            fi
+          done
+          
+          # Verify signature was uploaded
+          echo "=== Verifying Signature Upload ==="
+          cosign triangulate "${IMAGE_URI}"
+          
+      - name: Verify signature
+        env:
+          IMAGE_URI: ghcr.io/${{ github.repository_owner }}/${{ secrets.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          
+          echo "=== Verifying Signature ==="
+          cosign verify \
+            --certificate-identity-regexp="^https://github.com/${{ github.repository }}/.github/workflows/" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+            "${IMAGE_URI}"
+          
+          echo "✓ Signature verified successfully"
+
+      # Check if package.json version changed and auto-create release
+      - name: Check for version bump
+        id: version-check
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "current_version=v${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          
+          # Check if tag exists for this version
+          if git ls-remote --tags origin | grep -q "refs/tags/v${CURRENT_VERSION}$"; then
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+            echo "Tag v${CURRENT_VERSION} already exists"
+          else
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+            echo "New version detected: v${CURRENT_VERSION}"
+          fi
+
+      - name: Create release tag
+        if: steps.version-check.outputs.version_changed == 'true'
+        run: |
+          VERSION_TAG="${{ steps.version-check.outputs.current_version }}"
+          echo "Creating and pushing tag ${VERSION_TAG}"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"
+          git push origin "${VERSION_TAG}"
+          
+          echo "✓ Release tag ${VERSION_TAG} created and pushed"
+          echo "Release workflow will be triggered automatically"
 
       # Trigger deployment in Coolify
       - name: Trigger Coolify deploy

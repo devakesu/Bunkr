@@ -217,21 +217,62 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
-      - name: Sign image (keyless)
+      - name: Authenticate cosign with registry
         run: |
-          cosign sign --yes \
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Sign image (keyless)
+        env:
+          COSIGN_YES: "true"
+          IMAGE_URI: ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          
+          echo "=== Cosign Image Signing ==="
+          echo "Image URI: ${IMAGE_URI}"
+          echo "Version: ${{ needs.calculate-version.outputs.version }}"
+          
+          # Sign with timeout
+          timeout 300 cosign sign \
             -a "repo=${{ github.repository }}" \
             -a "workflow=${{ github.workflow }}" \
             -a "ref=${{ github.ref }}" \
             -a "version=${{ needs.calculate-version.outputs.version }}" \
-            ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }}
+            "${IMAGE_URI}" || {
+              echo "ERROR: Cosign image signing failed or timed out"
+              exit 1
+            }
+          
+          echo "✓ Image signed successfully"
+          cosign triangulate "${IMAGE_URI}"
+
+      - name: Verify image signature
+        env:
+          IMAGE_URI: ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          
+          cosign verify \
+            --certificate-identity-regexp="^https://github.com/${{ github.repository }}/.github/workflows/" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+            "${IMAGE_URI}"
+          
+          echo "✓ Image signature verified"
 
       # Sign SBOM file
       - name: Sign SBOM artifact
         run: |
-          cosign sign-blob --yes \
+          set -euo pipefail
+          
+          echo "=== Signing SBOM ==="
+          timeout 60 cosign sign-blob --yes \
             --bundle sbom.json.bundle \
-            sbom.json
+            sbom.json || {
+              echo "ERROR: SBOM signing failed or timed out"
+              exit 1
+            }
+          
+          echo "✓ SBOM signed successfully"
 
       # Generate SHA256 checksums (after all artifacts are created)
       - name: Generate checksums

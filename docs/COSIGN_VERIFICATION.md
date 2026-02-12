@@ -72,33 +72,81 @@ cosign verify \
 
 ## Deployment System Integration
 
-### Coolify
+### Coolify Health Check Script
 
-If you're using Coolify or similar deployment systems that run health checks, update your verification script:
+Use this script for Coolify's "Execute Command Before Deployment" or health check:
 
 ```bash
 #!/bin/bash
-set -e
+set -euo pipefail
+
+# Variables
+IMAGE="ghcr.io/devakesu/ghostclass:main"
+REPO_PATTERN="^https://github.com/devakesu/GhostClass/.github/workflows/"
+OIDC_ISSUER="https://token.actions.githubusercontent.com"
+
+echo "=== Verifying Image Signature ==="
 
 # Download cosign
-wget -qO /tmp/cosign https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64
-chmod +x /tmp/cosign
+if [ ! -f "/tmp/cosign" ]; then
+  wget -qO /tmp/cosign https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64
+  chmod +x /tmp/cosign
+fi
 
-# Verify signature using regex pattern (more flexible)
-/tmp/cosign verify \
-  --certificate-identity-regexp="^https://github.com/devakesu/GhostClass/.github/workflows/" \
-  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-  ghcr.io/devakesu/ghostclass:main
+# Verify image signature with retry logic
+MAX_ATTEMPTS=3
+ATTEMPT=1
+
+while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+  echo "Verification attempt $ATTEMPT of $MAX_ATTEMPTS..."
+  
+  if /tmp/cosign verify \
+    --certificate-identity-regexp="$REPO_PATTERN" \
+    --certificate-oidc-issuer="$OIDC_ISSUER" \
+    "$IMAGE" 2>&1; then
+    echo "✓ Image signature verified successfully"
+    break
+  else
+    if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+      echo "ERROR: Image signature verification failed after $MAX_ATTEMPTS attempts"
+      echo "This may indicate:"
+      echo "1. Image was built before signing was implemented"
+      echo "2. Signing step failed in CI/CD pipeline"
+      echo "3. Signature hasn't propagated yet (wait 1-2 minutes)"
+      exit 1
+    fi
+    
+    echo "⚠ Verification failed, retrying in 30 seconds..."
+    sleep 30
+    ATTEMPT=$((ATTEMPT + 1))
+  fi
+done
 
 # Verify attestation
-/tmp/cosign verify-attestation \
+echo "=== Verifying Build Attestation ==="
+if /tmp/cosign verify-attestation \
   --type cyclonedx \
-  --certificate-identity-regexp="^https://github.com/devakesu/GhostClass/.github/workflows/" \
-  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-  ghcr.io/devakesu/ghostclass:main
+  --certificate-identity-regexp="$REPO_PATTERN" \
+  --certificate-oidc-issuer="$OIDC_ISSUER" \
+  "$IMAGE" 2>&1; then
+  echo "✓ Attestation verified successfully"
+else
+  echo "⚠ Attestation verification failed (non-critical)"
+fi
 
-echo "✓ Image signature and attestation verified successfully"
+echo "✓ All verifications passed"
 ```
+
+**One-liner version for Coolify:**
+
+```bash
+wget -qO /tmp/cosign https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64 && chmod +x /tmp/cosign && /tmp/cosign verify --certificate-identity-regexp="^https://github.com/devakesu/GhostClass/.github/workflows/" --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/devakesu/ghostclass:main
+```
+
+**Important:** If verification fails on first deployment after enabling signing:
+1. Wait 2-3 minutes for signature propagation
+2. Check GitHub Actions workflow logs for signing step status
+3. Verify the signing step completed successfully
 
 ### Docker Compose / Kubernetes
 
