@@ -121,14 +121,15 @@ jobs:
           echo "sitemap_url=https://${APP_DOMAIN}/sitemap.xml" >> $GITHUB_OUTPUT
           echo "app_email=@${APP_DOMAIN}" >> $GITHUB_OUTPUT
           echo "legal_email=legal@${APP_DOMAIN}" >> $GITHUB_OUTPUT
-          # Use the event timestamp for reproducibility
+          # Use a consistent timestamp for reproducibility
+          # Priority: head_commit (for branch pushes) > repository updated (for tags) > current time
           TIMESTAMP="${{ github.event.head_commit.timestamp }}"
-          if [ -z "$TIMESTAMP" ]; then
-            # Fallback for tag pushes: use repository updated_at timestamp
+          if [ -z "$TIMESTAMP" ] || [ "$TIMESTAMP" == "null" ]; then
+            # For tag pushes, use the repository updated timestamp
             TIMESTAMP="${{ github.event.repository.updated_at }}"
           fi
-          if [ -z "$TIMESTAMP" ]; then
-            # Final fallback: current time
+          if [ -z "$TIMESTAMP" ] || [ "$TIMESTAMP" == "null" ]; then
+            # Final fallback: current time (for manual dispatches)
             TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           fi
           echo "created=$TIMESTAMP" >> $GITHUB_OUTPUT
@@ -272,14 +273,14 @@ jobs:
       - name: Calculate previous version for changelog
         id: prev_version
         run: |
-          # Get all version tags sorted by version, excluding the current tag
+          # Get version tags only (strict semantic version pattern: v[0-9]+.[0-9]+.[0-9]+)
           CURRENT_TAG="${{ needs.calculate-version.outputs.version_tag }}"
           
-          # Get the previous version tag (only v*.*.* pattern)
-          PREV_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -n1 || echo "")
+          # Get the previous semantic version tag (strict pattern matching)
+          PREV_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -v "^${CURRENT_TAG}$" | head -n1 || echo "")
           
           if [ -z "$PREV_TAG" ]; then
-            echo "No previous tag found, using initial commit"
+            echo "No previous version tag found, using initial commit"
             PREV_REF=$(git rev-list --max-parents=0 HEAD)
             echo "prev_ref=${PREV_REF}" >> $GITHUB_OUTPUT
             echo "changelog_text=...${PREV_REF:0:7}" >> $GITHUB_OUTPUT

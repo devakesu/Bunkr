@@ -39,7 +39,11 @@ We follow [Semantic Versioning 2.0.0](https://semver.org/):
 - **Minor**: New features, enhancements, non-breaking API additions
 - **Major**: Breaking changes, major refactors, incompatible API changes
 
-**Note**: Trivial documentation fixes (typos, formatting) typically don't require a release. Only substantial changes warrant version bumps.
+**Documentation Changes:**
+- **Trivial** (no release): Typo fixes, grammar corrections, formatting adjustments
+- **Substantial** (patch bump): New feature documentation, API reference updates, significant structural changes, new guides
+
+**Note**: Only substantial changes warrant version bumps.
 
 ## Creating a Release
 
@@ -127,11 +131,13 @@ brew install gh  # macOS
 
 Using cosign with keyless verification (OIDC):
 
+**Note**: Replace `{VERSION}` with your target release version (e.g., `v1.3.0`).
+
 ```bash
 cosign verify \
   --certificate-identity-regexp="^https://github.com/devakesu/GhostClass" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-  ghcr.io/devakesu/ghostclass:v1.3.0
+  ghcr.io/devakesu/ghostclass:{VERSION}
 ```
 
 **Expected output**: Verification success with certificate details and signature metadata.
@@ -141,7 +147,7 @@ cosign verify \
 Using GitHub CLI:
 
 ```bash
-gh attestation verify oci://ghcr.io/devakesu/ghostclass:v1.3.0 --owner devakesu
+gh attestation verify oci://ghcr.io/devakesu/ghostclass:{VERSION} --owner devakesu
 ```
 
 **Expected output**: Attestation verification success with build provenance details.
@@ -160,11 +166,13 @@ cosign verify-blob \
 
 Download artifacts and verify their checksums:
 
+**Note**: Replace `{VERSION}` with your target release version (e.g., `v1.3.0`).
+
 ```bash
 # Download the checksums file and artifacts to the same directory
-wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/checksums.txt
-wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/sbom.json
-wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/sbom.json.bundle
+wget https://github.com/devakesu/GhostClass/releases/download/{VERSION}/checksums.txt
+wget https://github.com/devakesu/GhostClass/releases/download/{VERSION}/sbom.json
+wget https://github.com/devakesu/GhostClass/releases/download/{VERSION}/sbom.json.bundle
 
 # Verify checksums (extract only valid checksum lines)
 grep -E '^[0-9a-f]{64}\s+\S+$' checksums.txt | sha256sum -c
@@ -176,6 +184,8 @@ sha256sum sbom.json sbom.json.bundle
 **Note**: All artifact files must be in the same directory as `checksums.txt` for verification to work.
 
 ### Complete Verification Example
+
+**Note**: Replace `v1.3.0` with your target release version.
 
 ```bash
 # 1. Verify image signature
