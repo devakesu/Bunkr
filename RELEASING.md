@@ -54,9 +54,9 @@ There are three ways to create a release:
 
 **NEW**: When you update the version in `package.json` and push to the main branch, the CI/CD pipeline will automatically:
 
-1. Detect the version change
+1. Detect the version change (compares to previous commit)
 2. Create and push a git tag (e.g., `v1.5.4`)
-3. Trigger the release workflow
+3. Trigger the release workflow explicitly
 4. Build and publish the release
 
 **How to use:**
@@ -70,9 +70,12 @@ git commit -m "chore: bump version to v1.5.4"
 git push origin main
 ```
 
-The `auto-tag-release` job in the pipeline will handle the rest automatically.
+The `auto-tag-release` job in the pipeline will:
+- Verify that the version in `package.json` actually changed in your push
+- Create the tag only if it doesn't already exist
+- Explicitly trigger the release workflow
 
-**Note**: Tags are only created if they don't already exist, preventing duplicate tag errors.
+**Note**: The job only creates tags when the version is actually changed in the push, preventing unnecessary tags on re-runs or merges where the version hasn't changed.
 
 ### Manual Release (Workflow Dispatch)
 
