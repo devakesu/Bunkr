@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   # This job acts as your "Guard". It runs on EVERY PR and Push.
+  # For formal releases with versioning and signed artifacts, see .github/workflows/release.yml
   guard:
     name: Build Guard
     runs-on: ubuntu-latest
@@ -20,6 +21,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
   # This job only runs if guard passes AND we are pushing to main (merging)
+  # Note: For formal releases with semantic versioning, use the release workflow (.github/workflows/release.yml)
+  # This job provides continuous deployment with attestations for main branch builds.
   build-push-sign:
     name: Build, Push & Sign
     needs: guard
