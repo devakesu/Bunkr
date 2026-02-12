@@ -240,11 +240,33 @@ jobs:
       - name: Check for version bump
         id: version-check
         run: |
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          echo "current_version=v${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          set -euo pipefail
           
-          # Check if tag exists for this version
-          if git ls-remote --tags origin | grep -q "refs/tags/v${CURRENT_VERSION}$"; then
+          # Validate package.json exists and has a version field
+          if [ ! -f "./package.json" ]; then
+            echo "ERROR: package.json not found"
+            exit 1
+          fi
+          
+          # Extract version with error handling
+          CURRENT_VERSION=$(node -p "try { require('./package.json').version } catch(e) { console.error('ERROR: Failed to read version from package.json'); process.exit(1); }")
+          
+          if [ -z "$CURRENT_VERSION" ]; then
+            echo "ERROR: Version field is empty in package.json"
+            exit 1
+          fi
+          
+          echo "current_version=v${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          echo "Current version from package.json: v${CURRENT_VERSION}"
+          
+          # Check if tag exists for this version (with error handling)
+          if ! git ls-remote --tags origin > /tmp/remote_tags.txt 2>&1; then
+            echo "ERROR: Failed to fetch remote tags"
+            cat /tmp/remote_tags.txt
+            exit 1
+          fi
+          
+          if grep -q "refs/tags/v${CURRENT_VERSION}$" /tmp/remote_tags.txt; then
             echo "version_changed=false" >> $GITHUB_OUTPUT
             echo "Tag v${CURRENT_VERSION} already exists"
           else
@@ -255,14 +277,26 @@ jobs:
       - name: Create and push release tag
         if: steps.version-check.outputs.version_changed == 'true'
         run: |
+          set -euo pipefail
+          
           VERSION_TAG="${{ steps.version-check.outputs.current_version }}"
           echo "Creating and pushing tag ${VERSION_TAG}"
           
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"
-          git push origin "${VERSION_TAG}"
+          # Create annotated tag
+          if ! git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"; then
+            echo "ERROR: Failed to create tag ${VERSION_TAG}"
+            exit 1
+          fi
+          
+          # Push tag with error handling
+          if ! git push origin "${VERSION_TAG}"; then
+            echo "ERROR: Failed to push tag ${VERSION_TAG}"
+            echo "The tag was created locally but not pushed to remote"
+            exit 1
+          fi
           
           echo "✓ Release tag ${VERSION_TAG} created and pushed"
           echo "This will trigger the release.yml workflow automatically"
