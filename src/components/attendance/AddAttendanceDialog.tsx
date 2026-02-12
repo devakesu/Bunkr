@@ -341,7 +341,16 @@ export function AddAttendanceDialog({
           remarks: `Self-Marked: ${statusType}`,
         });
 
-      if (error) throw error;
+      if (error) {
+        // Check for duty leave constraint violation
+        if (error.code === "P0001" && error.hint === "Only 5 duty leaves allowed per semester per course") {
+          const courseName = coursesData?.courses?.[courseId]?.name || `course ${courseId}`;
+          toast.error(`Cannot add Duty Leave: Maximum of 5 duty leaves per semester exceeded for ${courseName}`);
+          setIsSubmitting(false);
+          return;
+        }
+        throw error;
+      }
 
       toast.success("Extra class added successfully");
       onSuccess();
@@ -349,7 +358,14 @@ export function AddAttendanceDialog({
 
     } catch (error: any) {
       logger.error("Add Record Failed:", error);
-      toast.error("Failed to add record");
+      
+      // Check for duty leave constraint violation in catch block as well
+      if (error.code === "P0001" && error.hint === "Only 5 duty leaves allowed per semester per course") {
+        const courseName = coursesData?.courses?.[courseId]?.name || `course ${courseId}`;
+        toast.error(`Cannot add Duty Leave: Maximum of 5 duty leaves per semester exceeded for ${courseName}`);
+      } else {
+        toast.error("Failed to add record");
+      }
       
       Sentry.captureException(error, {
           tags: { type: "add_attendance_failure", location: "AddAttendanceDialog/handleSubmit" },

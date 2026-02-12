@@ -197,12 +197,28 @@ export function AttendanceCalendar({
                 remarks 
             });
 
-        if (error) throw error;
+        if (error) {
+          // Check for duty leave constraint violation
+          if (error.code === "P0001" && error.hint === "Only 5 duty leaves allowed per semester per course") {
+            const courseName = coursesData?.courses?.[courseId]?.name || `course ${courseId}`;
+            toast.error(`Cannot add Duty Leave: Maximum of 5 duty leaves per semester exceeded for ${courseName}`);
+            setLoadingStates((prev) => ({ ...prev, [buttonKey]: false }));
+            clickedButtons.current?.delete(buttonKey);
+            return;
+          }
+          throw error;
+        }
         toast.success("Added to tracking", { style: { backgroundColor: "rgba(34, 197, 94, 0.1)", color: "rgb(74, 222, 128)", border: "1px solid rgba(34, 197, 94, 0.2)", backdropFilter: "blur(5px)" } });
         await refetchTrackData(); 
         await refetchCount();
       } catch (error: any) { 
-        toast.error("Failed to add record");
+        // Check for duty leave constraint violation in catch block as well
+        if (error.code === "P0001" && error.hint === "Only 5 duty leaves allowed per semester per course") {
+          const courseName = coursesData?.courses?.[courseId]?.name || `course ${courseId}`;
+          toast.error(`Cannot add Duty Leave: Maximum of 5 duty leaves per semester exceeded for ${courseName}`);
+        } else {
+          toast.error("Failed to add record");
+        }
         Sentry.captureException(error, { tags: { type: "tracking_add_error", location: "AttendanceCalendar/handleWriteTracking" }, extra: { courseId, dateStr, status, sessionName, attendanceCode, remarks } });
       } finally { 
         setLoadingStates((prev) => ({ ...prev, [buttonKey]: false })); 
