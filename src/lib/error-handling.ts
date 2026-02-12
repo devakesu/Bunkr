@@ -27,30 +27,36 @@ export interface DatabaseError {
  * }
  * ```
  */
-export function isDutyLeaveConstraintError(error: DatabaseError | any | null | undefined): boolean {
-  if (!error) return false;
+export function isDutyLeaveConstraintError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  
+  const errorObj = error as Record<string, unknown>;
   
   // Check direct error properties
   const isDirectMatch = (
-    error.code === "P0001" && 
-    error.hint === "Only 5 duty leaves allowed per semester per course"
+    errorObj.code === "P0001" && 
+    errorObj.hint === "Only 5 duty leaves allowed per semester per course"
   );
   
   if (isDirectMatch) return true;
   
   // Check if error is wrapped in a details property or other nested structure
-  if (error.details) {
-    return (
-      error.details.code === "P0001" &&
-      error.details.hint === "Only 5 duty leaves allowed per semester per course"
-    );
+  if (errorObj.details && typeof errorObj.details === "object") {
+    const details = errorObj.details as Record<string, unknown>;
+    const isNestedMatch =
+      details.code === "P0001" &&
+      details.hint === "Only 5 duty leaves allowed per semester per course";
+
+    if (isNestedMatch) {
+      return true;
+    }
   }
   
   // Check error message as fallback
-  if (error.message && typeof error.message === 'string') {
-    return error.message.includes('Maximum') && 
-           error.message.includes('Duty Leaves exceeded') &&
-           error.code === "P0001";
+  if (errorObj.message && typeof errorObj.message === 'string') {
+    return errorObj.message.includes('Maximum') && 
+           errorObj.message.includes('Duty Leaves exceeded') &&
+           errorObj.code === "P0001";
   }
   
   return false;
