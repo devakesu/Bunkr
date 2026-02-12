@@ -18,6 +18,7 @@ This document describes how to create and verify releases for GhostClass.
 
 GhostClass uses GitHub Actions to automate the release process, which includes:
 
+- **Automatic Tagging**: Detects version changes in `package.json` and auto-creates release tags
 - **Semantic Versioning**: Following [semver](https://semver.org/) principles (MAJOR.MINOR.PATCH)
 - **Multi-platform Docker images**: Built for `linux/amd64` and `linux/arm64`
 - **Signed artifacts**: Using Sigstore cosign with keyless (OIDC) signing
@@ -47,9 +48,33 @@ We follow [Semantic Versioning 2.0.0](https://semver.org/):
 
 ## Creating a Release
 
-There are two ways to create a release:
+There are three ways to create a release:
 
-### Automated Release (Manual Trigger)
+### Automatic Release (On Version Bump)
+
+**NEW**: When you update the version in `package.json` and push to the main branch, the CI/CD pipeline will automatically:
+
+1. Detect the version change
+2. Create and push a git tag (e.g., `v1.5.4`)
+3. Trigger the release workflow
+4. Build and publish the release
+
+**How to use:**
+```bash
+# Update version in package.json
+npm version patch  # or minor, or major
+
+# Commit and push to main
+git add package.json
+git commit -m "chore: bump version to 1.5.4"
+git push origin main
+```
+
+The `auto-tag-release` job in the pipeline will handle the rest automatically.
+
+**Note**: Tags are only created if they don't already exist, preventing duplicate tag errors.
+
+### Manual Release (Workflow Dispatch)
 
 1. Go to **Actions** → **Release** workflow in GitHub
 2. Click **Run workflow**
