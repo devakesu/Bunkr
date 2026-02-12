@@ -165,7 +165,7 @@ wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/sbom.json
 wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/sbom.json.bundle
 
 # Verify checksums (extract only valid checksum lines)
-grep -E '^[a-f0-9]{64}\s+\S+$' checksums.txt | sha256sum -c
+grep -E '^[0-9a-f]{64}\s+\S+$' checksums.txt | sha256sum -c
 
 # Or verify individual files manually
 sha256sum sbom.json sbom.json.bundle
@@ -192,7 +192,7 @@ cosign verify-blob --bundle sbom.json.bundle sbom.json
 
 # 4. Verify checksums
 wget https://github.com/devakesu/GhostClass/releases/download/v1.3.0/checksums.txt
-grep -E '^[a-f0-9]{64}\s+\S+$' checksums.txt | sha256sum -c
+grep -E '^[0-9a-f]{64}\s+\S+$' checksums.txt | sha256sum -c
 ```
 
 ## Release Checklist
