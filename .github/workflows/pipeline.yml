@@ -233,6 +233,8 @@ jobs:
       github.event_name == 'push' && 
       github.ref == 'refs/heads/main' &&
       !contains(github.event.head_commit.message, '[skip ci]')
+    # Note: The [skip ci] check prevents infinite loops. When the PR is merged with squash,
+    # GitHub preserves the [skip ci] marker from the PR commit message, preventing re-triggering.
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -345,7 +347,7 @@ jobs:
           set -euo pipefail
           
           PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
-          MAX_WAIT=900  # 15 minutes
+          MAX_WAIT=900  # 15 minutes (adjustable if checks take longer - see RELEASING.md troubleshooting)
           POLL_INTERVAL=30  # 30 seconds
           elapsed=0
           

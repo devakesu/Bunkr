@@ -135,7 +135,7 @@ The workflow signs all commits and tags with GPG to satisfy signature requiremen
 4. **Add secrets to repository**:
    - Go to repository → Settings → Secrets and variables → Actions
    - Add `GPG_PRIVATE_KEY`: Full private key output including headers
-   - Add `GPG_PASSPHRASE`: Leave empty since the key was generated without a passphrase (`%no-protection`)
+   - Add `GPG_PASSPHRASE`: Create this secret with an empty string value (since the key was generated without a passphrase using `%no-protection`)
    
    **Note**: The key is generated without a passphrase for automated use in CI/CD. This is acceptable because:
    - The private key is stored securely in GitHub Secrets (encrypted at rest)
