@@ -465,6 +465,7 @@ jobs:
         env:
           IMAGE_NAME: ${{ needs.build-and-release.outputs.image_name }}
           PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Convert platforms to readable format for release notes
           PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
@@ -519,5 +520,4 @@ jobs:
             ./artifacts/sbom.json.bundle \
             ./artifacts/checksums.txt \
             ./artifacts/VERIFY.md \
-            --draft=false \
-            --generate-notes
+            --draft=false
