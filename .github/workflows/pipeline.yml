@@ -366,9 +366,6 @@ jobs:
             echo "WARN: Failed to push tag ${VERSION_TAG} on first attempt"
             echo "Checking if tag now exists on remote (possible race condition)..."
             
-            # Fetch latest tags to check if another workflow created it
-            git fetch --tags origin
-            
             if git ls-remote --tags origin | grep -q "refs/tags/${VERSION_TAG}$"; then
               echo "Tag ${VERSION_TAG} now exists on remote; assuming it was created by a concurrent workflow run."
               echo "Treating this as success."
