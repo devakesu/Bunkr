@@ -573,6 +573,7 @@ docker run -p 3000:3000 --env-file .env ghostclass
 7. ✅ Enable HTTPS with valid SSL certificate
 8. ✅ Set up cron jobs for attendance sync
 9. ✅ Configure legal terms version and effective date
+10. ✅ Set up `RELEASE_TOKEN` secret for auto-release workflow (see [RELEASING.md](RELEASING.md))
 
 <br />
 
