@@ -225,22 +225,40 @@ jobs:
 
   # Auto-version and tag on main branch
   # This job runs after successful build-push-sign on main branch only
-  # It auto-increments version based on git tags and commits changes with [skip ci]
+  # It creates a PR with version changes instead of pushing directly to main
   auto-version-and-tag:
     name: Auto Version & Tag
     needs: build-push-sign
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: |
+      github.event_name == 'push' && 
+      github.ref == 'refs/heads/main' &&
+      !contains(github.event.head_commit.message, '[skip ci]')
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@5d869da34e18e7287c1daad50e0b8ea0f506ce69 # v1.11.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          # Use RELEASE_TOKEN (PAT) to allow tag pushes to trigger the release workflow
-          # GITHUB_TOKEN cannot trigger other workflows for security reasons
-          token: ${{ secrets.RELEASE_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4 # v6.1.0
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
 
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -264,17 +282,10 @@ jobs:
           
           echo "✓ Version bump script completed successfully"
 
-      - name: Commit version changes
-        id: commit
+      - name: Check for version changes
+        id: check
         run: |
           set -euo pipefail
-          
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Ensure we're on a local branch (not detached HEAD)
-          # Checkout main branch explicitly
-          git checkout -B main
           
           # Check if there are changes to commit
           if git diff --quiet && git diff --cached --quiet; then
@@ -283,68 +294,104 @@ jobs:
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
             
-            # Stage all version-related files
-            git add package.json package-lock.json public/api-docs/openapi.yaml
-            
-            # Stage .env and .example.env if they exist
-            [ -f .env ] && git add .env || true
-            [ -f .example.env ] && git add .example.env || true
-            
-            # Commit with [skip ci] to prevent infinite loop
-            if ! git commit -m "chore: bump version [skip ci]"; then
-              echo "ERROR: Failed to commit version changes"
-              exit 1
-            fi
-            
-            # Push changes with retry and rebase-on-failure handling
-            # Use explicit refspec to push HEAD to main
-            attempts=0
-            max_attempts=3
-            push_succeeded=false
-            
-            while [ "$attempts" -lt "$max_attempts" ]; do
-              if git push origin HEAD:main; then
-                push_succeeded=true
-                break
-              fi
-              
-              attempts=$((attempts + 1))
-              echo "WARN: git push failed (attempt ${attempts}/${max_attempts})."
-              
-              if [ "$attempts" -lt "$max_attempts" ]; then
-                # Attempt to rebase on latest remote changes before retrying
-                if ! git pull --rebase origin main; then
-                  echo "ERROR: git pull --rebase origin main failed; cannot safely resolve push rejection."
-                  exit 1
-                fi
-              fi
-            done
-            
-            if [ "$push_succeeded" != "true" ]; then
-              echo "ERROR: Failed to push version changes after ${attempts} attempt(s)"
-              exit 1
-            fi
-            
-            echo "✓ Version changes committed and pushed"
+            # Read version from package.json
+            CURRENT_VERSION=$(node -p "require('./package.json').version")
+            echo "version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+            echo "Version will be: ${CURRENT_VERSION}"
           fi
 
-      - name: Create and push release tag
+      - name: Create Pull Request
+        id: create-pr
+        if: steps.check.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v7.0.5
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          commit-message: 'chore: bump version to v${{ steps.check.outputs.version }} [skip ci]'
+          title: 'chore: bump version to v${{ steps.check.outputs.version }}'
+          body: |
+            Automated version bump to v${{ steps.check.outputs.version }}
+            
+            This PR was automatically created by the CI/CD pipeline.
+            
+            **Changes:**
+            - Updated package.json and package-lock.json
+            - Updated .env and .example.env (NEXT_PUBLIC_APP_VERSION)
+            - Updated public/api-docs/openapi.yaml
+            
+            **Note:** This PR will auto-merge when all required checks pass.
+          branch: version-bump-${{ steps.check.outputs.version }}
+          delete-branch: true
+          committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+
+      - name: Enable auto-merge
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
           
-          # Read version from package.json
-          if ! CURRENT_VERSION=$(node -p "require('./package.json').version" 2>&1); then
-            echo "ERROR: Failed to read version from package.json"
-            echo "${CURRENT_VERSION}"
+          PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
+          
+          echo "Enabling auto-merge for PR #${PR_NUMBER}"
+          gh pr merge "${PR_NUMBER}" --auto --squash
+          echo "✓ Auto-merge enabled"
+
+      - name: Wait for PR to be merged
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          
+          PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
+          MAX_WAIT=900  # 15 minutes
+          POLL_INTERVAL=30  # 30 seconds
+          elapsed=0
+          
+          echo "Waiting for PR #${PR_NUMBER} to be merged (max ${MAX_WAIT}s)"
+          
+          while [ $elapsed -lt $MAX_WAIT ]; do
+            # Check PR state
+            PR_STATE=$(gh pr view "${PR_NUMBER}" --json state --jq '.state')
+            
+            if [ "$PR_STATE" = "MERGED" ]; then
+              echo "✓ PR #${PR_NUMBER} has been merged"
+              break
+            elif [ "$PR_STATE" = "CLOSED" ]; then
+              echo "ERROR: PR #${PR_NUMBER} was closed without merging"
+              exit 1
+            fi
+            
+            # Show review and check status
+            echo "PR is ${PR_STATE}, checking status..."
+            gh pr checks "${PR_NUMBER}" || true
+            
+            # Wait before next check
+            sleep $POLL_INTERVAL
+            elapsed=$((elapsed + POLL_INTERVAL))
+          done
+          
+          # Final check
+          PR_STATE=$(gh pr view "${PR_NUMBER}" --json state --jq '.state')
+          if [ "$PR_STATE" != "MERGED" ]; then
+            echo "ERROR: Timeout waiting for PR merge after ${MAX_WAIT}s"
             exit 1
           fi
+
+      - name: Fetch latest changes and create release tag
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
           
-          if [ -z "$CURRENT_VERSION" ]; then
-            echo "ERROR: Version field is empty in package.json"
-            exit 1
-          fi
+          # Fetch latest changes from main
+          git fetch origin main
+          git checkout main
+          git pull origin main
           
-          VERSION_TAG="v${CURRENT_VERSION}"
+          VERSION_TAG="v${{ steps.check.outputs.version }}"
           echo "Checking if tag ${VERSION_TAG} needs to be created"
           
           # Check if tag already exists (skip if it does)
@@ -353,15 +400,15 @@ jobs:
             exit 0
           fi
           
-          echo "Creating and pushing tag ${VERSION_TAG}"
+          echo "Creating and pushing signed tag ${VERSION_TAG}"
           
-          # Create annotated tag
-          if ! git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"; then
+          # Create annotated signed tag
+          if ! git tag -a -s "${VERSION_TAG}" -m "Release ${VERSION_TAG}"; then
             echo "ERROR: Failed to create tag ${VERSION_TAG}"
             exit 1
           fi
           
-          # Push tag (using PAT so it triggers the release workflow)
+          # Push tag (using GitHub App token so it triggers the release workflow)
           if ! git push origin "${VERSION_TAG}"; then
             echo "WARN: Failed to push tag ${VERSION_TAG} on first attempt"
             echo "Checking if tag now exists on remote (possible race condition)..."
@@ -373,7 +420,6 @@ jobs:
             fi
             
             echo "ERROR: Failed to push tag ${VERSION_TAG}"
-            echo "The tag was created locally but not pushed to remote"
             exit 1
           fi
           

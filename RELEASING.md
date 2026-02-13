@@ -51,46 +51,128 @@ We follow [Semantic Versioning 2.0.0](https://semver.org/):
 
 ### Prerequisites
 
-Before the automated version bumping can trigger releases, ensure the `RELEASE_TOKEN` secret is configured:
+Before the automated version bumping can trigger releases, ensure the following are configured:
 
-1. **Create a Fine-Grained Personal Access Token**:
-   - Go to https://github.com/settings/tokens?type=beta
-   - Click "Generate new token"
-   - Token name: `GhostClass Release Automation` (or similar)
-   - Expiration: Choose appropriate expiration (recommend 90 days for higher security)
-   - Repository access: "Only select repositories" → Select your repository
-   - Permissions:
-     - Repository permissions → **Contents: Read and write**
-   - Click "Generate token" and copy the token value
+#### 1. GitHub App for Automation
 
-2. **Add the token as a repository secret**:
-   - Go to your repository's Settings > Secrets and variables > Actions
-   - Click "New repository secret"
-   - Name: `RELEASE_TOKEN`
-   - Secret: Paste the PAT value
-   - Click "Add secret"
+The auto-version workflow uses a GitHub App for authentication, which provides:
+- More secure, scoped permissions compared to PATs
+- Ability to be added to repository bypass lists
+- Better audit trail (shows as "app-name[bot]")
+- Tokens that auto-expire and refresh
 
-**Why is this needed?** The `RELEASE_TOKEN` (PAT) is required because `GITHUB_TOKEN` cannot trigger other workflows for security reasons. The `auto-version-and-tag` job needs to push tags that will trigger the Release workflow, which requires a PAT.
+**Create and configure the GitHub App:**
+
+1. **Create a GitHub App**:
+   - Go to Settings → Developer settings → GitHub Apps → New GitHub App
+   - Name: `GhostClass Release Automation` (or similar)
+   - Homepage URL: Your repository URL
+   - Webhook: Uncheck "Active"
+   - Repository permissions:
+     - Contents: Read and write
+     - Pull requests: Read and write
+   - Where can this be installed: "Only on this account"
+   - Click "Create GitHub App"
+
+2. **Install the App**:
+   - Click "Install App" in left sidebar
+   - Click "Install" next to your account
+   - Select "Only select repositories" → Choose GhostClass
+   - Click "Install"
+
+3. **Generate Private Key**:
+   - Go back to GitHub App settings
+   - Scroll to "Private keys" section
+   - Click "Generate a private key"
+   - Save the downloaded `.pem` file securely
+
+4. **Add secrets to repository**:
+   - Go to repository → Settings → Secrets and variables → Actions
+   - Add `APP_ID`: Your GitHub App's ID (found at top of app settings)
+   - Add `APP_PRIVATE_KEY`: Full contents of the `.pem` file
+
+5. **Add App to bypass list** (to bypass review requirements):
+   - Go to Settings → Rules → Rulesets
+   - Edit your main branch ruleset
+   - Under "Bypass list", click "Add bypass"
+   - Select your GitHub App: "GhostClass Release Automation"
+   - Save changes
+
+#### 2. GPG Key for Commit Signing
+
+The workflow signs all commits and tags with GPG to satisfy signature requirements.
+
+**Generate and configure GPG key:**
+
+1. **Generate GPG key**:
+   ```bash
+   gpg --batch --gen-key <<EOF
+   Key-Type: RSA
+   Key-Length: 4096
+   Name-Real: GitHub Actions Bot
+   Name-Email: github-actions[bot]@users.noreply.github.com
+   Expire-Date: 0
+   %no-protection
+   EOF
+   ```
+
+2. **Export keys**:
+   ```bash
+   # List keys to get the key ID
+   gpg --list-secret-keys --keyid-format=long
+   
+   # Export private key (replace KEY_ID)
+   gpg --armor --export-secret-keys KEY_ID
+   
+   # Export public key
+   gpg --armor --export KEY_ID
+   ```
+
+3. **Add to GitHub**:
+   - Go to Settings → SSH and GPG keys → New GPG key
+   - Paste the public key
+
+4. **Add secrets to repository**:
+   - Go to repository → Settings → Secrets and variables → Actions
+   - Add `GPG_PRIVATE_KEY`: Full private key output including headers
+   - Add `GPG_PASSPHRASE`: Leave empty if no passphrase was set
+
+#### 3. Enable Auto-merge
+
+- Go to Settings → General → Pull Requests
+- Check ✅ "Allow auto-merge"
 
 You can create a release in several ways:
 
-### Automatic Release (Feature Branches)
+### Automatic Release (On Version Bump)
 
 **NEW - Automated Version Bumping**: When a feature branch is merged to main, the CI/CD pipeline will automatically:
 
-1. Compare `package.json` version with the latest git tag
-2. Auto-increment the patch version (e.g., `1.5.4` → `1.5.5`)
-3. Update all version files (`package.json`, `package-lock.json`, `.env`, `.example.env`, `public/api-docs/openapi.yaml`)
-4. Commit changes with `[skip ci]` to prevent infinite loops
-5. Create and push a git tag (e.g., `v1.5.5`)
-6. Trigger the release workflow via the tag push
+1. Detect if the branch name contains a version (e.g., in a version branch like `1.5.4`)
+2. Run the version bump script to update package.json, lockfiles, and documentation
+3. **Create a Pull Request** with the version changes
+4. **Enable auto-merge** on the PR
+5. **Wait for all required checks to pass**:
+   - Required status checks (3 of 3)
+   - CodeQL analysis
+   - Test workflows
+   - Commit signature verification
+6. **Auto-merge the PR** when all checks pass
+7. Create and push a git tag (e.g., `v1.5.5`)
+8. Trigger the release workflow via the tag push
+9. Build and publish the release
 
 **How it works:**
+- The workflow creates a PR instead of pushing directly to main (respects branch protection)
+- The PR is created by the GitHub App bot, which bypasses review requirements
+- Auto-merge is enabled, so the PR merges automatically when all checks pass
+- The commit message includes `[skip ci]` to prevent infinite workflow loops
+- All commits and tags are GPG signed to satisfy signature requirements
 - When `package.json` version = latest tag → Auto-increment patch
 - When `package.json` version > latest tag → Use package.json version (from release branch)
 - When no tags exist → Use package.json version
 
-**Note**: This is fully automated for feature branches. No manual action required.
+**Note**: The version bump only occurs when the branch name contains a semantic version (x.y.z). When working on `main`, the script detects no version and skips the bump.
 
 ### Version Branches (Minor/Major Versions)
 
@@ -340,6 +422,46 @@ After creating a release:
 
 ## Troubleshooting
 
+### Auto-Version Workflow Issues
+
+#### PR not auto-merging
+
+**Symptoms:** Version bump PR is created but doesn't merge automatically.
+
+**Possible causes:**
+1. **Auto-merge not enabled**: Go to Settings → General → Pull Requests → Enable "Allow auto-merge"
+2. **Required checks failing**: Check the PR for failed status checks, tests, or CodeQL issues
+3. **GitHub App not in bypass list**: Go to Settings → Rules → Rulesets → Add app to bypass list
+4. **Commit signature verification failing**: Ensure GPG_PRIVATE_KEY secret is configured correctly
+
+#### Infinite loop / Multiple version bump PRs
+
+**Symptoms:** Workflow keeps creating new version bump PRs.
+
+**Possible causes:**
+1. **[skip ci] not working**: Ensure the workflow has the condition `!contains(github.event.head_commit.message, '[skip ci]')`
+2. **Branch name contains version**: The version bump script only runs on branches with semantic versions in the name
+
+#### GPG signature verification failing
+
+**Symptoms:** Commit signature shows as "Unverified" on GitHub.
+
+**Possible causes:**
+1. **Public key not added to GitHub**: Add the GPG public key to Settings → SSH and GPG keys
+2. **Wrong email in GPG key**: Ensure the key uses `github-actions[bot]@users.noreply.github.com`
+3. **GPG_PRIVATE_KEY secret malformed**: Ensure the entire key including headers is in the secret
+
+#### Timeout waiting for PR merge
+
+**Symptoms:** Workflow fails with "Timeout waiting for PR merge after 900s".
+
+**Possible causes:**
+1. **Tests taking too long**: Increase MAX_WAIT value in workflow (currently 15 minutes)
+2. **Required checks not configured**: Ensure all required status checks are properly defined
+3. **Manual review required**: Check if the GitHub App is in the bypass list for reviews
+
+### General Issues
+
 ### Automatic version bump not working
 
 **Check:**
@@ -355,14 +477,13 @@ After creating a release:
 ### Release workflow not triggered after tag push
 
 **Check:**
-- Verify `RELEASE_TOKEN` secret is configured in repository settings
-- Ensure the token has `Contents: Read and write` permissions
-- Check that the token hasn't expired
+- Verify `APP_ID` and `APP_PRIVATE_KEY` secrets are configured in repository settings
+- Ensure the GitHub App has `Contents: Read and write` permissions
 - Verify the tag was created and pushed successfully
 - Check the Release workflow is enabled in Actions tab
 - Look for the tag push event in the Actions tab
 
-**Note**: The `auto-version-and-tag` job uses `RELEASE_TOKEN` (a Personal Access Token) to push tags. This is required because `GITHUB_TOKEN` cannot trigger other workflows (including the Release workflow) for security reasons. Tag push events created with a PAT will properly trigger the release workflow.
+**Note**: The `auto-version-and-tag` job uses a GitHub App token to push tags. This is required because `GITHUB_TOKEN` cannot trigger other workflows (including the Release workflow) for security reasons. Tag push events created with a GitHub App token will properly trigger the release workflow.
 
 ### Version bump script fails on version branch
 
