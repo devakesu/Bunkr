@@ -58,7 +58,7 @@ Before using the auto-tag-release feature, ensure the `RELEASE_TOKEN` secret is 
    - Go to https://github.com/settings/tokens?type=beta
    - Click "Generate new token"
    - Token name: `GhostClass Release Automation` (or similar)
-   - Expiration: Choose appropriate expiration (recommend 1 year)
+   - Expiration: Choose appropriate expiration (recommend 90 days to 6 months, rotate regularly)
    - Repository access: "Only select repositories" → Select your repository
    - Permissions:
      - Repository permissions → **Contents: Read and write**
