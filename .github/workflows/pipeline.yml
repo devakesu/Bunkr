@@ -402,8 +402,8 @@ jobs:
           
           echo "Creating and pushing signed tag ${VERSION_TAG}"
           
-          # Create annotated signed tag
-          if ! git tag -a -s "${VERSION_TAG}" -m "Release ${VERSION_TAG}"; then
+          # Create annotated signed tag (signing is already configured via git_tag_gpgsign)
+          if ! git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"; then
             echo "ERROR: Failed to create tag ${VERSION_TAG}"
             exit 1
           fi

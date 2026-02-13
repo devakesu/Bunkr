@@ -135,7 +135,13 @@ The workflow signs all commits and tags with GPG to satisfy signature requiremen
 4. **Add secrets to repository**:
    - Go to repository → Settings → Secrets and variables → Actions
    - Add `GPG_PRIVATE_KEY`: Full private key output including headers
-   - Add `GPG_PASSPHRASE`: Leave empty if no passphrase was set
+   - Add `GPG_PASSPHRASE`: Leave empty since the key was generated without a passphrase (`%no-protection`)
+   
+   **Note**: The key is generated without a passphrase for automated use in CI/CD. This is acceptable because:
+   - The private key is stored securely in GitHub Secrets (encrypted at rest)
+   - The key is only used within GitHub Actions runners (ephemeral environments)
+   - Access is controlled by repository permissions
+   - For additional security, the GitHub App authentication provides scoped access
 
 #### 3. Enable Auto-merge
 
@@ -163,16 +169,18 @@ You can create a release in several ways:
 9. Build and publish the release
 
 **How it works:**
+- The workflow runs on every push to main branch
 - The workflow creates a PR instead of pushing directly to main (respects branch protection)
 - The PR is created by the GitHub App bot, which bypasses review requirements
 - Auto-merge is enabled, so the PR merges automatically when all checks pass
 - The commit message includes `[skip ci]` to prevent infinite workflow loops
 - All commits and tags are GPG signed to satisfy signature requirements
-- When `package.json` version = latest tag → Auto-increment patch
-- When `package.json` version > latest tag → Use package.json version (from release branch)
-- When no tags exist → Use package.json version
+- Version bump logic:
+  - When `package.json` version = latest tag → Auto-increment patch
+  - When `package.json` version > latest tag → Use package.json version (from release branch)
+  - When no tags exist → Use package.json version
 
-**Note**: The version bump only occurs when the branch name contains a semantic version (x.y.z). When working on `main`, the script detects no version and skips the bump.
+**Note**: The version bump script detects the branch context. On main branch (CI environment), it always runs version comparison logic. On local branches, it only runs if the branch name matches the pattern X.Y.Z (semantic version).
 
 ### Version Branches (Minor/Major Versions)
 
