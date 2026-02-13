@@ -61,11 +61,11 @@ There are three ways to create a release:
 
 **How to use:**
 ```bash
-# Update version in package.json
+# Update version in package.json and lockfile(s)
 npm version patch  # or minor, or major
 
 # Commit and push to main
-git add package.json
+git add package.json package-lock.json  # include other lockfiles if present (e.g., yarn.lock, pnpm-lock.yaml)
 git commit -m "chore: bump version to v1.5.4"
 git push origin main
 ```

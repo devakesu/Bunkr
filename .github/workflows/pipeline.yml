@@ -341,13 +341,26 @@ jobs:
           echo "Waiting 5 seconds for tag to replicate across GitHub API..."
           sleep 5
           
-          # Trigger release.yml workflow via workflow_dispatch
+          # Trigger release.yml workflow via workflow_dispatch with simple retry logic
           # Note: The tag already exists, so release.yml will use it
-          gh workflow run release.yml --ref "${VERSION_TAG}" || {
-            echo "WARNING: Failed to trigger release workflow via workflow_dispatch"
-            echo "The tag ${VERSION_TAG} has been created and pushed."
-            echo "Release workflow should be triggered by the tag push event."
-            exit 0
-          }
+          max_attempts=3
+          attempt=1
+          while [ "${attempt}" -le "${max_attempts}" ]; do
+            echo "Attempt ${attempt}/${max_attempts}: triggering release.yml via workflow_dispatch..."
+            if gh workflow run release.yml --ref "${VERSION_TAG}"; then
+              echo "✓ Release workflow triggered for ${VERSION_TAG}"
+              exit 0
+            fi
+            
+            if [ "${attempt}" -lt "${max_attempts}" ]; then
+              echo "WARN: Failed to trigger release workflow (attempt ${attempt}). Retrying in 5 seconds..."
+              sleep 5
+            fi
+            
+            attempt=$((attempt + 1))
+          done
           
-          echo "✓ Release workflow triggered for ${VERSION_TAG}"
+          echo "ERROR: Failed to trigger release workflow for ${VERSION_TAG} via workflow_dispatch after ${max_attempts} attempts."
+          echo "The tag ${VERSION_TAG} has been created and pushed, but the release workflow was not triggered automatically."
+          echo "Please investigate the failure (e.g., GitHub Actions permissions or workflow name) and trigger the release workflow manually if necessary."
+          exit 1

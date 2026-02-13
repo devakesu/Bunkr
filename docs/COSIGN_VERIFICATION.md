@@ -87,9 +87,38 @@ OIDC_ISSUER="https://token.actions.githubusercontent.com"
 
 echo "=== Verifying Image Signature ==="
 
-# Download cosign
+# Download and verify cosign binary
 if [ ! -f "/tmp/cosign" ]; then
-  wget -qO /tmp/cosign https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64
+  COSIGN_VERSION="v2.2.4"
+  COSIGN_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
+  COSIGN_CHECKSUM_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign_checksums.txt"
+  
+  echo "Downloading cosign ${COSIGN_VERSION}..."
+  wget -qO /tmp/cosign "${COSIGN_URL}"
+  
+  echo "Downloading and verifying checksum..."
+  wget -qO /tmp/cosign_checksums.txt "${COSIGN_CHECKSUM_URL}"
+  
+  # Extract the expected checksum for cosign-linux-amd64
+  EXPECTED_CHECKSUM=$(grep "cosign-linux-amd64$" /tmp/cosign_checksums.txt | awk '{print $1}')
+  
+  if [ -z "${EXPECTED_CHECKSUM}" ]; then
+    echo "ERROR: Could not find checksum for cosign-linux-amd64 in checksums file"
+    exit 1
+  fi
+  
+  # Calculate actual checksum of downloaded binary
+  ACTUAL_CHECKSUM=$(sha256sum /tmp/cosign | awk '{print $1}')
+  
+  # Verify checksums match
+  if [ "${ACTUAL_CHECKSUM}" != "${EXPECTED_CHECKSUM}" ]; then
+    echo "ERROR: Checksum verification failed!"
+    echo "Expected: ${EXPECTED_CHECKSUM}"
+    echo "Actual:   ${ACTUAL_CHECKSUM}"
+    exit 1
+  fi
+  
+  echo "✓ Checksum verified successfully"
   chmod +x /tmp/cosign
 fi
 
