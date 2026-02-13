@@ -125,9 +125,21 @@ jobs:
       - name: Prepare derived values
         id: prep
         run: |
-          # Derive image name from repository (convert to lowercase)
-          IMAGE_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+          # Validate IMAGE_NAME secret is set
+          if [ -z "${{ secrets.IMAGE_NAME }}" ]; then
+            echo "❌ ERROR: IMAGE_NAME secret is not configured"
+            echo "Please add IMAGE_NAME secret in repository settings"
+            echo "Expected format: lowercase repository name (e.g., 'ghostclass')"
+            exit 1
+          fi
+          
+          # Use IMAGE_NAME from secrets (consistent with pipeline.yml)
+          IMAGE_NAME="${{ secrets.IMAGE_NAME }}"
           echo "image_name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          
+          # Debug output
+          echo "✓ Using IMAGE_NAME: ${IMAGE_NAME}"
+          echo "  Full image path: ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}"
           
           APP_DOMAIN="${{ secrets.NEXT_PUBLIC_APP_DOMAIN }}"
           echo "app_url=https://${APP_DOMAIN}" >> $GITHUB_OUTPUT
