@@ -379,6 +379,11 @@ jobs:
           PR_STATE=$(gh pr view "${PR_NUMBER}" --json state --jq '.state')
           if [ "$PR_STATE" != "MERGED" ]; then
             echo "ERROR: Timeout waiting for PR merge after ${MAX_WAIT}s"
+            echo "Note: The PR may still auto-merge later. If it does, the tag will need to be created manually."
+            echo "To create the tag manually after PR merges:"
+            echo "  VERSION=\$(node -p \"require('./package.json').version\")"
+            echo "  git tag -a \"v\${VERSION}\" -m \"Release v\${VERSION}\""
+            echo "  git push origin \"v\${VERSION}\""
             exit 1
           fi
 

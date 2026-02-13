@@ -501,6 +501,19 @@ After creating a release:
 2. **Required checks not configured**: Ensure all required status checks are properly defined
 3. **Manual review required**: Check if the GitHub App is in the bypass list for reviews
 
+**Important note:** If the workflow times out but the PR later auto-merges successfully, the release tag will not be created automatically (because the merge commit includes `[skip ci]`). In this case, you'll need to create the tag manually:
+
+```bash
+# Get the version from package.json
+VERSION=$(node -p "require('./package.json').version")
+
+# Create and push the tag
+git tag -a "v${VERSION}" -m "Release v${VERSION}"
+git push origin "v${VERSION}"
+```
+
+**Prevention:** Consider increasing MAX_WAIT to accommodate worst-case check durations (e.g., 30-45 minutes for comprehensive CodeQL analysis).
+
 ### General Issues
 
 ### Automatic version bump not working
