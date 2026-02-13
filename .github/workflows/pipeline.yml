@@ -238,7 +238,9 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use RELEASE_TOKEN (PAT) to allow tag pushes to trigger the release workflow
+          # GITHUB_TOKEN cannot trigger other workflows for security reasons
+          token: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -248,6 +250,7 @@ jobs:
       - name: Run version bump script
         env:
           CI: 'true'
+          GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           
@@ -268,6 +271,10 @@ jobs:
           
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Ensure we're on a local branch (not detached HEAD)
+          # Checkout main branch explicitly
+          git checkout -B main
           
           # Check if there are changes to commit
           if git diff --quiet && git diff --cached --quiet; then
@@ -290,12 +297,13 @@ jobs:
             fi
             
             # Push changes with retry and rebase-on-failure handling
+            # Use explicit refspec to push HEAD to main
             attempts=0
             max_attempts=3
             push_succeeded=false
             
             while [ "$attempts" -lt "$max_attempts" ]; do
-              if git push origin main; then
+              if git push origin HEAD:main; then
                 push_succeeded=true
                 break
               fi
@@ -321,7 +329,6 @@ jobs:
           fi
 
       - name: Create and push release tag
-        if: steps.commit.outputs.has_changes == 'true'
         run: |
           set -euo pipefail
           
@@ -338,11 +345,31 @@ jobs:
           fi
           
           VERSION_TAG="v${CURRENT_VERSION}"
-          echo "Creating and pushing tag ${VERSION_TAG}"
+          echo "Checking if tag ${VERSION_TAG} needs to be created"
           
-          # Check if tag already exists
+          # Check if tag already exists (skip if it does)
           if git ls-remote --tags origin | grep -q "refs/tags/${VERSION_TAG}$"; then
             echo "Tag ${VERSION_TAG} already exists, skipping tag creation"
+            exit 0
+          fi
+          
+          echo "Creating and pushing tag ${VERSION_TAG}"
+          
+          # Create annotated tag
+          if ! git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"; then
+            echo "ERROR: Failed to create tag ${VERSION_TAG}"
+            exit 1
+          fi
+          
+          # Push tag (using PAT so it triggers the release workflow)
+          if ! git push origin "${VERSION_TAG}"; then
+            echo "ERROR: Failed to push tag ${VERSION_TAG}"
+            echo "The tag was created locally but not pushed to remote"
+            exit 1
+          fi
+          
+          echo "✓ Release tag ${VERSION_TAG} created and pushed"
+          echo "The release workflow will be triggered automatically by the tag push"
             exit 0
           fi
           

@@ -66,11 +66,20 @@ try {
 
   // 1. Get current branch name
   let branchName = 'unknown';
-  try {
-    branchName = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
-  } catch (_err) {
-    console.error(`${RED}❌ Failed to get git branch. Are you in a git repo?${RESET}`);
-    process.exit(1);
+  
+  if (isCI) {
+    // In GitHub Actions, use GITHUB_REF_NAME environment variable
+    // because checkout action often leaves repo in detached HEAD state
+    branchName = process.env.GITHUB_REF_NAME || 'unknown';
+    console.log(`   ℹ️  Detected branch from GITHUB_REF_NAME: ${branchName}`);
+  } else {
+    // Local development: use git command
+    try {
+      branchName = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+    } catch (_err) {
+      console.error(`${RED}❌ Failed to get git branch. Are you in a git repo?${RESET}`);
+      process.exit(1);
+    }
   }
 
   let newVersion;

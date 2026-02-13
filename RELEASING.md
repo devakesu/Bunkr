@@ -49,6 +49,29 @@ We follow [Semantic Versioning 2.0.0](https://semver.org/):
 
 ## Creating a Release
 
+### Prerequisites
+
+Before the automated version bumping can trigger releases, ensure the `RELEASE_TOKEN` secret is configured:
+
+1. **Create a Fine-Grained Personal Access Token**:
+   - Go to https://github.com/settings/tokens?type=beta
+   - Click "Generate new token"
+   - Token name: `GhostClass Release Automation` (or similar)
+   - Expiration: Choose appropriate expiration (recommend 90 days for higher security)
+   - Repository access: "Only select repositories" → Select your repository
+   - Permissions:
+     - Repository permissions → **Contents: Read and write**
+   - Click "Generate token" and copy the token value
+
+2. **Add the token as a repository secret**:
+   - Go to your repository's Settings > Secrets and variables > Actions
+   - Click "New repository secret"
+   - Name: `RELEASE_TOKEN`
+   - Secret: Paste the PAT value
+   - Click "Add secret"
+
+**Why is this needed?** The `RELEASE_TOKEN` (PAT) is required because `GITHUB_TOKEN` cannot trigger other workflows for security reasons. The `auto-version-and-tag` job needs to push tags that will trigger the Release workflow, which requires a PAT.
+
 There are three ways to create a release:
 
 ### Automatic Release (Feature Branches)
@@ -330,11 +353,14 @@ After creating a release:
 ### Release workflow not triggered after tag push
 
 **Check:**
+- Verify `RELEASE_TOKEN` secret is configured in repository settings
+- Ensure the token has `Contents: Read and write` permissions
+- Check that the token hasn't expired
 - Verify the tag was created and pushed successfully
 - Check the Release workflow is enabled in Actions tab
 - Look for the tag push event in the Actions tab
 
-**Note**: The `auto-version-and-tag` job uses `GITHUB_TOKEN` to push tags. Tag push events will trigger the release workflow.
+**Note**: The `auto-version-and-tag` job uses `RELEASE_TOKEN` (a Personal Access Token) to push tags. This is required because `GITHUB_TOKEN` cannot trigger other workflows (including the Release workflow) for security reasons. Tag push events created with a PAT will properly trigger the release workflow.
 
 ### Version bump script fails on release branch
 
