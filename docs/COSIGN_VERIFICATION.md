@@ -94,10 +94,18 @@ if [ ! -f "/tmp/cosign" ]; then
   COSIGN_CHECKSUM_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign_checksums.txt"
   
   echo "Downloading cosign ${COSIGN_VERSION}..."
-  wget -qO /tmp/cosign "${COSIGN_URL}"
+  if ! wget -qO /tmp/cosign "${COSIGN_URL}"; then
+    echo "ERROR: Failed to download cosign binary"
+    exit 1
+  fi
   
   echo "Downloading and verifying checksum..."
-  wget -qO /tmp/cosign_checksums.txt "${COSIGN_CHECKSUM_URL}"
+  # Note: checksums file downloaded over HTTPS for transport security
+  # Full signature verification would require cosign (chicken-and-egg problem)
+  if ! wget -qO /tmp/cosign_checksums.txt "${COSIGN_CHECKSUM_URL}"; then
+    echo "ERROR: Failed to download checksums file"
+    exit 1
+  fi
   
   # Extract the expected checksum for cosign-linux-amd64
   EXPECTED_CHECKSUM=$(grep "cosign-linux-amd64$" /tmp/cosign_checksums.txt | awk '{print $1}')
@@ -108,7 +116,12 @@ if [ ! -f "/tmp/cosign" ]; then
   fi
   
   # Calculate actual checksum of downloaded binary
-  ACTUAL_CHECKSUM=$(sha256sum /tmp/cosign | awk '{print $1}')
+  ACTUAL_CHECKSUM=$(sha256sum /tmp/cosign 2>/dev/null | awk '{print $1}')
+  
+  if [ -z "${ACTUAL_CHECKSUM}" ]; then
+    echo "ERROR: Failed to calculate checksum of downloaded binary"
+    exit 1
+  fi
   
   # Verify checksums match
   if [ "${ACTUAL_CHECKSUM}" != "${EXPECTED_CHECKSUM}" ]; then
