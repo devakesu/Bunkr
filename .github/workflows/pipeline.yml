@@ -238,6 +238,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
@@ -289,9 +290,31 @@ jobs:
               exit 1
             fi
             
-            # Push changes
-            if ! git push origin main; then
-              echo "ERROR: Failed to push version changes"
+            # Push changes with retry and rebase-on-failure handling
+            attempts=0
+            max_attempts=3
+            push_succeeded=false
+            
+            while [ "$attempts" -lt "$max_attempts" ]; do
+              if git push origin main; then
+                push_succeeded=true
+                break
+              fi
+              
+              attempts=$((attempts + 1))
+              echo "WARN: git push failed (attempt ${attempts}/${max_attempts})."
+              
+              if [ "$attempts" -lt "$max_attempts" ]; then
+                # Attempt to rebase on latest remote changes before retrying
+                if ! git pull --rebase origin main; then
+                  echo "ERROR: git pull --rebase origin main failed; cannot safely resolve push rejection."
+                  exit 1
+                fi
+              fi
+            done
+            
+            if [ "$push_succeeded" != "true" ]; then
+              echo "ERROR: Failed to push version changes after ${attempts} attempt(s)"
               exit 1
             fi
             

@@ -21,13 +21,20 @@ function getLatestSemverTag() {
       .sort((a, b) => compareSemver(a, b));
     
     return semverTags.length > 0 ? semverTags[semverTags.length - 1] : null;
-  } catch (_err) {
+  } catch (err) {
+    console.warn(`${YELLOW}⚠️  Warning: Failed to retrieve latest git tag: ${err.message}${RESET}`);
     return null;
   }
 }
 
 // Helper function to compare semantic versions
 function compareSemver(a, b) {
+  // Validate inputs are valid semantic versions
+  const semverPattern = /^\d+\.\d+\.\d+$/;
+  if (!semverPattern.test(a) || !semverPattern.test(b)) {
+    throw new Error(`Invalid semantic version format. Expected MAJOR.MINOR.PATCH (e.g., 1.2.3). Got: "${a}", "${b}"`);
+  }
+  
   const aParts = a.split('.').map(Number);
   const bParts = b.split('.').map(Number);
   
@@ -40,6 +47,12 @@ function compareSemver(a, b) {
 
 // Helper function to increment patch version
 function incrementPatch(version) {
+  // Validate input is a valid semantic version
+  const semverPattern = /^\d+\.\d+\.\d+$/;
+  if (!semverPattern.test(version)) {
+    throw new Error(`Invalid semantic version: ${version}. Expected MAJOR.MINOR.PATCH (e.g., 1.2.3)`);
+  }
+  
   const parts = version.split('.').map(Number);
   parts[2] += 1;
   return parts.join('.');
@@ -73,8 +86,25 @@ try {
       process.exit(1);
     }
     
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    const currentVersion = packageJson.version;
+    let packageJson;
+    try {
+      packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    } catch (err) {
+      console.error(`${RED}❌ Failed to parse package.json: Invalid JSON format${RESET}`);
+      if (err && err.message) {
+        console.error(err.message);
+      }
+      process.exit(1);
+    }
+    
+    const currentVersion = String(packageJson.version || '').trim();
+    
+    // Validate the version field contains a valid semantic version
+    const semverPattern = /^\d+\.\d+\.\d+$/;
+    if (!semverPattern.test(currentVersion)) {
+      console.error(`${RED}❌ Invalid package.json version "${packageJson.version}". Expected MAJOR.MINOR.PATCH (e.g., 1.2.3).${RESET}`);
+      process.exit(1);
+    }
     
     // Get latest semver tag
     const latestTag = getLatestSemverTag();
