@@ -18,7 +18,7 @@ This document describes how to create and verify releases for GhostClass.
 
 GhostClass uses GitHub Actions to automate the release process, which includes:
 
-- **Automatic Version Bumping**: Auto-increments patch version on feature branch merges to main
+- **Automatic Version Bumping**: Auto-increments patch version on pushes to `main` (including merges and direct commits)
 - **Automatic Tagging**: Creates and pushes release tags based on `package.json` version
 - **Semantic Versioning**: Following [semver](https://semver.org/) principles (MAJOR.MINOR.PATCH)
 - **Multi-platform Docker images**: Built for `linux/amd64` and `linux/arm64`
