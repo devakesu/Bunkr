@@ -73,6 +73,10 @@ jobs:
             sentry_token=${{ secrets.SENTRY_AUTH_TOKEN }}
 
           platforms: linux/amd64
+          
+          # Enable layer caching for faster builds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
             
           build-args: |
             APP_COMMIT_SHA=${{ github.sha }}

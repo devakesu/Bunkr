@@ -12,6 +12,11 @@ on:
           - minor
           - major
         default: 'patch'
+      build_arm64:
+        description: 'Build ARM64 architecture (slower, ~5min extra)'
+        required: false
+        type: boolean
+        default: false
   push:
     tags:
       - 'v*.*.*'
@@ -141,6 +146,28 @@ jobs:
           echo "✓ Using IMAGE_NAME: ${IMAGE_NAME}"
           echo "  Full image path: ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}"
           
+          # Determine build platforms
+          # For tag pushes: Build both AMD64 and ARM64 (full release)
+          # For workflow_dispatch: Respect user's build_arm64 input
+          if [ "${{ github.event_name }}" == "push" ]; then
+            # Tag push - always build multi-arch for full releases
+            PLATFORMS="linux/amd64,linux/arm64"
+            echo "📦 Tag push detected - building multi-architecture"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ inputs.build_arm64 }}" == "true" ]; then
+              PLATFORMS="linux/amd64,linux/arm64"
+              echo "📦 Manual dispatch with ARM64 enabled"
+            else
+              PLATFORMS="linux/amd64"
+              echo "📦 Manual dispatch - AMD64 only (faster build)"
+            fi
+          else
+            # Default fallback
+            PLATFORMS="linux/amd64"
+          fi
+          echo "platforms=${PLATFORMS}" >> $GITHUB_OUTPUT
+          echo "  Build platforms: ${PLATFORMS}"
+          
           APP_DOMAIN="${{ secrets.NEXT_PUBLIC_APP_DOMAIN }}"
           echo "app_url=https://${APP_DOMAIN}" >> $GITHUB_OUTPUT
           echo "sitemap_url=https://${APP_DOMAIN}/sitemap.xml" >> $GITHUB_OUTPUT
@@ -171,7 +198,11 @@ jobs:
             ${{ github.event_name == 'workflow_dispatch' && format('ghcr.io/{0}/{1}:latest', github.repository_owner, steps.prep.outputs.image_name) || '' }}
           secrets: |
             sentry_token=${{ secrets.SENTRY_AUTH_TOKEN }}
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ steps.prep.outputs.platforms }}
+          
+          # Enable layer caching for faster builds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             APP_COMMIT_SHA=${{ github.sha }}
             SOURCE_DATE_EPOCH=${{ secrets.SOURCE_DATE_EPOCH }}
