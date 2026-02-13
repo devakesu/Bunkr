@@ -184,25 +184,35 @@ You can create a release in several ways:
 
 ### Automatic Release (On Version Bump)
 
-**NEW - Automated Version Bumping**: When a feature branch is merged to main, the CI/CD pipeline will automatically:
+**NEW - Automated Version Bumping**: When a branch is merged to main, the CI/CD pipeline will automatically:
 
 1. Run the version bump script to compare package.json version with the latest git tag
 2. Determine the new version (auto-increment patch, use package.json version, or no change)
-3. **Create a Pull Request** with the version changes
-4. **Enable auto-merge** on the PR
-5. **Wait for all required checks to pass**:
-   - Required status checks (3 of 3)
-   - CodeQL analysis
-   - Test workflows
-   - Commit signature verification
-6. **Auto-merge the PR** when all checks pass
-7. Create and push a git tag (e.g., `v1.5.5`)
-8. Trigger the release workflow via the tag push
-9. Build and publish the release
+3. **Two scenarios based on whether version files need updating:**
+
+**Scenario A: Version already updated (branch name = `x.x.x`, e.g., `1.5.6`)**
+- Version files are already correct in the merged PR
+- Skip PR creation
+- Create and push git tag immediately (e.g., `v1.5.6`)
+- Trigger the release workflow via the tag push
+- Build and publish the release
+
+**Scenario B: Version needs updating (branch name ≠ `x.x.x`, e.g., `copilot/*`, `feature/*`)**
+- **Create a Pull Request** with the version changes
+- **Enable auto-merge** on the PR
+- **Wait for all required checks to pass**:
+  - Required status checks (3 of 3)
+  - CodeQL analysis
+  - Test workflows
+  - Commit signature verification
+- **Auto-merge the PR** when all checks pass
+- Create and push a git tag (e.g., `v1.5.5`)
+- Trigger the release workflow via the tag push
+- Build and publish the release
 
 **How it works:**
 - The workflow runs on every push to main branch
-- The workflow creates a PR instead of pushing directly to main (respects branch protection)
+- The workflow creates a PR instead of pushing directly to main when needed (respects branch protection)
 - The PR is created by the GitHub App bot, which bypasses review requirements
 - Auto-merge is enabled, so the PR merges automatically when all checks pass
 - The commit message includes `[skip ci]` to prevent infinite workflow loops
@@ -513,6 +523,24 @@ git push origin "v${VERSION}"
 ```
 
 **Prevention:** Consider increasing MAX_WAIT to accommodate worst-case check durations (e.g., 30-45 minutes for comprehensive CodeQL analysis).
+
+#### Release not created after merging version bump PR
+
+**Symptom**: You merged a PR with version updates (e.g., PR #358 with branch `1.5.6`), but no release was created.
+
+**Cause**: This was a bug in workflow versions prior to the fix in this PR. The workflow would skip tag creation when version files were already updated in the merged PR (when branch name matched `x.x.x` format).
+
+**Solution**: 
+- If using old workflow: Manually create and push tag:
+  ```bash
+  git checkout main
+  git pull origin main
+  VERSION=$(node -p "require('./package.json').version")
+  git tag -a "v${VERSION}" -m "Release v${VERSION}"
+  git push origin "v${VERSION}"
+  ```
+- Update to latest workflow version which fixes this issue
+- The fixed workflow creates tags immediately for PRs from version branches (no PR needed)
 
 ### General Issues
 

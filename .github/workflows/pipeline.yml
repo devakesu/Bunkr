@@ -225,7 +225,17 @@ jobs:
 
   # Auto-version and tag on main branch
   # This job runs after successful build-push-sign on main branch only
-  # It creates a PR with version changes instead of pushing directly to main
+  # 
+  # Two scenarios:
+  # 1. Branch name format x.x.x (e.g., "1.5.6"):
+  #    - Version files are already updated in the merged PR
+  #    - Creates tag directly (no PR needed)
+  # 
+  # 2. Branch name NOT in x.x.x format (e.g., "copilot/*", "feature/*"):
+  #    - Version needs to be bumped automatically
+  #    - Creates PR with version bump → Waits for merge → Creates tag
+  # 
+  # In both cases, the tag triggers .github/workflows/release.yml for signed releases
   auto-version-and-tag:
     name: Auto Version & Tag
     needs: build-push-sign
@@ -290,16 +300,17 @@ jobs:
         run: |
           set -euo pipefail
           
+          # Always read current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          
           # Check if there are changes to commit
           if git diff --quiet && git diff --cached --quiet; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "No version changes to commit"
+            echo "No version changes to commit - version already correct at ${CURRENT_VERSION}"
+            echo "Will skip PR creation and create tag directly"
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
-            
-            # Read version from package.json
-            CURRENT_VERSION=$(node -p "require('./package.json').version")
-            echo "version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
             echo "Version will be: ${CURRENT_VERSION}"
           fi
 
@@ -388,18 +399,25 @@ jobs:
           fi
 
       - name: Fetch latest changes and create release tag
-        if: steps.check.outputs.has_changes == 'true'
+        if: steps.check.outputs.version != ''
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
           
-          # Fetch latest changes from main
-          git fetch origin main
-          git checkout main
-          git pull origin main
-          
           VERSION_TAG="v${{ steps.check.outputs.version }}"
+          
+          # If changes were made, we need to fetch the merged PR
+          if [ "${{ steps.check.outputs.has_changes }}" = "true" ]; then
+            echo "Fetching latest changes from merged PR"
+            git fetch origin main
+            git checkout main
+            git pull origin main
+          else
+            echo "No PR was created - version already correct"
+            echo "Creating tag directly from current commit"
+          fi
+          
           echo "Checking if tag ${VERSION_TAG} needs to be created"
           
           # Check if tag already exists (skip if it does)
