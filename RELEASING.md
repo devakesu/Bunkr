@@ -72,7 +72,7 @@ Before the automated version bumping can trigger releases, ensure the `RELEASE_T
 
 **Why is this needed?** The `RELEASE_TOKEN` (PAT) is required because `GITHUB_TOKEN` cannot trigger other workflows for security reasons. The `auto-version-and-tag` job needs to push tags that will trigger the Release workflow, which requires a PAT.
 
-There are three ways to create a release:
+You can create a release in several ways:
 
 ### Automatic Release (Feature Branches)
 

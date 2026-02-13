@@ -143,18 +143,19 @@ try {
       }
     }
   } else {
-    // Local branch: Extract version from branch name (existing behavior)
-    const versionRegex = /(\d+\.\d+\.\d+)/;
-    const match = branchName.match(versionRegex);
+    // Local branch: Extract version from branch name (only for release branches)
+    // Feature/fix branches should skip version bump
+    const releaseRegex = /^release\/(\d+\.\d+\.\d+)$/;
+    const match = branchName.match(releaseRegex);
 
     if (!match) {
-      console.log(`${YELLOW}ℹ️  Branch '${branchName}' does not contain a semantic version (x.y.z).`);
+      console.log(`${YELLOW}ℹ️  Branch '${branchName}' is not a release branch (release/X.Y.Z).`);
       console.log(`   Skipping version bump.${RESET}\n`);
       process.exit(0);
     }
 
     newVersion = match[1];
-    console.log(`   🎯 Detected Target Version: ${GREEN}${newVersion}${RESET} (from branch '${branchName}')`);
+    console.log(`   🎯 Detected Target Version: ${GREEN}${newVersion}${RESET} (from release branch '${branchName}')`);
   }
 
   // 3. Update package.json & package-lock.json
