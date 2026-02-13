@@ -324,43 +324,4 @@ jobs:
           fi
           
           echo "✓ Release tag ${VERSION_TAG} created and pushed"
-
-      - name: Trigger release workflow
-        if: steps.version-check.outputs.version_changed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          
-          VERSION_TAG="${{ steps.version-check.outputs.current_version }}"
-          echo "Triggering release workflow for ${VERSION_TAG}"
-          
-          # Wait for tag to be visible in GitHub API
-          # GitHub's eventual consistency can cause tag replication lag (typically 1-3 seconds)
-          # 5 seconds provides a safe buffer for the tag to be available across all API endpoints
-          echo "Waiting 5 seconds for tag to replicate across GitHub API..."
-          sleep 5
-          
-          # Trigger release.yml workflow via workflow_dispatch with simple retry logic
-          # Note: The tag already exists, so release.yml will use it
-          max_attempts=3
-          attempt=1
-          while [ "${attempt}" -le "${max_attempts}" ]; do
-            echo "Attempt ${attempt}/${max_attempts}: triggering release.yml via workflow_dispatch..."
-            if gh workflow run release.yml --ref "${VERSION_TAG}"; then
-              echo "✓ Release workflow triggered for ${VERSION_TAG}"
-              exit 0
-            fi
-            
-            if [ "${attempt}" -lt "${max_attempts}" ]; then
-              echo "WARN: Failed to trigger release workflow (attempt ${attempt}). Retrying in 5 seconds..."
-              sleep 5
-            fi
-            
-            attempt=$((attempt + 1))
-          done
-          
-          echo "ERROR: Failed to trigger release workflow for ${VERSION_TAG} via workflow_dispatch after ${max_attempts} attempts."
-          echo "The tag ${VERSION_TAG} has been created and pushed, but the release workflow was not triggered automatically."
-          echo "Please investigate the failure (e.g., GitHub Actions permissions or workflow name) and trigger the release workflow manually if necessary."
-          exit 1
+          echo "The release workflow will be triggered automatically by the tag push"
