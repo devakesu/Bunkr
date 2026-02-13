@@ -102,7 +102,7 @@ try {
     // Validate the version field contains a valid semantic version
     const semverPattern = /^\d+\.\d+\.\d+$/;
     if (!semverPattern.test(currentVersion)) {
-      console.error(`${RED}❌ Invalid package.json version "${packageJson.version}". Expected MAJOR.MINOR.PATCH (e.g., 1.2.3).${RESET}`);
+      console.error(`${RED}❌ Invalid package.json version "${currentVersion}". Expected MAJOR.MINOR.PATCH (e.g., 1.2.3).${RESET}`);
       process.exit(1);
     }
     
