@@ -277,7 +277,11 @@ jobs:
             echo "has_changes=true" >> $GITHUB_OUTPUT
             
             # Stage all version-related files
-            git add package.json package-lock.json .env .example.env public/api-docs/openapi.yaml 2>/dev/null || true
+            git add package.json package-lock.json public/api-docs/openapi.yaml
+            
+            # Stage .env and .example.env if they exist
+            [ -f .env ] && git add .env || true
+            [ -f .example.env ] && git add .example.env || true
             
             # Commit with [skip ci] to prevent infinite loop
             if ! git commit -m "chore: bump version [skip ci]"; then
@@ -295,7 +299,7 @@ jobs:
           fi
 
       - name: Create and push release tag
-        if: steps.commit.outputs.has_changes == 'true' || steps.commit.outputs.has_changes == ''
+        if: steps.commit.outputs.has_changes == 'true'
         run: |
           set -euo pipefail
           
