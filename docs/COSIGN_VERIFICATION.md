@@ -93,11 +93,14 @@ COSIGN_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSIO
 COSIGN_CHECKSUM_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign_checksums.txt"
 
 # Use unique temporary files to avoid races and only replace /tmp/cosign after verification
-TMP_COSIGN="$(mktemp)" || { echo "ERROR: Failed to create temporary file for cosign binary"; exit 1; }
-TMP_CHECKSUMS="$(mktemp)" || { echo "ERROR: Failed to create temporary file for cosign checksums"; exit 1; }
+TMP_COSIGN=""
+TMP_CHECKSUMS=""
 
 # Ensure cleanup on exit
 trap 'rm -f "${TMP_COSIGN}" "${TMP_CHECKSUMS}"' EXIT
+
+TMP_COSIGN="$(mktemp)" || { echo "ERROR: Failed to create temporary file for cosign binary"; exit 1; }
+TMP_CHECKSUMS="$(mktemp)" || { echo "ERROR: Failed to create temporary file for cosign checksums"; exit 1; }
 
 echo "Downloading cosign ${COSIGN_VERSION}..."
 if ! wget -qO "${TMP_COSIGN}" "${COSIGN_URL}"; then
