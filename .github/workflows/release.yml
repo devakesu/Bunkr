@@ -395,6 +395,9 @@ jobs:
           IMAGE_NAME: ${{ needs.build-and-release.outputs.image_name }}
           PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
         run: |
+          # Convert platforms to readable format (same transformation as release notes)
+          PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
+          
           cat > ./artifacts/VERIFY.md << EOF
           # Release Verification Instructions
 
@@ -445,7 +448,7 @@ jobs:
 
           - **Image**: \`ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version_tag }}\`
           - **Digest**: \`${{ needs.build-and-release.outputs.digest }}\`
-          - **Platforms**: \`${PLATFORMS}\`
+          - **Platforms**: \`${PLATFORM_LIST}\`
           - **Version**: \`${{ needs.calculate-version.outputs.version }}\`
 
           ## Additional Tags
