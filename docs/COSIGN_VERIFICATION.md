@@ -176,18 +176,15 @@ echo "=== Verifying Build Attestation ==="
 # which must be verified using 'gh attestation verify' (not cosign verify-attestation)
 if command -v gh >/dev/null 2>&1; then
   # Extract owner from the image name (e.g., ghcr.io/devakesu/ghostclass -> devakesu)
-  # Validate image format has registry/owner/repo structure
-  if ! echo "$IMAGE" | grep -q '^[^/]*/[^/]*/'; then
+  # Validate image format has registry/owner/repo structure (each component non-empty)
+  if ! echo "$IMAGE" | grep -qE '^[^/]+/[^/]+/[^/]+'; then
     echo "⚠ Image format not recognized for attestation verification: ${IMAGE}"
     echo "  Expected format: registry/owner/repo:tag"
     echo "✓ Image signature verified (attestation check skipped)"
   else
     OWNER=$(echo "$IMAGE" | cut -d'/' -f2)
     
-    if [ -z "${OWNER}" ]; then
-      echo "⚠ Could not extract owner from image name: ${IMAGE}"
-      echo "✓ Image signature verified (attestation check skipped)"
-    elif gh attestation verify "oci://${IMAGE}" --owner "${OWNER}" 2>&1; then
+    if gh attestation verify "oci://${IMAGE}" --owner "${OWNER}" 2>&1; then
       echo "✓ Attestation verified successfully"
       echo "✓ All verifications passed"
     else
