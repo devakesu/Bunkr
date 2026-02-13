@@ -141,6 +141,14 @@ if [ "${ACTUAL_CHECKSUM}" != "${EXPECTED_CHECKSUM}" ]; then
 fi
 
 echo "✓ Checksum verified successfully"
+
+# Ensure /tmp/cosign is a valid target path for the binary
+if [ -e /tmp/cosign ] && [ ! -f /tmp/cosign ]; then
+  echo "ERROR: /tmp/cosign exists and is not a regular file"
+  echo "Please remove or rename it and rerun this script."
+  exit 1
+fi
+
 mv "${TMP_COSIGN}" /tmp/cosign
 chmod +x /tmp/cosign
 
@@ -182,7 +190,7 @@ if command -v gh >/dev/null 2>&1; then
   # Validate image format has registry/owner/repo structure (each component non-empty)
   if ! echo "$IMAGE" | grep -qE '^[^/]+/[^/]+/[^/]+'; then
     echo "⚠ Image format not recognized for attestation verification: ${IMAGE}"
-    echo "  Expected format: registry/owner/repo:tag"
+    echo "  Expected format: registry/owner/repo[:tag or @digest]"
     echo "✓ Image signature verified (attestation check skipped)"
   else
     OWNER=$(echo "$IMAGE" | cut -d'/' -f2)
