@@ -88,52 +88,61 @@ OIDC_ISSUER="https://token.actions.githubusercontent.com"
 echo "=== Verifying Image Signature ==="
 
 # Download and verify cosign binary
-if [ ! -f "/tmp/cosign" ]; then
-  COSIGN_VERSION="v2.2.4"
-  COSIGN_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
-  COSIGN_CHECKSUM_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign_checksums.txt"
-  
-  echo "Downloading cosign ${COSIGN_VERSION}..."
-  if ! wget -qO /tmp/cosign "${COSIGN_URL}"; then
-    echo "ERROR: Failed to download cosign binary"
-    exit 1
-  fi
-  
-  echo "Downloading and verifying checksum..."
-  # Note: checksums file downloaded over HTTPS for transport security
-  # Full signature verification would require cosign (chicken-and-egg problem)
-  if ! wget -qO /tmp/cosign_checksums.txt "${COSIGN_CHECKSUM_URL}"; then
-    echo "ERROR: Failed to download checksums file"
-    exit 1
-  fi
-  
-  # Extract the expected checksum for cosign-linux-amd64
-  EXPECTED_CHECKSUM=$(grep "cosign-linux-amd64$" /tmp/cosign_checksums.txt | awk '{print $1}')
-  
-  if [ -z "${EXPECTED_CHECKSUM}" ]; then
-    echo "ERROR: Could not find checksum for cosign-linux-amd64 in checksums file"
-    exit 1
-  fi
-  
-  # Calculate actual checksum of downloaded binary
-  ACTUAL_CHECKSUM=$(sha256sum /tmp/cosign 2>/dev/null | awk '{print $1}')
-  
-  if [ -z "${ACTUAL_CHECKSUM}" ]; then
-    echo "ERROR: Failed to calculate checksum of downloaded binary"
-    exit 1
-  fi
-  
-  # Verify checksums match
-  if [ "${ACTUAL_CHECKSUM}" != "${EXPECTED_CHECKSUM}" ]; then
-    echo "ERROR: Checksum verification failed!"
-    echo "Expected: ${EXPECTED_CHECKSUM}"
-    echo "Actual:   ${ACTUAL_CHECKSUM}"
-    exit 1
-  fi
-  
-  echo "✓ Checksum verified successfully"
-  chmod +x /tmp/cosign
+COSIGN_VERSION="v2.2.4"
+COSIGN_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
+COSIGN_CHECKSUM_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign_checksums.txt"
+
+# Use unique temporary files to avoid races and only replace /tmp/cosign after verification
+TMP_COSIGN=""
+TMP_CHECKSUMS=""
+
+# Ensure cleanup on exit
+trap 'rm -f "${TMP_COSIGN}" "${TMP_CHECKSUMS}"' EXIT
+
+TMP_COSIGN="$(mktemp)" || { echo "ERROR: Failed to create temporary file for cosign binary"; exit 1; }
+TMP_CHECKSUMS="$(mktemp)" || { echo "ERROR: Failed to create temporary file for cosign checksums"; exit 1; }
+
+echo "Downloading cosign ${COSIGN_VERSION}..."
+if ! wget -qO "${TMP_COSIGN}" "${COSIGN_URL}"; then
+  echo "ERROR: Failed to download cosign binary"
+  exit 1
 fi
+
+echo "Downloading and verifying checksum..."
+# Note: checksums file downloaded over HTTPS for transport security
+# Full signature verification would require cosign (chicken-and-egg problem)
+if ! wget -qO "${TMP_CHECKSUMS}" "${COSIGN_CHECKSUM_URL}"; then
+  echo "ERROR: Failed to download checksums file"
+  exit 1
+fi
+
+# Extract the expected checksum for cosign-linux-amd64
+EXPECTED_CHECKSUM=$(grep "cosign-linux-amd64$" "${TMP_CHECKSUMS}" | awk '{print $1}')
+
+if [ -z "${EXPECTED_CHECKSUM}" ]; then
+  echo "ERROR: Could not find checksum for cosign-linux-amd64 in checksums file"
+  exit 1
+fi
+
+# Calculate actual checksum of downloaded binary
+ACTUAL_CHECKSUM=$(sha256sum "${TMP_COSIGN}" 2>/dev/null | awk '{print $1}')
+
+if [ -z "${ACTUAL_CHECKSUM}" ]; then
+  echo "ERROR: Failed to calculate checksum of downloaded binary"
+  exit 1
+fi
+
+# Verify checksums match
+if [ "${ACTUAL_CHECKSUM}" != "${EXPECTED_CHECKSUM}" ]; then
+  echo "ERROR: Checksum verification failed!"
+  echo "Expected: ${EXPECTED_CHECKSUM}"
+  echo "Actual:   ${ACTUAL_CHECKSUM}"
+  exit 1
+fi
+
+echo "✓ Checksum verified successfully"
+mv "${TMP_COSIGN}" /tmp/cosign
+chmod +x /tmp/cosign
 
 # Verify image signature with retry logic
 MAX_ATTEMPTS=3
@@ -164,22 +173,38 @@ while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
   fi
 done
 
-# Verify attestation
+# Verify attestation using GitHub CLI
 echo "=== Verifying Build Attestation ==="
-if /tmp/cosign verify-attestation \
-  --type cyclonedx \
-  --certificate-identity-regexp="$REPO_PATTERN" \
-  --certificate-oidc-issuer="$OIDC_ISSUER" \
-  "$IMAGE" 2>&1; then
-  echo "✓ Attestation verified successfully"
+# Note: This repository uses GitHub's artifact attestations (actions/attest-build-provenance)
+# which must be verified using 'gh attestation verify' (not cosign verify-attestation)
+if command -v gh >/dev/null 2>&1; then
+  # Extract owner from the image name (e.g., ghcr.io/devakesu/ghostclass -> devakesu)
+  # Validate image format has registry/owner/repo structure (each component non-empty)
+  if ! echo "$IMAGE" | grep -qE '^[^/]+/[^/]+/[^/]+'; then
+    echo "⚠ Image format not recognized for attestation verification: ${IMAGE}"
+    echo "  Expected format: registry/owner/repo:tag"
+    echo "✓ Image signature verified (attestation check skipped)"
+  else
+    OWNER=$(echo "$IMAGE" | cut -d'/' -f2)
+    
+    if gh attestation verify "oci://${IMAGE}" --owner "${OWNER}" 2>&1; then
+      echo "✓ Attestation verified successfully"
+      echo "✓ All verifications passed"
+    else
+      echo "⚠ Attestation verification failed (non-critical)"
+      echo "✓ Image signature verified (attestation check failed)"
+    fi
+  fi
 else
-  echo "⚠ Attestation verification failed (non-critical)"
+  echo "⚠ GitHub CLI (gh) not found - skipping attestation verification"
+  echo "  Install gh CLI to verify build attestations: https://cli.github.com/"
+  echo "✓ Image signature verified (attestation check skipped)"
 fi
-
-echo "✓ All verifications passed"
 ```
 
 **One-liner version for Coolify:**
+
+> ⚠️ **Security warning:** The following one-liner downloads and executes the `cosign` binary **without any checksum or signature verification**. This compromises security for convenience and **should not be used in production**. For production environments, use the full verification script above which includes checksum verification.
 
 ```bash
 wget -qO /tmp/cosign https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64 && chmod +x /tmp/cosign && /tmp/cosign verify --certificate-identity-regexp="^https://github.com/devakesu/GhostClass/.github/workflows/" --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/devakesu/ghostclass:main
