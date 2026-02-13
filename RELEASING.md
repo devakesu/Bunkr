@@ -80,7 +80,7 @@ You can create a release in several ways:
 
 1. Compare `package.json` version with the latest git tag
 2. Auto-increment the patch version (e.g., `1.5.4` → `1.5.5`)
-3. Update all version files (`package.json`, `package-lock.json`, `.env`, `.example.env`, `openapi.yaml`)
+3. Update all version files (`package.json`, `package-lock.json`, `.env`, `.example.env`, `public/api-docs/openapi.yaml`)
 4. Commit changes with `[skip ci]` to prevent infinite loops
 5. Create and push a git tag (e.g., `v1.5.5`)
 6. Trigger the release workflow via the tag push
