@@ -7,8 +7,49 @@ const YELLOW = '\x1b[33m';
 const RED = '\x1b[31m';
 const RESET = '\x1b[0m';
 
+// Helper function to get the latest semver tag from git
+function getLatestSemverTag() {
+  try {
+    const tags = execSync('git tag -l').toString().trim();
+    if (!tags) {
+      return null;
+    }
+    
+    const semverTags = tags.split('\n')
+      .filter(tag => /^v\d+\.\d+\.\d+$/.test(tag))
+      .map(tag => tag.substring(1)) // Remove 'v' prefix
+      .sort((a, b) => compareSemver(a, b));
+    
+    return semverTags.length > 0 ? semverTags[semverTags.length - 1] : null;
+  } catch (_err) {
+    return null;
+  }
+}
+
+// Helper function to compare semantic versions
+function compareSemver(a, b) {
+  const aParts = a.split('.').map(Number);
+  const bParts = b.split('.').map(Number);
+  
+  for (let i = 0; i < 3; i++) {
+    if (aParts[i] > bParts[i]) return 1;
+    if (aParts[i] < bParts[i]) return -1;
+  }
+  return 0;
+}
+
+// Helper function to increment patch version
+function incrementPatch(version) {
+  const parts = version.split('.').map(Number);
+  parts[2] += 1;
+  return parts.join('.');
+}
+
 try {
   console.log(`${YELLOW}🚀 Starting Auto-Version Bump...${RESET}`);
+
+  // Detect if running in CI
+  const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 
   // 1. Get current branch name
   let branchName = 'unknown';
@@ -19,18 +60,63 @@ try {
     process.exit(1);
   }
 
-  // 2. Extract version from branch (e.g., "release/1.2.0" -> "1.2.0")
-  const versionRegex = /(\d+\.\d+\.\d+)/;
-  const match = branchName.match(versionRegex);
+  let newVersion;
 
-  if (!match) {
-    console.log(`${YELLOW}ℹ️  Branch '${branchName}' does not contain a semantic version (x.y.z).`);
-    console.log(`   Skipping version bump.${RESET}\n`);
-    process.exit(0);
+  // 2. Determine version based on context (CI main branch or local branch)
+  if (isCI && branchName === 'main') {
+    console.log(`${YELLOW}   ℹ️  Running in CI on main branch${RESET}`);
+    
+    // Read current package.json version
+    const packageJsonPath = path.join(process.cwd(), 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      console.error(`${RED}❌ package.json not found${RESET}`);
+      process.exit(1);
+    }
+    
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    const currentVersion = packageJson.version;
+    
+    // Get latest semver tag
+    const latestTag = getLatestSemverTag();
+    
+    console.log(`   📦 Current package.json version: ${GREEN}${currentVersion}${RESET}`);
+    console.log(`   🏷️  Latest git tag: ${latestTag ? GREEN + latestTag + RESET : YELLOW + '<none>' + RESET}`);
+    
+    if (!latestTag) {
+      // No tags exist, use package.json version
+      newVersion = currentVersion;
+      console.log(`   🎯 Using package.json version (no tags exist): ${GREEN}${newVersion}${RESET}`);
+    } else {
+      const comparison = compareSemver(currentVersion, latestTag);
+      
+      if (comparison > 0) {
+        // package.json version > latest tag (from merged release branch)
+        newVersion = currentVersion;
+        console.log(`   🎯 Using package.json version (already bumped): ${GREEN}${newVersion}${RESET}`);
+      } else if (comparison === 0) {
+        // package.json version = latest tag (auto-increment patch)
+        newVersion = incrementPatch(currentVersion);
+        console.log(`   🎯 Auto-incrementing patch version: ${GREEN}${newVersion}${RESET}`);
+      } else {
+        // package.json version < latest tag (shouldn't happen, but handle it)
+        newVersion = incrementPatch(latestTag);
+        console.log(`${YELLOW}   ⚠  package.json < latest tag, incrementing from tag: ${GREEN}${newVersion}${RESET}`);
+      }
+    }
+  } else {
+    // Local branch: Extract version from branch name (existing behavior)
+    const versionRegex = /(\d+\.\d+\.\d+)/;
+    const match = branchName.match(versionRegex);
+
+    if (!match) {
+      console.log(`${YELLOW}ℹ️  Branch '${branchName}' does not contain a semantic version (x.y.z).`);
+      console.log(`   Skipping version bump.${RESET}\n`);
+      process.exit(0);
+    }
+
+    newVersion = match[1];
+    console.log(`   🎯 Detected Target Version: ${GREEN}${newVersion}${RESET} (from branch '${branchName}')`);
   }
-
-  const newVersion = match[1];
-  console.log(`   🎯 Detected Target Version: ${GREEN}${newVersion}${RESET} (from branch '${branchName}')`);
 
   // 3. Update package.json & package-lock.json
   try {

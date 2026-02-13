@@ -223,11 +223,13 @@ jobs:
             "$COOLIFY_BASE_URL/api/v1/deploy?uuid=$COOLIFY_APP_ID" \
             -H "Authorization: Bearer $COOLIFY_API_TOKEN"
 
-  # Auto-create release tags when package.json version changes in this push
-  # This job has contents:write permission to push tags and trigger release workflow
-  auto-tag-release:
-    name: Auto Tag Release
+  # Auto-version and tag on main branch
+  # This job runs after successful build-push-sign on main branch only
+  # It auto-increments version based on git tags and commits changes with [skip ci]
+  auto-version-and-tag:
+    name: Auto Version & Tag
     needs: build-push-sign
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -236,29 +238,68 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          # Use PAT instead of GITHUB_TOKEN to allow triggering the Release workflow
-          # Required permissions: Contents - Read and write
-          # Setup: Create Fine-Grained PAT at https://github.com/settings/tokens?type=beta
-          # and add as repository secret named RELEASE_TOKEN
-          token: ${{ secrets.RELEASE_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '20'
 
-      - name: Check for version bump in this push
-        id: version-check
+      - name: Run version bump script
+        env:
+          CI: 'true'
         run: |
           set -euo pipefail
           
-          # Validate package.json exists and has a version field
-          if [ ! -f "./package.json" ]; then
-            echo "ERROR: package.json not found"
+          echo "=== Running version bump script in CI mode ==="
+          
+          # Run the version bump script
+          if ! node scripts/bump-version.js; then
+            echo "ERROR: Version bump script failed"
             exit 1
           fi
           
-          # Extract current version with error handling
+          echo "✓ Version bump script completed successfully"
+
+      - name: Commit version changes
+        id: commit
+        run: |
+          set -euo pipefail
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Check if there are changes to commit
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No version changes to commit"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            
+            # Stage all version-related files
+            git add package.json package-lock.json .env .example.env public/api-docs/openapi.yaml 2>/dev/null || true
+            
+            # Commit with [skip ci] to prevent infinite loop
+            if ! git commit -m "chore: bump version [skip ci]"; then
+              echo "ERROR: Failed to commit version changes"
+              exit 1
+            fi
+            
+            # Push changes
+            if ! git push origin main; then
+              echo "ERROR: Failed to push version changes"
+              exit 1
+            fi
+            
+            echo "✓ Version changes committed and pushed"
+          fi
+
+      - name: Create and push release tag
+        if: steps.commit.outputs.has_changes == 'true' || steps.commit.outputs.has_changes == ''
+        run: |
+          set -euo pipefail
+          
+          # Read version from package.json
           if ! CURRENT_VERSION=$(node -p "require('./package.json').version" 2>&1); then
             echo "ERROR: Failed to read version from package.json"
             echo "${CURRENT_VERSION}"
@@ -270,49 +311,14 @@ jobs:
             exit 1
           fi
           
-          echo "current_version=v${CURRENT_VERSION}" >> $GITHUB_OUTPUT
-          echo "Current version from package.json: v${CURRENT_VERSION}"
-          
-          # Check if package.json version actually changed in this push
-          PREVIOUS_VERSION=""
-          if git cat-file -e ${{ github.event.before }}:package.json 2>/dev/null; then
-            # Extract version from previous commit's package.json
-            git show ${{ github.event.before }}:package.json > /tmp/prev_package.json
-            PREVIOUS_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/prev_package.json', 'utf8')).version" 2>/dev/null || echo "")
-            rm -f /tmp/prev_package.json
-          fi
-          
-          echo "Previous version: ${PREVIOUS_VERSION:-<none>}"
-          
-          if [ "$PREVIOUS_VERSION" = "$CURRENT_VERSION" ] && [ -n "$PREVIOUS_VERSION" ]; then
-            echo "version_changed=false" >> $GITHUB_OUTPUT
-            echo "Version unchanged in this push (both are ${CURRENT_VERSION})"
-            echo "Skipping tag creation"
-          elif git ls-remote --tags origin > /tmp/remote_tags.txt 2>&1; then
-            # Check if tag already exists for this version
-            if grep -q "refs/tags/v${CURRENT_VERSION}$" /tmp/remote_tags.txt; then
-              echo "version_changed=false" >> $GITHUB_OUTPUT
-              echo "Tag v${CURRENT_VERSION} already exists"
-            else
-              echo "version_changed=true" >> $GITHUB_OUTPUT
-              echo "Version changed: ${PREVIOUS_VERSION:-<none>} → ${CURRENT_VERSION}"
-            fi
-          else
-            echo "ERROR: Failed to fetch remote tags"
-            cat /tmp/remote_tags.txt
-            exit 1
-          fi
-
-      - name: Create and push release tag
-        if: steps.version-check.outputs.version_changed == 'true'
-        run: |
-          set -euo pipefail
-          
-          VERSION_TAG="${{ steps.version-check.outputs.current_version }}"
+          VERSION_TAG="v${CURRENT_VERSION}"
           echo "Creating and pushing tag ${VERSION_TAG}"
           
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Check if tag already exists
+          if git ls-remote --tags origin | grep -q "refs/tags/${VERSION_TAG}$"; then
+            echo "Tag ${VERSION_TAG} already exists, skipping tag creation"
+            exit 0
+          fi
           
           # Create annotated tag
           if ! git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"; then
@@ -320,8 +326,7 @@ jobs:
             exit 1
           fi
           
-          # Push tag with PAT (this will trigger the release workflow)
-          # Note: Using GITHUB_TOKEN would NOT trigger the release workflow
+          # Push tag
           if ! git push origin "${VERSION_TAG}"; then
             echo "ERROR: Failed to push tag ${VERSION_TAG}"
             echo "The tag was created locally but not pushed to remote"
