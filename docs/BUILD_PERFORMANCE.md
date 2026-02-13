@@ -196,8 +196,8 @@ The buildx logs will show cache usage:
 ### Cache not working
 
 1. **Verify permissions**:
-   - Workflow needs `actions: write` permission for cache
-   - Check workflow permissions in .github/workflows/
+   - For Docker Buildx cache with `type=gha`, the default `GITHUB_TOKEN` permissions are sufficient
+   - Ensure your workflow permissions in .github/workflows/ are not more restrictive than the default
 
 2. **Check cache size**:
    - GitHub Actions cache has 10GB limit per repository
