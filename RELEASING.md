@@ -50,6 +50,29 @@ We follow [Semantic Versioning 2.0.0](https://semver.org/):
 
 There are three ways to create a release:
 
+### Prerequisites
+
+Before using the auto-tag-release feature, ensure the `RELEASE_TOKEN` secret is configured:
+
+1. **Create a Fine-Grained Personal Access Token**:
+   - Go to https://github.com/settings/tokens?type=beta
+   - Click "Generate new token"
+   - Token name: `GhostClass Release Automation` (or similar)
+   - Expiration: Choose appropriate expiration (recommend 90 days for higher security, up to 6 months for convenience; set rotation reminders)
+   - Repository access: "Only select repositories" → Select your repository
+   - Permissions:
+     - Repository permissions → **Contents: Read and write**
+   - Click "Generate token" and copy the token value
+
+2. **Add the token as a repository secret**:
+   - Go to your repository's Settings > Secrets and variables > Actions
+   - Click "New repository secret"
+   - Name: `RELEASE_TOKEN`
+   - Secret: Paste the PAT value
+   - Click "Add secret"
+
+**Note**: The `RELEASE_TOKEN` is required for the auto-tag-release workflow to trigger the Release workflow. Without it, version tags will be created but releases won't be automatically published.
+
 ### Automatic Release (On Version Bump)
 
 **NEW**: When you update the version in `package.json` and push to the main branch, the CI/CD pipeline will automatically:
@@ -283,6 +306,19 @@ After creating a release:
 - [ ] Announce the release (if needed)
 
 ## Troubleshooting
+
+### Release workflow not triggered after tag push
+
+**Check:**
+- Verify `RELEASE_TOKEN` secret is configured in repository settings
+- Ensure the token has `Contents: Read and write` permissions
+- Check that the token hasn't expired
+- Verify the token is added to the correct repository
+
+If the tag was created but release workflow didn't trigger:
+1. The tag was likely pushed using `GITHUB_TOKEN` instead of `RELEASE_TOKEN`
+2. GitHub Actions workflows cannot trigger other workflows when using `GITHUB_TOKEN`
+3. Solution: Reconfigure `RELEASE_TOKEN` and re-push the tag (see Prerequisites section)
 
 ### Release workflow fails during build
 
