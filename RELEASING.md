@@ -116,6 +116,38 @@ The workflow signs all commits and tags with GPG to satisfy signature requiremen
    EOF
    ```
 
+   > **Security note (non-expiring, unprotected key):**
+   >
+   > - `Expire-Date: 0` creates a non-expiring key. Combined with `%no-protection`, this is convenient for non-interactive automation but increases risk: if the repository (or its Actions secrets) is compromised and the `GPG_PRIVATE_KEY` secret is exfiltrated, an attacker can sign commits and tags as the automation bot indefinitely.
+   > - This tradeoff is acceptable only if you treat the GPG private key as a highly sensitive secret, restrict access to repository settings, and are prepared to rotate and revoke the key quickly if compromise is suspected.
+   >
+   > **Recommended practices:**
+   >
+   > - **Key rotation:** Plan to rotate the GPG key on a regular schedule (e.g., every 12–24 months, or more frequently for high-security environments). Rotation means generating a new key, publishing the new public key, and updating the `GPG_PRIVATE_KEY` secret.
+   > - **Revoke on compromise:** If you suspect that the key or repository secrets were compromised:
+   >   1. Generate a revocation certificate for the compromised key and publish it to any keyservers or internal key distribution mechanisms you use.
+   >   2. Remove the compromised GPG key from GitHub (Settings → SSH and GPG keys).
+   >   3. Delete or immediately rotate any GitHub secrets that contained the old private key.
+   >   4. Generate a new GPG key, add the new public key to GitHub, and update the `GPG_PRIVATE_KEY` secret.
+   > - **Audit and alerts:** Monitor who can change repository secrets and branch protection rules, and enable alerts for unusual activity.
+   >
+   > **Alternative: use an expiring key**
+   >
+   > If you prefer not to use a non-expiring key, you can set an explicit expiration (e.g., 2 years) and document a rotation process:
+   >
+   > ```bash
+   > gpg --batch --gen-key <<EOF
+   > Key-Type: RSA
+   > Key-Length: 4096
+   > Name-Real: GitHub Actions Bot
+   > Name-Email: github-actions[bot]@users.noreply.github.com
+   > Expire-Date: 2y
+   > %no-protection
+   > EOF
+   > ```
+   >
+   > With an expiring key, ensure you schedule key renewal before expiry, update the public key in GitHub, and rotate the `GPG_PRIVATE_KEY` secret to the new key.
+
 2. **Export keys**:
    ```bash
    # List keys to get the key ID
@@ -135,7 +167,7 @@ The workflow signs all commits and tags with GPG to satisfy signature requiremen
 4. **Add secrets to repository**:
    - Go to repository → Settings → Secrets and variables → Actions
    - Add `GPG_PRIVATE_KEY`: Full private key output including headers
-   - Add `GPG_PASSPHRASE`: Create this secret with an empty string value (since the key was generated without a passphrase using `%no-protection`)
+   - Add `GPG_PASSPHRASE`: Either omit this secret entirely, or if your workflow expects it to exist, set it to a benign placeholder value (e.g., a single space character) since the key was generated without a passphrase using `%no-protection`
    
    **Note**: The key is generated without a passphrase for automated use in CI/CD. This is acceptable because:
    - The private key is stored securely in GitHub Secrets (encrypted at rest)
@@ -154,8 +186,8 @@ You can create a release in several ways:
 
 **NEW - Automated Version Bumping**: When a feature branch is merged to main, the CI/CD pipeline will automatically:
 
-1. Detect if the branch name contains a version (e.g., in a version branch like `1.5.4`)
-2. Run the version bump script to update package.json, lockfiles, and documentation
+1. Run the version bump script to compare package.json version with the latest git tag
+2. Determine the new version (auto-increment patch, use package.json version, or no change)
 3. **Create a Pull Request** with the version changes
 4. **Enable auto-merge** on the PR
 5. **Wait for all required checks to pass**:
@@ -447,8 +479,9 @@ After creating a release:
 **Symptoms:** Workflow keeps creating new version bump PRs.
 
 **Possible causes:**
-1. **[skip ci] not working**: Ensure the workflow has the condition `!contains(github.event.head_commit.message, '[skip ci]')`
-2. **Branch name contains version**: The version bump script only runs on branches with semantic versions in the name
+1. **Actor check not configured**: Ensure the workflow has the condition `github.actor != 'github-actions[bot]'` to skip runs triggered by the automation bot itself
+2. **[skip ci] not in PR title**: Verify the PR title includes `[skip ci]` marker which is preserved during squash merge
+3. **Concurrent workflows**: Multiple commits to main in rapid succession can trigger parallel workflows before the first PR is merged
 
 #### GPG signature verification failing
 

@@ -232,9 +232,10 @@ jobs:
     if: |
       github.event_name == 'push' && 
       github.ref == 'refs/heads/main' &&
+      github.actor != 'github-actions[bot]' &&
       !contains(github.event.head_commit.message, '[skip ci]')
-    # Note: The [skip ci] check prevents infinite loops. When the PR is merged with squash,
-    # GitHub preserves the [skip ci] marker from the PR commit message, preventing re-triggering.
+    # Note: The github.actor check prevents infinite loops by skipping runs triggered
+    # by the automation bot itself. The [skip ci] marker provides an additional manual guard.
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -309,7 +310,7 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
           commit-message: 'chore: bump version to v${{ steps.check.outputs.version }} [skip ci]'
-          title: 'chore: bump version to v${{ steps.check.outputs.version }}'
+          title: 'chore: bump version to v${{ steps.check.outputs.version }} [skip ci]'
           body: |
             Automated version bump to v${{ steps.check.outputs.version }}
             
@@ -317,11 +318,11 @@ jobs:
             
             **Changes:**
             - Updated package.json and package-lock.json
-            - Updated .env and .example.env (NEXT_PUBLIC_APP_VERSION)
+            - Updated .example.env (NEXT_PUBLIC_APP_VERSION)
             - Updated public/api-docs/openapi.yaml
             
             **Note:** This PR will auto-merge when all required checks pass.
-          branch: version-bump-${{ steps.check.outputs.version }}
+          branch: version-bump-${{ steps.check.outputs.version }}-${{ github.run_id }}
           delete-branch: true
           committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
           author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
