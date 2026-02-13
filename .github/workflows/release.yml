@@ -154,7 +154,7 @@ jobs:
             PLATFORMS="linux/amd64,linux/arm64"
             echo "📦 Tag push detected - building multi-architecture"
           elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            if [ "${{ inputs.build_arm64 }}" == "true" ]; then
+            if [ "${{ github.event.inputs.build_arm64 }}" == "true" ]; then
               PLATFORMS="linux/amd64,linux/arm64"
               echo "📦 Manual dispatch with ARM64 enabled"
             else
