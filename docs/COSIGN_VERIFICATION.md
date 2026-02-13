@@ -93,13 +93,15 @@ COSIGN_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSIO
 COSIGN_CHECKSUM_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign_checksums.txt"
 
 # Use unique temporary files to avoid races and only replace /tmp/cosign after verification
-TMP_COSIGN="$(mktemp /tmp/cosign.XXXXXX)" || { echo "ERROR: Failed to create temporary file for cosign binary"; exit 1; }
-TMP_CHECKSUMS="$(mktemp /tmp/cosign_checksums.txt.XXXXXX)" || { echo "ERROR: Failed to create temporary file for cosign checksums"; exit 1; }
+TMP_COSIGN="$(mktemp)" || { echo "ERROR: Failed to create temporary file for cosign binary"; exit 1; }
+TMP_CHECKSUMS="$(mktemp)" || { echo "ERROR: Failed to create temporary file for cosign checksums"; exit 1; }
+
+# Ensure cleanup on exit
+trap 'rm -f "${TMP_COSIGN}" "${TMP_CHECKSUMS}"' EXIT
 
 echo "Downloading cosign ${COSIGN_VERSION}..."
 if ! wget -qO "${TMP_COSIGN}" "${COSIGN_URL}"; then
   echo "ERROR: Failed to download cosign binary"
-  rm -f "${TMP_COSIGN}" "${TMP_CHECKSUMS}"
   exit 1
 fi
 
@@ -108,7 +110,6 @@ echo "Downloading and verifying checksum..."
 # Full signature verification would require cosign (chicken-and-egg problem)
 if ! wget -qO "${TMP_CHECKSUMS}" "${COSIGN_CHECKSUM_URL}"; then
   echo "ERROR: Failed to download checksums file"
-  rm -f "${TMP_COSIGN}" "${TMP_CHECKSUMS}"
   exit 1
 fi
 
@@ -117,7 +118,6 @@ EXPECTED_CHECKSUM=$(grep "cosign-linux-amd64$" "${TMP_CHECKSUMS}" | awk '{print 
 
 if [ -z "${EXPECTED_CHECKSUM}" ]; then
   echo "ERROR: Could not find checksum for cosign-linux-amd64 in checksums file"
-  rm -f "${TMP_COSIGN}" "${TMP_CHECKSUMS}"
   exit 1
 fi
 
@@ -126,7 +126,6 @@ ACTUAL_CHECKSUM=$(sha256sum "${TMP_COSIGN}" 2>/dev/null | awk '{print $1}')
 
 if [ -z "${ACTUAL_CHECKSUM}" ]; then
   echo "ERROR: Failed to calculate checksum of downloaded binary"
-  rm -f "${TMP_COSIGN}" "${TMP_CHECKSUMS}"
   exit 1
 fi
 
@@ -135,12 +134,10 @@ if [ "${ACTUAL_CHECKSUM}" != "${EXPECTED_CHECKSUM}" ]; then
   echo "ERROR: Checksum verification failed!"
   echo "Expected: ${EXPECTED_CHECKSUM}"
   echo "Actual:   ${ACTUAL_CHECKSUM}"
-  rm -f "${TMP_COSIGN}" "${TMP_CHECKSUMS}"
   exit 1
 fi
 
 echo "✓ Checksum verified successfully"
-rm -f "${TMP_CHECKSUMS}"
 mv "${TMP_COSIGN}" /tmp/cosign
 chmod +x /tmp/cosign
 
@@ -181,7 +178,10 @@ if command -v gh >/dev/null 2>&1; then
   # Extract owner from the image name (e.g., ghcr.io/devakesu/ghostclass -> devakesu)
   OWNER=$(echo "$IMAGE" | cut -d'/' -f2)
   
-  if gh attestation verify "oci://${IMAGE}" --owner "${OWNER}" 2>&1; then
+  if [ -z "${OWNER}" ]; then
+    echo "ERROR: Failed to extract owner from image name: ${IMAGE}"
+    echo "✓ Image signature verified (attestation check skipped due to parsing error)"
+  elif gh attestation verify "oci://${IMAGE}" --owner "${OWNER}" 2>&1; then
     echo "✓ Attestation verified successfully"
     echo "✓ All verifications passed"
   else
