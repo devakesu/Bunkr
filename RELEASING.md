@@ -92,13 +92,13 @@ You can create a release in several ways:
 
 **Note**: This is fully automated for feature branches. No manual action required.
 
-### Release Branches (Minor/Major Versions)
+### Version Branches (Minor/Major Versions)
 
-For controlled version bumps (minor or major versions), use release branches:
+For controlled version bumps (minor or major versions), use version branches:
 
 ```bash
-# Create a release branch
-git checkout -b release/1.6.0
+# Create a version branch (format: X.Y.Z)
+git checkout -b 1.6.0
 
 # Run the version bump script
 npm run bump-version
@@ -115,17 +115,19 @@ git diff
 # Commit and create PR to main
 git add .
 git commit -m "chore: bump version to v1.6.0"
-git push origin release/1.6.0
+git push origin 1.6.0
 ```
 
-When the release branch is merged to main:
+When the version branch is merged to main:
 1. CI detects `package.json` version (1.6.0) > latest tag (e.g., 1.5.5)
 2. Uses the version from `package.json` (no auto-increment)
 3. Updates remaining files if needed
 4. Creates tag `v1.6.0`
 5. Triggers release workflow
 
-**Branch naming convention**: `release/X.Y.Z` (e.g., `release/1.6.0`, `release/2.0.0`)
+**Branch naming convention**: `X.Y.Z` (e.g., `1.6.0`, `2.0.0`)
+
+**Note**: For feature branches or direct PRs (e.g., `copilot/feature`), the CI will automatically increment the patch version.
 
 ### Manual Release (Workflow Dispatch)
 
@@ -362,11 +364,11 @@ After creating a release:
 
 **Note**: The `auto-version-and-tag` job uses `RELEASE_TOKEN` (a Personal Access Token) to push tags. This is required because `GITHUB_TOKEN` cannot trigger other workflows (including the Release workflow) for security reasons. Tag push events created with a PAT will properly trigger the release workflow.
 
-### Version bump script fails on release branch
+### Version bump script fails on version branch
 
 **Check:**
-- Verify branch name follows the pattern `release/X.Y.Z`
-- Ensure the version in the branch name is a valid semver (e.g., `1.6.0`, not `v1.6.0`)
+- Verify branch name follows the pattern `X.Y.Z` (e.g., `1.6.0`)
+- Ensure the version in the branch name is a valid semver (digits only, no `v` prefix)
 - Check that all version files exist and are writable
 
 ### Release workflow fails during build

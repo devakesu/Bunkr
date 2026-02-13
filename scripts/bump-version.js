@@ -143,19 +143,20 @@ try {
       }
     }
   } else {
-    // Local branch: Extract version from branch name (only for release branches)
-    // Feature/fix branches should skip version bump
-    const releaseRegex = /^release\/(\d+\.\d+\.\d+)$/;
-    const match = branchName.match(releaseRegex);
+    // Local branch: Extract version from branch name (format: X.Y.Z)
+    // Branches with version format (e.g., "1.2.3") will bump to that version
+    // Other branches (e.g., "feature/xyz", "copilot/xyz") will skip
+    const versionRegex = /^(\d+\.\d+\.\d+)$/;
+    const match = branchName.match(versionRegex);
 
     if (!match) {
-      console.log(`${YELLOW}ℹ️  Branch '${branchName}' is not a release branch (release/X.Y.Z).`);
+      console.log(`${YELLOW}ℹ️  Branch '${branchName}' does not match version format (X.Y.Z).`);
       console.log(`   Skipping version bump.${RESET}\n`);
       process.exit(0);
     }
 
     newVersion = match[1];
-    console.log(`   🎯 Detected Target Version: ${GREEN}${newVersion}${RESET} (from release branch '${branchName}')`);
+    console.log(`   🎯 Detected Target Version: ${GREEN}${newVersion}${RESET} (from branch '${branchName}')`);
   }
 
   // 3. Update package.json & package-lock.json
