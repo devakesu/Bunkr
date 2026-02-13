@@ -176,17 +176,24 @@ echo "=== Verifying Build Attestation ==="
 # which must be verified using 'gh attestation verify' (not cosign verify-attestation)
 if command -v gh >/dev/null 2>&1; then
   # Extract owner from the image name (e.g., ghcr.io/devakesu/ghostclass -> devakesu)
-  OWNER=$(echo "$IMAGE" | cut -d'/' -f2)
-  
-  if [ -z "${OWNER}" ]; then
-    echo "ERROR: Failed to extract owner from image name: ${IMAGE}"
-    echo "✓ Image signature verified (attestation check skipped due to parsing error)"
-  elif gh attestation verify "oci://${IMAGE}" --owner "${OWNER}" 2>&1; then
-    echo "✓ Attestation verified successfully"
-    echo "✓ All verifications passed"
+  # Validate image format has registry/owner/repo structure
+  if ! echo "$IMAGE" | grep -q '^[^/]*/[^/]*/'; then
+    echo "⚠ Image format not recognized for attestation verification: ${IMAGE}"
+    echo "  Expected format: registry/owner/repo:tag"
+    echo "✓ Image signature verified (attestation check skipped)"
   else
-    echo "⚠ Attestation verification failed (non-critical)"
-    echo "✓ Image signature verified (attestation check failed)"
+    OWNER=$(echo "$IMAGE" | cut -d'/' -f2)
+    
+    if [ -z "${OWNER}" ]; then
+      echo "⚠ Could not extract owner from image name: ${IMAGE}"
+      echo "✓ Image signature verified (attestation check skipped)"
+    elif gh attestation verify "oci://${IMAGE}" --owner "${OWNER}" 2>&1; then
+      echo "✓ Attestation verified successfully"
+      echo "✓ All verifications passed"
+    else
+      echo "⚠ Attestation verification failed (non-critical)"
+      echo "✓ Image signature verified (attestation check failed)"
+    fi
   fi
 else
   echo "⚠ GitHub CLI (gh) not found - skipping attestation verification"
@@ -197,7 +204,7 @@ fi
 
 **One-liner version for Coolify:**
 
-> ⚠️ **Security warning:** The following one-liner downloads and executes the `cosign` binary **without any checksum or signature verification**. This trades security for convenience and **must not be used in production**. For production environments, use the full verification script above which includes checksum verification.
+> ⚠️ **Security warning:** The following one-liner downloads and executes the `cosign` binary **without any checksum or signature verification**. This compromises security for convenience and **should not be used in production**. For production environments, use the full verification script above which includes checksum verification.
 
 ```bash
 wget -qO /tmp/cosign https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64 && chmod +x /tmp/cosign && /tmp/cosign verify --certificate-identity-regexp="^https://github.com/devakesu/GhostClass/.github/workflows/" --certificate-oidc-issuer https://token.actions.githubusercontent.com ghcr.io/devakesu/ghostclass:main
