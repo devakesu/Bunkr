@@ -7,30 +7,157 @@ const YELLOW = '\x1b[33m';
 const RED = '\x1b[31m';
 const RESET = '\x1b[0m';
 
+// Helper function to get the latest semver tag from git
+function getLatestSemverTag() {
+  try {
+    const tags = execSync('git tag -l').toString().trim();
+    if (!tags) {
+      return null;
+    }
+    
+    const semverTags = tags.split('\n')
+      .filter(tag => /^v\d+\.\d+\.\d+$/.test(tag))
+      .map(tag => tag.substring(1)) // Remove 'v' prefix
+      .sort((a, b) => compareSemver(a, b));
+    
+    return semverTags.length > 0 ? semverTags[semverTags.length - 1] : null;
+  } catch (err) {
+    console.warn(`${YELLOW}⚠️  Warning: Failed to retrieve latest git tag: ${err.message}${RESET}`);
+    return null;
+  }
+}
+
+// Helper function to compare semantic versions
+function compareSemver(a, b) {
+  // Validate inputs are valid semantic versions
+  const semverPattern = /^\d+\.\d+\.\d+$/;
+  if (!semverPattern.test(a) || !semverPattern.test(b)) {
+    throw new Error(`Invalid semantic version format. Expected MAJOR.MINOR.PATCH (e.g., 1.2.3). Got: "${a}", "${b}"`);
+  }
+  
+  const aParts = a.split('.').map(Number);
+  const bParts = b.split('.').map(Number);
+  
+  for (let i = 0; i < 3; i++) {
+    if (aParts[i] > bParts[i]) return 1;
+    if (aParts[i] < bParts[i]) return -1;
+  }
+  return 0;
+}
+
+// Helper function to increment patch version
+function incrementPatch(version) {
+  // Validate input is a valid semantic version
+  const semverPattern = /^\d+\.\d+\.\d+$/;
+  if (!semverPattern.test(version)) {
+    throw new Error(`Invalid semantic version: ${version}. Expected MAJOR.MINOR.PATCH (e.g., 1.2.3)`);
+  }
+  
+  const parts = version.split('.').map(Number);
+  parts[2] += 1;
+  return parts.join('.');
+}
+
 try {
   console.log(`${YELLOW}🚀 Starting Auto-Version Bump...${RESET}`);
 
+  // Detect if running in CI
+  const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
   // 1. Get current branch name
   let branchName = 'unknown';
-  try {
-    branchName = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
-  } catch (_err) {
-    console.error(`${RED}❌ Failed to get git branch. Are you in a git repo?${RESET}`);
-    process.exit(1);
+  
+  if (isCI) {
+    // In GitHub Actions, use GITHUB_REF_NAME environment variable
+    // because checkout action often leaves repo in detached HEAD state
+    branchName = process.env.GITHUB_REF_NAME || 'unknown';
+    console.log(`   ℹ️  Detected branch from GITHUB_REF_NAME: ${branchName}`);
+  } else {
+    // Local development: use git command
+    try {
+      branchName = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+    } catch (_err) {
+      console.error(`${RED}❌ Failed to get git branch. Are you in a git repo?${RESET}`);
+      process.exit(1);
+    }
   }
 
-  // 2. Extract version from branch (e.g., "release/1.2.0" -> "1.2.0")
-  const versionRegex = /(\d+\.\d+\.\d+)/;
-  const match = branchName.match(versionRegex);
+  let newVersion;
 
-  if (!match) {
-    console.log(`${YELLOW}ℹ️  Branch '${branchName}' does not contain a semantic version (x.y.z).`);
-    console.log(`   Skipping version bump.${RESET}\n`);
-    process.exit(0);
+  // 2. Determine version based on context (CI main branch or local branch)
+  if (isCI && branchName === 'main') {
+    console.log(`${YELLOW}   ℹ️  Running in CI on main branch${RESET}`);
+    
+    // Read current package.json version
+    const packageJsonPath = path.join(process.cwd(), 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      console.error(`${RED}❌ package.json not found${RESET}`);
+      process.exit(1);
+    }
+    
+    let packageJson;
+    try {
+      packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    } catch (err) {
+      console.error(`${RED}❌ Failed to parse package.json: Invalid JSON format${RESET}`);
+      if (err && err.message) {
+        console.error(err.message);
+      }
+      process.exit(1);
+    }
+    
+    const currentVersion = String(packageJson.version || '').trim();
+    
+    // Validate the version field contains a valid semantic version
+    const semverPattern = /^\d+\.\d+\.\d+$/;
+    if (!semverPattern.test(currentVersion)) {
+      console.error(`${RED}❌ Invalid package.json version "${currentVersion}". Expected MAJOR.MINOR.PATCH (e.g., 1.2.3).${RESET}`);
+      process.exit(1);
+    }
+    
+    // Get latest semver tag
+    const latestTag = getLatestSemverTag();
+    
+    console.log(`   📦 Current package.json version: ${GREEN}${currentVersion}${RESET}`);
+    console.log(`   🏷️  Latest git tag: ${latestTag ? GREEN + latestTag + RESET : YELLOW + '<none>' + RESET}`);
+    
+    if (!latestTag) {
+      // No tags exist, use package.json version
+      newVersion = currentVersion;
+      console.log(`   🎯 Using package.json version (no tags exist): ${GREEN}${newVersion}${RESET}`);
+    } else {
+      const comparison = compareSemver(currentVersion, latestTag);
+      
+      if (comparison > 0) {
+        // package.json version > latest tag (from merged release branch)
+        newVersion = currentVersion;
+        console.log(`   🎯 Using package.json version (already bumped): ${GREEN}${newVersion}${RESET}`);
+      } else if (comparison === 0) {
+        // package.json version = latest tag (auto-increment patch)
+        newVersion = incrementPatch(currentVersion);
+        console.log(`   🎯 Auto-incrementing patch version: ${GREEN}${newVersion}${RESET}`);
+      } else {
+        // package.json version < latest tag (shouldn't happen, but handle it)
+        newVersion = incrementPatch(latestTag);
+        console.log(`${YELLOW}   ⚠  package.json < latest tag, incrementing from tag: ${GREEN}${newVersion}${RESET}`);
+      }
+    }
+  } else {
+    // Local branch: Extract version from branch name (format: X.Y.Z)
+    // Branches with version format (e.g., "1.2.3") will bump to that version
+    // Other branches (e.g., "feature/xyz", "copilot/xyz") will skip
+    const versionRegex = /^(\d+\.\d+\.\d+)$/;
+    const match = branchName.match(versionRegex);
+
+    if (!match) {
+      console.log(`${YELLOW}ℹ️  Branch '${branchName}' does not match version format (X.Y.Z).`);
+      console.log(`   Skipping version bump.${RESET}\n`);
+      process.exit(0);
+    }
+
+    newVersion = match[1];
+    console.log(`   🎯 Detected Target Version: ${GREEN}${newVersion}${RESET} (from branch '${branchName}')`);
   }
-
-  const newVersion = match[1];
-  console.log(`   🎯 Detected Target Version: ${GREEN}${newVersion}${RESET} (from branch '${branchName}')`);
 
   // 3. Update package.json & package-lock.json
   try {

@@ -18,7 +18,8 @@ This document describes how to create and verify releases for GhostClass.
 
 GhostClass uses GitHub Actions to automate the release process, which includes:
 
-- **Automatic Tagging**: Detects version changes in `package.json` and auto-creates release tags
+- **Automatic Version Bumping**: Auto-increments patch version on pushes to `main` (including merges and direct commits)
+- **Automatic Tagging**: Creates and pushes release tags based on `package.json` version
 - **Semantic Versioning**: Following [semver](https://semver.org/) principles (MAJOR.MINOR.PATCH)
 - **Multi-platform Docker images**: Built for `linux/amd64` and `linux/arm64`
 - **Signed artifacts**: Using Sigstore cosign with keyless (OIDC) signing
@@ -48,17 +49,15 @@ We follow [Semantic Versioning 2.0.0](https://semver.org/):
 
 ## Creating a Release
 
-There are three ways to create a release:
-
 ### Prerequisites
 
-Before using the auto-tag-release feature, ensure the `RELEASE_TOKEN` secret is configured:
+Before the automated version bumping can trigger releases, ensure the `RELEASE_TOKEN` secret is configured:
 
 1. **Create a Fine-Grained Personal Access Token**:
    - Go to https://github.com/settings/tokens?type=beta
    - Click "Generate new token"
    - Token name: `GhostClass Release Automation` (or similar)
-   - Expiration: Choose appropriate expiration (recommend 90 days for higher security, up to 6 months for convenience; set rotation reminders)
+   - Expiration: Choose appropriate expiration (recommend 90 days for higher security)
    - Repository access: "Only select repositories" → Select your repository
    - Permissions:
      - Repository permissions → **Contents: Read and write**
@@ -71,36 +70,68 @@ Before using the auto-tag-release feature, ensure the `RELEASE_TOKEN` secret is 
    - Secret: Paste the PAT value
    - Click "Add secret"
 
-**Note**: The `RELEASE_TOKEN` is required for the auto-tag-release workflow to trigger the Release workflow. Without it, version tags will be created but releases won't be automatically published.
+**Why is this needed?** The `RELEASE_TOKEN` (PAT) is required because `GITHUB_TOKEN` cannot trigger other workflows for security reasons. The `auto-version-and-tag` job needs to push tags that will trigger the Release workflow, which requires a PAT.
 
-### Automatic Release (On Version Bump)
+You can create a release in several ways:
 
-**NEW**: When you update the version in `package.json` and push to the main branch, the CI/CD pipeline will automatically:
+### Automatic Release (Feature Branches)
 
-1. Detect the version change (compares to previous commit)
-2. Create and push a git tag (e.g., `v1.5.4`)
-3. Trigger the release workflow via the tag push
-4. Build and publish the release
+**NEW - Automated Version Bumping**: When a feature branch is merged to main, the CI/CD pipeline will automatically:
 
-**How to use:**
+1. Compare `package.json` version with the latest git tag
+2. Auto-increment the patch version (e.g., `1.5.4` → `1.5.5`)
+3. Update all version files (`package.json`, `package-lock.json`, `.env`, `.example.env`, `public/api-docs/openapi.yaml`)
+4. Commit changes with `[skip ci]` to prevent infinite loops
+5. Create and push a git tag (e.g., `v1.5.5`)
+6. Trigger the release workflow via the tag push
+
+**How it works:**
+- When `package.json` version = latest tag → Auto-increment patch
+- When `package.json` version > latest tag → Use package.json version (from release branch)
+- When no tags exist → Use package.json version
+
+**Note**: This is fully automated for feature branches. No manual action required.
+
+### Version Branches (Minor/Major Versions)
+
+For controlled version bumps (minor or major versions), use version branches:
+
 ```bash
-# Update version in package.json and lockfile(s)
-npm version patch  # or minor, or major
+# Create a version branch (format: X.Y.Z)
+git checkout -b 1.6.0
 
-# Commit and push to main
-git add package.json package-lock.json  # include other lockfiles if present (e.g., yarn.lock, pnpm-lock.yaml)
-git commit -m "chore: bump version to v1.5.4"
-git push origin main
+# Run the version bump script
+npm run bump-version
+
+# The script will:
+# - Extract version (1.6.0) from branch name
+# - Update package.json, package-lock.json
+# - Update .env, .example.env (NEXT_PUBLIC_APP_VERSION)
+# - Update public/api-docs/openapi.yaml
+
+# Review changes
+git diff
+
+# Commit and create PR to main
+git add .
+git commit -m "chore: bump version to v1.6.0"
+git push origin 1.6.0
 ```
 
-The `auto-tag-release` job in the pipeline will:
-- Verify that the version in `package.json` actually changed in your push
-- Create the tag only if it doesn't already exist
-- Push the tag, which automatically triggers the release workflow
+When the version branch is merged to main:
+1. CI detects `package.json` version (1.6.0) > latest tag (e.g., 1.5.5)
+2. Uses the version from `package.json` (no auto-increment)
+3. Updates remaining files if needed
+4. Creates tag `v1.6.0`
+5. Triggers release workflow
 
-**Note**: The job only creates tags when the version is actually changed in the push, preventing unnecessary tags on re-runs or merges where the version hasn't changed.
+**Branch naming convention**: `X.Y.Z` (e.g., `1.6.0`, `2.0.0`)
+
+**Note**: For feature branches or direct PRs (e.g., `copilot/feature`), the CI will automatically increment the patch version.
 
 ### Manual Release (Workflow Dispatch)
+
+**Note**: This method is generally not needed with automated version bumping. Use release branches for controlled version bumps instead.
 
 1. Go to **Actions** → **Release** workflow in GitHub
 2. Click **Run workflow**
@@ -120,6 +151,8 @@ The workflow will:
 - New version: `v1.3.0`
 
 ### Tag-Based Release
+
+**Note**: This method is generally not needed with automated version bumping. Tags are automatically created by the CI/CD pipeline.
 
 1. Create and push a version tag:
    ```bash
@@ -307,18 +340,36 @@ After creating a release:
 
 ## Troubleshooting
 
+### Automatic version bump not working
+
+**Check:**
+- Verify the CI/CD pipeline runs successfully on main branch
+- Check the `auto-version-and-tag` job logs in GitHub Actions
+- Ensure git tags are properly formatted (v*.*.*) and can be fetched
+
+**Common issues:**
+- If no version bump occurs, check that the script can fetch git tags
+- If version comparison fails, check that `package.json` has a valid semver version
+- If commit fails, check that the workflow has `contents: write` permission
+
 ### Release workflow not triggered after tag push
 
 **Check:**
 - Verify `RELEASE_TOKEN` secret is configured in repository settings
 - Ensure the token has `Contents: Read and write` permissions
 - Check that the token hasn't expired
-- Verify the token is added to the correct repository
+- Verify the tag was created and pushed successfully
+- Check the Release workflow is enabled in Actions tab
+- Look for the tag push event in the Actions tab
 
-If the tag was created but release workflow didn't trigger:
-1. The tag was likely pushed using `GITHUB_TOKEN` instead of `RELEASE_TOKEN`
-2. GitHub Actions workflows cannot trigger other workflows when using `GITHUB_TOKEN`
-3. Solution: Reconfigure `RELEASE_TOKEN` and re-push the tag (see Prerequisites section)
+**Note**: The `auto-version-and-tag` job uses `RELEASE_TOKEN` (a Personal Access Token) to push tags. This is required because `GITHUB_TOKEN` cannot trigger other workflows (including the Release workflow) for security reasons. Tag push events created with a PAT will properly trigger the release workflow.
+
+### Version bump script fails on version branch
+
+**Check:**
+- Verify branch name follows the pattern `X.Y.Z` (e.g., `1.6.0`)
+- Ensure the version in the branch name is a valid semver (digits only, no `v` prefix)
+- Check that all version files exist and are writable
 
 ### Release workflow fails during build
 
