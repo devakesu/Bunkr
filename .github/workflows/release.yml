@@ -113,6 +113,7 @@ jobs:
     outputs:
       digest: ${{ steps.build-push.outputs.digest }}
       image_name: ${{ steps.prep.outputs.image_name }}
+      platforms: ${{ steps.prep.outputs.platforms }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -186,7 +187,7 @@ jobs:
           fi
           echo "created=$TIMESTAMP" >> $GITHUB_OUTPUT
 
-      - name: Build & push multi-platform image
+      - name: Build & push Docker image
         id: build-push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
@@ -392,6 +393,7 @@ jobs:
       - name: Generate verification instructions
         env:
           IMAGE_NAME: ${{ needs.build-and-release.outputs.image_name }}
+          PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
         run: |
           cat > ./artifacts/VERIFY.md << EOF
           # Release Verification Instructions
@@ -443,7 +445,7 @@ jobs:
 
           - **Image**: \`ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version_tag }}\`
           - **Digest**: \`${{ needs.build-and-release.outputs.digest }}\`
-          - **Platforms**: \`linux/amd64\`, \`linux/arm64\`
+          - **Platforms**: \`${PLATFORMS}\`
           - **Version**: \`${{ needs.calculate-version.outputs.version }}\`
 
           ## Additional Tags
@@ -462,54 +464,60 @@ jobs:
       - name: Create GitHub Release
         env:
           IMAGE_NAME: ${{ needs.build-and-release.outputs.image_name }}
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
-        with:
-          tag_name: ${{ needs.calculate-version.outputs.version_tag }}
-          name: Release ${{ needs.calculate-version.outputs.version_tag }}
-          body: |
-            ## Release ${{ needs.calculate-version.outputs.version_tag }}
+          PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
+        run: |
+          # Convert platforms to readable format for release notes
+          PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g' | sed 's/,/, /g')
+          
+          # Determine if multi-platform
+          if [[ "${PLATFORMS}" == *","* ]]; then
+            PLATFORM_DESC="Multi-platform Docker images (${PLATFORM_LIST})"
+          else
+            PLATFORM_DESC="Docker image (${PLATFORM_LIST})"
+          fi
+          
+          gh release create "${{ needs.calculate-version.outputs.version_tag }}" \
+            --title "Release ${{ needs.calculate-version.outputs.version_tag }}" \
+            --notes "## Release ${{ needs.calculate-version.outputs.version_tag }}
 
-            This release includes:
-            - 🐳 Multi-platform Docker images (linux/amd64, linux/arm64)
-            - 🔐 Signed images and artifacts using Sigstore cosign
-            - 📋 Software Bill of Materials (SBOM) in CycloneDX format
-            - ✅ Build provenance attestations
-            - 🔍 SHA256 checksums for all artifacts
+          This release includes:
+          - 🐳 ${PLATFORM_DESC}
+          - 🔐 Signed images and artifacts using Sigstore cosign
+          - 📋 Software Bill of Materials (SBOM) in CycloneDX format
+          - ✅ Build provenance attestations
+          - 🔍 SHA256 checksums for all artifacts
 
-            ### Docker Images
+          ### Docker Images
 
-            ```bash
-            docker pull ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}
-            ```
+          \`\`\`bash
+          docker pull ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version_tag }}
+          \`\`\`
 
-            **Image Digest**: `${{ needs.build-and-release.outputs.digest }}`
+          **Image Digest**: \`${{ needs.build-and-release.outputs.digest }}\`
 
-            ### Verification
+          ### Verification
 
-            See [VERIFY.md](https://github.com/${{ github.repository }}/releases/download/${{ needs.calculate-version.outputs.version_tag }}/VERIFY.md) for detailed verification instructions.
+          See [VERIFY.md](https://github.com/${{ github.repository }}/releases/download/${{ needs.calculate-version.outputs.version_tag }}/VERIFY.md) for detailed verification instructions.
 
-            ### Quick Verification
+          ### Quick Verification
 
-            ```bash
-            # Verify image signature
-            cosign verify \
-              --certificate-identity-regexp="^https://github.com/${{ github.repository }}" \
-              --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-              ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}
+          \`\`\`bash
+          # Verify image signature
+          cosign verify \\
+            --certificate-identity-regexp=\"^https://github.com/${{ github.repository }}\" \\
+            --certificate-oidc-issuer=\"https://token.actions.githubusercontent.com\" \\
+            ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version_tag }}
 
-            # Verify attestation
-            gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }} --owner ${{ github.repository_owner }}
-            ```
+          # Verify attestation
+          gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version_tag }} --owner ${{ github.repository_owner }}
+          \`\`\`
 
-            ---
+          ---
 
-            **Full Changelog**: ${{ github.server_url }}/${{ github.repository }}/compare/${{ steps.prev_version.outputs.changelog_text }}
-          files: |
-            ./artifacts/sbom.json
-            ./artifacts/sbom.json.bundle
-            ./artifacts/checksums.txt
-            ./artifacts/VERIFY.md
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          fail_on_unmatched_files: true
+          **Full Changelog**: ${{ github.server_url }}/${{ github.repository }}/compare/${{ steps.prev_version.outputs.changelog_text }}" \
+            ./artifacts/sbom.json \
+            ./artifacts/sbom.json.bundle \
+            ./artifacts/checksums.txt \
+            ./artifacts/VERIFY.md \
+            --draft=false \
+            --generate-notes
