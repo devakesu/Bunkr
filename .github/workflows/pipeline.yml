@@ -231,12 +231,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}  # Use PAT instead of GITHUB_TOKEN
 
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -316,7 +316,8 @@ jobs:
             exit 1
           fi
           
-          # Push tag with error handling
+          # Push tag with PAT (this will trigger the release workflow)
+          # Note: Using GITHUB_TOKEN would NOT trigger the release workflow
           if ! git push origin "${VERSION_TAG}"; then
             echo "ERROR: Failed to push tag ${VERSION_TAG}"
             echo "The tag was created locally but not pushed to remote"
