@@ -96,8 +96,8 @@ COSIGN_CHECKSUM_URL="https://github.com/sigstore/cosign/releases/download/${COSI
 TMP_COSIGN=""
 TMP_CHECKSUMS=""
 
-# Ensure cleanup on exit
-trap 'rm -f "${TMP_COSIGN}" "${TMP_CHECKSUMS}"' EXIT
+# Ensure cleanup on exit (only remove files if paths are non-empty)
+trap '[[ -n "${TMP_COSIGN:-}" ]] && rm -f "$TMP_COSIGN"; [[ -n "${TMP_CHECKSUMS:-}" ]] && rm -f "$TMP_CHECKSUMS"' EXIT
 
 TMP_COSIGN="$(mktemp)" || { echo "ERROR: Failed to create temporary file for cosign binary"; exit 1; }
 TMP_CHECKSUMS="$(mktemp)" || { echo "ERROR: Failed to create temporary file for cosign checksums"; exit 1; }
@@ -117,7 +117,7 @@ if ! wget -qO "${TMP_CHECKSUMS}" "${COSIGN_CHECKSUM_URL}"; then
 fi
 
 # Extract the expected checksum for cosign-linux-amd64
-EXPECTED_CHECKSUM=$(grep "cosign-linux-amd64$" "${TMP_CHECKSUMS}" | awk '{print $1}')
+EXPECTED_CHECKSUM=$(grep "cosign-linux-amd64$" "${TMP_CHECKSUMS}" | awk '{print $1}' || true)
 
 if [ -z "${EXPECTED_CHECKSUM}" ]; then
   echo "ERROR: Could not find checksum for cosign-linux-amd64 in checksums file"
@@ -125,7 +125,7 @@ if [ -z "${EXPECTED_CHECKSUM}" ]; then
 fi
 
 # Calculate actual checksum of downloaded binary
-ACTUAL_CHECKSUM=$(sha256sum "${TMP_COSIGN}" 2>/dev/null | awk '{print $1}')
+ACTUAL_CHECKSUM=$(sha256sum "${TMP_COSIGN}" 2>/dev/null | awk '{print $1}' || true)
 
 if [ -z "${ACTUAL_CHECKSUM}" ]; then
   echo "ERROR: Failed to calculate checksum of downloaded binary"
