@@ -467,7 +467,7 @@ jobs:
           PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
         run: |
           # Convert platforms to readable format for release notes
-          PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g' | sed 's/,/, /g')
+          PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
           
           # Determine if multi-platform
           if [[ "${PLATFORMS}" == *","* ]]; then
