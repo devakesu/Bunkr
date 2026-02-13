@@ -370,21 +370,3 @@ jobs:
           
           echo "✓ Release tag ${VERSION_TAG} created and pushed"
           echo "The release workflow will be triggered automatically by the tag push"
-            exit 0
-          fi
-          
-          # Create annotated tag
-          if ! git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"; then
-            echo "ERROR: Failed to create tag ${VERSION_TAG}"
-            exit 1
-          fi
-          
-          # Push tag
-          if ! git push origin "${VERSION_TAG}"; then
-            echo "ERROR: Failed to push tag ${VERSION_TAG}"
-            echo "The tag was created locally but not pushed to remote"
-            exit 1
-          fi
-          
-          echo "✓ Release tag ${VERSION_TAG} created and pushed"
-          echo "The release workflow will be triggered automatically by the tag push"
