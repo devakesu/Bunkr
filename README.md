@@ -309,10 +309,8 @@ x = (target*total - 100*present) / (100 - target)
    ```
 
 The application will be available at:
-- **App**: `http://localhost:3000`
+- **App**: `http://localhost:3000` 🎉
 - **API Docs**: `http://localhost:3000/api-docs`
-
-🎉
 
 <br />
 
