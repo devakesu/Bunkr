@@ -662,7 +662,7 @@ could not create workflow dispatch event: HTTP 403: Resource not accessible by i
 If you still see this error:
 
 1. **Verify the pipeline is up to date:**
-   - Check that `.github/workflows/pipeline.yml` uses `gh api repos/.../dispatches` with `event_type="release_requested"`
+   - Check that `.github/workflows/pipeline.yml` uses `gh api repos/${{ github.repository }}/dispatches` with `event_type="release_requested"`
    - The step should be named "Trigger release workflow via repository_dispatch"
 
 2. **Verify the release workflow accepts repository_dispatch:**
