@@ -19,7 +19,7 @@ jobs:
     # Security: Only run on version bump PRs from the trusted bot
     if: |
       github.event_name != 'pull_request_target' ||
-      (startsWith(github.head_ref, 'version-bump-') && github.actor == 'ghostclass-release-automation[bot]')
+      (startsWith(github.event.pull_request.head.ref, 'version-bump-') && github.actor == 'ghostclass-release-automation[bot]')
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -49,7 +49,7 @@ jobs:
     # Security: Only run on version bump PRs from the trusted bot
     if: |
       github.event_name != 'pull_request_target' ||
-      (startsWith(github.head_ref, 'version-bump-') && github.actor == 'ghostclass-release-automation[bot]')
+      (startsWith(github.event.pull_request.head.ref, 'version-bump-') && github.actor == 'ghostclass-release-automation[bot]')
     env:
       # Mock environment variables for E2E tests
       ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
