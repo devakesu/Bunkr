@@ -623,7 +623,7 @@ git push origin "v${VERSION}"
 - If no version bump occurs, check that the script can fetch git tags
 - If version comparison fails, check that `package.json` has a valid semver version
 - If commit fails, check that the workflow has `contents: write` permission
-- If release workflow doesn't trigger, check that the GitHub App token has necessary permissions
+- If release workflow doesn't trigger, check that the GitHub App has `Actions: Read and write` permission (required for workflow_dispatch)
 
 ### Release workflow not triggered after tag push
 

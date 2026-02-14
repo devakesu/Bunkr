@@ -179,12 +179,28 @@ jobs:
               echo "PR #${PR_NUMBER} is ready, merging now..."
               
               # Merge the PR immediately (without --auto flag for immediate merge)
-              if gh pr merge "${PR_NUMBER}" --squash 2>&1; then
+              MERGE_OUTPUT=$(gh pr merge "${PR_NUMBER}" --squash 2>&1)
+              MERGE_EXIT_CODE=$?
+              
+              if [ $MERGE_EXIT_CODE -eq 0 ]; then
                 echo "✓ PR #${PR_NUMBER} merged successfully"
                 break
               else
                 echo "Merge attempt failed, will retry after ${POLL_INTERVAL}s..."
-                echo "This may occur if the PR is still being processed by GitHub"
+                echo "Error output: ${MERGE_OUTPUT}"
+                
+                # Check if error indicates branch protection issues
+                if echo "${MERGE_OUTPUT}" | grep -qi "required status check"; then
+                  echo "⚠ Merge blocked by branch protection rules"
+                  echo "Ensure the GitHub App is added to the branch protection bypass list"
+                  echo "See RELEASING.md for configuration details"
+                elif echo "${MERGE_OUTPUT}" | grep -qi "not authorized"; then
+                  echo "⚠ GitHub App lacks merge permissions"
+                  echo "Ensure the GitHub App is in the branch protection bypass list"
+                  echo "See RELEASING.md for configuration details"
+                else
+                  echo "This may occur if the PR is still being processed by GitHub"
+                fi
               fi
             elif [ "$PR_STATE" = "MERGED" ]; then
               echo "✓ PR #${PR_NUMBER} already merged"
