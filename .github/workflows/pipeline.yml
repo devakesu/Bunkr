@@ -3,6 +3,9 @@ name: CI/CD Pipeline
 on:
   pull_request:
     branches: [main]
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened]
   push:
     branches: [main]
   merge_group:
@@ -17,9 +20,15 @@ jobs:
   guard:
     name: Build Guard
     runs-on: ubuntu-latest
+    # Security: Only run on version bump PRs from the trusted bot
+    if: |
+      github.event_name != 'pull_request_target' ||
+      (startsWith(github.event.pull_request.head.ref, 'version-bump-') && github.event.pull_request.user.login == 'ghostclass-release-automation[bot]')
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
   # This job only runs if guard passes AND we are pushing to main (merging)
   # Note: For formal releases with semantic versioning, use the release workflow (.github/workflows/release.yml)
   # This job provides continuous deployment with attestations for main branch builds.
