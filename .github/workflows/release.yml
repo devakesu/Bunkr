@@ -524,3 +524,34 @@ jobs:
             ./artifacts/checksums.txt \
             ./artifacts/VERIFY.md \
             --draft=false
+
+  # Deploy to production after successful release creation
+  # This ensures deployment only happens after the full release completes successfully
+  deploy-to-production:
+    name: Deploy to Production
+    needs: [calculate-version, build-and-release, create-github-release]
+    runs-on: ubuntu-latest
+    # Only deploy on tag pushes (not manual workflow_dispatch)
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    steps:
+      - name: Trigger Coolify deployment
+        env:
+          COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
+          COOLIFY_APP_ID: ${{ secrets.COOLIFY_APP_ID }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          
+          # Validate required Coolify configuration
+          : "${COOLIFY_BASE_URL:?COOLIFY_BASE_URL secret is required}"
+          : "${COOLIFY_APP_ID:?COOLIFY_APP_ID secret is required}"
+          : "${COOLIFY_API_TOKEN:?COOLIFY_API_TOKEN secret is required}"
+          
+          echo "Deploying version ${{ needs.calculate-version.outputs.version_tag }} to Coolify"
+          echo "Note: Ensure Coolify is configured to pull the versioned tag (e.g., ${{ needs.calculate-version.outputs.version_tag }})"
+          
+          curl --fail-with-body --silent --show-error \
+            "$COOLIFY_BASE_URL/api/v1/deploy?uuid=$COOLIFY_APP_ID" \
+            -H "Authorization: Bearer $COOLIFY_API_TOKEN"
+          
+          echo "✓ Deployment triggered successfully"
