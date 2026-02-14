@@ -41,11 +41,13 @@ jobs:
   # 2. Branch name NOT in x.x.x format (e.g., "copilot/*", "feature/*"):
   #    - Version needs to be bumped automatically
   #    - Creates PR with version bump → Merges immediately → Creates tag
-  #    - Note: Tests don't run on version bump PR (only version numbers change)
+  #    - Note: test.yml may still run tests on version-bump PRs via pull_request_target,
+  #      but this pipeline does not wait for those tests (only version numbers change)
   #    - Previous PR's tests are sufficient for validation
   # 
-  # In both cases, the tag triggers .github/workflows/release.yml for signed releases
-  # which builds, signs, and deploys the Docker image with the correct version
+  # For tags created by this workflow, .github/workflows/release.yml is invoked via an
+  # explicit workflow_dispatch step (workflow-created tags do not auto-trigger other workflows),
+  # which builds, signs, and deploys the Docker image with the correct version.
   auto-version-and-tag:
     name: Auto Version & Tag
     needs: guard
@@ -143,7 +145,7 @@ jobs:
             - Updated .example.env (NEXT_PUBLIC_APP_VERSION)
             - Updated public/api-docs/openapi.yaml
             
-            **Note:** This PR will be merged immediately without waiting for checks.
+            **Note:** This PR is intended to be merged automatically by the CI/CD pipeline.
           branch: version-bump-${{ steps.check.outputs.version }}-${{ github.run_id }}
           delete-branch: true
           committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
@@ -161,8 +163,9 @@ jobs:
           POLL_INTERVAL=10  # 10 seconds
           elapsed=0
           
-          echo "Merging version bump PR #${PR_NUMBER} without waiting for checks"
-          echo "Note: Tests already passed on the previous PR"
+          echo "Merging version bump PR #${PR_NUMBER} without waiting for test workflows"
+          echo "Note: test.yml may run on this PR, but we don't wait for it"
+          echo "The original PR's tests already passed before triggering this version bump"
           
           # Give GitHub a moment to fully process the PR creation
           sleep 5
@@ -204,6 +207,7 @@ jobs:
           echo "✓ Version bump PR merged successfully"
 
       - name: Fetch latest changes and create release tag
+        id: create-tag
         if: steps.check.outputs.version != ''
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -231,6 +235,7 @@ jobs:
           # Check if tag already exists (skip if it does)
           if git ls-remote --tags origin | grep -q "refs/tags/${VERSION_TAG}$"; then
             echo "Tag ${VERSION_TAG} already exists, skipping tag creation"
+            echo "tag_created=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           
@@ -250,6 +255,7 @@ jobs:
             if git ls-remote --tags origin | grep -q "refs/tags/${VERSION_TAG}$"; then
               echo "Tag ${VERSION_TAG} now exists on remote; assuming it was created by a concurrent workflow run."
               echo "Treating this as success."
+              echo "tag_created=false" >> $GITHUB_OUTPUT
               exit 0
             fi
             
@@ -259,9 +265,10 @@ jobs:
           
           echo "✓ Release tag ${VERSION_TAG} created and pushed"
           echo "The release workflow will be triggered explicitly via workflow_dispatch"
+          echo "tag_created=true" >> $GITHUB_OUTPUT
 
       - name: Trigger release workflow
-        if: steps.check.outputs.version != ''
+        if: steps.create-tag.outputs.tag_created == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |

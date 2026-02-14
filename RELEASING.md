@@ -197,15 +197,18 @@ You can create a release in several ways:
 - Create and push git tag immediately (e.g., `v1.5.6`)
 - **Trigger the release workflow via workflow_dispatch** (explicit trigger to ensure it runs)
 - **Release workflow builds, signs, and deploys** the Docker image with the correct version
+  - Automated workflow_dispatch releases (with version_tag) auto-deploy to production
 
 **Scenario B: Version needs updating (branch name ≠ `x.x.x`, e.g., `copilot/*`, `feature/*`)**
 - **Create a Pull Request** with the version changes
 - **Merge the PR immediately** (tests already passed on the previous PR)
   - Version bump PR only changes version numbers, not code logic
+  - test.yml may still run on the version-bump PR, but the pipeline doesn't wait
   - Previous PR's tests are sufficient for validation
 - Create and push a git tag (e.g., `v1.5.5`)
 - **Trigger the release workflow via workflow_dispatch** (explicit trigger to ensure it runs)
 - **Release workflow builds, signs, and deploys** the Docker image with the correct version
+  - Automated workflow_dispatch releases (with version_tag) auto-deploy to production
 
 **How it works:**
 - The pipeline workflow runs on every push to main branch
@@ -629,7 +632,9 @@ git push origin "v${VERSION}"
 - Ensure the GitHub App has `Contents: Read and write` permissions
 - Verify the tag was created and pushed successfully
 - Check the Release workflow is enabled in Actions tab
-- Look for the workflow_dispatch event in the Actions tab (not just tag push)
+- Look for the workflow_dispatch event in the Actions tab
+  - For automated releases from pipeline: Look for workflow_dispatch runs
+  - For manual tag pushes: Look for push (tag) events
 
 **Note**: The `auto-version-and-tag` job uses a GitHub App token to push tags and then explicitly triggers the release workflow via `workflow_dispatch`. This is required because tag push events from within a workflow don't automatically trigger other workflows (GitHub Actions security feature). The workflow_dispatch approach ensures the release workflow runs reliably.
 
@@ -642,9 +647,16 @@ git push origin "v${VERSION}"
 - Check that `COOLIFY_BASE_URL`, `COOLIFY_APP_ID`, and `COOLIFY_API_TOKEN` secrets are configured
 - Verify the deployment step in the release workflow's `deploy-to-production` job executed
 - Check Coolify logs to see if the deployment webhook was received
-- Ensure the event was a tag push (deployment only triggers on tag pushes, not manual workflow_dispatch)
+- Verify the trigger type:
+  - **Automated releases**: workflow_dispatch with version_tag → auto-deploys
+  - **Manual workflow_dispatch**: with bump_type only (no version_tag) → does NOT auto-deploy
+  - **Manual tag push**: by developer → auto-deploys
 
-**Note**: Deployment now happens in the release workflow after building the versioned image. This ensures the correct version is deployed to production.
+**Note**: The deploy-to-production job runs when:
+1. A tag is pushed directly (e.g., by a developer), OR
+2. The release workflow is triggered via workflow_dispatch with a version_tag parameter (automated releases from pipeline)
+
+Manual workflow_dispatch releases using bump_type only (without version_tag) do not auto-deploy and must be deployed separately if needed.
 
 ### Wrong version deployed to production
 

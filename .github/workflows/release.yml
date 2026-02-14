@@ -71,6 +71,16 @@ jobs:
             echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
             echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
             echo "Using provided version tag: ${VERSION_TAG}"
+            
+            # Validate that the tag exists
+            if ! git rev-parse "refs/tags/${VERSION_TAG}" >/dev/null 2>&1; then
+              echo "ERROR: Tag ${VERSION_TAG} does not exist in the repository"
+              exit 1
+            fi
+            
+            # Checkout the tag to ensure we build the correct version
+            echo "Checking out tag ${VERSION_TAG} for build"
+            git checkout "refs/tags/${VERSION_TAG}"
           else
             # Manual dispatch: calculate next version from latest tag
             # Filter to strict semver tags only
@@ -543,8 +553,11 @@ jobs:
     name: Deploy to Production
     needs: [calculate-version, build-and-release, create-github-release]
     runs-on: ubuntu-latest
-    # Only deploy on tag pushes (not manual workflow_dispatch)
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+    # Deploy on tag pushes OR workflow_dispatch with version_tag (automated releases)
+    # Manual workflow_dispatch without version_tag (bump_type only) does not auto-deploy
+    if: |
+      (github.event_name == 'push' && github.ref_type == 'tag') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.version_tag != '')
     steps:
       - name: Trigger Coolify deployment
         env:
