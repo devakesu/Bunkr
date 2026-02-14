@@ -284,7 +284,7 @@ jobs:
           echo "The release workflow will be triggered explicitly via workflow_dispatch"
           echo "tag_created=true" >> $GITHUB_OUTPUT
 
-      - name: Trigger release workflow
+      - name: Trigger release workflow via repository_dispatch
         if: steps.create-tag.outputs.tag_created == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -293,27 +293,16 @@ jobs:
           
           VERSION_TAG="v${{ steps.check.outputs.version }}"
           
-          echo "Triggering release workflow for ${VERSION_TAG}"
+          echo "Triggering release workflow for ${VERSION_TAG} via repository_dispatch"
           
-          max_attempts=5
-          delay=5
-          attempt=1
+          # Use repository_dispatch instead of workflow_dispatch
+          # This only requires contents: write permission (no actions: write needed)
+          gh api repos/${{ github.repository }}/dispatches \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -f event_type="release_requested" \
+            -f client_payload[version_tag]="${VERSION_TAG}" \
+            -f client_payload[triggered_by]="auto-version-and-tag" \
+            -f client_payload[run_id]="${{ github.run_id }}"
           
-          while [ "$attempt" -le "$max_attempts" ]; do
-            if gh workflow run release.yml \
-              --ref "${VERSION_TAG}" \
-              -f version_tag="${VERSION_TAG}"; then
-              echo "✓ Release workflow triggered for ${VERSION_TAG} (attempt ${attempt})"
-              break
-            fi
-            
-            if [ "$attempt" -eq "$max_attempts" ]; then
-              echo "✗ Failed to trigger release workflow for ${VERSION_TAG} after ${max_attempts} attempts"
-              exit 1
-            fi
-            
-            echo "Release workflow trigger failed on attempt ${attempt}, retrying in ${delay}s..."
-            sleep "$delay"
-            attempt=$((attempt + 1))
-            delay=$((delay * 2))
-          done
+          echo "✓ Release workflow dispatch event sent for ${VERSION_TAG}"
