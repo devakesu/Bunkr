@@ -410,6 +410,9 @@ jobs:
         run: |
           set -euo pipefail
           
+          # Configure git to use GitHub CLI authentication (needed because persist-credentials: false)
+          gh auth setup-git
+          
           VERSION_TAG="v${{ steps.check.outputs.version }}"
           
           # If changes were made, we need to fetch the merged PR
