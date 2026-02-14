@@ -186,7 +186,7 @@ You can create a release in several ways:
 
 **Automated Version Bumping and Release**: When a branch is merged to main, the CI/CD pipeline will automatically:
 
-1. Run the guard job to check out the repository
+1. Run the guard job (a prerequisite that checks out the repository to enable subsequent jobs)
 2. Run the version bump script to compare package.json version with the latest git tag
 3. Determine the new version (auto-increment patch, use package.json version, or no change)
 4. **Two scenarios based on whether version files need updating:**

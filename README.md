@@ -560,10 +560,10 @@ docker run -p 3000:3000 --env-file .env ghostclass
 **Single-Build Architecture**: The deployment pipeline is optimized to build Docker images only once per release:
 
 - **Pipeline Workflow** (`pipeline.yml`)
-  - Runs on every PR and push (guard job performs repository checkout)
+  - Runs on every PR and push (guard job is a prerequisite that checks out code)
   - Manages automatic version bumping on main branch
   - Creates version tags that trigger releases
-  - No Docker builds or code validation steps
+  - No Docker builds (actual validation happens in test.yml workflow)
 
 - **Release Workflow** (`release.yml`)
   - Triggered automatically by version tag pushes
