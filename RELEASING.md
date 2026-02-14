@@ -200,7 +200,6 @@ You can create a release in several ways:
 
 **Scenario B: Version needs updating (branch name ≠ `x.x.x`, e.g., `copilot/*`, `feature/*`)**
 - **Create a Pull Request** with the version changes
-- **Enable auto-merge** on the PR
 - **Merge the PR immediately** (tests already passed on the previous PR)
   - Version bump PR only changes version numbers, not code logic
   - Previous PR's tests are sufficient for validation
@@ -569,11 +568,11 @@ git push --delete origin v1.5.8
 
 #### Timeout waiting for PR merge
 
-**Symptoms:** Workflow fails with "Timeout waiting for PR merge".
+**Symptoms:** Workflow fails with "Failed to merge PR" or timeout error.
 
 **Possible causes:**
 1. **GitHub API slow to process PR**: Rare, but GitHub might be experiencing delays
-2. **Auto-merge disabled**: Ensure auto-merge is enabled in repository settings
+2. **Branch protection rules**: Ensure the GitHub App is in the bypass list
 3. **GitHub App permissions**: Verify the app has merge permissions
 
 **Fix:** If the workflow times out, you can manually create the tag:
@@ -587,7 +586,7 @@ git tag -a "v${VERSION}" -m "Release v${VERSION}"
 git push origin "v${VERSION}"
 ```
 
-**Note:** The timeout is now only 5 minutes (reduced from 15) since we're not waiting for checks to complete, only for the PR to be created and merged.
+**Note:** The timeout is 5 minutes for PR creation and merge completion.
 
 #### Release not created after merging version bump PR
 

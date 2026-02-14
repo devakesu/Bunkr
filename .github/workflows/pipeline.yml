@@ -143,13 +143,13 @@ jobs:
             - Updated .example.env (NEXT_PUBLIC_APP_VERSION)
             - Updated public/api-docs/openapi.yaml
             
-            **Note:** This PR will auto-merge when all required checks pass.
+            **Note:** This PR will be merged immediately without waiting for checks.
           branch: version-bump-${{ steps.check.outputs.version }}-${{ github.run_id }}
           delete-branch: true
           committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
           author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
 
-      - name: Enable auto-merge
+      - name: Merge version bump PR
         if: steps.check.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -157,38 +157,26 @@ jobs:
           set -euo pipefail
           
           PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
-          
-          echo "Enabling auto-merge for PR #${PR_NUMBER}"
-          gh pr merge "${PR_NUMBER}" --auto --squash
-          echo "✓ Auto-merge enabled"
-
-      - name: Merge version bump PR immediately
-        if: steps.check.outputs.has_changes == 'true'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          
-          PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
-          MAX_WAIT=300  # 5 minutes - only waiting for PR to be ready, not for checks
+          MAX_WAIT=300  # 5 minutes - waiting for PR creation and merge to complete
           POLL_INTERVAL=10  # 10 seconds
           elapsed=0
           
-          echo "Merging version bump PR #${PR_NUMBER} immediately (checks from previous PR are sufficient)"
+          echo "Merging version bump PR #${PR_NUMBER} without waiting for checks"
+          echo "Note: Tests already passed on the previous PR"
           
-          # Wait for PR to be ready (sometimes GitHub needs a moment to process the PR)
+          # Wait for PR to be created and ready for merge
           while [ $elapsed -lt $MAX_WAIT ]; do
             PR_STATE=$(gh pr view "${PR_NUMBER}" --json state --jq '.state')
             
             if [ "$PR_STATE" = "OPEN" ]; then
-              echo "PR #${PR_NUMBER} is ready, attempting merge..."
+              echo "PR #${PR_NUMBER} is ready, merging now..."
               
-              # Merge the PR directly (auto-merge already enabled, but we'll force it)
-              if gh pr merge "${PR_NUMBER}" --squash --auto; then
-                echo "✓ PR #${PR_NUMBER} merge initiated"
+              # Merge the PR immediately (without --auto flag for immediate merge)
+              if gh pr merge "${PR_NUMBER}" --squash; then
+                echo "✓ PR #${PR_NUMBER} merged successfully"
                 break
               else
-                echo "Merge command executed, waiting for PR to be merged..."
+                echo "Merge failed, will retry..."
               fi
             elif [ "$PR_STATE" = "MERGED" ]; then
               echo "✓ PR #${PR_NUMBER} already merged"
@@ -202,28 +190,10 @@ jobs:
             elapsed=$((elapsed + POLL_INTERVAL))
           done
           
-          # Wait for merge to complete
-          echo "Waiting for PR to be fully merged..."
-          elapsed=0
-          while [ $elapsed -lt $MAX_WAIT ]; do
-            PR_STATE=$(gh pr view "${PR_NUMBER}" --json state --jq '.state')
-            
-            if [ "$PR_STATE" = "MERGED" ]; then
-              echo "✓ PR #${PR_NUMBER} has been merged"
-              break
-            elif [ "$PR_STATE" = "CLOSED" ]; then
-              echo "ERROR: PR #${PR_NUMBER} was closed without merging"
-              exit 1
-            fi
-            
-            sleep $POLL_INTERVAL
-            elapsed=$((elapsed + POLL_INTERVAL))
-          done
-          
-          # Final verification
+          # Final verification that PR was merged
           PR_STATE=$(gh pr view "${PR_NUMBER}" --json state --jq '.state')
           if [ "$PR_STATE" != "MERGED" ]; then
-            echo "ERROR: Timeout waiting for PR merge after ${MAX_WAIT}s"
+            echo "ERROR: Failed to merge PR #${PR_NUMBER} after ${MAX_WAIT}s"
             exit 1
           fi
           
