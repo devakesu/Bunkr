@@ -15,7 +15,8 @@ permissions:
   contents: read
 
 jobs:
-  # This job acts as your "Guard". It runs on EVERY PR and Push.
+  # This job acts as a prerequisite for the pipeline. It runs on EVERY PR and Push.
+  # Currently performs repository checkout to prepare for subsequent jobs.
   # For formal releases with versioning and signed artifacts, see .github/workflows/release.yml
   guard:
     name: Build Guard

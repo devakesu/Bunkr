@@ -560,17 +560,17 @@ docker run -p 3000:3000 --env-file .env ghostclass
 **Single-Build Architecture**: The deployment pipeline is optimized to build Docker images only once per release:
 
 - **Pipeline Workflow** (`pipeline.yml`)
-  - Validates code on every PR and push
+  - Runs on every PR and push (guard job performs repository checkout)
   - Manages automatic version bumping on main branch
   - Creates version tags that trigger releases
-  - No Docker builds (validation only)
+  - No Docker builds or code validation steps
 
 - **Release Workflow** (`release.yml`)
   - Triggered automatically by version tag pushes
   - Builds multi-platform Docker images (`linux/amd64`, `linux/arm64`)
   - Signs images and generates attestations
   - Creates GitHub releases with artifacts
-  - **Deploys versioned image to Coolify**
+  - **Deploys versioned image to Coolify after successful release creation**
 
 - **Key Benefits**
   - ✅ Single build per release (saves 10-15 minutes)

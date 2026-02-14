@@ -186,7 +186,7 @@ You can create a release in several ways:
 
 **Automated Version Bumping and Release**: When a branch is merged to main, the CI/CD pipeline will automatically:
 
-1. Validate the code with the guard job
+1. Run the guard job to check out the repository
 2. Run the version bump script to compare package.json version with the latest git tag
 3. Determine the new version (auto-increment patch, use package.json version, or no change)
 4. **Two scenarios based on whether version files need updating:**
@@ -331,9 +331,21 @@ docker pull ghcr.io/devakesu/ghostclass:latest
 
 **Note**: Replace `devakesu/ghostclass` with your `{OWNER}/{REPO}` (repository name in lowercase).
 
+**Available Tags**:
+- **Version tags** (e.g., `v1.3.0`, `1.3.0`): Produced by the release workflow for each tagged release
+- **`latest`**: Only updated for manual workflow_dispatch releases
+
+**Tags No Longer Produced**:
+- `main`: Previously built by pipeline.yml on every push to main (removed to eliminate duplicate builds)
+- `{sha}`: Previously built by pipeline.yml with commit SHA (removed to eliminate duplicate builds)
+
+If you have systems or documentation that depend on `:main` or commit-SHA tags, update them to use version tags instead.
+
 **Platforms**: `linux/amd64`, `linux/arm64` (for tag pushes); `linux/amd64` only for manual dispatch unless ARM64 is explicitly enabled
 
-**Deployment**: The versioned image (e.g., `v1.3.0`) is automatically deployed to production via Coolify after the release build completes.
+**Deployment**: For tag-based releases (tag pushes), the versioned image (e.g., `v1.3.0`) is automatically deployed to production via Coolify after the GitHub release is successfully created. Manually dispatched releases do not trigger automatic deployment and must be deployed separately if needed.
+
+**Note**: Ensure your Coolify application is configured to pull images using the version tag format (e.g., `ghcr.io/devakesu/ghostclass:v1.3.0`) so deployments use the correct versioned image.
 
 ### Attached Files
 
