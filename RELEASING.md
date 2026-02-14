@@ -184,18 +184,19 @@ You can create a release in several ways:
 
 ### Automatic Release (On Version Bump)
 
-**NEW - Automated Version Bumping**: When a branch is merged to main, the CI/CD pipeline will automatically:
+**Automated Version Bumping and Release**: When a branch is merged to main, the CI/CD pipeline will automatically:
 
-1. Run the version bump script to compare package.json version with the latest git tag
-2. Determine the new version (auto-increment patch, use package.json version, or no change)
-3. **Two scenarios based on whether version files need updating:**
+1. Validate the code with the guard job
+2. Run the version bump script to compare package.json version with the latest git tag
+3. Determine the new version (auto-increment patch, use package.json version, or no change)
+4. **Two scenarios based on whether version files need updating:**
 
 **Scenario A: Version already updated (branch name = `x.x.x`, e.g., `1.5.6`)**
 - Version files are already correct in the merged PR
 - Skip PR creation
 - Create and push git tag immediately (e.g., `v1.5.6`)
 - Trigger the release workflow via the tag push
-- Build and publish the release
+- **Release workflow builds, signs, and deploys** the Docker image with the correct version
 
 **Scenario B: Version needs updating (branch name ≠ `x.x.x`, e.g., `copilot/*`, `feature/*`)**
 - **Create a Pull Request** with the version changes
@@ -208,11 +209,12 @@ You can create a release in several ways:
 - **Auto-merge the PR** when all checks pass
 - Create and push a git tag (e.g., `v1.5.5`)
 - Trigger the release workflow via the tag push
-- Build and publish the release
+- **Release workflow builds, signs, and deploys** the Docker image with the correct version
 
 **How it works:**
-- The workflow runs on every push to main branch
-- The workflow creates a PR instead of pushing directly to main when needed (respects branch protection)
+- The pipeline workflow runs on every push to main branch
+- The pipeline workflow validates code and manages versioning (no Docker builds)
+- The pipeline creates a PR when version files need updating (respects branch protection)
 - The PR is created by the GitHub App bot, which bypasses review requirements
 - Auto-merge is enabled, so the PR merges automatically when all checks pass
 - The commit message includes `[skip ci]` to prevent infinite workflow loops
@@ -221,6 +223,10 @@ You can create a release in several ways:
   - When `package.json` version = latest tag → Auto-increment patch
   - When `package.json` version > latest tag → Use package.json version (from release branch)
   - When no tags exist → Use package.json version
+- **The release workflow is triggered by the tag push and performs the single Docker build**
+- The release workflow builds multi-platform images, signs them, and deploys to Coolify
+
+**Key Benefit**: This architecture ensures only one Docker build per release, with the correct version number matching the git tag and deployed to production.
 
 **Note**: The version bump script detects the branch context. On main branch (CI environment), it always runs version comparison logic. On local branches, it only runs if the branch name matches the pattern X.Y.Z (semantic version).
 
@@ -298,7 +304,13 @@ The workflow will:
 
 ## Release Artifacts
 
-Each release includes:
+Each release is automatically built and deployed by the release workflow when a tag is pushed:
+
+1. **Docker Image Build**: Multi-platform images built for `linux/amd64` and `linux/arm64`
+2. **Image Signing**: Images are signed with Sigstore cosign
+3. **Attestations**: Build provenance and SBOM attestations are generated
+4. **GitHub Release**: Release is created with all artifacts attached
+5. **Deployment**: The versioned image is automatically deployed to Coolify
 
 ### Docker Images
 
@@ -319,7 +331,9 @@ docker pull ghcr.io/devakesu/ghostclass:latest
 
 **Note**: Replace `devakesu/ghostclass` with your `{OWNER}/{REPO}` (repository name in lowercase).
 
-**Platforms**: `linux/amd64`, `linux/arm64`
+**Platforms**: `linux/amd64`, `linux/arm64` (for tag pushes); `linux/amd64` only for manual dispatch unless ARM64 is explicitly enabled
+
+**Deployment**: The versioned image (e.g., `v1.3.0`) is automatically deployed to production via Coolify after the release build completes.
 
 ### Attached Files
 
@@ -566,6 +580,30 @@ git push origin "v${VERSION}"
 - Look for the tag push event in the Actions tab
 
 **Note**: The `auto-version-and-tag` job uses a GitHub App token to push tags. This is required because `GITHUB_TOKEN` cannot trigger other workflows (including the Release workflow) for security reasons. Tag push events created with a GitHub App token will properly trigger the release workflow.
+
+### Deployment not happening after release
+
+**Symptoms:** Release is created successfully but deployment to Coolify doesn't occur.
+
+**Check:**
+- Verify the release workflow completed successfully (check GitHub Actions logs)
+- Check that `COOLIFY_BASE_URL`, `COOLIFY_APP_ID`, and `COOLIFY_API_TOKEN` secrets are configured
+- Verify the deployment step in the release workflow's `build-and-release` job executed
+- Check Coolify logs to see if the deployment webhook was received
+- Ensure the event was a tag push (deployment only triggers on tag pushes, not manual workflow_dispatch)
+
+**Note**: Deployment now happens in the release workflow after building the versioned image. This ensures the correct version is deployed to production.
+
+### Wrong version deployed to production
+
+**Symptoms:** Production is running a different version than the latest release tag.
+
+**Cause**: This should no longer occur with the updated workflow architecture. The release workflow now builds and deploys the correct versioned image.
+
+**Solution**: 
+- Verify the release workflow completed successfully
+- Check that Coolify is pulling the correct image tag (should be the version tag, e.g., `v1.5.8`)
+- If needed, manually trigger a Coolify deployment to pull the latest release
 
 ### Version bump script fails on version branch
 

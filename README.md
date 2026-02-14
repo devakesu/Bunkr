@@ -556,10 +556,30 @@ docker run -p 3000:3000 --env-file .env ghostclass
 **Service Worker Handling**: Docker build automatically compiles `src/sw.ts` using esbuild if `@serwist/next` doesn't generate it (standalone mode compatibility). This ensures full PWA functionality in production.
 
 ### CI/CD Pipeline
-- **GitHub Actions** - Automated builds on push
-- **Reproducible Builds** - `SOURCE_DATE_EPOCH` for deterministic builds
-- **Multi-stage Build** - Optimized image size (~500MB)
-- **Coolify Deployment** - Self-hosted platform for production
+
+**Single-Build Architecture**: The deployment pipeline is optimized to build Docker images only once per release:
+
+- **Pipeline Workflow** (`pipeline.yml`)
+  - Validates code on every PR and push
+  - Manages automatic version bumping on main branch
+  - Creates version tags that trigger releases
+  - No Docker builds (validation only)
+
+- **Release Workflow** (`release.yml`)
+  - Triggered automatically by version tag pushes
+  - Builds multi-platform Docker images (`linux/amd64`, `linux/arm64`)
+  - Signs images and generates attestations
+  - Creates GitHub releases with artifacts
+  - **Deploys versioned image to Coolify**
+
+- **Key Benefits**
+  - ✅ Single build per release (saves 10-15 minutes)
+  - ✅ Correct version deployed (matches git tag)
+  - ✅ One canonical image per version
+  - ✅ Reproducible builds with `SOURCE_DATE_EPOCH`
+  - ✅ Multi-stage build optimized for size (~500MB)
+
+For more details, see [RELEASING.md](RELEASING.md).
 
 ### Production Checklist
 1. ✅ Set all required environment variables
