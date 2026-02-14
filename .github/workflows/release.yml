@@ -3,6 +3,10 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      version_tag:
+        description: 'Version tag (e.g., v1.5.8) - takes precedence over bump_type'
+        required: false
+        type: string
       bump_type:
         description: 'Version bump type'
         required: true
@@ -59,6 +63,14 @@ jobs:
             echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
             echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
             echo "Using tag version: ${VERSION_NUMBER}"
+          # If version_tag input is provided, use it
+          elif [[ -n "${{ github.event.inputs.version_tag }}" ]]; then
+            VERSION_TAG="${{ github.event.inputs.version_tag }}"
+            # Remove 'v' prefix if present for version number
+            VERSION_NUMBER="${VERSION_TAG#v}"
+            echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
+            echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+            echo "Using provided version tag: ${VERSION_TAG}"
           else
             # Manual dispatch: calculate next version from latest tag
             # Filter to strict semver tags only
