@@ -339,9 +339,9 @@ jobs:
             if gh attestation download \
               oci://ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }} \
               --owner ${{ github.repository_owner }} \
-              --format json > provenance.intoto.jsonl; then
+              --format json > provenance.intoto.json; then
               echo "✓ SLSA provenance attestation downloaded successfully"
-              ls -lh provenance.intoto.jsonl
+              ls -lh provenance.intoto.json
               exit 0
             else
               echo "⚠ Download failed, waiting ${SLEEP_TIME}s before retry..."
@@ -442,6 +442,9 @@ jobs:
           echo "## Signature Bundle" >> checksums.txt
           sha256sum sbom.json.bundle >> checksums.txt
           echo "" >> checksums.txt
+          echo "## SLSA Provenance Attestation" >> checksums.txt
+          sha256sum provenance.intoto.json >> checksums.txt
+          echo "" >> checksums.txt
           echo "Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> checksums.txt
           echo "" >> checksums.txt
           cat checksums.txt
@@ -455,7 +458,7 @@ jobs:
             sbom.json
             sbom.json.bundle
             checksums.txt
-            provenance.intoto.jsonl
+            provenance.intoto.json
 
   # Create GitHub Release with artifacts
   create-github-release:
@@ -642,7 +645,7 @@ jobs:
             ./artifacts/sbom.json.bundle \
             ./artifacts/checksums.txt \
             ./artifacts/VERIFY.md \
-            ./artifacts/provenance.intoto.jsonl \
+            ./artifacts/provenance.intoto.json \
             --draft=false
 
   # Deploy to production after successful release creation

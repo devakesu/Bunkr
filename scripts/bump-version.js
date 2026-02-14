@@ -45,36 +45,6 @@ function compareSemver(a, b) {
   return 0;
 }
 
-// Helper function to increment patch version with rollover logic
-// Version format: X.Y.Z where X, Y, Z ∈ {0-9}
-// After X.Y.9 comes X.(Y+1).0
-// After X.9.9 comes (X+1).0.0
-function incrementPatch(version) {
-  // Validate input is a valid semantic version
-  const semverPattern = /^\d+\.\d+\.\d+$/;
-  if (!semverPattern.test(version)) {
-    throw new Error(`Invalid semantic version: ${version}. Expected MAJOR.MINOR.PATCH (e.g., 1.2.3)`);
-  }
-  
-  const parts = version.split('.').map(Number);
-  
-  // Increment patch version
-  parts[2] += 1;
-  
-  // Apply rollover logic: each component must be 0-9
-  if (parts[2] > 9) {
-    parts[2] = 0;
-    parts[1] += 1;
-    
-    if (parts[1] > 9) {
-      parts[1] = 0;
-      parts[0] += 1;
-    }
-  }
-  
-  return parts.join('.');
-}
-
 // Helper function to normalize version to comply with X.Y.Z where X, Y, Z ∈ {0-9}
 // If any component > 9, roll to next major/minor and reset subsequent components
 function normalizeVersion(version) {
@@ -97,6 +67,40 @@ function normalizeVersion(version) {
     console.log(`${YELLOW}   ℹ️  Minor version ${parts[1]} > 9, rolling to next major version${RESET}`);
     parts[1] = 0;
     parts[0] += 1;
+    // Reset patch as a "subsequent component" when minor rolls over
+    parts[2] = 0;
+  }
+  
+  return parts.join('.');
+}
+
+// Helper function to increment patch version with rollover logic
+// Version format: X.Y.Z where X, Y, Z ∈ {0-9}
+// After X.Y.9 comes X.(Y+1).0
+// After X.9.9 comes (X+1).0.0
+function incrementPatch(version) {
+  // Validate input is a valid semantic version
+  const semverPattern = /^\d+\.\d+\.\d+$/;
+  if (!semverPattern.test(version)) {
+    throw new Error(`Invalid semantic version: ${version}. Expected MAJOR.MINOR.PATCH (e.g., 1.2.3)`);
+  }
+  
+  // First normalize the input to ensure it satisfies the 0-9 constraint
+  const normalized = normalizeVersion(version);
+  const parts = normalized.split('.').map(Number);
+  
+  // Increment patch version
+  parts[2] += 1;
+  
+  // Apply rollover logic: each component must be 0-9
+  if (parts[2] > 9) {
+    parts[2] = 0;
+    parts[1] += 1;
+    
+    if (parts[1] > 9) {
+      parts[1] = 0;
+      parts[0] += 1;
+    }
   }
   
   return parts.join('.');
