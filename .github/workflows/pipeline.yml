@@ -279,8 +279,25 @@ jobs:
           
           echo "Triggering release workflow for ${VERSION_TAG}"
           
-          gh workflow run release.yml \
-            --ref "${VERSION_TAG}" \
-            -f version_tag="${VERSION_TAG}"
+          max_attempts=5
+          delay=5
+          attempt=1
           
-          echo "✓ Release workflow triggered for ${VERSION_TAG}"
+          while [ "$attempt" -le "$max_attempts" ]; do
+            if gh workflow run release.yml \
+              --ref "${VERSION_TAG}" \
+              -f version_tag="${VERSION_TAG}"; then
+              echo "✓ Release workflow triggered for ${VERSION_TAG} (attempt ${attempt})"
+              break
+            fi
+            
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "✗ Failed to trigger release workflow for ${VERSION_TAG} after ${max_attempts} attempts"
+              exit 1
+            fi
+            
+            echo "Release workflow trigger failed on attempt ${attempt}, retrying in ${delay}s..."
+            sleep "$delay"
+            attempt=$((attempt + 1))
+            delay=$((delay * 2))
+          done
