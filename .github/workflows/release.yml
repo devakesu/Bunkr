@@ -355,6 +355,10 @@ jobs:
                 exit 0
               else
                 echo "⚠ Could not find downloaded attestation file"
+                echo "Current directory contents:"
+                ls -la
+                echo "Waiting ${SLEEP_TIME}s before retry..."
+                sleep $SLEEP_TIME
                 ATTEMPT=$((ATTEMPT + 1))
                 continue
               fi
