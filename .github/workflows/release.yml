@@ -3,6 +3,10 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      version_tag:
+        description: 'Version tag (e.g., v1.5.8) - takes precedence over bump_type'
+        required: false
+        type: string
       bump_type:
         description: 'Version bump type'
         required: true
@@ -59,6 +63,29 @@ jobs:
             echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
             echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
             echo "Using tag version: ${VERSION_NUMBER}"
+          # If version_tag input is provided, use it
+          elif [[ -n "${{ github.event.inputs.version_tag }}" ]]; then
+            VERSION_TAG="${{ github.event.inputs.version_tag }}"
+            # Remove 'v' prefix if present for version number
+            VERSION_NUMBER="${VERSION_TAG#v}"
+            echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
+            echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+            echo "Using provided version tag: ${VERSION_TAG}"
+            
+            # Validate that the tag exists
+            if ! git rev-parse "refs/tags/${VERSION_TAG}" >/dev/null 2>&1; then
+              echo "ERROR: Tag ${VERSION_TAG} does not exist in the repository"
+              echo "This usually means:"
+              echo "  1. The tag was not created successfully in the pipeline workflow"
+              echo "  2. There was a race condition and the tag creation failed"
+              echo "  3. The tag name is incorrect"
+              echo "Please check the pipeline workflow logs and verify the tag exists: git ls-remote --tags origin | grep ${VERSION_TAG}"
+              exit 1
+            fi
+            
+            # Checkout the tag to ensure we build the correct version
+            echo "Checking out tag ${VERSION_TAG} for build"
+            git checkout "refs/tags/${VERSION_TAG}"
           else
             # Manual dispatch: calculate next version from latest tag
             # Filter to strict semver tags only
@@ -117,6 +144,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # When version_tag is provided via workflow_dispatch, checkout that specific tag
+          # For tag pushes, github.ref is the tag
+          # For bump_type-only dispatches, github.ref is the selected branch (typically main)
+          ref: ${{ github.event.inputs.version_tag || github.ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -355,6 +387,10 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          # When version_tag is provided via workflow_dispatch, checkout that specific tag
+          # For tag pushes, github.ref is the tag
+          # For bump_type-only dispatches, github.ref is the selected branch (typically main)
+          ref: ${{ github.event.inputs.version_tag || github.ref }}
 
       - name: Download artifacts
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -531,8 +567,11 @@ jobs:
     name: Deploy to Production
     needs: [calculate-version, build-and-release, create-github-release]
     runs-on: ubuntu-latest
-    # Only deploy on tag pushes (not manual workflow_dispatch)
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+    # Deploy on tag pushes OR workflow_dispatch with version_tag (automated releases)
+    # Manual workflow_dispatch without version_tag (bump_type only) does not auto-deploy
+    if: |
+      (github.event_name == 'push' && github.ref_type == 'tag') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.version_tag != '')
     steps:
       - name: Trigger Coolify deployment
         env:

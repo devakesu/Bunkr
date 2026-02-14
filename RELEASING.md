@@ -195,35 +195,34 @@ You can create a release in several ways:
 - Version files are already correct in the merged PR
 - Skip PR creation
 - Create and push git tag immediately (e.g., `v1.5.6`)
-- Trigger the release workflow via the tag push
+- **Trigger the release workflow via workflow_dispatch** (explicit trigger to ensure it runs)
 - **Release workflow builds, signs, and deploys** the Docker image with the correct version
+  - Automated workflow_dispatch releases (with version_tag) auto-deploy to production
 
 **Scenario B: Version needs updating (branch name ≠ `x.x.x`, e.g., `copilot/*`, `feature/*`)**
 - **Create a Pull Request** with the version changes
-- **Enable auto-merge** on the PR
-- **Wait for all required checks to pass**:
-  - Required status checks (3 of 3)
-  - CodeQL analysis
-  - Test workflows
-  - Commit signature verification
-- **Auto-merge the PR** when all checks pass
+- **Merge the PR immediately** (tests already passed on the previous PR)
+  - Version bump PR only changes version numbers, not code logic
+  - test.yml may still run on the version-bump PR, but the pipeline doesn't wait
+  - Previous PR's tests are sufficient for validation
 - Create and push a git tag (e.g., `v1.5.5`)
-- Trigger the release workflow via the tag push
+- **Trigger the release workflow via workflow_dispatch** (explicit trigger to ensure it runs)
 - **Release workflow builds, signs, and deploys** the Docker image with the correct version
+  - Automated workflow_dispatch releases (with version_tag) auto-deploy to production
 
 **How it works:**
 - The pipeline workflow runs on every push to main branch
 - The pipeline workflow manages versioning (no Docker builds); code validation is handled by required checks (e.g., `test.yml`, CodeQL)
 - The pipeline creates a PR when version files need updating (respects branch protection)
 - The PR is created by the GitHub App bot, which bypasses review requirements
-- Auto-merge is enabled, so the PR merges automatically when all checks pass
+- **The version bump PR is merged immediately without waiting for tests** (tests already passed on the previous PR)
 - The commit message includes `[skip ci]` to prevent infinite workflow loops
 - All commits and tags are GPG signed to satisfy signature requirements
 - Version bump logic:
   - When `package.json` version = latest tag → Auto-increment patch
   - When `package.json` version > latest tag → Use package.json version (from release branch)
   - When no tags exist → Use package.json version
-- **The release workflow is triggered by the tag push and performs the single Docker build**
+- **After creating the tag, the release workflow is explicitly triggered via workflow_dispatch**
 - The release workflow builds multi-platform images, signs them, and deploys to Coolify
 
 **Key Benefit**: This architecture ensures only one Docker build per release, with the correct version number matching the git tag and deployed to production.
@@ -503,6 +502,43 @@ After creating a release:
 
 ## Troubleshooting
 
+### Release Not Created After Tag Push
+
+**Symptom:** Tag `v1.5.8` exists but no release on GitHub
+
+**Cause:** Tags pushed from workflows don't auto-trigger other workflows (GitHub Actions security feature to prevent recursive triggers)
+
+**Fix:** The pipeline now automatically triggers the release workflow after creating the tag using `workflow_dispatch`. 
+If it fails, manually trigger:
+
+```bash
+gh workflow run release.yml --ref v1.5.8 -f version_tag=v1.5.8
+```
+
+### Tag Created Despite Failed Tests
+
+**Symptom:** Tag created but tests were failing
+
+**Cause:** This could happen if:
+1. Tests failed on the original PR but branch protection was bypassed
+2. Tests passed initially but code was broken by a race condition
+
+**Prevention:** The auto-version-and-tag job that creates release tags only runs on pushes to `main`, meaning the previous PR's tests must have passed for the merge to occur (assuming branch protection is properly configured), while the rest of the pipeline workflow can still run on PR-related events.
+
+**Fix:** If a tag was created incorrectly:
+
+```bash
+# Delete the bad tag
+git tag -d v1.5.8
+git push --delete origin v1.5.8
+
+# Fix the issue, then manually create tag after tests pass
+```
+
+**Best Practice:** Ensure branch protection rules require:
+- All required status checks to pass
+- Up-to-date branches before merging
+
 ### Auto-Version Workflow Issues
 
 #### PR not auto-merging
@@ -535,14 +571,14 @@ After creating a release:
 
 #### Timeout waiting for PR merge
 
-**Symptoms:** Workflow fails with "Timeout waiting for PR merge after 900s".
+**Symptoms:** Workflow fails with "Failed to merge PR" or timeout error.
 
 **Possible causes:**
-1. **Tests taking too long**: Increase MAX_WAIT value in workflow (currently 15 minutes)
-2. **Required checks not configured**: Ensure all required status checks are properly defined
-3. **Manual review required**: Check if the GitHub App is in the bypass list for reviews
+1. **GitHub API slow to process PR**: Rare, but GitHub might be experiencing delays
+2. **Branch protection rules**: Ensure the GitHub App is in the bypass list
+3. **GitHub App permissions**: Verify the app has merge permissions
 
-**Important note:** If the workflow times out but the PR later auto-merges successfully, the release tag will not be created automatically (because the merge commit includes `[skip ci]`). In this case, you'll need to create the tag manually:
+**Fix:** If the workflow times out, you can manually create the tag:
 
 ```bash
 # Get the version from package.json
@@ -553,7 +589,7 @@ git tag -a "v${VERSION}" -m "Release v${VERSION}"
 git push origin "v${VERSION}"
 ```
 
-**Prevention:** Consider increasing MAX_WAIT to accommodate worst-case check durations (e.g., 30-45 minutes for comprehensive CodeQL analysis).
+**Note:** The timeout is 5 minutes for PR creation and merge completion.
 
 #### Release not created after merging version bump PR
 
@@ -581,11 +617,13 @@ git push origin "v${VERSION}"
 - Verify the CI/CD pipeline runs successfully on main branch
 - Check the `auto-version-and-tag` job logs in GitHub Actions
 - Ensure git tags are properly formatted (v*.*.*) and can be fetched
+- Verify the "Trigger release workflow" step completed successfully
 
 **Common issues:**
 - If no version bump occurs, check that the script can fetch git tags
 - If version comparison fails, check that `package.json` has a valid semver version
 - If commit fails, check that the workflow has `contents: write` permission
+- If release workflow doesn't trigger, check that the GitHub App has `Actions: Read and write` permission (required for workflow_dispatch)
 
 ### Release workflow not triggered after tag push
 
@@ -594,9 +632,11 @@ git push origin "v${VERSION}"
 - Ensure the GitHub App has `Contents: Read and write` permissions
 - Verify the tag was created and pushed successfully
 - Check the Release workflow is enabled in Actions tab
-- Look for the tag push event in the Actions tab
+- Look for the workflow_dispatch event in the Actions tab
+  - For automated releases from pipeline: Look for workflow_dispatch runs
+  - For manual tag pushes: Look for push (tag) events
 
-**Note**: The `auto-version-and-tag` job uses a GitHub App token to push tags. This is required because `GITHUB_TOKEN` cannot trigger other workflows (including the Release workflow) for security reasons. Tag push events created with a GitHub App token will properly trigger the release workflow.
+**Note**: The `auto-version-and-tag` job uses a GitHub App token to push tags and then explicitly triggers the release workflow via `workflow_dispatch`. This is required because tag push events from within a workflow don't automatically trigger other workflows (GitHub Actions security feature). The workflow_dispatch approach ensures the release workflow runs reliably.
 
 ### Deployment not happening after release
 
@@ -607,9 +647,16 @@ git push origin "v${VERSION}"
 - Check that `COOLIFY_BASE_URL`, `COOLIFY_APP_ID`, and `COOLIFY_API_TOKEN` secrets are configured
 - Verify the deployment step in the release workflow's `deploy-to-production` job executed
 - Check Coolify logs to see if the deployment webhook was received
-- Ensure the event was a tag push (deployment only triggers on tag pushes, not manual workflow_dispatch)
+- Verify the trigger type:
+  - **Automated releases**: workflow_dispatch with version_tag → auto-deploys
+  - **Manual workflow_dispatch**: with bump_type only (no version_tag) → does NOT auto-deploy
+  - **Manual tag push**: by developer → auto-deploys
 
-**Note**: Deployment now happens in the release workflow after building the versioned image. This ensures the correct version is deployed to production.
+**Note**: The deploy-to-production job runs when:
+1. A tag is pushed directly (e.g., by a developer), OR
+2. The release workflow is triggered via workflow_dispatch with a version_tag parameter (automated releases from pipeline)
+
+Manual workflow_dispatch releases using bump_type only (without version_tag) do not auto-deploy and must be deployed separately if needed.
 
 ### Wrong version deployed to production
 
