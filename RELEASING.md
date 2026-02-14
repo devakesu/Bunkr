@@ -523,7 +523,7 @@ gh workflow run release.yml --ref v1.5.8 -f version_tag=v1.5.8
 1. Tests failed on the original PR but branch protection was bypassed
 2. Tests passed initially but code was broken by a race condition
 
-**Prevention:** The workflow now only runs on pushes to main, meaning the previous PR's tests must have passed for the merge to occur (assuming branch protection is properly configured).
+**Prevention:** The auto-version-and-tag job that creates release tags only runs on pushes to `main`, meaning the previous PR's tests must have passed for the merge to occur (assuming branch protection is properly configured), while the rest of the pipeline workflow can still run on PR-related events.
 
 **Fix:** If a tag was created incorrectly:
 
