@@ -5,13 +5,10 @@ on:
     branches: [main, 'release/*']
   pull_request:
     branches: [main, 'release/*']
-  # Trigger when CI/CD Pipeline completes on version-bump-* branches
-  # Note: 'branches' here refers to where the triggering workflow ran,
-  # not the PR target branch
-  workflow_run:
-    workflows: ["CI/CD Pipeline"]
-    types: [completed]
-    branches: [version-bump-*]
+  # Use pull_request_target to run on automated PRs
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -19,11 +16,15 @@ permissions:
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    # Security: Only run on version bump PRs from the trusted bot
+    if: |
+      github.event_name != 'pull_request_target' ||
+      (startsWith(github.head_ref, 'version-bump-') && github.actor == 'ghostclass-release-automation[bot]')
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # For pull_request_target, check out the PR head
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
       
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
@@ -45,7 +46,10 @@ jobs:
 
   e2e-tests:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    # Security: Only run on version bump PRs from the trusted bot
+    if: |
+      github.event_name != 'pull_request_target' ||
+      (startsWith(github.head_ref, 'version-bump-') && github.actor == 'ghostclass-release-automation[bot]')
     env:
       # Mock environment variables for E2E tests
       ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -67,7 +71,8 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # For pull_request_target, check out the PR head
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
       
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
