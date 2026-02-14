@@ -157,12 +157,15 @@ jobs:
           set -euo pipefail
           
           PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
-          MAX_WAIT=300  # 5 minutes - waiting for PR creation and merge to complete
+          MAX_WAIT=300  # 300 seconds (5 minutes) - waiting for PR creation and merge to complete
           POLL_INTERVAL=10  # 10 seconds
           elapsed=0
           
           echo "Merging version bump PR #${PR_NUMBER} without waiting for checks"
           echo "Note: Tests already passed on the previous PR"
+          
+          # Give GitHub a moment to fully process the PR creation
+          sleep 5
           
           # Wait for PR to be created and ready for merge
           while [ $elapsed -lt $MAX_WAIT ]; do
@@ -172,11 +175,12 @@ jobs:
               echo "PR #${PR_NUMBER} is ready, merging now..."
               
               # Merge the PR immediately (without --auto flag for immediate merge)
-              if gh pr merge "${PR_NUMBER}" --squash; then
+              if gh pr merge "${PR_NUMBER}" --squash 2>&1; then
                 echo "✓ PR #${PR_NUMBER} merged successfully"
                 break
               else
-                echo "Merge failed, will retry..."
+                echo "Merge attempt failed, will retry after ${POLL_INTERVAL}s..."
+                echo "This may occur if the PR is still being processed by GitHub"
               fi
             elif [ "$PR_STATE" = "MERGED" ]; then
               echo "✓ PR #${PR_NUMBER} already merged"
