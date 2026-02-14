@@ -21,6 +21,8 @@ on:
         required: false
         type: boolean
         default: false
+  repository_dispatch:
+    types: [release_requested]
   push:
     tags:
       - 'v*.*.*'
@@ -54,8 +56,52 @@ jobs:
       - name: Calculate version
         id: version
         run: |
+          # If triggered by repository_dispatch with version_tag
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]] && [[ -n "${{ github.event.client_payload.version_tag }}" ]]; then
+            VERSION_TAG="${{ github.event.client_payload.version_tag }}"
+            VERSION_NUMBER="${VERSION_TAG#v}"
+            echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
+            echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+            echo "Using repository_dispatch version: ${VERSION_NUMBER}"
+            
+            # Validate that the tag exists with retry logic (handle timing issues)
+            max_attempts=3
+            current_attempt=1
+            tag_exists=false
+            
+            while [ $current_attempt -le $max_attempts ]; do
+              if git rev-parse "refs/tags/${VERSION_TAG}" >/dev/null 2>&1; then
+                tag_exists=true
+                echo "✓ Tag ${VERSION_TAG} found (attempt ${current_attempt})"
+                break
+              fi
+              
+              if [ $current_attempt -lt $max_attempts ]; then
+                echo "Tag ${VERSION_TAG} not found yet, waiting 5s before retry ${current_attempt}/${max_attempts}"
+                sleep 5
+                # Fetch latest tags
+                git fetch --tags origin
+              fi
+              
+              current_attempt=$((current_attempt + 1))
+            done
+            
+            if [ "$tag_exists" = false ]; then
+              echo "ERROR: Tag ${VERSION_TAG} does not exist in the repository after ${max_attempts} attempts"
+              echo "This usually means:"
+              echo "  1. The tag was not created successfully in the pipeline workflow"
+              echo "  2. There was a race condition and the tag creation failed"
+              echo "  3. The tag name is incorrect"
+              echo "Please check the pipeline workflow logs and verify the tag exists: git ls-remote --tags origin | grep ${VERSION_TAG}"
+              exit 1
+            fi
+            
+            # Checkout the tag to ensure we build the correct version
+            echo "Checking out tag ${VERSION_TAG} for build"
+            git checkout "refs/tags/${VERSION_TAG}"
+          
           # If triggered by a tag, use the tag version
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION="${{ github.ref_name }}"
             VERSION_TAG="${VERSION}"
             # Remove 'v' prefix if present for version number
@@ -70,7 +116,7 @@ jobs:
             VERSION_NUMBER="${VERSION_TAG#v}"
             echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
             echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
-            echo "Using provided version tag: ${VERSION_TAG}"
+            echo "Using workflow_dispatch version: ${VERSION_TAG}"
             
             # Validate that the tag exists
             if ! git rev-parse "refs/tags/${VERSION_TAG}" >/dev/null 2>&1; then
@@ -145,10 +191,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          # When version_tag is provided via workflow_dispatch, checkout that specific tag
+          # When version_tag is provided via repository_dispatch, use client_payload
+          # When version_tag is provided via workflow_dispatch, use inputs
           # For tag pushes, github.ref is the tag
           # For bump_type-only dispatches, github.ref is the selected branch (typically main)
-          ref: ${{ github.event.inputs.version_tag || github.ref }}
+          ref: ${{ github.event.client_payload.version_tag || github.event.inputs.version_tag || github.ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -387,10 +434,11 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          # When version_tag is provided via workflow_dispatch, checkout that specific tag
+          # When version_tag is provided via repository_dispatch, use client_payload
+          # When version_tag is provided via workflow_dispatch, use inputs
           # For tag pushes, github.ref is the tag
           # For bump_type-only dispatches, github.ref is the selected branch (typically main)
-          ref: ${{ github.event.inputs.version_tag || github.ref }}
+          ref: ${{ github.event.client_payload.version_tag || github.event.inputs.version_tag || github.ref }}
 
       - name: Download artifacts
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -567,11 +615,12 @@ jobs:
     name: Deploy to Production
     needs: [calculate-version, build-and-release, create-github-release]
     runs-on: ubuntu-latest
-    # Deploy on tag pushes OR workflow_dispatch with version_tag (automated releases)
+    # Deploy on tag pushes, workflow_dispatch with version_tag, OR repository_dispatch
     # Manual workflow_dispatch without version_tag (bump_type only) does not auto-deploy
     if: |
       (github.event_name == 'push' && github.ref_type == 'tag') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.version_tag != '')
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.version_tag != '') ||
+      github.event_name == 'repository_dispatch'
     steps:
       - name: Trigger Coolify deployment
         env:

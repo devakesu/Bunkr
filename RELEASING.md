@@ -71,6 +71,7 @@ The auto-version workflow uses a GitHub App for authentication, which provides:
    - Repository permissions:
      - Contents: Read and write
      - Pull requests: Read and write
+     - **Note**: Actions: Read and write is NOT required (uses `repository_dispatch` instead of `workflow_dispatch`)
    - Where can this be installed: "Only on this account"
    - Click "Create GitHub App"
 
@@ -623,7 +624,12 @@ git push origin "v${VERSION}"
 - If no version bump occurs, check that the script can fetch git tags
 - If version comparison fails, check that `package.json` has a valid semver version
 - If commit fails, check that the workflow has `contents: write` permission
-- If release workflow doesn't trigger, check that the GitHub App has `Actions: Read and write` permission (required for workflow_dispatch)
+- If release workflow doesn't trigger, check the "Trigger release workflow" step logs for errors
+
+**Note on workflow triggering:**
+- The pipeline uses `repository_dispatch` events to trigger the release workflow
+- This approach only requires `Contents: Read and write` permission on the GitHub App
+- If you see HTTP 403 errors related to workflow_dispatch, verify the pipeline is using repository_dispatch (not workflow_dispatch)
 
 ### Release workflow not triggered after tag push
 
@@ -632,11 +638,46 @@ git push origin "v${VERSION}"
 - Ensure the GitHub App has `Contents: Read and write` permissions
 - Verify the tag was created and pushed successfully
 - Check the Release workflow is enabled in Actions tab
-- Look for the workflow_dispatch event in the Actions tab
-  - For automated releases from pipeline: Look for workflow_dispatch runs
+- Look for the workflow runs in the Actions tab:
+  - For automated releases from pipeline: Look for `repository_dispatch` runs (event type: `release_requested`)
   - For manual tag pushes: Look for push (tag) events
+  - For manual workflow_dispatch: Look for workflow_dispatch runs
 
-**Note**: The `auto-version-and-tag` job uses a GitHub App token to push tags and then explicitly triggers the release workflow via `workflow_dispatch`. This is required because tag push events from within a workflow don't automatically trigger other workflows (GitHub Actions security feature). The workflow_dispatch approach ensures the release workflow runs reliably.
+**Note**: The `auto-version-and-tag` job uses a GitHub App token to push tags and then explicitly triggers the release workflow via `repository_dispatch`. This approach:
+- Only requires `Contents: Read and write` permission (no `Actions: Read and write` needed)
+- Works reliably because tag push events from within a workflow don't automatically trigger other workflows (GitHub Actions security feature)
+- Uses the `/dispatches` API endpoint instead of `workflow_dispatch` to avoid HTTP 403 permission errors
+
+### HTTP 403: Resource not accessible by integration
+
+**Symptoms:** Pipeline fails with error:
+```
+could not create workflow dispatch event: HTTP 403: Resource not accessible by integration
+```
+
+**Cause:** This error occurred in older versions of the workflow when trying to use `workflow_dispatch` without the `Actions: Read and write` permission on the GitHub App.
+
+**Solution:** The workflows have been updated to use `repository_dispatch` instead of `workflow_dispatch`, which only requires `Contents: Read and write` permission. This error should no longer occur with the updated workflows.
+
+If you still see this error:
+
+1. **Verify the pipeline is up to date:**
+   - Check that `.github/workflows/pipeline.yml` uses `gh api repos/${{ github.repository }}/dispatches` with `event_type="release_requested"`
+   - The step should be named "Trigger release workflow via repository_dispatch"
+
+2. **Verify the release workflow accepts repository_dispatch:**
+   - Check that `.github/workflows/release.yml` has `repository_dispatch:` with `types: [release_requested]` in the trigger section
+   - The `calculate-version` job should handle `github.event.client_payload.version_tag`
+
+3. **If you still want to use workflow_dispatch (optional):**
+   - Go to GitHub App settings: Settings → Developer settings → GitHub Apps → [Your App]
+   - Navigate to "Permissions & events" → "Repository permissions"
+   - Set **Actions** to **Read and write**
+   - Save and re-install the app if needed
+   - Update `pipeline.yml` to add `actions: write` to the job permissions
+   - Revert the pipeline to use `gh workflow run` instead of `gh api repos/.../dispatches`
+
+**Recommended:** Keep using `repository_dispatch` as it requires fewer permissions and is more secure.
 
 ### Deployment not happening after release
 
@@ -648,13 +689,14 @@ git push origin "v${VERSION}"
 - Verify the deployment step in the release workflow's `deploy-to-production` job executed
 - Check Coolify logs to see if the deployment webhook was received
 - Verify the trigger type:
-  - **Automated releases**: workflow_dispatch with version_tag → auto-deploys
+  - **Automated releases**: repository_dispatch with version_tag → auto-deploys
   - **Manual workflow_dispatch**: with bump_type only (no version_tag) → does NOT auto-deploy
   - **Manual tag push**: by developer → auto-deploys
 
 **Note**: The deploy-to-production job runs when:
 1. A tag is pushed directly (e.g., by a developer), OR
-2. The release workflow is triggered via workflow_dispatch with a version_tag parameter (automated releases from pipeline)
+2. The release workflow is triggered via repository_dispatch with a version_tag parameter (automated releases from pipeline), OR
+3. The release workflow is triggered via workflow_dispatch with a version_tag parameter
 
 Manual workflow_dispatch releases using bump_type only (without version_tag) do not auto-deploy and must be deployed separately if needed.
 
