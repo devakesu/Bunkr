@@ -321,22 +321,37 @@ jobs:
 
       # Download SLSA provenance attestation for OpenSSF Scorecard
       - name: Download SLSA provenance attestation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           
           echo "=== Downloading SLSA Provenance Attestation ==="
           
-          # Wait a moment for attestation to be available
-          sleep 5
+          # Retry logic: attestation may take a moment to be available
+          MAX_ATTEMPTS=5
+          ATTEMPT=1
+          SLEEP_TIME=10
           
-          # Download the attestation using gh CLI
-          gh attestation download \
-            oci://ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }} \
-            --owner ${{ github.repository_owner }} \
-            --format json > provenance.intoto.jsonl
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Attempt $ATTEMPT of $MAX_ATTEMPTS..."
+            
+            if gh attestation download \
+              oci://ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }} \
+              --owner ${{ github.repository_owner }} \
+              --format json > provenance.intoto.jsonl 2>&1; then
+              echo "✓ SLSA provenance attestation downloaded successfully"
+              ls -lh provenance.intoto.jsonl
+              exit 0
+            else
+              echo "⚠ Download failed, waiting ${SLEEP_TIME}s before retry..."
+              sleep $SLEEP_TIME
+              ATTEMPT=$((ATTEMPT + 1))
+            fi
+          done
           
-          echo "✓ SLSA provenance attestation downloaded"
-          ls -lh provenance.intoto.jsonl
+          echo "❌ Failed to download attestation after $MAX_ATTEMPTS attempts"
+          exit 1
 
       # Generate SBOM
       - name: Generate SBOM
