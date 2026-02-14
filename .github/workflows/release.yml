@@ -66,24 +66,24 @@ jobs:
             
             # Validate that the tag exists with retry logic (handle timing issues)
             max_attempts=3
-            attempt=1
+            current_attempt=1
             tag_exists=false
             
-            while [ $attempt -le $max_attempts ]; do
+            while [ $current_attempt -le $max_attempts ]; do
               if git rev-parse "refs/tags/${VERSION_TAG}" >/dev/null 2>&1; then
                 tag_exists=true
-                echo "✓ Tag ${VERSION_TAG} found (attempt ${attempt})"
+                echo "✓ Tag ${VERSION_TAG} found (attempt ${current_attempt})"
                 break
               fi
               
-              if [ $attempt -lt $max_attempts ]; then
-                echo "Tag ${VERSION_TAG} not found yet, waiting 5s before retry ${attempt}/${max_attempts}"
+              if [ $current_attempt -lt $max_attempts ]; then
+                echo "Tag ${VERSION_TAG} not found yet, waiting 5s before retry ${current_attempt}/${max_attempts}"
                 sleep 5
                 # Fetch latest tags
                 git fetch --tags origin
               fi
               
-              attempt=$((attempt + 1))
+              current_attempt=$((current_attempt + 1))
             done
             
             if [ "$tag_exists" = false ]; then
