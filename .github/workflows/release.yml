@@ -343,6 +343,22 @@ jobs:
             sbom.json.bundle
             checksums.txt
 
+      # Deploy to Coolify with the versioned image
+      # This ensures the correct version is deployed to production
+      - name: Trigger Coolify deploy
+        # Only deploy on tag pushes (not manual workflow_dispatch)
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        env:
+          COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
+          COOLIFY_APP_ID: ${{ secrets.COOLIFY_APP_ID }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          echo "Deploying version ${{ needs.calculate-version.outputs.version_tag }} to Coolify"
+          curl --fail-with-body --silent --show-error \
+            "$COOLIFY_BASE_URL/api/v1/deploy?uuid=$COOLIFY_APP_ID" \
+            -H "Authorization: Bearer $COOLIFY_API_TOKEN"
+          echo "✓ Deployment triggered successfully"
+
   # Create GitHub Release with artifacts
   create-github-release:
     name: Create GitHub Release
