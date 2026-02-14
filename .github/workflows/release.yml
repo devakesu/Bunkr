@@ -339,13 +339,19 @@ jobs:
             if gh attestation download \
               oci://ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }} \
               --owner ${{ github.repository_owner }}; then
-              # gh attestation download creates a file named after the digest (e.g., sha256:abc123.jsonl)
-              # Rename it to a consistent name for easier reference
-              DIGEST_FILE="${{ steps.build-push.outputs.digest }}.jsonl"
-              mv "$DIGEST_FILE" provenance.intoto.jsonl
-              echo "✓ SLSA provenance attestation downloaded successfully"
-              ls -lh provenance.intoto.jsonl
-              exit 0
+              # gh attestation download creates a file named after the digest (e.g., sha256:abc123.jsonl or sha256-abc123.jsonl on Windows)
+              # Find and rename it to a consistent name for easier reference
+              DIGEST_FILE=$(ls sha256*.jsonl 2>/dev/null | head -n 1)
+              if [ -n "$DIGEST_FILE" ]; then
+                mv "$DIGEST_FILE" provenance.intoto.jsonl
+                echo "✓ SLSA provenance attestation downloaded successfully"
+                ls -lh provenance.intoto.jsonl
+                exit 0
+              else
+                echo "⚠ Could not find downloaded attestation file"
+                ATTEMPT=$((ATTEMPT + 1))
+                continue
+              fi
             else
               echo "⚠ Download failed, waiting ${SLEEP_TIME}s before retry..."
               sleep $SLEEP_TIME
