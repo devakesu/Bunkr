@@ -319,6 +319,25 @@ jobs:
           subject-digest: ${{ steps.build-push.outputs.digest }}
           push-to-registry: true
 
+      # Download SLSA provenance attestation for OpenSSF Scorecard
+      - name: Download SLSA provenance attestation
+        run: |
+          set -euo pipefail
+          
+          echo "=== Downloading SLSA Provenance Attestation ==="
+          
+          # Wait a moment for attestation to be available
+          sleep 5
+          
+          # Download the attestation using gh CLI
+          gh attestation download \
+            oci://ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }} \
+            --owner ${{ github.repository_owner }} \
+            --format json > provenance.intoto.jsonl
+          
+          echo "✓ SLSA provenance attestation downloaded"
+          ls -lh provenance.intoto.jsonl
+
       # Generate SBOM
       - name: Generate SBOM
         uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
@@ -421,6 +440,7 @@ jobs:
             sbom.json
             sbom.json.bundle
             checksums.txt
+            provenance.intoto.jsonl
 
   # Create GitHub Release with artifacts
   create-github-release:
@@ -607,6 +627,7 @@ jobs:
             ./artifacts/sbom.json.bundle \
             ./artifacts/checksums.txt \
             ./artifacts/VERIFY.md \
+            ./artifacts/provenance.intoto.jsonl \
             --draft=false
 
   # Deploy to production after successful release creation
