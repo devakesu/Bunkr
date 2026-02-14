@@ -565,7 +565,7 @@ jobs:
 
           ## Image Information
 
-          - **Image**: \`ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version_tag }}\`
+          - **Image**: \`ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}\`
           - **Digest**: \`${{ needs.build-and-release.outputs.digest }}\`
           - **Platforms**: \`${PLATFORM_LIST}\`
           - **Version**: \`${{ needs.calculate-version.outputs.version }}\`
@@ -573,8 +573,8 @@ jobs:
           ## Additional Tags
 
           This release is also available under the following tags:
-          - \`ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:latest\` (manual dispatch only)
-          - \`ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version }}\`
+          - \`ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:latest\`
+          - \`ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version }}\`
 
           ## Learn More
 
@@ -613,7 +613,7 @@ jobs:
           ### Docker Images
 
           \`\`\`bash
-          docker pull ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version_tag }}
+          docker pull ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}
           \`\`\`
 
           **Image Digest**: \`${{ needs.build-and-release.outputs.digest }}\`
@@ -629,10 +629,10 @@ jobs:
           cosign verify \\
             --certificate-identity-regexp=\"^https://github.com/${{ github.repository }}\" \\
             --certificate-oidc-issuer=\"https://token.actions.githubusercontent.com\" \\
-            ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version_tag }}
+            ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}
 
           # Verify attestation
-          gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version_tag }} --owner ${{ github.repository_owner }}
+          gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }} --owner ${{ github.repository_owner }}
           \`\`\`
 
           ---
