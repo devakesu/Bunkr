@@ -490,7 +490,7 @@ After creating a release:
 
 **Possible causes:**
 1. **Actor check not configured**: Ensure the workflow has the condition `github.actor != 'github-actions[bot]'` to skip runs triggered by the automation bot itself
-2. **[skip ci] not in PR title**: Verify the PR title includes `[skip ci]` marker which is preserved during squash merge
+2. **[skip ci] not in commit message**: Verify the commit message (not title) includes `[skip ci]` marker which is preserved during squash merge to prevent re-triggering workflows
 3. **Concurrent workflows**: Multiple commits to main in rapid succession can trigger parallel workflows before the first PR is merged
 
 #### GPG signature verification failing
