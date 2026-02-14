@@ -281,7 +281,7 @@ jobs:
           fi
           
           echo "✓ Release tag ${VERSION_TAG} created and pushed"
-          echo "The release workflow will be triggered explicitly via workflow_dispatch"
+          echo "The release workflow will be triggered explicitly via repository_dispatch"
           echo "tag_created=true" >> $GITHUB_OUTPUT
 
       - name: Trigger release workflow via repository_dispatch
@@ -297,12 +297,28 @@ jobs:
           
           # Use repository_dispatch instead of workflow_dispatch
           # This only requires contents: write permission (no actions: write needed)
-          gh api repos/${{ github.repository }}/dispatches \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            -f event_type="release_requested" \
-            -f client_payload[version_tag]="${VERSION_TAG}" \
-            -f client_payload[triggered_by]="auto-version-and-tag" \
-            -f client_payload[run_id]="${{ github.run_id }}"
+          # Add retry logic to handle transient API failures
+          max_attempts=3
+          attempt=1
           
-          echo "✓ Release workflow dispatch event sent for ${VERSION_TAG}"
+          while [ $attempt -le $max_attempts ]; do
+            if gh api repos/${{ github.repository }}/dispatches \
+              --method POST \
+              -H "Accept: application/vnd.github+json" \
+              -f event_type="release_requested" \
+              -f client_payload[version_tag]="${VERSION_TAG}" \
+              -f client_payload[triggered_by]="auto-version-and-tag" \
+              -f client_payload[run_id]="${{ github.run_id }}"; then
+              echo "✓ Release workflow dispatch event sent for ${VERSION_TAG} (attempt ${attempt})"
+              break
+            fi
+            
+            if [ $attempt -eq $max_attempts ]; then
+              echo "✗ Failed to trigger release workflow after ${max_attempts} attempts"
+              exit 1
+            fi
+            
+            echo "API call failed on attempt ${attempt}, retrying in 5s..."
+            sleep 5
+            attempt=$((attempt + 1))
+          done
