@@ -340,8 +340,14 @@ jobs:
               oci://ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }} \
               --owner ${{ github.repository_owner }}; then
               # gh attestation download creates a file named after the digest (e.g., sha256:abc123.jsonl or sha256-abc123.jsonl on Windows)
-              # Find and rename it to a consistent name for easier reference
-              DIGEST_FILE=$(ls sha256*.jsonl 2>/dev/null | head -n 1)
+              # Find and rename it to a consistent name for easier reference, without using ls|head under set -euo pipefail
+              shopt -s nullglob
+              digest_files=(sha256*.jsonl)
+              if [ ${#digest_files[@]} -gt 0 ]; then
+                DIGEST_FILE="${digest_files[0]}"
+              else
+                DIGEST_FILE=""
+              fi
               if [ -n "$DIGEST_FILE" ]; then
                 mv "$DIGEST_FILE" provenance.intoto.jsonl
                 echo "✓ SLSA provenance attestation downloaded successfully"
