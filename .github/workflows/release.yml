@@ -75,6 +75,11 @@ jobs:
             # Validate that the tag exists
             if ! git rev-parse "refs/tags/${VERSION_TAG}" >/dev/null 2>&1; then
               echo "ERROR: Tag ${VERSION_TAG} does not exist in the repository"
+              echo "This usually means:"
+              echo "  1. The tag was not created successfully in the pipeline workflow"
+              echo "  2. There was a race condition and the tag creation failed"
+              echo "  3. The tag name is incorrect"
+              echo "Please check the pipeline workflow logs and verify the tag exists: git ls-remote --tags origin | grep ${VERSION_TAG}"
               exit 1
             fi
             

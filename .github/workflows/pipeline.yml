@@ -146,6 +146,7 @@ jobs:
             - Updated public/api-docs/openapi.yaml
             
             **Note:** This PR is intended to be merged automatically by the CI/CD pipeline.
+            It only updates version numbers (not code logic), so the previous PR's tests are sufficient.
           branch: version-bump-${{ steps.check.outputs.version }}-${{ github.run_id }}
           delete-branch: true
           committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
