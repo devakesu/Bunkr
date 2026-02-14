@@ -23,7 +23,7 @@ jobs:
     # Security: Only run on version bump PRs from the trusted bot
     if: |
       github.event_name != 'pull_request_target' ||
-      (startsWith(github.event.pull_request.head.ref, 'version-bump-') && github.actor == 'ghostclass-release-automation[bot]')
+      (startsWith(github.event.pull_request.head.ref, 'version-bump-') && github.event.pull_request.user.login == 'ghostclass-release-automation[bot]')
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
