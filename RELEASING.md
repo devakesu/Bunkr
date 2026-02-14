@@ -213,7 +213,7 @@ You can create a release in several ways:
 
 **How it works:**
 - The pipeline workflow runs on every push to main branch
-- The pipeline workflow validates code and manages versioning (no Docker builds)
+- The pipeline workflow manages versioning (no Docker builds); code validation is handled by required checks (e.g., `test.yml`, CodeQL)
 - The pipeline creates a PR when version files need updating (respects branch protection)
 - The PR is created by the GitHub App bot, which bypasses review requirements
 - Auto-merge is enabled, so the PR merges automatically when all checks pass
