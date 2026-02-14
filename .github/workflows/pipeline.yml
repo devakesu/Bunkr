@@ -29,7 +29,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
+          # Security: For pull_request_target, always checkout base branch (safe code)
+          # The 'if' condition ensures this only runs for trusted version-bump PRs
+          # For regular pull_request events, checkout the PR head
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
   # Auto-version and tag on main branch
   # This job runs on main branch pushes only
   # 

@@ -45,7 +45,39 @@ function compareSemver(a, b) {
   return 0;
 }
 
-// Helper function to increment patch version
+// Helper function to normalize version to comply with X.Y.Z where X, Y, Z ∈ {0-9}
+// If any component > 9, roll to next major/minor and reset subsequent components
+function normalizeVersion(version) {
+  const semverPattern = /^\d+\.\d+\.\d+$/;
+  if (!semverPattern.test(version)) {
+    throw new Error(`Invalid semantic version: ${version}. Expected MAJOR.MINOR.PATCH (e.g., 1.2.3)`);
+  }
+  
+  const parts = version.split('.').map(Number);
+  
+  // Check if patch > 9
+  if (parts[2] > 9) {
+    console.log(`${YELLOW}   ℹ️  Patch version ${parts[2]} > 9, rolling to next minor version${RESET}`);
+    parts[2] = 0;
+    parts[1] += 1;
+  }
+  
+  // Check if minor > 9
+  if (parts[1] > 9) {
+    console.log(`${YELLOW}   ℹ️  Minor version ${parts[1]} > 9, rolling to next major version${RESET}`);
+    parts[1] = 0;
+    parts[0] += 1;
+    // Reset patch as a "subsequent component" when minor rolls over
+    parts[2] = 0;
+  }
+  
+  return parts.join('.');
+}
+
+// Helper function to increment patch version with rollover logic
+// Version format: X.Y.Z where X, Y, Z ∈ {0-9}
+// After X.Y.9 comes X.(Y+1).0
+// After X.9.9 comes (X+1).0.0
 function incrementPatch(version) {
   // Validate input is a valid semantic version
   const semverPattern = /^\d+\.\d+\.\d+$/;
@@ -53,8 +85,24 @@ function incrementPatch(version) {
     throw new Error(`Invalid semantic version: ${version}. Expected MAJOR.MINOR.PATCH (e.g., 1.2.3)`);
   }
   
-  const parts = version.split('.').map(Number);
+  // First normalize the input to ensure it satisfies the 0-9 constraint
+  const normalized = normalizeVersion(version);
+  const parts = normalized.split('.').map(Number);
+  
+  // Increment patch version
   parts[2] += 1;
+  
+  // Apply rollover logic: each component must be 0-9
+  if (parts[2] > 9) {
+    parts[2] = 0;
+    parts[1] += 1;
+    
+    if (parts[1] > 9) {
+      parts[1] = 0;
+      parts[0] += 1;
+    }
+  }
+  
   return parts.join('.');
 }
 
@@ -122,16 +170,24 @@ try {
     console.log(`   🏷️  Latest git tag: ${latestTag ? GREEN + latestTag + RESET : YELLOW + '<none>' + RESET}`);
     
     if (!latestTag) {
-      // No tags exist, use package.json version
-      newVersion = currentVersion;
-      console.log(`   🎯 Using package.json version (no tags exist): ${GREEN}${newVersion}${RESET}`);
+      // No tags exist, use package.json version (normalized)
+      newVersion = normalizeVersion(currentVersion);
+      if (newVersion !== currentVersion) {
+        console.log(`   🎯 Using normalized package.json version (no tags exist): ${GREEN}${newVersion}${RESET}`);
+      } else {
+        console.log(`   🎯 Using package.json version (no tags exist): ${GREEN}${newVersion}${RESET}`);
+      }
     } else {
       const comparison = compareSemver(currentVersion, latestTag);
       
       if (comparison > 0) {
         // package.json version > latest tag (from merged release branch)
-        newVersion = currentVersion;
-        console.log(`   🎯 Using package.json version (already bumped): ${GREEN}${newVersion}${RESET}`);
+        newVersion = normalizeVersion(currentVersion);
+        if (newVersion !== currentVersion) {
+          console.log(`   🎯 Using normalized package.json version (already bumped): ${GREEN}${newVersion}${RESET}`);
+        } else {
+          console.log(`   🎯 Using package.json version (already bumped): ${GREEN}${newVersion}${RESET}`);
+        }
       } else if (comparison === 0) {
         // package.json version = latest tag (auto-increment patch)
         newVersion = incrementPatch(currentVersion);
@@ -155,8 +211,12 @@ try {
       process.exit(0);
     }
 
-    newVersion = match[1];
-    console.log(`   🎯 Detected Target Version: ${GREEN}${newVersion}${RESET} (from branch '${branchName}')`);
+    newVersion = normalizeVersion(match[1]);
+    if (newVersion !== match[1]) {
+      console.log(`   🎯 Detected & Normalized Target Version: ${GREEN}${newVersion}${RESET} (from branch '${branchName}')`);
+    } else {
+      console.log(`   🎯 Detected Target Version: ${GREEN}${newVersion}${RESET} (from branch '${branchName}')`);
+    }
   }
 
   // 3. Update package.json & package-lock.json
