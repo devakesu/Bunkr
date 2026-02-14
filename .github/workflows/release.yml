@@ -343,16 +343,6 @@ jobs:
             sbom.json.bundle
             checksums.txt
 
-      # Upload artifacts for the release job
-      - name: Upload release artifacts for GitHub Release
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: release-artifacts
-          path: |
-            sbom.json
-            sbom.json.bundle
-            checksums.txt
-
   # Create GitHub Release with artifacts
   create-github-release:
     name: Create GitHub Release

@@ -304,7 +304,12 @@ The workflow will:
 
 ## Release Artifacts
 
-Each release is automatically built and deployed by the release workflow when a tag is pushed:
+The release workflow can be triggered either by pushing a version tag or manually via `workflow_dispatch`:
+
+- **Tag-push releases (auto-deploy)**: When a matching version tag is pushed, the workflow builds release artifacts and automatically deploys the new version.
+- **Manually dispatched releases (no auto-deploy)**: When the workflow is run manually, it builds and publishes release artifacts, but deployment is not performed automatically.
+
+For tag-push releases (auto-deploy), the workflow performs the following steps:
 
 1. **Docker Image Build**: Multi-platform images built for `linux/amd64` and `linux/arm64`
 2. **Image Signing**: Images are signed with Sigstore cosign
@@ -600,7 +605,7 @@ git push origin "v${VERSION}"
 **Check:**
 - Verify the release workflow completed successfully (check GitHub Actions logs)
 - Check that `COOLIFY_BASE_URL`, `COOLIFY_APP_ID`, and `COOLIFY_API_TOKEN` secrets are configured
-- Verify the deployment step in the release workflow's `build-and-release` job executed
+- Verify the deployment step in the release workflow's `deploy-to-production` job executed
 - Check Coolify logs to see if the deployment webhook was received
 - Ensure the event was a tag push (deployment only triggers on tag pushes, not manual workflow_dispatch)
 
