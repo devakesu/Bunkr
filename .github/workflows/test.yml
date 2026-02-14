@@ -5,6 +5,13 @@ on:
     branches: [main, 'release/*']
   pull_request:
     branches: [main, 'release/*']
+  # Trigger when CI/CD Pipeline completes on version-bump-* branches
+  # Note: 'branches' here refers to where the triggering workflow ran,
+  # not the PR target branch
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types: [completed]
+    branches: [version-bump-*]
 
 permissions:
   contents: read
@@ -12,8 +19,11 @@ permissions:
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
@@ -35,6 +45,7 @@ jobs:
 
   e2e-tests:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     env:
       # Mock environment variables for E2E tests
       ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -55,6 +66,8 @@ jobs:
       NODE_ENV: "test"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
