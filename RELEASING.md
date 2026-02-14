@@ -655,9 +655,11 @@ git push origin "v${VERSION}"
 could not create workflow dispatch event: HTTP 403: Resource not accessible by integration
 ```
 
-**Cause:** This error occurs when trying to use `workflow_dispatch` without the `Actions: Read and write` permission on the GitHub App.
+**Cause:** This error occurred in older versions of the workflow when trying to use `workflow_dispatch` without the `Actions: Read and write` permission on the GitHub App.
 
-**Solution:** The workflows have been updated to use `repository_dispatch` instead of `workflow_dispatch`, which only requires `Contents: Read and write` permission. If you see this error:
+**Solution:** The workflows have been updated to use `repository_dispatch` instead of `workflow_dispatch`, which only requires `Contents: Read and write` permission. This error should no longer occur with the updated workflows.
+
+If you still see this error:
 
 1. **Verify the pipeline is up to date:**
    - Check that `.github/workflows/pipeline.yml` uses `gh api repos/.../dispatches` with `event_type="release_requested"`
