@@ -7,6 +7,10 @@ on:
     branches: [main]
   merge_group:
     branches: [main]
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types: [completed]
+    branches: [version-bump-*]
 
 permissions:
   contents: read
