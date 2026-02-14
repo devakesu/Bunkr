@@ -326,7 +326,7 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
           commit-message: 'chore: bump version to v${{ steps.check.outputs.version }} [skip ci]'
-          title: 'chore: bump version to v${{ steps.check.outputs.version }} [skip ci]'
+          title: 'chore: bump version to v${{ steps.check.outputs.version }}'
           body: |
             Automated version bump to v${{ steps.check.outputs.version }}
             
