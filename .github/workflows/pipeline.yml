@@ -33,274 +33,68 @@ jobs:
           # For regular pull_request events, checkout the PR head
           # The 'if' condition in the job ensures pull_request_target only runs for trusted bot PRs
           ref: ${{ github.event_name == 'pull_request_target' && github.sha || (github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha) }}
-  # Auto-version and tag on main branch
-  # This job runs on main branch pushes only
-  # 
-  # Two scenarios:
-  # 1. Branch name format x.x.x (e.g., "1.5.6"):
-  #    - Version files are already updated in the merged PR
-  #    - Creates tag directly (no PR needed)
-  # 
-  # 2. Branch name NOT in x.x.x format (e.g., "copilot/*", "feature/*"):
-  #    - Version needs to be bumped automatically
-  #    - Creates PR with version bump → Merges immediately → Creates tag
-  #    - Note: test.yml may still run tests on version-bump PRs via pull_request_target,
-  #      but this pipeline does not wait for those tests (only version numbers change)
-  #    - Previous PR's tests are sufficient for validation
-  # 
-  # For tags created by this workflow, .github/workflows/release.yml is invoked via an
-  # explicit workflow_dispatch step (workflow-created tags do not auto-trigger other workflows),
-  # which builds, signs, and deploys the Docker image with the correct version.
-  auto-version-and-tag:
-    name: Auto Version & Tag
+  # Auto-tag releases on main branch
+  # This simplified job creates signed tags from version bumps made in PRs
+  # The version bump now happens at PR creation time via auto-version-bump.yml
+  auto-tag:
+    name: Auto Tag Release
     needs: guard
     if: |
       github.event_name == 'push' && 
-      github.ref == 'refs/heads/main' &&
-      github.actor != 'github-actions[bot]' &&
-      !contains(github.event.head_commit.message, '[skip ci]')
-    # Note: The github.actor check prevents infinite loops by skipping runs triggered
-    # by the automation bot itself. The [skip ci] marker provides an additional manual guard.
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     steps:
-      - name: Generate GitHub App Token
-        id: app-token
-        uses: actions/create-github-app-token@5d869da34e18e7287c1daad50e0b8ea0f506ce69 # v1.11.0
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
-          persist-credentials: false
-
+      
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4 # v6.1.0
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          git_user_signingkey: true
-          git_commit_gpgsign: true
           git_tag_gpgsign: true
-
+      
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '20'
-
-      - name: Run version bump script
+      
+      - name: Create and push signed tag
         env:
-          CI: 'true'
-          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           
-          echo "=== Running version bump script in CI mode ==="
+          VERSION=$(node -p "require('./package.json').version")
+          VERSION_TAG="v${VERSION}"
           
-          # Run the version bump script
-          if ! node scripts/bump-version.js; then
-            echo "ERROR: Version bump script failed"
-            exit 1
-          fi
+          echo "Current version: ${VERSION}"
+          echo "Tag to create: ${VERSION_TAG}"
           
-          echo "✓ Version bump script completed successfully"
-
-      - name: Check for version changes
-        id: check
-        run: |
-          set -euo pipefail
-          
-          # Always read current version from package.json
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          echo "version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
-          
-          # Check if there are changes to commit
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "No version changes to commit - version already correct at ${CURRENT_VERSION}"
-            echo "Will skip PR creation and create tag directly"
-          else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "Version will be: ${CURRENT_VERSION}"
-          fi
-
-      - name: Create Pull Request
-        id: create-pr
-        if: steps.check.outputs.has_changes == 'true'
-        uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v7.0.5
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          commit-message: 'chore: bump version to v${{ steps.check.outputs.version }} [skip ci]'
-          title: 'chore: bump version to v${{ steps.check.outputs.version }}'
-          body: |
-            Automated version bump to v${{ steps.check.outputs.version }}
-            
-            This PR was automatically created by the CI/CD pipeline.
-            
-            **Changes:**
-            - Updated package.json and package-lock.json
-            - Updated .example.env (NEXT_PUBLIC_APP_VERSION)
-            - Updated public/api-docs/openapi.yaml
-            
-            **Note:** This PR is intended to be merged automatically by the CI/CD pipeline.
-            It only updates version numbers (not code logic), so the previous PR's tests are sufficient.
-          branch: version-bump-${{ steps.check.outputs.version }}-${{ github.run_id }}
-          delete-branch: true
-          committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
-          author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
-
-      - name: Merge version bump PR
-        if: steps.check.outputs.has_changes == 'true'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          
-          PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
-          MAX_WAIT=300  # 300 seconds (5 minutes) - waiting for PR creation and merge to complete
-          POLL_INTERVAL=10  # 10 seconds
-          elapsed=0
-          
-          echo "Merging version bump PR #${PR_NUMBER} without waiting for test workflows"
-          echo "Note: test.yml may run on this PR, but we don't wait for it"
-          echo "The original PR's tests already passed before triggering this version bump"
-          
-          # Give GitHub a moment to fully process the PR creation
-          sleep 5
-          
-          # Wait for PR to be created and ready for merge
-          while [ $elapsed -lt $MAX_WAIT ]; do
-            PR_STATE=$(gh pr view "${PR_NUMBER}" --json state --jq '.state')
-            
-            if [ "$PR_STATE" = "OPEN" ]; then
-              echo "PR #${PR_NUMBER} is ready, merging now..."
-              
-              # Merge the PR immediately (without --auto flag for immediate merge)
-              MERGE_OUTPUT=$(gh pr merge "${PR_NUMBER}" --squash 2>&1)
-              merge_status=$?
-              
-              if [ $merge_status -eq 0 ]; then
-                echo "✓ PR #${PR_NUMBER} merged successfully"
-                break
-              else
-                echo "Merge attempt failed, will retry after ${POLL_INTERVAL}s..."
-                echo "Error output: ${MERGE_OUTPUT}"
-                
-                # Check if error indicates branch protection issues
-                if echo "${MERGE_OUTPUT}" | grep -qi "required status check\|required review"; then
-                  echo "⚠ Merge blocked by branch protection rules"
-                  echo "Ensure the GitHub App is added to the branch protection bypass list"
-                  echo "See RELEASING.md for configuration details"
-                elif echo "${MERGE_OUTPUT}" | grep -qi "not authorized\|permission"; then
-                  echo "⚠ GitHub App lacks merge permissions"
-                  echo "Ensure the GitHub App is in the branch protection bypass list"
-                  echo "See RELEASING.md for configuration details"
-                else
-                  echo "This may occur if the PR is still being processed by GitHub"
-                fi
-              fi
-            elif [ "$PR_STATE" = "MERGED" ]; then
-              echo "✓ PR #${PR_NUMBER} already merged"
-              break
-            elif [ "$PR_STATE" = "CLOSED" ]; then
-              echo "ERROR: PR #${PR_NUMBER} was closed without merging"
-              exit 1
-            fi
-            
-            sleep $POLL_INTERVAL
-            elapsed=$((elapsed + POLL_INTERVAL))
-          done
-          
-          # Final verification that PR was merged
-          PR_STATE=$(gh pr view "${PR_NUMBER}" --json state --jq '.state')
-          if [ "$PR_STATE" != "MERGED" ]; then
-            echo "ERROR: Failed to merge PR #${PR_NUMBER} after ${MAX_WAIT}s"
-            exit 1
-          fi
-          
-          echo "✓ Version bump PR merged successfully"
-
-      - name: Fetch latest changes and create release tag
-        id: create-tag
-        if: steps.check.outputs.version != ''
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          
-          # Configure git to use GitHub CLI authentication (needed because persist-credentials: false)
-          gh auth setup-git
-          
-          VERSION_TAG="v${{ steps.check.outputs.version }}"
-          
-          # If changes were made, we need to fetch the merged PR
-          if [ "${{ steps.check.outputs.has_changes }}" = "true" ]; then
-            echo "Fetching latest changes from merged PR"
-            git fetch origin main
-            git checkout main
-            git pull origin main
-          else
-            echo "No PR was created - version already correct"
-            echo "Creating tag directly from current commit"
-          fi
-          
-          echo "Checking if tag ${VERSION_TAG} needs to be created"
-          
-          # Check if tag already exists (skip if it does)
+          # Check if tag already exists
           if git ls-remote --tags origin | grep -q "refs/tags/${VERSION_TAG}$"; then
-            echo "Tag ${VERSION_TAG} already exists, skipping tag creation"
-            echo "tag_created=false" >> $GITHUB_OUTPUT
+            echo "Tag ${VERSION_TAG} already exists, skipping"
             exit 0
           fi
           
-          echo "Creating and pushing signed tag ${VERSION_TAG}"
+          echo "Creating signed tag ${VERSION_TAG}"
           
-          # Create annotated signed tag (signing is already configured via git_tag_gpgsign)
-          if ! git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"; then
-            echo "ERROR: Failed to create tag ${VERSION_TAG}"
-            exit 1
-          fi
+          # Create signed annotated tag
+          git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"
           
-          # Push tag (using GitHub App token so it triggers the release workflow)
-          if ! git push origin "${VERSION_TAG}"; then
-            echo "WARN: Failed to push tag ${VERSION_TAG} on first attempt"
-            echo "Checking if tag now exists on remote (possible race condition)..."
-            
-            if git ls-remote --tags origin | grep -q "refs/tags/${VERSION_TAG}$"; then
-              echo "Tag ${VERSION_TAG} now exists on remote; assuming it was created by a concurrent workflow run."
-              echo "Treating this as success."
-              echo "tag_created=false" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-            
-            echo "ERROR: Failed to push tag ${VERSION_TAG}"
-            exit 1
-          fi
+          # Push tag
+          git push origin "${VERSION_TAG}"
           
-          echo "✓ Release tag ${VERSION_TAG} created and pushed"
-          echo "The release workflow will be triggered explicitly via repository_dispatch"
-          echo "tag_created=true" >> $GITHUB_OUTPUT
-
-      - name: Trigger release workflow via repository_dispatch
-        if: steps.create-tag.outputs.tag_created == 'true'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          set -euo pipefail
+          echo "✓ Tag ${VERSION_TAG} created and pushed"
           
-          VERSION_TAG="v${{ steps.check.outputs.version }}"
+          # Trigger release workflow via repository_dispatch
+          echo "Triggering release workflow via repository_dispatch"
           
-          echo "Triggering release workflow for ${VERSION_TAG} via repository_dispatch"
-          
-          # Use repository_dispatch instead of workflow_dispatch
-          # This only requires contents: write permission (no actions: write needed)
-          # Add retry logic to handle transient API failures
+          # Add retry logic for transient failures
           max_attempts=3
           attempt=1
           
@@ -310,9 +104,9 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               -f event_type="release_requested" \
               -f client_payload[version_tag]="${VERSION_TAG}" \
-              -f client_payload[triggered_by]="auto-version-and-tag" \
+              -f client_payload[triggered_by]="auto-tag" \
               -f client_payload[run_id]="${{ github.run_id }}"; then
-              echo "✓ Release workflow dispatch event sent for ${VERSION_TAG} (attempt ${attempt})"
+              echo "✓ Release workflow triggered for ${VERSION_TAG}"
               break
             fi
             
@@ -321,7 +115,7 @@ jobs:
               exit 1
             fi
             
-            echo "API call failed on attempt ${attempt}, retrying in 5s..."
+            echo "Retry attempt ${attempt}/${max_attempts} in 5s..."
             sleep 5
             attempt=$((attempt + 1))
           done
