@@ -115,11 +115,12 @@ If you're contributing from a forked repository:
 
 ### Rollover Versioning
 
-GhostClass uses a rollover versioning system where each component (X.Y.Z) must be 0-9:
+GhostClass uses a rollover versioning system where minor and patch components (Y and Z in X.Y.Z) must be 0-9, while major version (X) can exceed 9:
 
 ```
-1.6.9 → 1.7.0  (patch rollover)
-1.9.9 → 2.0.0  (minor rollover)
+1.6.9 → 1.7.0   (patch rollover)
+1.9.9 → 2.0.0   (minor rollover)
+9.9.9 → 10.0.0  (major version exceeds 9)
 ```
 
 For more details, see [VERSIONING.md](VERSIONING.md).

@@ -127,8 +127,10 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "✓ Version bumped to ${NEW_VERSION}"
           
-          # Note: Git user and signing are configured by ghaction-import-gpg
-          # No manual git config needed - GPG action sets up user.name, user.email, and commit signing
+          # Configure git identity for commits
+          # Note: GPG action configures signing, but we must explicitly set user identity
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           
           # Stage and commit changes
           # Note: Files are explicitly listed (not git add -u) to ensure only version files are committed
@@ -184,8 +186,8 @@ jobs:
 
 This PR now includes the version bump commit.${rebumpNote}
 
-**Rollover versioning:** X.Y.Z where X, Y, Z ∈ {0-9}
-- Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0
+**Rollover versioning:** X.Y.Z where X ≥ 0 and Y, Z ∈ {0-9}
+- Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0, 9.9.9 → 10.0.0
 
 This PR is ready for review! 🚀`
             });
@@ -237,8 +239,8 @@ The script will update:
             - \`.example.env\` (NEXT_PUBLIC_APP_VERSION)
             - \`public/api-docs/openapi.yaml\`
             
-            **Rollover versioning:** X.Y.Z where X, Y, Z ∈ {0-9}
-            - Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0
+            **Rollover versioning:** X.Y.Z where X ≥ 0 and Y, Z ∈ {0-9}
+            - Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0, 9.9.9 → 10.0.0
             
             For more details, see [VERSIONING.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/docs/VERSIONING.md).`
             });

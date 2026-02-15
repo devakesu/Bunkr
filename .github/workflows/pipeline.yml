@@ -91,8 +91,21 @@ jobs:
           # Create signed annotated tag
           git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"
           
-          # Push tag
+          # Push tag (handle possible concurrent creation)
+          set +e
           git push origin "${VERSION_TAG}"
+          push_status=$?
+          set -e
+          
+          if [ $push_status -ne 0 ]; then
+            echo "git push for tag ${VERSION_TAG} failed with status ${push_status}, checking if tag exists on remote..."
+            if git ls-remote --tags origin | grep -q "refs/tags/${VERSION_TAG}$"; then
+              echo "Tag ${VERSION_TAG} already exists on remote (likely created concurrently); continuing."
+            else
+              echo "✗ Failed to push tag ${VERSION_TAG} and tag not found on remote."
+              exit $push_status
+            fi
+          fi
           
           echo "✓ Tag ${VERSION_TAG} created and pushed"
           

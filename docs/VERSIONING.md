@@ -73,12 +73,12 @@ When you create a Pull Request from a branch in the main repository:
 
 If you're contributing from a forked repository:
 
-1. The **Auto Version Bump** workflow will comment on your PR
-2. For fork PRs, it cannot push changes to your fork, so it instead:
-   - Reminds you to manually bump the version
-   - Provides the commands to run in your fork
-3. Run the provided command on your PR branch
-4. Commit and push the version bump changes
+1. The **Auto Version Bump** workflow will check your version
+2. For fork PRs, the workflow cannot push changes to your fork due to security restrictions
+3. The workflow will attempt to leave a comment with instructions (note: commenting on forks may fail due to token permissions)
+4. If you receive a comment or if the workflow detects your version needs updating:
+   - Run the manual version bump command on your PR branch (see below)
+   - Commit and push the version bump changes to your fork
 
 ## Manual Version Bumping
 
