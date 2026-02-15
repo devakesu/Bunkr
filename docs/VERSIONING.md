@@ -9,13 +9,13 @@ X.Y.Z
 ```
 
 Where:
-- **X** = Major version (0-9)
-- **Y** = Minor version (0-9)
-- **Z** = Patch version (0-9)
+- **X** = Major version (can grow beyond 9, e.g., 10, 11, ...)
+- **Y** = Minor version (0-9, rolls over to increment major)
+- **Z** = Patch version (0-9, rolls over to increment minor)
 
-### Constraint: Single Digit Components
+### Constraint: Single Digit Minor and Patch
 
-Each version component **must** be between 0 and 9. When a component reaches 10, it "rolls over" to 0 and increments the next higher component.
+Minor and patch components **must** be between 0 and 9. When a component reaches 10, it "rolls over" to 0 and increments the next higher component. The major version can grow beyond 9.
 
 ## Rollover Logic
 
@@ -86,7 +86,7 @@ If you need to manually bump the version:
 
 ```bash
 # From your PR branch, run the version bump script with PR context:
-GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
+CI=true GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
 ```
 
 The script updates:

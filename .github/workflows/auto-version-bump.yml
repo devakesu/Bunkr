@@ -182,12 +182,12 @@ jobs:
               repo: context.repo.repo,
               body: `✅ **Version automatically bumped to \`v${newVersion}\`**
 
-            This PR now includes the version bump commit.${rebumpNote}
-            
-            **Rollover versioning:** X.Y.Z where X, Y, Z ∈ {0-9}
-            - Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0
-            
-            This PR is ready for review! 🚀`
+This PR now includes the version bump commit.${rebumpNote}
+
+**Rollover versioning:** X.Y.Z where X, Y, Z ∈ {0-9}
+- Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0
+
+This PR is ready for review! 🚀`
             });
       
       - name: Comment on PR (same-repo, already bumped)
@@ -202,9 +202,9 @@ jobs:
               repo: context.repo.repo,
               body: `✅ **Version already bumped to \`v${currentVersion}\`**
 
-            No automatic version bump needed - the PR already includes a version update.
-            
-            This PR is ready for review! 🚀`
+No automatic version bump needed - the PR already includes a version update.
+
+This PR is ready for review! 🚀`
             });
       
       - name: Comment on PR (fork, needs bump)
@@ -220,19 +220,19 @@ jobs:
               repo: context.repo.repo,
               body: `👋 **Thank you for your contribution from a fork!**
 
-            Since this PR is from a forked repository, the automatic version bump cannot run (for security reasons).
-            
-            **Please manually bump the version before merging:**
-            
-            \`\`\`bash
-            # Current version on main: ${currentVersion}
-            # Suggested next version: ${nextVersion}
-            
-            # From your PR branch, run the version bump script with PR context:
-            GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
-            \`\`\`
-            
-            The script will update:
+Since this PR is from a forked repository, the automatic version bump cannot run (for security reasons).
+
+**Please manually bump the version before merging:**
+
+\`\`\`bash
+# Current version on main: ${currentVersion}
+# Suggested next version: ${nextVersion}
+
+# From your PR branch, run the version bump script with PR context:
+CI=true GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
+\`\`\`
+
+The script will update:
             - \`package.json\` and \`package-lock.json\`
             - \`.example.env\` (NEXT_PUBLIC_APP_VERSION)
             - \`public/api-docs/openapi.yaml\`
@@ -255,7 +255,7 @@ jobs:
               repo: context.repo.repo,
               body: `✅ **Version already bumped to \`v${currentVersion}\`**
 
-            Great! This PR already includes a version update.
-            
-            This PR is ready for review! 🚀`
+Great! This PR already includes a version update.
+
+This PR is ready for review! 🚀`
             });

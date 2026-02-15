@@ -83,6 +83,10 @@ jobs:
           
           echo "Creating signed tag ${VERSION_TAG}"
           
+          # Configure git identity for tagging (GPG action sets signing config)
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
           # Create signed annotated tag
           git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"
           
