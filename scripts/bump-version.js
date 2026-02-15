@@ -165,6 +165,8 @@ try {
     const currentVersion = String(packageJson.version || '').trim();
     
     // Validate the version field contains a valid semantic version
+    // This regex checks format (X.Y.Z) but doesn't enforce 0-9 constraint per component
+    // The normalizeVersion() function handles rollover for multi-digit components (e.g., 1.10.5 → 1.11.0)
     const semverPattern = /^\d+\.\d+\.\d+$/;
     if (!semverPattern.test(currentVersion)) {
       console.error(`${RED}❌ Invalid package.json version "${currentVersion}". Expected MAJOR.MINOR.PATCH (e.g., 1.2.3).${RESET}`);

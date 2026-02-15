@@ -2,6 +2,8 @@ name: Auto Version Bump
 
 on:
   pull_request:
+    # Triggers on opened and reopened to handle both new PRs and PRs that were closed/reopened
+    # The check step will detect if version is already bumped and skip if not needed
     types: [opened, reopened]
     branches: [main]
 
@@ -77,6 +79,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           # Stage and commit changes
+          # Note: Files are explicitly listed (not git add -u) to ensure only version files are committed
+          # This matches the files updated by bump-version.js
           git add package.json package-lock.json .example.env public/api-docs/openapi.yaml
           
           # Check if there are changes to commit

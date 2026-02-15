@@ -41,7 +41,9 @@ jobs:
           script: |
             const baseVersion = '${{ steps.check.outputs.base_version }}';
             
-            // Calculate next version (simple patch increment)
+            // Calculate next version using rollover logic
+            // This logic is duplicated from scripts/bump-version.js incrementPatch() for inline calculation
+            // The source of truth is scripts/bump-version.js - keep in sync if versioning logic changes
             const parts = baseVersion.split('.').map(Number);
             parts[2] += 1;
             if (parts[2] > 9) {
