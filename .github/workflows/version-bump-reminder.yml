@@ -44,7 +44,22 @@ jobs:
             // Calculate next version using rollover logic
             // This logic is duplicated from scripts/bump-version.js incrementPatch() for inline calculation
             // The source of truth is scripts/bump-version.js - keep in sync if versioning logic changes
-            const parts = baseVersion.split('.').map(Number);
+            // Note: This assumes the current version is already valid (X.Y.Z where X,Y,Z ∈ {0-9})
+            // If the base version violates the constraint, the suggested version may be incorrect
+            let parts = baseVersion.split('.').map(Number);
+            
+            // Normalize first (handle versions with components > 9)
+            if (parts[2] > 9) {
+              parts[2] = 0;
+              parts[1] += 1;
+            }
+            if (parts[1] > 9) {
+              parts[1] = 0;
+              parts[0] += 1;
+              parts[2] = 0;
+            }
+            
+            // Then increment patch
             parts[2] += 1;
             if (parts[2] > 9) {
               parts[2] = 0;
