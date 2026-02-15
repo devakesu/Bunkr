@@ -1,6 +1,7 @@
 # GhostClass
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Version](https://img.shields.io/github/v/release/devakesu/GhostClass?label=Version)](https://github.com/devakesu/GhostClass/releases/latest)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/devakesu/GhostClass/badge)](https://scorecard.dev/viewer/?uri=github.com/devakesu/GhostClass)
 [![SLSA Level 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 [![Attestations](https://img.shields.io/badge/Attestations-View-brightgreen?logo=github)](https://github.com/devakesu/GhostClass/attestations)
@@ -597,12 +598,27 @@ For more details, see [RELEASING.md](RELEASING.md).
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how you can help:
+We welcome contributions! GhostClass uses an **automatic version bumping system** that handles versioning for you.
 
-1. Fork the repository
-2. Create a feature branch
+### Quick Start
+
+1. Fork the repository (or create a branch if you have write access)
+2. Create a feature branch (`git checkout -b feature/your-feature`)
 3. Make your changes
-4. Submit a pull request
+4. Push your branch and create a Pull Request
+5. **Version is auto-bumped!** (for same-repo PRs) or follow the manual instructions (for forks)
+
+### Documentation
+
+- **[Contributing Guide](docs/CONTRIBUTING.md)** - Detailed contribution guidelines and workflow
+- **[Versioning System](docs/VERSIONING.md)** - Learn about our rollover versioning (X.Y.Z where Y,Z ∈ {0-9} and X ≥ 0)
+
+### Automatic Version Bumping
+
+- **Same-repo PRs**: Version is automatically bumped by the workflow ✨
+- **Fork PRs**: Follow the bot's instructions to manually bump the version
+
+For more details, see [VERSIONING.md](docs/VERSIONING.md).
 
 <br />
 

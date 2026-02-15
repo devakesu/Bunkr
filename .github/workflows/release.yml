@@ -535,6 +535,11 @@ jobs:
         env:
           IMAGE_NAME: ${{ needs.build-and-release.outputs.image_name }}
           PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
+          VERSION_TAG: ${{ needs.calculate-version.outputs.version_tag }}
+          DIGEST: ${{ needs.build-and-release.outputs.digest }}
+          VERSION: ${{ needs.calculate-version.outputs.version }}
+          REPOSITORY: ${{ github.repository }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           # Convert platforms to readable format (same transformation as release notes)
           PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
@@ -550,9 +555,9 @@ jobs:
 
           \`\`\`bash
           cosign verify \\
-            --certificate-identity-regexp="^https://github.com/${{ github.repository }}" \\
+            --certificate-identity-regexp="^https://github.com/${REPOSITORY}" \\
             --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \\
-            ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version_tag }}
+            ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}
           \`\`\`
 
           ## Verify Build Attestation
@@ -560,7 +565,7 @@ jobs:
           Using GitHub CLI:
 
           \`\`\`bash
-          gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}:${{ needs.calculate-version.outputs.version_tag }} --owner ${{ github.repository_owner }}
+          gh attestation verify oci://ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG} --owner ${REPOSITORY_OWNER}
           \`\`\`
 
           ## Verify SBOM Signature
@@ -587,16 +592,16 @@ jobs:
 
           ## Image Information
 
-          - **Image**: \`ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}\`
-          - **Digest**: \`${{ needs.build-and-release.outputs.digest }}\`
+          - **Image**: \`ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}\`
+          - **Digest**: \`${DIGEST}\`
           - **Platforms**: \`${PLATFORM_LIST}\`
-          - **Version**: \`${{ needs.calculate-version.outputs.version }}\`
+          - **Version**: \`${VERSION}\`
 
           ## Additional Tags
 
           This release is also available under the following tags:
-          - \`ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:latest\`
-          - \`ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version }}\`
+          - \`ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:latest\`
+          - \`ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION}\`
 
           ## Learn More
 
@@ -608,6 +613,12 @@ jobs:
       - name: Create GitHub Release
         env:
           IMAGE_NAME: ${{ needs.build-and-release.outputs.image_name }}
+          DIGEST: ${{ needs.build-and-release.outputs.digest }}
+          VERSION_TAG: ${{ needs.calculate-version.outputs.version_tag }}
+          REPOSITORY: ${{ github.repository }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          SERVER_URL: ${{ github.server_url }}
+          CHANGELOG_TEXT: ${{ steps.prev_version.outputs.changelog_text }}
           PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -621,10 +632,10 @@ jobs:
             PLATFORM_DESC="Docker image (${PLATFORM_LIST})"
           fi
           
-          gh release create "${{ needs.calculate-version.outputs.version_tag }}" \
-            --title "Release ${{ needs.calculate-version.outputs.version_tag }}" \
+          gh release create "${VERSION_TAG}" \
+            --title "Release ${VERSION_TAG}" \
             --latest \
-            --notes "## Release ${{ needs.calculate-version.outputs.version_tag }}
+            --notes "## Release ${VERSION_TAG}
 
           This release includes:
           - 🐳 ${PLATFORM_DESC}
@@ -636,31 +647,31 @@ jobs:
           ### Docker Images
 
           \`\`\`bash
-          docker pull ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}
+          docker pull ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}
           \`\`\`
 
-          **Image Digest**: \`${{ needs.build-and-release.outputs.digest }}\`
+          **Image Digest**: \`${DIGEST}\`
 
           ### Verification
 
-          See [VERIFY.md](https://github.com/${{ github.repository }}/releases/download/${{ needs.calculate-version.outputs.version_tag }}/VERIFY.md) for detailed verification instructions.
+          See [VERIFY.md](https://github.com/${REPOSITORY}/releases/download/${VERSION_TAG}/VERIFY.md) for detailed verification instructions.
 
           ### Quick Verification
 
           \`\`\`bash
           # Verify image signature
           cosign verify \\
-            --certificate-identity-regexp=\"^https://github.com/${{ github.repository }}\" \\
+            --certificate-identity-regexp=\"^https://github.com/${REPOSITORY}\" \\
             --certificate-oidc-issuer=\"https://token.actions.githubusercontent.com\" \\
-            ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}
+            ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}
 
           # Verify attestation
-          gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/${{ needs.build-and-release.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }} --owner ${{ github.repository_owner }}
+          gh attestation verify oci://ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG} --owner ${REPOSITORY_OWNER}
           \`\`\`
 
           ---
 
-          **Full Changelog**: ${{ github.server_url }}/${{ github.repository }}/compare/${{ steps.prev_version.outputs.changelog_text }}" \
+          **Full Changelog**: ${SERVER_URL}/${REPOSITORY}/compare/${CHANGELOG_TEXT}" \
             ./artifacts/sbom.json \
             ./artifacts/sbom.json.bundle \
             ./artifacts/checksums.txt \

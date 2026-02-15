@@ -111,15 +111,23 @@ try {
 
   // Detect if running in CI
   const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+  
+  // Detect if running in a PR context (GITHUB_HEAD_REF is set for pull_request events)
+  const isPRContext = isCI && process.env.GITHUB_HEAD_REF;
 
   // 1. Get current branch name
   let branchName = 'unknown';
   
   if (isCI) {
-    // In GitHub Actions, use GITHUB_REF_NAME environment variable
-    // because checkout action often leaves repo in detached HEAD state
-    branchName = process.env.GITHUB_REF_NAME || 'unknown';
-    console.log(`   ℹ️  Detected branch from GITHUB_REF_NAME: ${branchName}`);
+    // In PR context, use GITHUB_HEAD_REF (the PR branch name)
+    // Otherwise, use GITHUB_REF_NAME (the target/current branch)
+    if (isPRContext) {
+      branchName = process.env.GITHUB_HEAD_REF;
+      console.log(`   ℹ️  Detected PR branch from GITHUB_HEAD_REF: ${branchName}`);
+    } else {
+      branchName = process.env.GITHUB_REF_NAME || 'unknown';
+      console.log(`   ℹ️  Detected branch from GITHUB_REF_NAME: ${branchName}`);
+    }
   } else {
     // Local development: use git command
     try {
@@ -132,8 +140,46 @@ try {
 
   let newVersion;
 
-  // 2. Determine version based on context (CI main branch or local branch)
-  if (isCI && branchName === 'main') {
+  // 2. Determine version based on context
+  if (isPRContext) {
+    // PR context: Auto-increment patch from current package.json version
+    console.log(`${YELLOW}   ℹ️  Running in PR context${RESET}`);
+    
+    const packageJsonPath = path.join(process.cwd(), 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      console.error(`${RED}❌ package.json not found${RESET}`);
+      process.exit(1);
+    }
+    
+    let packageJson;
+    try {
+      packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    } catch (err) {
+      console.error(`${RED}❌ Failed to parse package.json: Invalid JSON format${RESET}`);
+      if (err && err.message) {
+        console.error(err.message);
+      }
+      process.exit(1);
+    }
+    
+    const currentVersion = String(packageJson.version || '').trim();
+    
+    // Validate the version field contains a valid semantic version
+    // This regex checks format (X.Y.Z) but doesn't enforce 0-9 constraint per component
+    // The normalizeVersion() function handles rollover for multi-digit components (e.g., 1.10.5 → 2.0.0)
+    const semverPattern = /^\d+\.\d+\.\d+$/;
+    if (!semverPattern.test(currentVersion)) {
+      console.error(`${RED}❌ Invalid package.json version "${currentVersion}". Expected MAJOR.MINOR.PATCH (e.g., 1.2.3).${RESET}`);
+      process.exit(1);
+    }
+    
+    console.log(`   📦 Current PR branch version: ${GREEN}${currentVersion}${RESET}`);
+    
+    // Auto-increment patch version using rollover logic
+    newVersion = incrementPatch(currentVersion);
+    console.log(`   🎯 Auto-incrementing to: ${GREEN}${newVersion}${RESET}`);
+    
+  } else if (isCI && branchName === 'main') {
     console.log(`${YELLOW}   ℹ️  Running in CI on main branch${RESET}`);
     
     // Read current package.json version
