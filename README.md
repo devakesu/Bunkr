@@ -611,7 +611,7 @@ We welcome contributions! GhostClass uses an **automatic version bumping system*
 ### Documentation
 
 - **[Contributing Guide](docs/CONTRIBUTING.md)** - Detailed contribution guidelines and workflow
-- **[Versioning System](docs/VERSIONING.md)** - Learn about our rollover versioning (X.Y.Z where X,Y,Z ∈ {0-9})
+- **[Versioning System](docs/VERSIONING.md)** - Learn about our rollover versioning (X.Y.Z where Y,Z ∈ {0-9} and X ≥ 0)
 
 ### Automatic Version Bumping
 

@@ -1,6 +1,6 @@
 # Versioning System
 
-GhostClass uses a **rollover versioning system** with the format `X.Y.Z` where each component is constrained to single digits (0-9).
+GhostClass uses a **rollover versioning system** with the format `X.Y.Z` where minor and patch components are constrained to single digits (0-9), while the major version can grow beyond 9.
 
 ## Version Format
 
