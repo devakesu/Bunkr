@@ -63,7 +63,7 @@ When you create a Pull Request from a branch in the main repository:
 1. The **Auto Version Bump** workflow automatically checks if the version needs to be bumped
 2. If the PR's version matches the version on `main`, it automatically:
    - Increments the patch version using rollover logic
-   - Updates all version files (package.json, .example.env, openapi.yaml)
+   - Updates all version files (package.json, package-lock.json, .example.env, openapi.yaml)
    - Commits the changes to your PR branch
    - Leaves a comment on the PR
 
