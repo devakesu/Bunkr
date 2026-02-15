@@ -183,22 +183,22 @@ jobs:
               });
             
             const isRebump = !!existingBumpComment;
-            const rebumpNote = isRebump 
-              ? '\n\n_Note: A previous automatic bump was performed. This is a re-bump after the PR was updated (e.g., rebased or synced with main)._' 
+            const rebumpNote = isRebump
+              ? '\n\n_Note: A previous automatic bump was performed. This is a re-bump after the PR was updated (e.g., rebased or synced with main)._'
               : '';
-            
+
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `✅ **Version automatically bumped to \`v${newVersion}\`**
-
-This PR now includes the version bump commit.${rebumpNote}
-
-**Rollover versioning:** X.Y.Z where X ≥ 0 and Y, Z ∈ {0-9}
-- Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0, 9.9.9 → 10.0.0
-
-This PR is ready for review! 🚀`
+            
+            This PR now includes the version bump commit.${rebumpNote}
+            
+            **Rollover versioning:** X.Y.Z where X ≥ 0 and Y, Z ∈ {0-9}
+            - Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0, 9.9.9 → 10.0.0
+            
+            This PR is ready for review! 🚀`
             });
       
       - name: Comment on PR (same-repo, already bumped)
@@ -212,10 +212,10 @@ This PR is ready for review! 🚀`
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `✅ **Version already bumped to \`v${currentVersion}\`**
-
-No automatic version bump needed - the PR already includes a version update.
-
-This PR is ready for review! 🚀`
+            
+            No automatic version bump needed - the PR already includes a version update.
+            
+            This PR is ready for review! 🚀`
             });
       
       - name: Comment on PR (fork, needs bump)
@@ -230,28 +230,28 @@ This PR is ready for review! 🚀`
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `👋 **Thank you for your contribution from a fork!**
-
-Since this PR is from a forked repository, the automatic version bump cannot run (for security reasons).
-
-**Please manually bump the version before merging:**
-
-\`\`\`bash
-# Current version on main: ${currentVersion}
-# Suggested next version: ${nextVersion}
-
-# From your PR branch, run the version bump script with PR context:
-CI=true GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
-\`\`\`
-
-The script will update:
-- \`package.json\` and \`package-lock.json\`
-- \`.example.env\` (NEXT_PUBLIC_APP_VERSION)
-- \`public/api-docs/openapi.yaml\`
-
-**Rollover versioning:** X.Y.Z where X ≥ 0 and Y, Z ∈ {0-9}
-- Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0, 9.9.9 → 10.0.0
-
-For more details, see [VERSIONING.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/docs/VERSIONING.md).`
+            
+            Since this PR is from a forked repository, the automatic version bump cannot run (for security reasons).
+            
+            **Please manually bump the version before merging:**
+            
+            \`\`\`bash
+            # Current version on main: ${currentVersion}
+            # Suggested next version: ${nextVersion}
+            
+            # From your PR branch, run the version bump script with PR context:
+            CI=true GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
+            \`\`\`
+            
+            The script will update:
+            - \`package.json\` and \`package-lock.json\`
+            - \`.example.env\` (NEXT_PUBLIC_APP_VERSION)
+            - \`public/api-docs/openapi.yaml\`
+            
+            **Rollover versioning:** X.Y.Z where X ≥ 0 and Y, Z ∈ {0-9}
+            - Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0, 9.9.9 → 10.0.0
+            
+            For more details, see [VERSIONING.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/docs/VERSIONING.md).`
             });
       
       - name: Comment on PR (fork, already bumped)
@@ -265,8 +265,8 @@ For more details, see [VERSIONING.md](https://github.com/${context.repo.owner}/$
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `✅ **Version already bumped to \`v${currentVersion}\`**
-
-Great! This PR already includes a version update.
-
-This PR is ready for review! 🚀`
+            
+            Great! This PR already includes a version update.
+            
+            This PR is ready for review! 🚀`
             });
