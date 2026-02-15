@@ -46,14 +46,14 @@ jobs:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-      
+
       - name: Checkout PR head (fork PR)
         if: steps.repo-check.outputs.is_same_repo == 'false'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-      
+
       - name: Import GPG key (same-repo only)
         if: steps.repo-check.outputs.is_same_repo == 'true'
         uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4 # v6.1.0
@@ -62,35 +62,35 @@ jobs:
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
           git_user_signingkey: true
           git_commit_gpgsign: true
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '20'
-      
+
       - name: Check if version needs bump
         id: check
         run: |
           set -euo pipefail
-          
+
           # Get current version from PR branch
           CURRENT=$(node -p "require('./package.json').version")
           echo "Current version on PR branch: ${CURRENT}"
-          
+
           # Get version from main branch
           git fetch origin main
           MAIN_VERSION=$(git show origin/main:package.json | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8')).version")
           echo "Version on main branch: ${MAIN_VERSION}"
-          
+
           # Calculate next version for reference
           NEXT_VERSION=$(node -e "
             const version = '${MAIN_VERSION}';
             let parts = version.split('.').map(Number);
-            
+
             // Normalize first
             if (parts[2] > 9) { parts[2] = 0; parts[1] += 1; }
             if (parts[1] > 9) { parts[1] = 0; parts[0] += 1; parts[2] = 0; }
-            
+
             // Increment
             parts[2] += 1;
             if (parts[2] > 9) {
@@ -104,7 +104,7 @@ jobs:
             console.log(parts.join('.'));
           ")
           echo "next_version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
-          
+
           # Check if version needs bump or already bumped
           if [ "$CURRENT" = "$MAIN_VERSION" ]; then
             echo "needs_bump=true" >> $GITHUB_OUTPUT
@@ -115,55 +115,55 @@ jobs:
             echo "current_version=$CURRENT" >> $GITHUB_OUTPUT
             echo "✓ Version already bumped (current: ${CURRENT}, main: ${MAIN_VERSION})"
           fi
-      
+
       - name: Auto bump version (same-repo only)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true'
         id: bump
         run: |
           set -euo pipefail
-          
+
           echo "Running bump-version.js script..."
-          
+
           # Set environment for PR context
           export GITHUB_HEAD_REF="${{ github.head_ref }}"
           export CI="true"
-          
+
           # Run the bump script
           node scripts/bump-version.js
-          
+
           # Get the new version
           NEW_VERSION=$(node -p "require('./package.json').version")
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "✓ Version bumped to ${NEW_VERSION}"
-          
+
           # Configure git identity for commits
           # Note: GPG action configures signing, but we must explicitly set user identity
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Stage and commit changes
           # Note: Files are explicitly listed (not git add -u) to ensure only version files are committed
           # This matches the files updated by bump-version.js
           git add package.json package-lock.json .example.env public/api-docs/openapi.yaml
-          
+
           # Check if there are changes to commit
           if git diff --staged --quiet; then
             echo "⚠️  No changes to commit after running bump script"
             exit 0
           fi
-          
+
           git commit -m "chore: auto-bump version to v${NEW_VERSION}"
           git push
-          
+
           echo "✓ Changes committed and pushed"
-      
+
       - name: Comment on PR (same-repo with auto-bump)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && steps.bump.outputs.new_version != ''
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
             const newVersion = '${{ steps.bump.outputs.new_version }}';
-            
+
             // Check for existing bump comments to avoid spam on synchronize events
             const { data: comments } = await github.rest.issues.listComments({
               issue_number: context.issue.number,
@@ -171,7 +171,7 @@ jobs:
               repo: context.repo.repo,
               per_page: 100,
             });
-            
+
             const bumpPrefix = '✅ **Version automatically bumped to';
             const existingBumpComment = comments
               .slice()
@@ -181,7 +181,7 @@ jobs:
                 const hasPrefix = typeof comment.body === 'string' && comment.body.startsWith(bumpPrefix);
                 return isBot && hasPrefix;
               });
-            
+
             const isRebump = !!existingBumpComment;
             const rebumpNote = isRebump
               ? '\n\n_Note: A previous automatic bump was performed. This is a re-bump after the PR was updated (e.g., rebased or synced with main)._'
@@ -192,15 +192,15 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `✅ **Version automatically bumped to \`v${newVersion}\`**
-            
+
             This PR now includes the version bump commit.${rebumpNote}
-            
+
             **Rollover versioning:** X.Y.Z where X ≥ 0 and Y, Z ∈ {0-9}
             - Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0, 9.9.9 → 10.0.0
-            
+
             This PR is ready for review! 🚀`
             });
-      
+
       - name: Comment on PR (same-repo, already bumped)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'false' && github.event.action != 'synchronize'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
@@ -212,12 +212,12 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `✅ **Version already bumped to \`v${currentVersion}\`**
-            
+
             No automatic version bump needed - the PR already includes a version update.
-            
+
             This PR is ready for review! 🚀`
             });
-      
+
       - name: Comment on PR (fork, needs bump)
         if: steps.repo-check.outputs.is_same_repo == 'false' && steps.check.outputs.needs_bump == 'true' && github.event.action != 'synchronize'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
@@ -230,30 +230,30 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `👋 **Thank you for your contribution from a fork!**
-            
+
             Since this PR is from a forked repository, the automatic version bump cannot run (for security reasons).
-            
+
             **Please manually bump the version before merging:**
-            
+
             \`\`\`bash
             # Current version on main: ${currentVersion}
             # Suggested next version: ${nextVersion}
-            
+
             # From your PR branch, run the version bump script with PR context:
             CI=true GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
             \`\`\`
-            
+
             The script will update:
             - \`package.json\` and \`package-lock.json\`
             - \`.example.env\` (NEXT_PUBLIC_APP_VERSION)
             - \`public/api-docs/openapi.yaml\`
-            
+
             **Rollover versioning:** X.Y.Z where X ≥ 0 and Y, Z ∈ {0-9}
             - Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0, 9.9.9 → 10.0.0
-            
+
             For more details, see [VERSIONING.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/docs/VERSIONING.md).`
             });
-      
+
       - name: Comment on PR (fork, already bumped)
         if: steps.repo-check.outputs.is_same_repo == 'false' && steps.check.outputs.needs_bump == 'false' && github.event.action != 'synchronize'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
@@ -265,8 +265,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `✅ **Version already bumped to \`v${currentVersion}\`**
-            
+
             Great! This PR already includes a version update.
-            
+
             This PR is ready for review! 🚀`
             });
