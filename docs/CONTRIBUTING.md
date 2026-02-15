@@ -102,7 +102,7 @@ If you're contributing from a forked repository:
 2. **Check for bot comment**: A workflow will comment with version bump instructions
 3. **Run the bump script** on your PR branch:
    ```bash
-   node scripts/bump-version.js
+   GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
    ```
 4. **Commit and push** the version changes:
    ```bash

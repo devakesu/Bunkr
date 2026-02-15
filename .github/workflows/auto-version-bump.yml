@@ -173,7 +173,7 @@ jobs:
             
             const isRebump = !!existingBumpComment;
             const rebumpNote = isRebump 
-              ? '\n\n_Note: This replaces a previous automatic bump after the PR was updated (e.g., rebased or synced with main)._' 
+              ? '\n\n_Note: A previous automatic bump was performed. This is a re-bump after the PR was updated (e.g., rebased or synced with main)._' 
               : '';
             
             await github.rest.issues.createComment({
