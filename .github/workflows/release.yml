@@ -623,6 +623,7 @@ jobs:
           
           gh release create "${{ needs.calculate-version.outputs.version_tag }}" \
             --title "Release ${{ needs.calculate-version.outputs.version_tag }}" \
+            --latest \
             --notes "## Release ${{ needs.calculate-version.outputs.version_tag }}
 
           This release includes:
