@@ -73,9 +73,11 @@ When you create a Pull Request from a branch in the main repository:
 
 If you're contributing from a forked repository:
 
-1. The **Version Bump Reminder** workflow will comment on your PR
-2. It provides instructions for manually bumping the version
-3. Run `node scripts/bump-version.js` on your PR branch
+1. The **Auto Version Bump** workflow will comment on your PR
+2. For fork PRs, it cannot push changes to your fork, so it instead:
+   - Reminds you to manually bump the version
+   - Provides the commands to run in your fork
+3. Run the provided command on your PR branch
 4. Commit and push the version bump changes
 
 ## Manual Version Bumping
@@ -83,8 +85,8 @@ If you're contributing from a forked repository:
 If you need to manually bump the version:
 
 ```bash
-# The script will auto-increment the patch version
-node scripts/bump-version.js
+# From your PR branch, run the version bump script with PR context:
+GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
 ```
 
 The script updates:

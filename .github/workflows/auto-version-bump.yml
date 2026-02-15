@@ -38,11 +38,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
       
-      - name: Checkout base branch (fork PR)
+      - name: Checkout PR head (fork PR)
         if: steps.repo-check.outputs.is_same_repo == 'false'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.base_ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       
       - name: Import GPG key (same-repo only)
@@ -64,15 +64,9 @@ jobs:
         run: |
           set -euo pipefail
           
-          # Get current version from PR branch (or base for fork)
-          if [ "${{ steps.repo-check.outputs.is_same_repo }}" = "true" ]; then
-            CURRENT=$(node -p "require('./package.json').version")
-            echo "Current version on PR branch: ${CURRENT}"
-          else
-            # For fork PRs, we check base branch version
-            CURRENT=$(node -p "require('./package.json').version")
-            echo "Current version on base branch: ${CURRENT}"
-          fi
+          # Get current version from PR branch
+          CURRENT=$(node -p "require('./package.json').version")
+          echo "Current version on PR branch: ${CURRENT}"
           
           # Get version from main branch
           git fetch origin main
@@ -158,13 +152,37 @@ jobs:
         with:
           script: |
             const newVersion = '${{ steps.bump.outputs.new_version }}';
+            
+            // Check for existing bump comments to avoid spam on synchronize events
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            
+            const bumpPrefix = '✅ **Version automatically bumped to';
+            const existingBumpComment = comments
+              .slice()
+              .reverse()
+              .find((comment) => {
+                const isBot = comment.user && comment.user.type === 'Bot';
+                const hasPrefix = typeof comment.body === 'string' && comment.body.startsWith(bumpPrefix);
+                return isBot && hasPrefix;
+              });
+            
+            const isRebump = !!existingBumpComment;
+            const rebumpNote = isRebump 
+              ? '\n\n_Note: This replaces a previous automatic bump after the PR was updated (e.g., rebased or synced with main)._' 
+              : '';
+            
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `✅ **Version automatically bumped to \`v${newVersion}\`**
 
-            This PR now includes the version bump commit.
+            This PR now includes the version bump commit.${rebumpNote}
             
             **Rollover versioning:** X.Y.Z where X, Y, Z ∈ {0-9}
             - Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0
@@ -173,7 +191,7 @@ jobs:
             });
       
       - name: Comment on PR (same-repo, already bumped)
-        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'false'
+        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'false' && github.event.action != 'synchronize'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
@@ -190,7 +208,7 @@ jobs:
             });
       
       - name: Comment on PR (fork, needs bump)
-        if: steps.repo-check.outputs.is_same_repo == 'false' && steps.check.outputs.needs_bump == 'true'
+        if: steps.repo-check.outputs.is_same_repo == 'false' && steps.check.outputs.needs_bump == 'true' && github.event.action != 'synchronize'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
@@ -210,8 +228,8 @@ jobs:
             # Current version on main: ${currentVersion}
             # Suggested next version: ${nextVersion}
             
-            # Run the version bump script:
-            node scripts/bump-version.js
+            # From your PR branch, run the version bump script with PR context:
+            GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
             \`\`\`
             
             The script will update:
@@ -226,7 +244,7 @@ jobs:
             });
       
       - name: Comment on PR (fork, already bumped)
-        if: steps.repo-check.outputs.is_same_repo == 'false' && steps.check.outputs.needs_bump == 'false'
+        if: steps.repo-check.outputs.is_same_repo == 'false' && steps.check.outputs.needs_bump == 'false' && github.event.action != 'synchronize'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
