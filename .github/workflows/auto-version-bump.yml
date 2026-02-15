@@ -2,9 +2,12 @@ name: Auto Version Bump
 
 on:
   pull_request:
-    # Triggers on opened and reopened to handle both new PRs and PRs that were closed/reopened
+    # Triggers on opened, reopened, and synchronize to handle:
+    # - opened: Initial PR creation
+    # - reopened: When a closed PR is reopened
+    # - synchronize: When PR is updated (e.g., after rebase/merge from main)
     # The check step will detect if version is already bumped and skip if not needed
-    types: [opened, reopened]
+    types: [opened, reopened, synchronize]
     branches: [main]
 
 permissions:
@@ -41,6 +44,15 @@ jobs:
         with:
           ref: ${{ github.base_ref }}
           fetch-depth: 0
+      
+      - name: Import GPG key (same-repo only)
+        if: steps.repo-check.outputs.is_same_repo == 'true'
+        uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4 # v6.1.0
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
       
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -121,9 +133,8 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "✓ Version bumped to ${NEW_VERSION}"
           
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Note: Git user and signing are configured by ghaction-import-gpg
+          # No manual git config needed - GPG action sets up user.name, user.email, and commit signing
           
           # Stage and commit changes
           # Note: Files are explicitly listed (not git add -u) to ensure only version files are committed
