@@ -63,29 +63,29 @@ jobs:
             echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
             echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
             echo "Using repository_dispatch version: ${VERSION_NUMBER}"
-            
+
             # Validate that the tag exists with retry logic (handle timing issues)
             max_attempts=3
             current_attempt=1
             tag_exists=false
-            
+
             while [ $current_attempt -le $max_attempts ]; do
               if git rev-parse "refs/tags/${VERSION_TAG}" >/dev/null 2>&1; then
                 tag_exists=true
                 echo "✓ Tag ${VERSION_TAG} found (attempt ${current_attempt})"
                 break
               fi
-              
+
               if [ $current_attempt -lt $max_attempts ]; then
                 echo "Tag ${VERSION_TAG} not found yet, waiting 5s before retry ${current_attempt}/${max_attempts}"
                 sleep 5
                 # Fetch latest tags
                 git fetch --tags origin
               fi
-              
+
               current_attempt=$((current_attempt + 1))
             done
-            
+
             if [ "$tag_exists" = false ]; then
               echo "ERROR: Tag ${VERSION_TAG} does not exist in the repository after ${max_attempts} attempts"
               echo "This usually means:"
@@ -95,11 +95,11 @@ jobs:
               echo "Please check the pipeline workflow logs and verify the tag exists: git ls-remote --tags origin | grep ${VERSION_TAG}"
               exit 1
             fi
-            
+
             # Checkout the tag to ensure we build the correct version
             echo "Checking out tag ${VERSION_TAG} for build"
             git checkout "refs/tags/${VERSION_TAG}"
-          
+
           # If triggered by a tag, use the tag version
           elif [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION="${{ github.ref_name }}"
@@ -117,7 +117,7 @@ jobs:
             echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
             echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
             echo "Using workflow_dispatch version: ${VERSION_TAG}"
-            
+
             # Validate that the tag exists
             if ! git rev-parse "refs/tags/${VERSION_TAG}" >/dev/null 2>&1; then
               echo "ERROR: Tag ${VERSION_TAG} does not exist in the repository"
@@ -128,7 +128,7 @@ jobs:
               echo "Please check the pipeline workflow logs and verify the tag exists: git ls-remote --tags origin | grep ${VERSION_TAG}"
               exit 1
             fi
-            
+
             # Checkout the tag to ensure we build the correct version
             echo "Checking out tag ${VERSION_TAG} for build"
             git checkout "refs/tags/${VERSION_TAG}"
@@ -136,19 +136,19 @@ jobs:
             # Manual dispatch: calculate next version from latest tag
             # Filter to strict semver tags only
             LATEST_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
-            
+
             # Default to v0.0.0 if no valid tags exist
             if [ -z "$LATEST_TAG" ]; then
               LATEST_TAG="v0.0.0"
             fi
             echo "Latest tag: ${LATEST_TAG}"
-            
+
             # Remove 'v' prefix
             LATEST_VERSION="${LATEST_TAG#v}"
-            
+
             # Parse version components
             IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST_VERSION}"
-            
+
             # Bump version based on input
             case "${{ github.event.inputs.bump_type }}" in
               major)
@@ -164,10 +164,10 @@ jobs:
                 PATCH=$((PATCH + 1))
                 ;;
             esac
-            
+
             NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
             VERSION_TAG="v${NEW_VERSION}"
-            
+
             echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
             echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
             echo "Calculated new version: ${NEW_VERSION} (${VERSION_TAG})"
@@ -210,22 +210,23 @@ jobs:
       - name: Prepare derived values
         id: prep
         run: |
-          # Validate IMAGE_NAME secret is set
+          # Use IMAGE_NAME from secrets with fallback to repo name
           if [ -z "${{ secrets.IMAGE_NAME }}" ]; then
-            echo "❌ ERROR: IMAGE_NAME secret is not configured"
-            echo "Please add IMAGE_NAME secret in repository settings"
-            echo "Expected format: lowercase repository name (e.g., 'ghostclass')"
-            exit 1
+            # Fallback: extract repo name and convert to lowercase
+            IMAGE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
+            echo "⚠️  IMAGE_NAME secret not set, using fallback: ${IMAGE_NAME}"
+          else
+            IMAGE_NAME="${{ secrets.IMAGE_NAME }}"
+            echo "✓ Using IMAGE_NAME from secret: ${IMAGE_NAME}"
           fi
-          
-          # Use IMAGE_NAME from secrets (consistent with pipeline.yml)
-          IMAGE_NAME="${{ secrets.IMAGE_NAME }}"
+
+          # Output the image name
           echo "image_name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
-          
-          # Debug output
-          echo "✓ Using IMAGE_NAME: ${IMAGE_NAME}"
-          echo "  Full image path: ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}"
-          
+
+          # Debug: Show what will be used
+          echo "🐳 Image name: ${IMAGE_NAME}"
+          echo "   Full path: ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}"
+
           # Determine build platforms
           # For tag pushes: Build both AMD64 and ARM64 (full release)
           # For workflow_dispatch: Respect user's build_arm64 input
@@ -247,7 +248,7 @@ jobs:
           fi
           echo "platforms=${PLATFORMS}" >> $GITHUB_OUTPUT
           echo "  Build platforms: ${PLATFORMS}"
-          
+
           APP_DOMAIN="${{ secrets.NEXT_PUBLIC_APP_DOMAIN }}"
           echo "app_url=https://${APP_DOMAIN}" >> $GITHUB_OUTPUT
           echo "sitemap_url=https://${APP_DOMAIN}/sitemap.xml" >> $GITHUB_OUTPUT
@@ -279,7 +280,7 @@ jobs:
           secrets: |
             sentry_token=${{ secrets.SENTRY_AUTH_TOKEN }}
           platforms: ${{ steps.prep.outputs.platforms }}
-          
+
           # Enable layer caching for faster builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -325,17 +326,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          
+
           echo "=== Downloading SLSA Provenance Attestation ==="
-          
+
           # Retry logic: attestation may take a moment to be available
           MAX_ATTEMPTS=5
           ATTEMPT=1
           SLEEP_TIME=10
-          
+
           while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
             echo "Attempt $ATTEMPT of $MAX_ATTEMPTS..."
-            
+
             if gh attestation download \
               oci://ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }} \
               --owner ${{ github.repository_owner }}; then
@@ -368,7 +369,7 @@ jobs:
               ATTEMPT=$((ATTEMPT + 1))
             fi
           done
-          
+
           echo "❌ Failed to download attestation after $MAX_ATTEMPTS attempts"
           exit 1
 
@@ -403,11 +404,11 @@ jobs:
           IMAGE_URI: ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }}
         run: |
           set -euo pipefail
-          
+
           echo "=== Cosign Image Signing ==="
           echo "Image URI: ${IMAGE_URI}"
           echo "Version: ${{ needs.calculate-version.outputs.version }}"
-          
+
           # Sign with timeout
           timeout 300 cosign sign \
             -a "repo=${{ github.repository }}" \
@@ -418,7 +419,7 @@ jobs:
               echo "ERROR: Cosign image signing failed or timed out"
               exit 1
             }
-          
+
           echo "✓ Image signed successfully"
           cosign triangulate "${IMAGE_URI}"
 
@@ -427,19 +428,19 @@ jobs:
           IMAGE_URI: ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }}
         run: |
           set -euo pipefail
-          
+
           cosign verify \
             --certificate-identity-regexp="^https://github.com/${{ github.repository }}/.github/workflows/" \
             --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
             "${IMAGE_URI}"
-          
+
           echo "✓ Image signature verified"
 
       # Sign SBOM file
       - name: Sign SBOM artifact
         run: |
           set -euo pipefail
-          
+
           echo "=== Signing SBOM ==="
           timeout 60 cosign sign-blob --yes \
             --bundle sbom.json.bundle \
@@ -447,7 +448,7 @@ jobs:
               echo "ERROR: SBOM signing failed or timed out"
               exit 1
             }
-          
+
           echo "✓ SBOM signed successfully"
 
       # Generate SHA256 checksums (after all artifacts are created)
@@ -516,10 +517,10 @@ jobs:
         run: |
           # Get version tags only (strict semantic version pattern: v[0-9]+.[0-9]+.[0-9]+)
           CURRENT_TAG="${{ needs.calculate-version.outputs.version_tag }}"
-          
+
           # Get the previous semantic version tag (strict pattern matching)
           PREV_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -v "^${CURRENT_TAG}$" | head -n1 || echo "")
-          
+
           if [ -z "$PREV_TAG" ]; then
             echo "No previous version tag found, using initial commit"
             PREV_REF=$(git rev-list --max-parents=0 HEAD)
@@ -543,7 +544,7 @@ jobs:
         run: |
           # Convert platforms to readable format (same transformation as release notes)
           PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
-          
+
           cat > ./artifacts/VERIFY.md << EOF
           # Release Verification Instructions
 
@@ -585,7 +586,7 @@ jobs:
           \`\`\`bash
           # Verify all artifacts (extract only checksum lines)
           grep -E '^[0-9a-f]{64}  ' checksums.txt | sha256sum -c
-          
+
           # Or verify individual files
           sha256sum sbom.json sbom.json.bundle
           \`\`\`
@@ -624,14 +625,14 @@ jobs:
         run: |
           # Convert platforms to readable format for release notes
           PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
-          
+
           # Determine if multi-platform
           if [[ "${PLATFORMS}" == *","* ]]; then
             PLATFORM_DESC="Multi-platform Docker images (${PLATFORM_LIST})"
           else
             PLATFORM_DESC="Docker image (${PLATFORM_LIST})"
           fi
-          
+
           gh release create "${VERSION_TAG}" \
             --title "Release ${VERSION_TAG}" \
             --latest \
@@ -699,17 +700,17 @@ jobs:
           COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: |
           set -euo pipefail
-          
+
           # Validate required Coolify configuration
           : "${COOLIFY_BASE_URL:?COOLIFY_BASE_URL secret is required}"
           : "${COOLIFY_APP_ID:?COOLIFY_APP_ID secret is required}"
           : "${COOLIFY_API_TOKEN:?COOLIFY_API_TOKEN secret is required}"
-          
+
           echo "Deploying version ${{ needs.calculate-version.outputs.version_tag }} to Coolify"
           echo "Note: Ensure Coolify is configured to pull the versioned tag (e.g., ${{ needs.calculate-version.outputs.version_tag }})"
-          
+
           curl --fail-with-body --silent --show-error \
             "$COOLIFY_BASE_URL/api/v1/deploy?uuid=$COOLIFY_APP_ID" \
             -H "Authorization: Bearer $COOLIFY_API_TOKEN"
-          
+
           echo "✓ Deployment triggered successfully"

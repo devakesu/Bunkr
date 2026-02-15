@@ -40,7 +40,7 @@ jobs:
     name: Auto Tag Release
     needs: guard
     if: |
-      github.event_name == 'push' && 
+      github.event_name == 'push' &&
       github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-      
+
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4 # v6.1.0
         with:
@@ -58,45 +58,45 @@ jobs:
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
           git_tag_gpgsign: true
           git_user_signingkey: true
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '20'
-      
+
       - name: Create and push signed tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          
+
           VERSION=$(node -p "require('./package.json').version")
           VERSION_TAG="v${VERSION}"
-          
+
           echo "Current version: ${VERSION}"
           echo "Tag to create: ${VERSION_TAG}"
-          
+
           # Check if tag already exists
           if git ls-remote --tags origin | grep -q "refs/tags/${VERSION_TAG}$"; then
             echo "Tag ${VERSION_TAG} already exists, skipping"
             exit 0
           fi
-          
+
           echo "Creating signed tag ${VERSION_TAG}"
-          
+
           # Configure git identity for tagging (GPG action sets signing config)
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Create signed annotated tag
           git tag -a "${VERSION_TAG}" -m "Release ${VERSION_TAG}"
-          
+
           # Push tag (handle possible concurrent creation)
           set +e
           git push origin "${VERSION_TAG}"
           push_status=$?
           set -e
-          
+
           if [ $push_status -ne 0 ]; then
             echo "git push for tag ${VERSION_TAG} failed with status ${push_status}, checking if tag exists on remote..."
             if git ls-remote --tags origin | grep -q "refs/tags/${VERSION_TAG}$"; then
@@ -106,16 +106,16 @@ jobs:
               exit $push_status
             fi
           fi
-          
+
           echo "✓ Tag ${VERSION_TAG} created and pushed"
-          
+
           # Trigger release workflow via repository_dispatch
           echo "Triggering release workflow via repository_dispatch"
-          
+
           # Add retry logic for transient failures
           max_attempts=3
           attempt=1
-          
+
           while [ $attempt -le $max_attempts ]; do
             if gh api repos/${{ github.repository }}/dispatches \
               --method POST \
@@ -127,12 +127,12 @@ jobs:
               echo "✓ Release workflow triggered for ${VERSION_TAG}"
               break
             fi
-            
+
             if [ $attempt -eq $max_attempts ]; then
               echo "✗ Failed to trigger release workflow after ${max_attempts} attempts"
               exit 1
             fi
-            
+
             echo "Retry attempt ${attempt}/${max_attempts} in 5s..."
             sleep 5
             attempt=$((attempt + 1))
