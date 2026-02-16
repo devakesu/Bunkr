@@ -25,12 +25,9 @@ jobs:
         with:
           # SECURITY: This workflow uses pull_request_target but is SAFE because:
           # 1. Job-level 'if' condition restricts pull_request_target to ONLY trusted bot PRs
-          #    (see: startsWith(github.event.pull_request.head.ref, 'version-bump-') &&
-          #          github.event.pull_request.user.login == 'ghostclass-release-automation[bot]')
-          # 2. For pull_request_target events, we ALWAYS checkout the base branch (github.sha)
-          #    which contains trusted code from the main branch, NOT untrusted PR code
-          # 3. For regular pull_request events, we safely checkout PR head (github.event.pull_request.head.sha)
-          ref: ${{ github.event_name == 'pull_request_target' && github.sha || (github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha) }}
+          # 2. For pull_request events: checks out PR head to run tests on proposed changes
+          # 3. For pull_request_target events: checks out base branch (trusted code only)
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
@@ -79,12 +76,9 @@ jobs:
         with:
           # SECURITY: This workflow uses pull_request_target but is SAFE because:
           # 1. Job-level 'if' condition restricts pull_request_target to ONLY trusted bot PRs
-          #    (see: startsWith(github.event.pull_request.head.ref, 'version-bump-') &&
-          #          github.event.pull_request.user.login == 'ghostclass-release-automation[bot]')
-          # 2. For pull_request_target events, we ALWAYS checkout the base branch (github.sha)
-          #    which contains trusted code from the main branch, NOT untrusted PR code
-          # 3. For regular pull_request events, we safely checkout PR head (github.event.pull_request.head.sha)
-          ref: ${{ github.event_name == 'pull_request_target' && github.sha || (github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha) }}
+          # 2. For pull_request events: checks out PR head to run tests on proposed changes
+          # 3. For pull_request_target events: checks out base branch (trusted code only)
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:

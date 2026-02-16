@@ -42,10 +42,8 @@ jobs:
       - name: Checkout PR branch (same-repo only)
         if: steps.repo-check.outputs.is_same_repo == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        env:
-          HEAD_REF: ${{ github.head_ref }}
         with:
-          ref: ${{ env.HEAD_REF }}
+          ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
@@ -65,8 +63,10 @@ jobs:
           git_user_signingkey: true
           git_commit_gpgsign: true
           git_config_global: true
-          git_committer_name: github-actions[bot]
-          git_committer_email: github-actions[bot]@users.noreply.github.com
+          # IMPORTANT: Use the same name and email as in your GPG key
+          # This email MUST be verified in your GitHub account for commits to show as "Verified"
+          git_committer_name: ${{ secrets.GPG_COMMITTER_NAME || 'GhostClass Bot' }}
+          git_committer_email: ${{ secrets.GPG_COMMITTER_EMAIL || '61821107+devakesu@users.noreply.github.com' }}
 
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -121,18 +121,26 @@ jobs:
             echo "✓ Version already bumped (current: ${CURRENT}, main: ${MAIN_VERSION})"
           fi
 
+      - name: Extract safe branch name
+        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true'
+        id: branch-info
+        run: |
+          # Use github.event.pull_request.head.ref which is safer in this context
+          # Store in step output for controlled access
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "Branch: ${BRANCH_NAME}"
+
       - name: Auto bump version (same-repo only)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true'
         id: bump
-        env:
-          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
 
           echo "Running bump-version.js script..."
 
-          # Use environment variable instead of direct interpolation
-          export GITHUB_HEAD_REF="$HEAD_REF"
+          # Use step output instead of direct context variable
+          export GITHUB_HEAD_REF="${{ steps.branch-info.outputs.branch_name }}"
           export CI="true"
 
           # Run the bump script
