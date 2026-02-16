@@ -68,26 +68,6 @@ jobs:
           git_committer_name: ${{ secrets.GPG_COMMITTER_NAME || 'GhostClass Bot' }}
           git_committer_email: ${{ secrets.GPG_COMMITTER_EMAIL || '61821107+devakesu@users.noreply.github.com' }}
 
-      - name: Configure GPG for non-interactive use
-        if: steps.repo-check.outputs.is_same_repo == 'true'
-        run: |
-          # Configure GPG to work in non-interactive mode (no TTY)
-          mkdir -p ~/.gnupg
-          chmod 700 ~/.gnupg
-
-          # Configure GPG agent for loopback pinentry
-          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
-          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
-
-          # Disable TTY for GPG
-          echo "no-tty" >> ~/.gnupg/gpg.conf
-
-          # Reload GPG agent
-          gpg-connect-agent reloadagent /bye || true
-
-          # Test GPG configuration
-          echo "GPG configuration applied"
-
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
@@ -154,9 +134,6 @@ jobs:
       - name: Auto bump version (same-repo only)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true'
         id: bump
-        env:
-          # Prevent GPG from trying to access /dev/tty
-          GPG_TTY: ""
         run: |
           set -euo pipefail
 
