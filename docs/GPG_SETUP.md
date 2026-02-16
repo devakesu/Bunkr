@@ -8,6 +8,17 @@ This guide explains how to generate a GPG key and configure it for the auto-vers
 - Access to repository Settings → Secrets and variables → Actions
 - A verified email address in your GitHub account
 
+## Important: Key Type Compatibility
+
+**⚠️ Use RSA keys for best compatibility with GitHub Actions**
+
+While GitHub supports various key types (RSA, ECC/EdDSA), **RSA keys are recommended** for GitHub Actions workflows because:
+- Better compatibility with automated signing in non-interactive environments
+- Avoid "Inappropriate ioctl for device" errors common with ECC keys
+- More reliable pinentry-mode loopback support
+
+**Avoid**: ECC (Curve 25519) sign-only keys may cause signing failures in CI/CD environments.
+
 ## Step 1: Generate a GPG Key
 
 Run the following commands on your local machine:
@@ -18,7 +29,7 @@ gpg --full-generate-key
 ```
 
 When prompted:
-1. **Key type**: Select `(1) RSA and RSA (default)`
+1. **Key type**: Select `(1) RSA and RSA (default)` ⚠️ **IMPORTANT: Use RSA, not ECC**
 2. **Key size**: Enter `4096`
 3. **Key validity**: Enter `0` (key does not expire) or set an expiration
 4. **Real name**: Enter your name (e.g., "Your Name" or "GhostClass Bot")
@@ -122,6 +133,21 @@ If you want to keep your email private, you can use GitHub's no-reply email:
 
 - **Cause**: Incorrect passphrase in repository secrets
 - **Solution**: Double-check the GPG_PASSPHRASE secret matches your key's passphrase
+
+### "Inappropriate ioctl for device" Error
+
+- **Cause**: GPG trying to prompt for passphrase in non-interactive environment, or using incompatible key type (ECC)
+- **Solution**: 
+  1. **Use RSA keys instead of ECC** (recommended) - Generate a new RSA 4096-bit key
+  2. The workflow now automatically configures GPG for non-interactive use with loopback pinentry
+  3. If using ECC keys, consider regenerating with RSA for better CI/CD compatibility
+
+### Using ECC/EdDSA Keys (Not Recommended)
+
+If you must use ECC Curve 25519 keys:
+- Be aware of potential compatibility issues in GitHub Actions
+- The "Inappropriate ioctl for device" error is common with ECC keys
+- **Strongly recommend using RSA 4096-bit keys instead**
 
 ## Security Best Practices
 

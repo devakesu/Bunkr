@@ -2,13 +2,19 @@
 
 This is a quick reference for setting up GPG signing. For detailed instructions, see [GPG_SETUP.md](./GPG_SETUP.md).
 
+## ⚠️ Important: Use RSA Keys
+
+**Use RSA 4096-bit keys, NOT ECC Curve 25519!**
+
+ECC keys can cause "Inappropriate ioctl for device" errors in GitHub Actions. RSA keys are more compatible with automated CI/CD environments.
+
 ## TL;DR - Quick Setup
 
 ### 1. Generate GPG Key
 ```bash
 gpg --full-generate-key
 ```
-- Choose RSA and RSA, 4096 bits
+- Choose **RSA and RSA**, 4096 bits ⚠️ **NOT ECC/EdDSA**
 - Use email: `61821107+devakesu@users.noreply.github.com` (your GitHub no-reply email)
 - Set a strong passphrase
 
@@ -73,6 +79,11 @@ If you want to use a different email:
 **Problem**: "No secret key" error
 - ✅ Check: You exported the PRIVATE key (not just public)
 - ✅ Check: You copied the entire key including headers/footers
+
+**Problem**: "Inappropriate ioctl for device" error
+- ✅ **Solution**: Generate a new RSA 4096-bit key (NOT ECC Curve 25519)
+- ✅ ECC keys cause compatibility issues in GitHub Actions
+- ✅ The workflow now auto-configures GPG for non-interactive use
 
 ## Need More Help?
 
