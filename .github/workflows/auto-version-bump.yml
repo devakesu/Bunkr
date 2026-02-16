@@ -42,8 +42,10 @@ jobs:
       - name: Checkout PR branch (same-repo only)
         if: steps.repo-check.outputs.is_same_repo == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ env.HEAD_REF }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
@@ -62,6 +64,9 @@ jobs:
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
           git_user_signingkey: true
           git_commit_gpgsign: true
+          git_config_global: true
+          git_committer_name: github-actions[bot]
+          git_committer_email: github-actions[bot]@users.noreply.github.com
 
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -119,13 +124,15 @@ jobs:
       - name: Auto bump version (same-repo only)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true'
         id: bump
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
 
           echo "Running bump-version.js script..."
 
-          # Set environment for PR context
-          export GITHUB_HEAD_REF="${{ github.head_ref }}"
+          # Use environment variable instead of direct interpolation
+          export GITHUB_HEAD_REF="$HEAD_REF"
           export CI="true"
 
           # Run the bump script
@@ -136,11 +143,7 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "✓ Version bumped to ${NEW_VERSION}"
 
-          # Configure git identity for commits
-          # Note: GPG action configures signing, but we must explicitly set user identity
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
+          # Git identity is configured globally by the GPG action
           # Stage and commit changes
           # Note: Files are explicitly listed (not git add -u) to ensure only version files are committed
           # This matches the files updated by bump-version.js

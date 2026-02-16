@@ -23,9 +23,13 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          # Security: For pull_request_target, always checkout base branch (safe code)
-          # For regular pull_request events, checkout the PR head
-          # The 'if' condition in the job ensures pull_request_target only runs for trusted bot PRs
+          # SECURITY: This workflow uses pull_request_target but is SAFE because:
+          # 1. Job-level 'if' condition restricts pull_request_target to ONLY trusted bot PRs
+          #    (see: startsWith(github.event.pull_request.head.ref, 'version-bump-') &&
+          #          github.event.pull_request.user.login == 'ghostclass-release-automation[bot]')
+          # 2. For pull_request_target events, we ALWAYS checkout the base branch (github.sha)
+          #    which contains trusted code from the main branch, NOT untrusted PR code
+          # 3. For regular pull_request events, we safely checkout PR head (github.event.pull_request.head.sha)
           ref: ${{ github.event_name == 'pull_request_target' && github.sha || (github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha) }}
 
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
@@ -73,9 +77,13 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
-          # Security: For pull_request_target, always checkout base branch (safe code)
-          # For regular pull_request events, checkout the PR head
-          # The 'if' condition in the job ensures pull_request_target only runs for trusted bot PRs
+          # SECURITY: This workflow uses pull_request_target but is SAFE because:
+          # 1. Job-level 'if' condition restricts pull_request_target to ONLY trusted bot PRs
+          #    (see: startsWith(github.event.pull_request.head.ref, 'version-bump-') &&
+          #          github.event.pull_request.user.login == 'ghostclass-release-automation[bot]')
+          # 2. For pull_request_target events, we ALWAYS checkout the base branch (github.sha)
+          #    which contains trusted code from the main branch, NOT untrusted PR code
+          # 3. For regular pull_request events, we safely checkout PR head (github.event.pull_request.head.sha)
           ref: ${{ github.event_name == 'pull_request_target' && github.sha || (github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha) }}
 
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
