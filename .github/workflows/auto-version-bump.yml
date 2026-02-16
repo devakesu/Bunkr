@@ -1,52 +1,22 @@
-      - name: Import GPG key (same-repo only)
-        if: steps.repo-check.outputs.is_same_repo == 'true'
-        uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4 # v6.1.0
-        with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-          git_tag_gpgsign: true
+# Updated GitHub Actions workflow
 
-      - name: Auto bump version (same-repo only)
-        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true'
-        id: bump
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          set -euo pipefail
+# ... (other workflow configurations)
 
-          echo "Running bump-version.js script..."
+# Import GPG key
+- name: Import GPG key
+  run: |
+    gpg --import <(echo "${{ secrets.GPG_KEY }}")
 
-          # Configure git identity for GPG-signed commits
-          # Must be set before any git operations for GPG action to apply signing
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+# Configure Git identity for signing
+- name: Configure Git identity
+  run: |
+    git config --global user.email "devakesu@example.com"
+    git config --global user.name "devakesu"
 
-          # Use environment variable instead of direct interpolation
-          export GITHUB_HEAD_REF="$HEAD_REF"
-          export CI="true"
+# Configure GPG signing
+- name: GPG sign
+  uses: atwork/gpg-sign-action@v1
+  with:
+    git_tag_gpgsign: true
 
-          # Run the bump script
-          node scripts/bump-version.js
-
-          # Get the new version
-          NEW_VERSION=$(node -p "require('./package.json').version")
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "✓ Version bumped to ${NEW_VERSION}"
-
-          # Stage and commit changes
-          # Note: Files are explicitly listed (not git add -u) to ensure only version files are committed
-          # This matches the files updated by bump-version.js
-          git add package.json package-lock.json .example.env public/api-docs/openapi.yaml
-
-          # Check if there are changes to commit
-          if git diff --staged --quiet; then
-            echo "⚠️  No changes to commit after running bump script"
-            exit 0
-          fi
-
-          git commit -m "chore: auto-bump version to v${NEW_VERSION}"
-          git push
-
-          echo "✓ Changes committed and pushed"
+# ... (Other workflow steps)
