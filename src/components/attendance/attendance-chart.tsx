@@ -371,7 +371,7 @@ const renderTargetLabel = (props: LabelProps) => {
 return (
   <div
     ref={containerRef}
-    className="w-full h-full min-h-[200px]"
+    className="w-full h-full min-h-50"
     role="img"
     aria-label="Attendance overview bar chart"
   >

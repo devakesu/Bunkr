@@ -389,7 +389,7 @@ export function AddAttendanceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] custom-container border-border/50 bg-card/90 backdrop-blur-xl shadow-2xl">
+      <DialogContent className="sm:max-w-106.25 custom-container border-border/50 bg-card/90 backdrop-blur-xl shadow-2xl">
         <DialogHeader>
           <DialogTitle>Add Extra Class</DialogTitle>
           <DialogDescription>
@@ -416,7 +416,7 @@ export function AddAttendanceDialog({
                     {format(date, "PPP")}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[280px] p-3 pointer-events-auto z-50" align="start">
+                <PopoverContent className="w-70 p-3 pointer-events-auto z-50" align="start">
                   
                   {/* Custom Aesthetic Calendar */}
                   <div className="flex flex-col gap-2">
@@ -523,7 +523,7 @@ export function AddAttendanceDialog({
                 <SelectTrigger id="course-select" className="bg-accent/20 border-accent/30 h-auto min-h-10 py-2.5 whitespace-normal text-left [&>span]:line-clamp-none" aria-label="Select course or subject">
                   <SelectValue placeholder="Select Subject" />
                 </SelectTrigger>
-                <SelectContent className="custom-dropdown max-h-60 w-[300px] max-w-[calc(100vw-40px)]">
+                <SelectContent className="custom-dropdown max-h-60 w-75 max-w-[calc(100vw-40px)]">
                   {coursesData?.courses && Object.values(coursesData.courses).map((c: any) => (
                     <SelectItem key={c.id} value={String(c.id)} className="whitespace-normal">
                       <span className="capitalize leading-tight">{c.name.toLowerCase()}</span>

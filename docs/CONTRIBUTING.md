@@ -2,283 +2,319 @@
 
 Thank you for your interest in contributing to GhostClass! This guide will help you understand our development workflow and contribution process.
 
+> **👋 For External Contributors**: You don't need GPG keys, PAT tokens, or any special setup! Just fork, code, and submit a PR. The version bump workflow will guide you through a simple script. See [Quick Setup](#quick-setup) below.
+
 ## Table of Contents
 
 - [Getting Started](#getting-started)
 - [Development Workflow](#development-workflow)
 - [Automatic Version Bumping](#automatic-version-bumping)
 - [Pull Request Process](#pull-request-process)
-- [Code Quality](#code-quality)
-- [Testing](#testing)
+- [Code Quality & Testing](#code-quality--testing)
+- [Build Performance Tips](#build-performance-tips)
 - [Commit Messages](#commit-messages)
+- [For Maintainers Only](#for-maintainers-only)
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 20.19.0+ or 22.12.0+
-- npm 11+
-- Git
+- **Node.js**: 20.19.0+ or 22.12.0+
+- **npm**: 11+
+- **Git**: Latest version
 
-### Setup
+**That's it!** External contributors don't need GPG keys, GitHub PAT tokens, or access to secrets.
 
-1. Fork the repository (or create a branch if you have write access)
-2. Clone your fork:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/GhostClass.git
-   cd GhostClass
-   ```
-3. Install dependencies:
-   ```bash
-   npm install
-   ```
-4. Create a new branch for your feature:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+### Quick Setup
+
+```bash
+# 1. Fork and clone
+git clone https://github.com/YOUR_USERNAME/GhostClass.git
+cd GhostClass
+
+# 2. Install dependencies
+npm install
+
+# 3. Create feature branch
+git checkout -b feature/your-feature-name
+
+# 4. Start development server
+npm run dev
+```
+
+**That's all you need to start developing!** For advanced maintainer setup (GPG, PAT tokens, deployment), see [For Maintainers Only](#for-maintainers-only) at the bottom of this guide.
 
 ## Development Workflow
 
-### Running Locally
+### Available Commands
 
 ```bash
-# Development server
-npm run dev
-
-# Development server with HTTPS (requires certificates)
-npm run dev:https
-
-# Build for production
-npm run build
-
-# Run linter
-npm run lint
-
-# Run tests
-npm run test
-npm run test:e2e
+npm run dev              # Development server (HTTP)
+npm run dev:https        # Development server (HTTPS, requires certificates)
+npm run build            # Production build
+npm run lint             # Run ESLint
+npm run test             # Run unit tests
+npm run test:e2e         # Run end-to-end tests
+npm run test:coverage    # Generate coverage report
 ```
 
 ### Making Changes
 
-1. Make your changes in your feature branch
-2. Write or update tests as needed
-3. Run tests to ensure everything works:
+1. Create a feature branch from `main`
+2. Make your changes
+3. Write or update tests
+4. Run tests and linter:
    ```bash
    npm run test
    npm run lint
    ```
-4. Commit your changes with a clear message (see [Commit Messages](#commit-messages))
-5. Push your branch to GitHub
+5. Commit with clear messages (see [Commit Messages](#commit-messages))
+6. Push and create a Pull Request
+
+**Important**: Version bumping is automatic! See [Automatic Version Bumping](#automatic-version-bumping) below.
 
 ## Automatic Version Bumping
 
-GhostClass uses an **automatic version bumping system** that handles versioning for you!
+GhostClass uses an automated version bumping system that handles versioning for you.
 
 ### For Same-Repository PRs (Contributors with Write Access)
 
-When you create a Pull Request from a branch in the main repository:
+When you create a PR from a branch in the main repository:
 
-1. ✨ **Auto-Bump Workflow Runs**: The workflow automatically checks your PR
-2. 📦 **Version Check**: Compares your branch version with `main`
-3. 🔄 **Auto-Increment**: If versions match, automatically bumps the patch version
-4. 💾 **Auto-Commit**: Commits version changes directly to your PR branch
-5. 💬 **Bot Comment**: Leaves a comment confirming the version bump
-6. 🔄 **Workflow Triggering** (if `BOT_PAT` is configured):
-   - Tests and Pipeline workflows run automatically after version bump commit
-   - All checks complete properly
-   - See [BOT_PAT_SETUP.md](BOT_PAT_SETUP.md) for maintainer configuration
+1. ✨ Auto-Bump Workflow checks your PR
+2. 📦 Compares your branch version with `main`
+3. 🔄 Auto-increments patch version if needed
+4. 💾 Commits changes to your PR branch
+5. 💬 Leaves confirmation comment
 
-**You don't need to do anything!** The version is bumped automatically. 🎉
+**You don't need to manually bump versions!** 🎉
 
-> **Note for Maintainers**: To enable workflows to run after version bump commits, configure a `BOT_PAT` secret. See [BOT_PAT_SETUP.md](BOT_PAT_SETUP.md) for setup instructions. Without this, version bump commits won't trigger workflows (expected GitHub behavior).
-
-#### What Gets Updated
-
-The auto-bump workflow updates:
+**Files automatically updated:**
 - `package.json` and `package-lock.json`
 - `.example.env` (NEXT_PUBLIC_APP_VERSION)
 - `public/api-docs/openapi.yaml`
 
+> **Note for Maintainers**: The auto-bump workflow uses `BOT_PAT` secret to trigger workflows after version bump commits. If you're a repository maintainer, see [Bot PAT Configuration](DEVELOPER_GUIDE.md#bot-pat-configuration) for setup. External contributors don't need this - the workflow will guide you through a simple manual script instead.
+
 ### For Fork PRs (External Contributors)
 
-If you're contributing from a forked repository:
+If contributing from a forked repository:
 
-1. **Create your PR** as normal
-2. **Check for bot comment**: A workflow will comment with version bump instructions
-3. **Run the bump script** on your PR branch:
+1. Create your PR as normal
+2. The bot will comment with instructions
+3. Run the version bump script locally:
    ```bash
    CI=true GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
    ```
-4. **Commit and push** the version changes:
+4. Commit and push the changes:
    ```bash
    git add package.json package-lock.json .example.env public/api-docs/openapi.yaml
    git commit -m "chore: bump version"
    git push
    ```
 
-**Why manual for forks?** For security reasons, GitHub Actions cannot write to fork branches automatically. This prevents malicious code from being injected into PRs.
+### Version Format (Rollover System)
 
-### Rollover Versioning
+GhostClass uses `X.Y.Z` format where:
+- **X** = Major (can exceed 9)
+- **Y** = Minor (0-9, rolls over)
+- **Z** = Patch (0-9, rolls over)
 
-GhostClass uses a rollover versioning system where minor and patch components (Y and Z in X.Y.Z) must be 0-9, while major version (X) can exceed 9:
-
+Examples:
 ```
 1.6.9 → 1.7.0   (patch rollover)
 1.9.9 → 2.0.0   (minor rollover)
-9.9.9 → 10.0.0  (major version exceeds 9)
+9.9.9 → 10.0.0  (major version can exceed 9)
 ```
-
-For more details, see [VERSIONING.md](VERSIONING.md).
 
 ## Pull Request Process
 
 ### Creating a PR
 
-1. **Push your branch** to GitHub
-2. **Open a Pull Request** against the `main` branch
-3. **Wait for auto-bump** (same-repo) or **manually bump** (fork)
-4. **Fill in the PR template** with:
+1. Push your branch to GitHub
+2. Open a Pull Request against `main`
+3. Fill in the PR template:
    - Description of changes
    - Related issue numbers
    - Testing notes
-5. **Request review** from maintainers
+4. Wait for auto-bump (same-repo) or manually bump (fork)
+5. Request review from maintainers
 
 ### PR Checklist
 
-- [ ] Tests pass locally
-- [ ] Code follows project style guidelines
-- [ ] Version is bumped (auto or manual)
-- [ ] Documentation is updated (if needed)
-- [ ] Commit messages are clear and descriptive
+- [ ] Tests pass locally (`npm run test`)
+- [ ] Linter passes (`npm run lint`)
+- [ ] Version bumped (automatic or manual)
+- [ ] Documentation updated (if needed)
+- [ ] Commit messages follow conventions
 
-### Review Process
+### Review & Merge
 
 1. Automated tests run on your PR
 2. Maintainers review your code
-3. Address any feedback or requested changes
-4. Once approved, a maintainer will merge your PR
+3. Address feedback or requested changes
+4. Once approved, maintainer merges
+5. Auto-tagging and release workflows run automatically
 
-### After Merge
-
-When your PR is merged:
-
-1. **Auto-Tag**: A signed git tag is automatically created
-2. **Release**: The release workflow builds and publishes the Docker image
-3. **Cleanup**: Your feature branch is automatically deleted
-
-## Code Quality
+## Code Quality & Testing
 
 ### Linting
-
-We use ESLint for code quality:
 
 ```bash
 npm run lint
 ```
 
-### Code Style
+### Testing
 
-- Use TypeScript for type safety
+```bash
+# Unit tests
+npm run test                 # Run once
+npm run test:watch           # Watch mode
+npm run test:ui              # Interactive UI
+npm run test:coverage        # Coverage report
+
+# E2E tests
+npm run test:e2e             # Headless mode
+npm run test:e2e:ui          # Interactive UI
+npm run test:e2e:headed      # See browser
+```
+
+### Code Style Guidelines
+
+- Use TypeScript strictly
 - Follow existing code patterns
-- Write meaningful variable and function names
+- Write meaningful names
 - Add comments for complex logic
 - Keep functions small and focused
-
-## Testing
-
-### Unit Tests
-
-```bash
-# Run all unit tests
-npm run test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with UI
-npm run test:ui
-
-# Generate coverage report
-npm run test:coverage
-```
-
-### End-to-End Tests
-
-```bash
-# Run E2E tests
-npm run test:e2e
-
-# Run E2E tests with UI
-npm run test:e2e:ui
-
-# Run E2E tests in headed mode
-npm run test:e2e:headed
-```
-
-### Writing Tests
-
-- Write tests for new features
-- Update tests when changing existing features
-- Aim for good test coverage
 - Test edge cases and error conditions
+
+## Build Performance Tips
+
+Our Docker builds are optimized with layer caching and conditional ARM64 builds.
+
+### Local Build Testing
+
+```bash
+# Build Docker image locally
+docker build -t ghostclass:test .
+
+# With build args
+docker build \
+  --build-arg APP_COMMIT_SHA=$(git rev-parse HEAD) \
+  -t ghostclass:test .
+```
+
+### CI/CD Build Times
+
+| Build Type | Platforms | Time | Use Case |
+|-----------|-----------|------|----------|
+| Cached build | AMD64 | ~3-5 min | Incremental changes |
+| Cold build | AMD64 | ~6-8 min | Fresh build |
+| Multi-arch | AMD64 + ARM64 | ~10-15 min | Production releases |
+
+### Performance Features
+
+- **Layer caching**: GitHub Actions cache with `mode=max`
+- **Conditional ARM64**: Only built for tag pushes or manual trigger
+- **Multi-stage builds**: Optimized layer reuse
+- **Dependency caching**: npm dependencies cached separately
+
+To test with ARM64 locally:
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t ghostclass:test .
+```
 
 ## Commit Messages
 
-We follow conventional commit format:
+Follow conventional commit format:
 
 ```
 <type>(<scope>): <subject>
-
-<body>
-
-<footer>
 ```
 
 ### Types
 
 - `feat`: New feature
 - `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, etc.)
-- `refactor`: Code refactoring
-- `test`: Adding or updating tests
-- `chore`: Maintenance tasks (version bumps, etc.)
+- `docs`: Documentation only
+- `style`: Code style (formatting, no logic change)
+- `refactor`: Code restructuring
+- `test`: Adding/updating tests
+- `chore`: Maintenance (deps, version bumps)
+- `perf`: Performance improvement
+- `ci`: CI/CD changes
 
 ### Examples
 
-```
+```bash
 feat(auth): add JWT authentication support
+fix(api): handle null response in user endpoint
+docs: update contributing guide
+chore: bump version to v1.7.0
+```
 
-Implements JWT-based authentication for API endpoints.
-Includes token generation, validation, and refresh logic.
+For multi-line commits:
+```
+feat(dashboard): add attendance calendar view
+
+Implements a monthly calendar view showing attendance history.
+Includes color-coded present/absent indicators and hover tooltips.
 
 Closes #123
 ```
 
-```
-fix(api): handle null response in user endpoint
+## Getting Help
 
-Fixes crash when user data is missing from database.
+- **Bug Reports**: Use [bug report template](.github/ISSUE_TEMPLATE)
+- **Feature Requests**: Use [feature request template](.github/ISSUE_TEMPLATE)
+- **Questions**: Open a [Discussion](https://github.com/devakesu/GhostClass/discussions)
+- **Setup Issues**: Check [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)
 
-Fixes #456
-```
+---
 
-```
-chore: bump version to v1.7.0
+## For Maintainers Only
 
-Automatic version bump from workflow.
-```
+> **⚠️ This section is for repository maintainers with write access only.**  
+> External contributors can skip this section entirely.
 
-## Questions or Issues?
+### Required Setup (Maintainers)
 
-- **Bug Reports**: Open an issue with the bug template
-- **Feature Requests**: Open an issue with the feature template
-- **Questions**: Start a discussion or ask in an issue
+To enable automated workflows and deployments, maintainers need:
+
+1. **GPG Signing** - For verified commits in automated workflows
+   - See [DEVELOPER_GUIDE.md → GPG Signing Configuration](DEVELOPER_GUIDE.md#gpg-signing-configuration)
+   - Required secrets: `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`, `GPG_COMMITTER_NAME`, `GPG_COMMITTER_EMAIL`
+
+2. **Bot PAT Token** - To trigger workflows after auto-bump commits
+   - See [DEVELOPER_GUIDE.md → Bot PAT Configuration](DEVELOPER_GUIDE.md#bot-pat-configuration)
+   - Required secret: `BOT_PAT`
+
+3. **Deployment Secrets** - For production builds and releases
+   - See [.example.env](.example.env) GITHUB SECRETS CONFIGURATION section
+   - Includes: Sentry, Coolify, build variables, etc.
+
+### Maintainer Tools
+
+**Sync Secrets Script** (`npm run sync-secrets`)
+- Syncs `.env` values to GitHub repository secrets
+- Only needed when updating build-time environment variables
+- Requires GitHub CLI (`gh`) with authentication
+- External contributors don't need this
+
+**Version Management**
+- Same-repo PRs: Auto-bump commits directly to PR branches (uses BOT_PAT)
+- Fork PRs: Manual bump by contributor (no secrets needed)
+- Tag creation: Automatic after merge to main
+
+For detailed maintainer workflows, see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).
+
+---
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the project's license.
+By contributing, you agree that your contributions will be licensed under the project's GPLv3 license.
 
 ---
 

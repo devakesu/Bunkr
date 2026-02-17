@@ -350,14 +350,14 @@ export default function TrackingClient() {
                   <Badge className="text-sm py-1 px-3 bg-yellow-500/12 text-yellow-400/75 border-yellow-500/15">
                     You have added <strong>{count}</strong> {count === 1 ? "class" : "classes"}.
                   </Badge>
-                  <button onClick={() => setDeleteAllConfirmOpen(true)} aria-label={`Clear all ${count} tracked ${count === 1 ? 'class' : 'classes'}`} className="text-sm cursor-pointer justify-between items-center gap-2 bg-red-500/12 text-red-400/75 hover:bg-red-500/18 duration-300 border-1 border-red-500/15 py-1 px-3 rounded-md flex">
+                  <button onClick={() => setDeleteAllConfirmOpen(true)} aria-label={`Clear all ${count} tracked ${count === 1 ? 'class' : 'classes'}`} className="text-sm cursor-pointer justify-between items-center gap-2 bg-red-500/12 text-red-400/75 hover:bg-red-500/18 duration-300 border border-red-500/15 py-1 px-3 rounded-md flex">
                     Clear all <Trash2 size={14} aria-hidden="true" />
                   </button>
                 </div>
               )}
             </div>
 
-            <m.div variants={containerVariants} initial="hidden" animate="visible" className="flex flex-col gap-4 relative w-full max-w-[700px] mx-auto">
+            <m.div variants={containerVariants} initial="hidden" animate="visible" className="flex flex-col gap-4 relative w-full max-w-175 mx-auto">
               <AnimatePresence mode="wait" initial={false} custom={currentPage > 0 ? -1 : 1}>
                 <m.div key={currentPage} custom={currentPage} initial="enter" animate="center" exit="exit" variants={pageVariants} transition={{ type: "tween", duration: 0.3 }} className="flex flex-col gap-6">
                   {currentCourseKeys.map((courseName) => {
@@ -491,14 +491,14 @@ export default function TrackingClient() {
             className="flex flex-col items-center justify-center flex-1 min-h-[50vh]"
           >
             <div className="relative mb-6">
-              <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/20 to-orange-500/20 rounded-full blur-2xl transform scale-150 opacity-60" />
+              <div className="absolute inset-0 bg-linear-to-tr from-amber-500/20 to-orange-500/20 rounded-full blur-2xl transform scale-150 opacity-60" />
               <div className="relative bg-background/50 backdrop-blur-sm border border-border/50 p-6 rounded-full shadow-sm ring-1 ring-border/50">
                 <CircleAlert className="w-10 h-10 text-muted-foreground/60" strokeWidth={1.5} />
               </div>
             </div>
 
             <h3 className="text-xl font-semibold text-foreground mb-2 tracking-tight">No Tracking History</h3>
-            <p className="text-sm text-muted-foreground max-w-[280px] leading-relaxed">
+            <p className="text-sm text-muted-foreground max-w-70 leading-relaxed">
               Your custom attendance records will appear here once you start tracking.
             </p>
           </m.div>

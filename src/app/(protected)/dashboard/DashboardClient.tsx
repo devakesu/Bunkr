@@ -608,7 +608,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             </div>
           </div>
 
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="w-full lg:w-[350px]">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="w-full lg:w-87.5">
             <Card className="custom-container shadow-sm border-accent/20">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-medium">Total Attendance</CardTitle>
@@ -628,14 +628,14 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                     <>
                       <div className="bg-primary h-full transition-all duration-500 ease-in-out" style={{ width: `${Math.min(officialWidth, 100)}%` }} />
                       <div className="bg-green-500/60 h-full relative transition-all duration-500 ease-in-out border-l border-background/20" style={{ width: `${Math.min(diffWidth, 100)}%` }}>
-                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.3)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.3)_50%,rgba(255,255,255,0.3)_75%,transparent_75%,transparent)] [background-size:6px_6px]" />
+                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.3)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.3)_50%,rgba(255,255,255,0.3)_75%,transparent_75%,transparent)] bg-size-[6px_6px]" />
                       </div>
                     </>
                   ) : (
                     <>
                       <div className="bg-primary h-full transition-all duration-500 ease-in-out" style={{ width: `${Math.min(stats.rawPercentage, 100)}%` }} />
                       <div className="bg-red-500/75 h-full relative transition-all duration-500 ease-in-out border-l border-background/20" style={{ width: `${Math.min(diffWidth, 100)}%` }}>
-                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] [background-size:6px_6px]" />
+                          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-size-[6px_6px]" />
                       </div>
                     </>
                   )}
@@ -666,7 +666,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 px-4 pt-2 pb-2">
-                  <div className="h-[260px] w-full">
+                  <div className="h-65 w-full">
                     {attendanceData ? (
                       <ErrorBoundary 
                         fallback={
@@ -752,7 +752,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
 
         <div className="mb-6">
-          <Card className="custom-container"><CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Attendance Calendar</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">Your attendance history at a glance</CardDescription></CardHeader><CardContent>{attendanceData ? <AttendanceCalendar attendanceData={attendanceData} /> : <div className="flex items-center justify-center h-[200px]"><p className="text-muted-foreground">No attendance data available</p></div>}</CardContent></Card>
+          <Card className="custom-container"><CardHeader className="flex flex-col gap-0.5"><CardTitle className="text-[16px]">Attendance Calendar</CardTitle><CardDescription className="text-accent-foreground/60 text-sm">Your attendance history at a glance</CardDescription></CardHeader><CardContent>{attendanceData ? <AttendanceCalendar attendanceData={attendanceData} /> : <div className="flex items-center justify-center h-50"><p className="text-muted-foreground">No attendance data available</p></div>}</CardContent></Card>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
@@ -796,7 +796,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                 </table>
               </div>
             </div>
-          ) : <div className="flex items-center justify-center h-[200px]"><p className="text-muted-foreground">No faculty information available</p></div>}</CardContent></Card>
+          ) : <div className="flex items-center justify-center h-50"><p className="text-muted-foreground">No faculty information available</p></div>}</CardContent></Card>
         </motion.div>
 
         <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
