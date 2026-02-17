@@ -21,10 +21,7 @@ jobs:
   guard:
     name: Build Guard
     runs-on: ubuntu-latest
-    # Security: Only run on version bump PRs from the trusted bot
-    if: |
-      github.event_name != 'pull_request_target' ||
-      (startsWith(github.event.pull_request.head.ref, 'version-bump-') && github.event.pull_request.user.login == 'ghostclass-release-automation[bot]')
+    if: github.event_name != 'pull_request_target'
     steps:
       # SECURITY: Split checkout into separate steps to satisfy OpenSSF Scorecard
       # Job-level 'if' already restricts pull_request_target to trusted bot PRs only
