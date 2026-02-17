@@ -12,7 +12,7 @@ FROM ${NODE_IMAGE} AS base
 # Install wget and update npm to version 11 (pinned by hash)
 RUN apk add --no-cache wget && \
     wget -O npm.tgz https://registry.npmjs.org/npm/-/npm-11.10.0.tgz && \
-    echo "dc0e65832b94fb48b8746c8ed43e1d2d2c9b0726  npm.tgz" | sha1sum -c - && \
+    echo "43c653384c39617756846ad405705061a78fb6bbddb2ced57ab79fb92e8af2a7  npm.tgz" | sha256sum -c - && \
     npm install -g npm.tgz && \
     rm npm.tgz && \
     rm -rf /var/cache/apk/*
@@ -83,6 +83,7 @@ ENV SENTRY_PROJECT=${SENTRY_PROJECT}
 ENV NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN}
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PRIVATE_BUILD_WORKER_COUNT=1
+ENV NODE_OPTIONS="--max-old-space-size=2560"
 
 WORKDIR /app
 
