@@ -131,9 +131,9 @@ jobs:
 
           echo "Running bump-version.js script..."
 
-          # Set GITHUB_HEAD_REF to a safe placeholder value
+          # Set GITHUB_HEAD_REF to a safe placeholder value for the Node.js script
           # The script only checks if this var exists (for PR context detection)
-          # The actual branch name is only used for logging and is not security-critical
+          # The actual branch name is passed separately via PR_HEAD_REF env var for git operations
           export GITHUB_HEAD_REF="pr-branch"
           export CI="true"
 
