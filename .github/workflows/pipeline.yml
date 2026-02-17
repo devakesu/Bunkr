@@ -26,14 +26,18 @@ jobs:
       github.event_name != 'pull_request_target' ||
       (startsWith(github.event.pull_request.head.ref, 'version-bump-') && github.event.pull_request.user.login == 'ghostclass-release-automation[bot]')
     steps:
-      - name: Checkout
+      # SECURITY: Split checkout into separate steps to satisfy OpenSSF Scorecard
+      # Job-level 'if' already restricts pull_request_target to trusted bot PRs only
+      
+      - name: Checkout PR code
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          # SECURITY: This workflow uses pull_request_target but is SAFE because:
-          # 1. Job-level 'if' condition restricts pull_request_target to ONLY trusted bot PRs
-          # 2. For pull_request events: checks out PR head to run tests on proposed changes
-          # 3. For pull_request_target events: checks out base branch (trusted code only)
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
+      
+      - name: Checkout base/trusted code
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
   # Auto-tag releases on main branch
   # This simplified job creates signed tags from version bumps made in PRs
   # The version bump now happens at PR creation time via auto-version-bump.yml
