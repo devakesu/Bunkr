@@ -66,6 +66,10 @@ When you create a Pull Request from a branch in the main repository:
    - Updates all version files (package.json, package-lock.json, .example.env, openapi.yaml)
    - Commits the changes to your PR branch
    - Leaves a comment on the PR
+3. **After the version bump commit**:
+   - If `BOT_PAT` is configured: Tests and Pipeline workflows will run automatically ✅
+   - Without `BOT_PAT`: Workflows won't trigger (expected GitHub behavior to prevent loops)
+   - See [BOT_PAT_SETUP.md](BOT_PAT_SETUP.md) for configuration instructions
 
 **You don't need to manually bump the version!** ✨
 
@@ -134,5 +138,6 @@ git describe --tags --abbrev=0
 
 ## Related Documentation
 
+- [BOT_PAT_SETUP.md](BOT_PAT_SETUP.md) - Configure PAT to trigger workflows after version bumps
 - [CONTRIBUTING.md](CONTRIBUTING.md) - How to contribute and work with the auto-bump workflow
 - [README.md](../README.md) - Project overview and getting started

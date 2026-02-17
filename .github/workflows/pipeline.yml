@@ -3,9 +3,6 @@ name: CI/CD Pipeline
 on:
   pull_request:
     branches: [main]
-  pull_request_target:
-    branches: [main]
-    types: [opened, synchronize, reopened]
   push:
     branches: [main]
   merge_group:
@@ -21,22 +18,9 @@ jobs:
   guard:
     name: Build Guard
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request_target'
     steps:
-      # SECURITY: Split checkout into separate steps to satisfy OpenSSF Scorecard
-      # Job-level 'if' already restricts pull_request_target to trusted bot PRs only
-      
-      - name: Checkout PR code
-        if: github.event_name == 'pull_request'
+      - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      
-      - name: Checkout base/trusted code
-        if: github.event_name != 'pull_request'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.sha }}
   # Auto-tag releases on main branch
   # This simplified job creates signed tags from version bumps made in PRs
   # The version bump now happens at PR creation time via auto-version-bump.yml
