@@ -11,11 +11,11 @@ export function GET() {
   const buildTimestamp = process.env.BUILD_TIMESTAMP ?? new Date().toISOString();
   const auditStatus = process.env.AUDIT_STATUS ?? "UNKNOWN";
   const signatureStatus = process.env.SIGNATURE_STATUS ?? "UNSIGNED";
-  const imageDigest = process.env.IMAGE_DIGEST ?? commitSha;
+  const imageDigest = process.env.IMAGE_DIGEST ?? commitSha; // IMAGE_DIGEST is post-build only, fallback to commit SHA
 
   return NextResponse.json(
     {
-      commit: commitSha,
+      commit: commitSha, // Legacy field for backward compatibility
       commit_sha: commitSha,
       build_id: githubRunId || commitSha,
       github_run_id: githubRunId,
