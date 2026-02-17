@@ -133,7 +133,7 @@ jobs:
 
           # Set GITHUB_HEAD_REF to a safe placeholder value for the Node.js script
           # The script only checks if this var exists (for PR context detection)
-          # The actual branch name is passed separately via PR_HEAD_REF env var for git operations
+          # PR_HEAD_REF is used only to checkout the branch for pushing (see git checkout at line 153)
           export GITHUB_HEAD_REF="pr-branch"
           export CI="true"
 
