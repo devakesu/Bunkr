@@ -43,7 +43,7 @@ jobs:
         if: steps.repo-check.outputs.is_same_repo == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
@@ -121,26 +121,20 @@ jobs:
             echo "✓ Version already bumped (current: ${CURRENT}, main: ${MAIN_VERSION})"
           fi
 
-      - name: Extract safe branch name
-        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true'
-        id: branch-info
-        run: |
-          # Use github.event.pull_request.head.ref which is safer in this context
-          # Store in step output for controlled access
-          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
-          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
-          echo "Branch: ${BRANCH_NAME}"
-
       - name: Auto bump version (same-repo only)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true'
         id: bump
+        env:
+          PR_HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
 
           echo "Running bump-version.js script..."
 
-          # Use step output instead of direct context variable
-          export GITHUB_HEAD_REF="${{ steps.branch-info.outputs.branch_name }}"
+          # Set GITHUB_HEAD_REF to a safe placeholder value for the Node.js script
+          # The script only checks if this var exists (for PR context detection)
+          # PR_HEAD_REF is used only to checkout the branch for pushing (see git checkout at line 153)
+          export GITHUB_HEAD_REF="pr-branch"
           export CI="true"
 
           # Run the bump script
@@ -150,6 +144,14 @@ jobs:
           NEW_VERSION=$(node -p "require('./package.json').version")
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "✓ Version bumped to ${NEW_VERSION}"
+
+          # Checkout the branch to avoid detached HEAD state for pushing
+          # Using env var to safely pass branch name
+          BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$BRANCH_NAME" = "HEAD" ]; then
+            # We're in detached HEAD, need to checkout the branch
+            git checkout -B "$PR_HEAD_REF"
+          fi
 
           # Git identity is configured globally by the GPG action
           # Stage and commit changes
@@ -164,7 +166,7 @@ jobs:
           fi
 
           git commit -m "chore: auto-bump version to v${NEW_VERSION}"
-          git push
+          git push --set-upstream origin "$PR_HEAD_REF"
 
           echo "✓ Changes committed and pushed"
 
