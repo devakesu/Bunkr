@@ -38,6 +38,8 @@ jobs:
       - name: Checkout base/trusted code
         if: github.event_name != 'pull_request'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
   # Auto-tag releases on main branch
   # This simplified job creates signed tags from version bumps made in PRs
   # The version bump now happens at PR creation time via auto-version-bump.yml
