@@ -612,6 +612,7 @@ We welcome contributions! GhostClass uses an **automatic version bumping system*
 
 - **[Contributing Guide](docs/CONTRIBUTING.md)** - Detailed contribution guidelines and workflow
 - **[Versioning System](docs/VERSIONING.md)** - Learn about our rollover versioning (X.Y.Z where Y,Z ∈ {0-9} and X ≥ 0)
+- **[Bot PAT Setup](docs/BOT_PAT_SETUP.md)** - Configure PAT to trigger workflows after version bumps (for maintainers)
 
 ### Automatic Version Bumping
 

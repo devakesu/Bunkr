@@ -84,8 +84,14 @@ When you create a Pull Request from a branch in the main repository:
 3. 🔄 **Auto-Increment**: If versions match, automatically bumps the patch version
 4. 💾 **Auto-Commit**: Commits version changes directly to your PR branch
 5. 💬 **Bot Comment**: Leaves a comment confirming the version bump
+6. 🔄 **Workflow Triggering** (if `BOT_PAT` is configured):
+   - Tests and Pipeline workflows run automatically after version bump commit
+   - All checks complete properly
+   - See [BOT_PAT_SETUP.md](BOT_PAT_SETUP.md) for maintainer configuration
 
 **You don't need to do anything!** The version is bumped automatically. 🎉
+
+> **Note for Maintainers**: To enable workflows to run after version bump commits, configure a `BOT_PAT` secret. See [BOT_PAT_SETUP.md](BOT_PAT_SETUP.md) for setup instructions. Without this, version bump commits won't trigger workflows (expected GitHub behavior).
 
 #### What Gets Updated
 
