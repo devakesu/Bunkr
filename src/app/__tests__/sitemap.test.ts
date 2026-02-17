@@ -112,7 +112,7 @@ describe("sitemap.xml", () => {
     expect(homepage.priority).toBeGreaterThan(others[0].priority || 0);
   });
 
-  it("should have different priorities for different page types", () => {
+  it("should have priority hierarchy: homepage > public pages > build-info", () => {
     const urls = sitemap();
     const homepage = urls[0];
     const publicPages = urls.slice(1, 4); // login, contact, legal
