@@ -14,7 +14,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
 [![TanStack Query](https://img.shields.io/badge/TanStack%20Query-5.90.17-FF4154?logo=react-query&logoColor=white)](https://tanstack.com/query)
 [![Recharts](https://img.shields.io/badge/Recharts-3.6.0-22B5BF)](https://recharts.org)
-[![Node.js](https://img.shields.io/badge/Node.js-20.19.0%2B%20%7C%2022.12.0%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/Node.js-20.19.2%2B%20%7C%2022.12.0%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![Tests](https://img.shields.io/badge/Tests-Vitest%20%2B%20Playwright-green)](https://vitest.dev/)
 
 ## Overview
@@ -33,6 +33,7 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 - **Track Status Changes** 📝 – Get notified when your attendance is updated
 - **Mobile Friendly** 📱 - Access your attendance data on any device, anywhere
 - **API Documentation** 📚 - Interactive OpenAPI documentation at `/api-docs`
+- **Build Transparency** 🔍 - View complete build provenance and SLSA attestations at `/build-info`
 
 <br />
 
@@ -41,7 +42,7 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 **Core Framework**
 - **Next.js 16.1.6** - React 19 with App Router
 - **TypeScript 5.9.3** - Strict mode for type safety
-- **Node.js** - v20.19.0+ or v22.12.0+
+- **Node.js** - v20.19.2+ or v22.12.0+
 
 **Styling & UI**
 - **Tailwind CSS 4** - Utility-first styling with custom design system
@@ -90,55 +91,109 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 
 ```
 src/
-├── app/                # Next.js app router pages and layouts
-│   ├── (auth)/         # Authentication-related routes (login, signup)
-│   ├── (protected)/    # Login-restricted routes (dashboard, profile, tracking)
-│   │   ├── dashboard/  # Main dashboard with attendance overview
-│   │   ├── profile/    # User profile and settings
-│   │   ├── tracking/   # Manual attendance tracking interface
-│   │   └── notifications/ # Notification center
-│   ├── (public)/       # Public routes (home, contact, legal pages)
-│   ├── accept-terms/   # Terms acceptance page (authenticated)
-│   ├── actions/        # Server actions (contact, user operations)
-│   ├── api/            # API routes
-│   │   ├── auth/       # Authentication endpoints
-│   │   ├── backend/    # Backend proxy endpoints
-│   │   ├── cron/       # Scheduled jobs (sync, cleanup)
-│   │   └── health/     # Health check endpoint
-│   ├── config/         # App configuration files
-│   ├── globals.css     # Global styles and Tailwind directives
-│   └── layout.tsx      # Root layout with providers
-├── components/         # Reusable React components
-│   ├── attendance/     # Attendance-specific components
+├── instrumentation.ts        # Sentry server instrumentation
+├── instrumentation-client.ts # Sentry browser instrumentation
+├── proxy.ts                  # Service worker proxy configuration
+├── sw.ts                     # Service worker with runtime caching
+├── app/                      # Next.js app router pages and layouts
+│   ├── (auth)/               # Authentication routes (login, signup)
+│   ├── (protected)/          # Login-restricted routes (dashboard, profile, tracking)
+│   │   ├── dashboard/        # Main dashboard with attendance overview
+│   │   ├── profile/          # User profile and settings
+│   │   ├── tracking/         # Manual attendance tracking interface
+│   │   └── notifications/    # Notification center
+│   ├── (public)/             # Public routes (home, contact, legal, build-info)
+│   │   ├── build-info/       # Build provenance and transparency page
+│   │   ├── contact/          # Contact form
+│   │   └── legal/            # Legal pages (privacy, terms, cookies)
+│   ├── accept-terms/         # Terms acceptance page (authenticated)
+│   ├── actions/              # Server actions (contact, user operations)
+│   ├── api/                  # API routes
+│   │   ├── auth/             # Authentication endpoints
+│   │   ├── backend/          # Backend proxy endpoints
+│   │   ├── cron/             # Scheduled jobs (sync, cleanup)
+│   │   ├── health/           # Health check endpoint
+│   │   ├── analytics/        # GA4 server-side tracking
+│   │   └── provenance/       # Build provenance information
+│   ├── api-docs/             # Scalar API documentation viewer
+│   ├── config/               # App configuration files
+│   ├── __tests__/            # App-level tests (robots, sitemap)
+│   ├── error.tsx             # Error boundary page
+│   ├── global-error.tsx      # Global error handler
+│   ├── not-found.tsx         # 404 page
+│   ├── robots.ts             # Dynamic robots.txt generation
+│   ├── sitemap.ts            # Dynamic sitemap.xml generation
+│   ├── globals.css           # Global styles and Tailwind directives
+│   └── layout.tsx            # Root layout with providers
+├── components/               # Reusable React components
+│   ├── attendance/           # Attendance-specific components
 │   │   ├── course-card.tsx      # Individual course display
 │   │   ├── attendance-calendar.tsx # Calendar view
 │   │   └── attendance-chart.tsx # Performance charts
-│   ├── layout/         # Layout components (navbar, footer)
-│   ├── ui/             # Shadcn UI components
-│   └── user/           # User-related components
-├── providers/          # React context providers
+│   ├── layout/               # Layout components (navbar, footer, sidebar)
+│   ├── legal/                # Legal content components
+│   ├── user/                 # User-related components
+│   ├── ui/                   # Shadcn UI components
+│   ├── __tests__/            # Component tests
+│   ├── analytics-tracker.tsx # GA4 client-side event tracking
+│   ├── contact-form.tsx      # Contact form with Turnstile
+│   ├── error-boundary.tsx    # Error boundary wrapper
+│   ├── error-fallback.tsx    # Error display UI
+│   ├── institution-selector.tsx # Institution picker
+│   ├── loading.tsx           # Loading spinner component
+│   ├── not-found-content.tsx # 404 page content
+│   ├── sw-register.tsx       # Service worker registration
+│   └── toaster.tsx           # Toast notification provider
+├── providers/                # React context providers
 │   ├── attendance-settings.tsx  # Attendance target settings
-│   └── react-query.tsx # TanStack Query provider
-├── hooks/              # Custom React hooks
-│   ├── courses/        # Course data fetching hooks
-│   ├── tracker/        # Tracking data hooks
-│   └── users/          # User data hooks
-├── lib/                # Core library code
-│   ├── logic/          # Business logic
-│   │   └── bunk.ts     # Attendance calculation algorithm
-│   ├── supabase/       # Supabase client configuration
+│   ├── react-query.tsx       # TanStack Query provider
+│   └── user-settings.ts      # User settings context
+├── hooks/                    # Custom React hooks
+│   ├── courses/              # Course data fetching hooks
+│   ├── tracker/              # Tracking data hooks
+│   ├── users/                # User data hooks
+│   ├── notifications/        # Notification subscription hooks
+│   ├── __tests__/            # Hook tests
+│   └── use-csrf-token.ts     # CSRF token management hook
+├── lib/                      # Core library code
+│   ├── logic/                # Business logic
+│   │   └── bunk.ts           # Attendance calculation algorithm
+│   ├── supabase/             # Supabase client configuration
+│   ├── security/             # Security utilities (CSRF, request signing)
+│   ├── email-templates/      # React Email templates
+│   ├── __examples__/         # Usage examples
+│   ├── __tests__/            # Library tests
+│   ├── analytics.ts          # GA4 Measurement Protocol
+│   ├── axios.ts              # Axios instance with interceptors
+│   ├── circuit-breaker.ts    # Circuit breaker pattern
+│   ├── crypto.ts             # AES-256-GCM encryption
+│   ├── csp.ts                # Content Security Policy
+│   ├── email.ts              # Email service (Brevo/SendPulse)
+│   ├── error-handling.ts     # Centralized error handler
 │   ├── ezygo-batch-fetcher.ts # Rate-limited EzyGo API client
-│   ├── email.ts        # Email service (Brevo/SendPulse)
-│   ├── crypto.ts       # AES-256-GCM encryption
-│   ├── ratelimit.ts    # Upstash Redis rate limiting
-│   └── utils.ts        # Utility functions
-├── types/              # TypeScript type definitions
-│   ├── attendance.d.ts # Attendance data types
-│   ├── course.d.ts     # Course types
-│   └── user.d.ts       # User types
-└── assets/             # Static assets (images, icons)
+│   ├── global-init.tsx       # Global initialization
+│   ├── logger.ts             # Winston logger with Sentry
+│   ├── notifications.ts      # Push notification utilities
+│   ├── ratelimit.ts          # Upstash Redis rate limiting
+│   ├── redis.ts              # Redis client configuration
+│   ├── utils.ts              # Utility functions
+│   └── validate-env.ts       # Runtime environment validation
+├── types/                    # TypeScript type definitions
+│   ├── index.ts              # Export barrel for all types
+│   ├── assets.d.ts           # Asset module declarations
+│   ├── images.d.ts           # Image type definitions
+│   ├── attendance.d.ts       # Attendance data types
+│   ├── course.d.ts           # Course types
+│   ├── user.d.ts             # User types
+│   ├── institution.d.ts      # Institution types
+│   ├── profile.d.ts          # User profile types
+│   ├── track_attendance.d.ts # Manual tracking types
+│   └── user-settings.ts      # User settings types
+└── assets/                   # Static assets (images, icons)
 supabase/
-└── migrations/         # Database schema migrations
+├── config.toml               # Supabase local config
+└── migrations/               # Database schema migrations
+    └── 20260212090500_remote_schema.sql
 ```
 
 <br />
@@ -258,11 +313,12 @@ x = (target*total - 100*present) / (100 - target)
 
 ### Prerequisites
 
-- **Node.js** - v20.19.0+ or v22.12.0+ (specified in `package.json` engines)
-- **npm** or **yarn** - Package manager
-- **Docker Desktop** - Only for local Supabase development (optional)
-- **Supabase CLI** - Install via `npm install supabase --save-dev`
+- **Node.js** - v20.19.2+ or v22.12.0+
+- **npm** - v11+ (specified in `package.json` engines)
+- **Docker** - For containerized deployment (optional)
 - **Git** - Version control
+
+For detailed development environment setup including GPG signing and Bot PAT configuration, see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md).
 
 ### Quick Start
 
@@ -580,7 +636,7 @@ docker run -p 3000:3000 --env-file .env ghostclass
   - ✅ Reproducible builds with `SOURCE_DATE_EPOCH`
   - ✅ Multi-stage build optimized for size (~500MB)
 
-For more details, see [RELEASING.md](RELEASING.md).
+For more details, see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md#versioning--releases).
 
 ### Production Checklist
 1. ✅ Set all required environment variables
@@ -592,7 +648,7 @@ For more details, see [RELEASING.md](RELEASING.md).
 7. ✅ Enable HTTPS with valid SSL certificate
 8. ✅ Set up cron jobs for attendance sync
 9. ✅ Configure legal terms version and effective date
-10. ✅ Set up GitHub App and GPG keys for `auto-version-and-tag` workflow (see [RELEASING.md](RELEASING.md))
+10. ✅ Set up GPG signing and Bot PAT for automated workflows (see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md))
 
 <br />
 
@@ -610,16 +666,17 @@ We welcome contributions! GhostClass uses an **automatic version bumping system*
 
 ### Documentation
 
-- **[Contributing Guide](docs/CONTRIBUTING.md)** - Detailed contribution guidelines and workflow
-- **[Versioning System](docs/VERSIONING.md)** - Learn about our rollover versioning (X.Y.Z where Y,Z ∈ {0-9} and X ≥ 0)
-- **[Bot PAT Setup](docs/BOT_PAT_SETUP.md)** - Configure PAT to trigger workflows after version bumps (for maintainers)
+- **[Developer Guide](docs/DEVELOPER_GUIDE.md)** - Complete guide for development, contribution, and release workflows
+- **[Contributing Guide](docs/CONTRIBUTING.md)** - Quick contribution guidelines and versioning system
+- **[Security Policy](SECURITY.md)** - Security features and image verification
+- **[EzyGo Integration](docs/EZYGO_INTEGRATION.md)** - API rate limiting and batch fetcher documentation
 
 ### Automatic Version Bumping
 
 - **Same-repo PRs**: Version is automatically bumped by the workflow ✨
 - **Fork PRs**: Follow the bot's instructions to manually bump the version
 
-For more details, see [VERSIONING.md](docs/VERSIONING.md).
+For more details, see the [Contributing Guide](docs/CONTRIBUTING.md).
 
 <br />
 
@@ -631,7 +688,9 @@ Credits: [Bunkr](https://github.com/ABHAY-100/Bunkr/)
 
 ## 📧 Contact
 
-For any questions, feel free to reach out to me via email at [fusion@devakesu.com](mailto:fusion@devakesu.com)
+For any questions, feel free to reach out to me via email at
+[contact@ghostclass.devakesu.com](mailto:contact@ghostclass.devakesu.com)
+[fusion@devakesu.com](mailto:fusion@devakesu.com)
 
 <br />
 

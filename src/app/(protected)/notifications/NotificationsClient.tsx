@@ -49,20 +49,20 @@ const NotificationCard = ({
     >
       {!n.is_read && <div className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full bg-primary" />}
       
-      <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5", bg)}>
+      <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5", bg)}>
         <Icon className={cn("h-5 w-5", color)} aria-hidden="true" />
       </div>
       
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start gap-2 mb-1">
-          <h4 className={cn("text-sm font-semibold leading-tight break-words", !n.is_read ? "text-foreground" : "text-muted-foreground")}>
+          <h4 className={cn("text-sm font-semibold leading-tight wrap-break-word", !n.is_read ? "text-foreground" : "text-muted-foreground")}>
             {n.title}
           </h4>
-          <span className="text-[10px] text-muted-foreground/50 whitespace-nowrap font-medium flex-shrink-0">
+          <span className="text-[10px] text-muted-foreground/50 whitespace-nowrap font-medium shrink-0">
             {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
           </span>
         </div>
-        <p className={cn("text-xs leading-relaxed break-words", !n.is_read ? "text-muted-foreground" : "text-muted-foreground/70")}>
+        <p className={cn("text-xs leading-relaxed wrap-break-word", !n.is_read ? "text-muted-foreground" : "text-muted-foreground/70")}>
           {n.description}
         </p>
       </div>
@@ -339,7 +339,7 @@ export default function NotificationsPage() {
               <BellOff className="h-9 w-9 text-muted-foreground/50" aria-hidden="true"/>
             </div>
             <h3 className="text-lg font-medium">All caught up!</h3>
-            <p className="text-sm text-muted-foreground max-w-[250px] mt-1">You have no new notifications.</p>
+            <p className="text-sm text-muted-foreground max-w-62.5 mt-1">You have no new notifications.</p>
           </div>
         ) : (
           <div

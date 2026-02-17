@@ -23,7 +23,7 @@ export function NotFoundContent() {
 
       {/* Error Code */}
       <div className="space-y-2">
-        <h1 className="text-8xl md:text-9xl font-black tracking-tighter bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 bg-clip-text text-transparent">
+        <h1 className="text-8xl md:text-9xl font-black tracking-tighter bg-linear-to-r from-purple-500 via-pink-500 to-red-500 bg-clip-text text-transparent">
           404
         </h1>
         <p className="text-2xl md:text-3xl font-bold text-foreground">
@@ -46,7 +46,7 @@ export function NotFoundContent() {
         <Button
           onClick={() => router.push("/")}
           size="lg"
-          className="gap-2 min-w-[200px]"
+          className="gap-2 min-w-50"
         >
           <Home className="w-4 h-4" aria-hidden="true" />
           Go Home
@@ -55,7 +55,7 @@ export function NotFoundContent() {
         <Button 
           size="lg" 
           variant="outline" 
-          className="gap-2 min-w-[200px]"
+          className="gap-2 min-w-50"
           onClick={() => router.back()}
         >
           <ArrowLeft className="w-4 h-4" aria-hidden="true" />

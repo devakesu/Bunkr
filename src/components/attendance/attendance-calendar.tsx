@@ -559,7 +559,7 @@ export function AttendanceCalendar({
   if (currentDate.year === null || currentDate.month === null || !selectedDate) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-[400px]">
+        <Card className="overflow-hidden border border-border/40 custom-container h-full flex flex-col items-center justify-center min-h-100">
           <div className="text-muted-foreground">Loading calendar...</div>
         </Card>
         <Card className="border border-border/40 custom-container">
@@ -580,7 +580,7 @@ export function AttendanceCalendar({
         <CardHeader className="pb-2 flex flex-row flex-wrap items-center justify-center sm:justify-between gap-2 border-b border-border/40">
           <div className="flex items-center gap-2 max-sm:contents">
             <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Filter attendance by status">
+              <SelectTrigger className="w-32.5 h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Filter attendance by status">
                 <SelectValue>{filter === "all" ? "All" : filter.charAt(0).toUpperCase() + filter.slice(1)}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">
@@ -592,7 +592,7 @@ export function AttendanceCalendar({
               </SelectContent>
             </Select>
             <Select value={currentDate.month!.toString()} onValueChange={handleMonthChange}>
-              <SelectTrigger className="w-[130px] h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Select month">
+              <SelectTrigger className="w-32.5 h-9 bg-background/60 border-border/60 text-sm capitalize custom-dropdown" aria-label="Select month">
                 <SelectValue>{monthNames[currentDate.month!]}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 backdrop-blur-md custom-dropdown max-h-70">
@@ -604,7 +604,7 @@ export function AttendanceCalendar({
               </SelectContent>
             </Select>
             <Select value={currentDate.year!.toString()} onValueChange={handleYearChange}>
-              <SelectTrigger className="w-[90px] h-9 bg-background/60 border-border/60 text-sm custom-dropdown" aria-label="Select year">
+              <SelectTrigger className="w-22.5 h-9 bg-background/60 border-border/60 text-sm custom-dropdown" aria-label="Select year">
                 <SelectValue>{currentDate.year}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-background/90 border-border/60 max-h-70 backdrop-blur-md custom-dropdown">
@@ -755,7 +755,7 @@ export function AttendanceCalendar({
                 <div className="flex flex-col items-center justify-center flex-1 text-center px-6 py-12">
                   <div className="rounded-full bg-accent/30 p-4 mb-3 ring-1 ring-border/50"><CalendarIcon className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" /></div>
                   <h3 className="text-sm font-semibold text-foreground">No Classes Found</h3>
-                  <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-[200px]">Enjoy your free time! No classes recorded for this date.</p>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-50">Enjoy your free time! No classes recorded for this date.</p>
                   <Button variant="outline" size="sm" className="h-8 text-xs" onClick={goToToday}>Jump to Today</Button>
                 </div>
               )}

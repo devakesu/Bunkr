@@ -136,7 +136,7 @@ export function ContactForm({ userDetails }: ContactFormProps) {
       {/* --- HONEYPOT FIELD (Hidden from users, visible to bots) --- */}
       {/* Bots will fill this, Server Action will block them. Real users won't see it. */}
       <div
-        className="absolute -left-[9999px] w-px h-px overflow-hidden"
+        className="absolute -left-2499.75 w-px h-px overflow-hidden"
         aria-hidden="true"
       >
         <Label htmlFor="website">Website</Label>
@@ -194,10 +194,10 @@ export function ContactForm({ userDetails }: ContactFormProps) {
       </div>
       <div className="grid gap-2">
         <Label htmlFor="message">Message</Label>
-        <Textarea id="message" name="message" className="min-h-[120px]" required />
+        <Textarea id="message" name="message" className="min-h-30" required />
       </div>
 
-      <div className="flex flex-col items-center justify-center py-2 min-h-[65px]">
+      <div className="flex flex-col items-center justify-center py-2 min-h-16.25">
         {captchaError ? (
           <p className="text-xs text-red-500 flex items-center gap-2 bg-red-500/10 p-2 rounded">
             <AlertCircle className="w-4 h-4" aria-label="Security check failed" />

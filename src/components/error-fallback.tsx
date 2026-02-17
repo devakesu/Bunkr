@@ -101,7 +101,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
   };
 
   return (
-    <div className="flex min-h-[400px] w-full items-center justify-center px-4 py-16">
+    <div className="flex min-h-100 w-full items-center justify-center px-4 py-16">
       <div className="max-w-2xl w-full text-center space-y-6 animate-in fade-in zoom-in duration-300">
         {/* Error Icon */}
         <div className="flex justify-center">
@@ -140,7 +140,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
           <Button
             onClick={handleTryAgain}
             size="lg"
-            className="gap-2 min-w-[180px]"
+            className="gap-2 min-w-45"
           >
             <RefreshCcw className="w-4 h-4" aria-hidden="true" />
             Try Again
@@ -150,7 +150,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
             onClick={handleGoHome}
             size="lg"
             variant="outline"
-            className="gap-2 min-w-[180px]"
+            className="gap-2 min-w-45"
           >
             <Home className="w-4 h-4" aria-hidden="true" />
             Go Home
@@ -160,7 +160,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
             onClick={handleEmailReport}
             size="lg"
             variant="outline"
-            className="gap-2 min-w-[180px]"
+            className="gap-2 min-w-45"
           >
             <Mail className="w-4 h-4" aria-hidden="true" />
             Report Error
@@ -172,7 +172,7 @@ export function ErrorFallback({ error, reset, showDetails, homeUrl = "/dashboard
               size="lg"
               variant="destructive"
               disabled={isLoggingOut}
-              className="gap-2 min-w-[180px]"
+              className="gap-2 min-w-45"
             >
               <LogOut className="w-4 h-4" aria-hidden="true" />
               {isLoggingOut ? "Logging out..." : "Logout"}

@@ -335,7 +335,7 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
                 type="submit"
                 size="sm"
                 disabled={updateProfileMutation.isPending}
-                className="h-9 min-w-[100px]"
+                className="h-9 min-w-25"
                 aria-label={updateProfileMutation.isPending ? "Saving profile changes" : "Save profile changes"}
               >
                 {updateProfileMutation.isPending ? (
