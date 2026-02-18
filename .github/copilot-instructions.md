@@ -36,7 +36,7 @@ Key config files at root: `next.config.ts`, `vitest.config.ts`, `vitest.setup.ts
 | Styling | Tailwind CSS v4, Radix UI primitives, Shadcn UI, Framer Motion, Lucide Icons |
 | Data / State | TanStack Query v5, React Hook Form + Zod v4, Recharts v3 |
 | Auth / DB | Supabase (PostgreSQL + RLS), `@supabase/ssr` |
-| Security | AES-256-GCM encryption (`lib/crypto.ts`), CSRF tokens, Upstash Redis rate limiting, Cloudflare Turnstile, CSP Level 3 |
+| Security | AES-256-GCM encryption (`src/lib/crypto.ts`), CSRF tokens, Upstash Redis rate limiting, Cloudflare Turnstile, CSP Level 3 |
 | HTTP | Axios v1 with interceptors, LRU Cache v11 |
 | Error tracking | Sentry (`sentry.server.config.ts`, `sentry.edge.config.ts`, `instrumentation.ts`) |
 | PWA | Serwist (service worker in `src/sw.ts`) |
@@ -54,7 +54,7 @@ npm run build        # Production build
 npm run lint         # ESLint
 npm run test         # Vitest unit/component tests (watch mode by default)
 npm run test:coverage # Coverage report (lcov, html, json)
-npm run test:e2e     # Playwright E2E tests (headless Chromium)
+npm run test:e2e     # Playwright E2E tests (all configured projects; CI uses --project=chromium)
 npm run docs:validate # Validate OpenAPI spec with Redocly
 ```
 
@@ -154,6 +154,8 @@ GhostClass uses an automated version bump workflow (`.github/workflows/auto-vers
 | `auto-version-bump.yml` | PR opened/updated | Auto-bump version, comment on PR |
 | `release.yml` | `repository_dispatch: release_requested` | Build multi-arch Docker, sign, attest, deploy |
 | `deploy-supabase.yaml` | Manual | Push Supabase migrations |
+| `provenance.yml` | Release / artifact publication | Generate and publish build provenance attestations |
+| `scorecard.yml` | Scheduled / on push to main | Run OpenSSF Scorecard security checks |
 
 **Dependabot PRs** do not have access to repository secrets (`GPG_PRIVATE_KEY`, etc.); workflows check `if: github.actor != 'dependabot[bot]'` to skip secret-dependent steps.
 
@@ -163,7 +165,7 @@ GhostClass uses an automated version bump workflow (`.github/workflows/auto-vers
 
 Core algorithm used by `src/components/attendance/course-card.tsx`:
 
-- `calculateAttendance(present, total, targetPercentage)` returns `{ canBunk, requiredToAttend, isExact }`
+- `calculateAttendance(present, total, targetPercentage)` returns `{ canBunk, requiredToAttend, targetPercentage, isExact }`
 - Manual tracking modifiers: `extraPresent`, `extraAbsent` (add to total), `correctionPresent` (status swap, no total change)
 - Attendance code `225` = Duty Leave; limited to **5 per course per semester** (enforced by DB trigger `check_225_attendance_limit()`)
 
