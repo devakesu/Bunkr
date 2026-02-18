@@ -231,8 +231,14 @@ By default, when a GitHub Actions workflow creates a commit using `GITHUB_TOKEN`
 
 For GhostClass:
 - Auto Version Bump workflow commits version changes
-- Without BOT_PAT: Tests/Pipeline workflows won't run on those commits ❌
-- With BOT_PAT: All workflows trigger properly ✅
+- Without BOT_PAT:
+  - Tests/Pipeline workflows won't run on those commits ❌
+  - Commit verification still depends on GPG signing; Dependabot PRs do not have access to GPG secrets, so their bump commits may appear as **unverified** (not GPG-signed) ❌
+  - Manual workflow trigger or new commit required to run checks
+- With BOT_PAT:
+  - All workflows trigger properly ✅
+  - BOT_PAT only controls whether workflows are triggered; commits are shown as **Verified** only when signed with the configured GPG keys, and Dependabot bump commits may still remain unverified
+  - Automated CI/CD pipeline for version bumps and releases works seamlessly ✅
 
 ### Setup Instructions
 
@@ -248,6 +254,7 @@ For GhostClass:
    - **Expiration**: 90 days or 1 year (set calendar reminder to renew)
    - **Scopes**: Select **only**:
      - ✅ `repo` (Full control of private repositories)
+     - ✅ `workflow` (Update GitHub Action workflows) - **REQUIRED** for workflows to trigger after version bump commits
 
 4. Click **Generate token**
 
