@@ -4,30 +4,27 @@
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
+
+multi-ecosystem-groups:
+  all-dependencies:
+    schedule:
+      interval: "daily"
+
 updates:
   - package-ecosystem: "npm"
     directory: "/"
-    schedule:
-      interval: "daily"
-    groups:
-      all-npm-updates:
-        patterns:
-          - "*"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "all-dependencies"
 
   - package-ecosystem: "docker"
     directory: "/"
-    schedule:
-      interval: "daily"
-    groups:
-      all-docker-updates:
-        patterns:
-          - "*"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "all-dependencies"
 
   - package-ecosystem: "github-actions"
     directory: "/"
-    schedule:
-      interval: "daily"
-    groups:
-      all-actions-updates:
-        patterns:
-          - "*"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "all-dependencies"
