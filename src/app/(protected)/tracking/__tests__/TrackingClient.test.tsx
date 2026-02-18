@@ -147,44 +147,8 @@ describe('TrackingClient', () => {
       });
     });
 
-    it('should display "records" for count of 0', async () => {
-      const user = userEvent.setup();
-      const { useTrackingCount } = await import('@/hooks/tracker/useTrackingCount');
-      const { useTrackingData } = await import('@/hooks/tracker/useTrackingData');
-      
-      vi.mocked(useTrackingCount).mockReturnValue({
-        data: 0,
-        isLoading: false,
-      } as any);
-
-      vi.mocked(useTrackingData).mockReturnValue({
-        data: [],
-        isLoading: false,
-        error: null,
-      } as any);
-
-      // Mock sync completion
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ success: true }),
-      });
-
-      render(<TrackingClient />);
-
-      // Wait for sync to complete
-      await waitFor(() => {
-        expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
-      }, { timeout: 3000 });
-
-      // Click "Clear all" button to open dialog
-      const deleteAllButton = screen.getByRole('button', { name: /clear all/i });
-      await user.click(deleteAllButton);
-
-      // Verify plural "records" is used for 0
-      await waitFor(() => {
-        expect(screen.getByText(/0 tracking records/i)).toBeInTheDocument();
-      });
-    });
+    // Note: count=0 test removed because TrackingClient only shows "Clear all" button when (count ?? 0) > 0
+    // The plural "records" case is already covered by the count=2 test above
 
     it('should display "records" for count greater than 1', async () => {
       const user = userEvent.setup();

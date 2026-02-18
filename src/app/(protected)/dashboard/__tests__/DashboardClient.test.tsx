@@ -37,6 +37,13 @@ vi.mock('@/hooks/courses/attendance', () => ({
       attended_sessions: 17,
     },
     isLoading: false,
+    refetch: vi.fn().mockResolvedValue({
+      data: {
+        attendance_percentage: 85,
+        total_sessions: 20,
+        attended_sessions: 17,
+      },
+    }),
   }),
 }));
 
