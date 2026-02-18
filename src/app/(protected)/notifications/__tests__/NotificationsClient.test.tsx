@@ -1,276 +1,162 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
+import NotificationsPage from '../NotificationsClient';
 
-// Mock the NotificationsClient - we'll create a minimal version for testing
-const NotificationCard = ({ 
-  n, 
-  onMarkRead, 
-  isReading 
-}: { 
-  n: any; 
-  onMarkRead: (id: number) => void; 
-  isReading: boolean;
-}) => {
-  const [isHovered, setIsHovered] = useState(false);
+// Mock all required hooks and dependencies
+vi.mock('@/hooks/notifications/useNotifications', () => ({
+  useNotifications: () => ({
+    actionNotifications: [],
+    regularNotifications: [],
+    unreadCount: 0,
+    isLoading: false,
+    error: null,
+    markAsRead: vi.fn(),
+    markAllAsRead: vi.fn(),
+  }),
+}));
 
-  return (
-    <div
-      data-testid={`notification-${n.id}`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={() => !n.is_read && onMarkRead(n.id)}
-      className={!n.is_read ? "cursor-pointer hover:shadow-md" : ""}
-    >
-      <h4>{n.title}</h4>
-      <p>{n.description}</p>
-      {isHovered && <span data-testid="hover-indicator">Hovered</span>}
-    </div>
-  );
-};
+vi.mock('@/hooks/users/user', () => ({
+  useUser: () => ({
+    data: { id: '123', email: 'test@example.com' },
+    isLoading: false,
+  }),
+}));
 
-describe('NotificationsClient - Hover Handlers', () => {
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    invalidateQueries: vi.fn(),
+  }),
+}));
+
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: () => ({
+    getTotalSize: () => 0,
+    getVirtualItems: () => [],
+    scrollToIndex: vi.fn(),
+  }),
+}));
+
+vi.mock('@sentry/nextjs', () => ({
+  captureException: vi.fn(),
+}));
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+  },
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+    dev: vi.fn(),
+  },
+}));
+
+describe('NotificationsClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('Hover Interactions (Lines 776-777)', () => {
-    it('should handle mouseenter event on notification card', async () => {
-      const user = userEvent.setup();
-      const mockNotification = {
-        id: 1,
-        title: 'Test Notification',
-        description: 'Test description',
-        is_read: false,
-        created_at: new Date().toISOString(),
-      };
-      const onMarkRead = vi.fn();
-
-      render(
-        <NotificationCard
-          n={mockNotification}
-          onMarkRead={onMarkRead}
-          isReading={false}
-        />
-      );
-
-      const card = screen.getByTestId('notification-1');
-      await user.hover(card);
-
-      // Verify hover state is triggered
-      expect(card).toBeInTheDocument();
-    });
-
-    it('should handle mouseleave event on notification card', async () => {
-      const user = userEvent.setup();
-      const mockNotification = {
-        id: 1,
-        title: 'Test Notification',
-        description: 'Test description',
-        is_read: false,
-        created_at: new Date().toISOString(),
-      };
-      const onMarkRead = vi.fn();
-
-      render(
-        <NotificationCard
-          n={mockNotification}
-          onMarkRead={onMarkRead}
-          isReading={false}
-        />
-      );
-
-      const card = screen.getByTestId('notification-1');
+  describe('CSS Hover Effects (Line 47)', () => {
+    it('should apply hover:shadow-md class to unread notifications', async () => {
+      const { useNotifications } = await import('@/hooks/notifications/useNotifications');
       
-      // Hover over the card
-      await user.hover(card);
-      
-      // Verify hover indicator appears
+      vi.mocked(useNotifications).mockReturnValue({
+        actionNotifications: [],
+        regularNotifications: [
+          {
+            id: 1,
+            title: 'Test Notification',
+            description: 'Test description',
+            is_read: false,
+            created_at: new Date().toISOString(),
+            user_id: '123',
+            topic: 'sync',
+          },
+        ],
+        unreadCount: 1,
+        isLoading: false,
+        error: null,
+        markAsRead: vi.fn(),
+        markAllAsRead: vi.fn(),
+      } as any);
+
+      render(<NotificationsPage />);
+
       await waitFor(() => {
-        expect(screen.getByTestId('hover-indicator')).toBeInTheDocument();
+        const notification = screen.getByText('Test Notification').closest('div[role="button"]');
+        expect(notification).toBeInTheDocument();
+        // Verify the hover:shadow-md class is present
+        expect(notification?.className).toContain('hover:shadow-md');
       });
-      
-      // Then unhover
-      await user.unhover(card);
+    });
 
-      // Verify hover indicator disappears
+    it('should not apply hover:shadow-md class to read notifications', async () => {
+      const { useNotifications } = await import('@/hooks/notifications/useNotifications');
+      
+      vi.mocked(useNotifications).mockReturnValue({
+        actionNotifications: [],
+        regularNotifications: [
+          {
+            id: 1,
+            title: 'Read Notification',
+            description: 'Test description',
+            is_read: true,
+            created_at: new Date().toISOString(),
+            user_id: '123',
+            topic: 'sync',
+          },
+        ],
+        unreadCount: 0,
+        isLoading: false,
+        error: null,
+        markAsRead: vi.fn(),
+        markAllAsRead: vi.fn(),
+      } as any);
+
+      render(<NotificationsPage />);
+
       await waitFor(() => {
-        expect(screen.queryByTestId('hover-indicator')).not.toBeInTheDocument();
+        const notification = screen.getByText('Read Notification').closest('div[role="button"]');
+        expect(notification).toBeInTheDocument();
+        // Read notifications should not have hover:shadow-md
+        expect(notification?.className).not.toContain('hover:shadow-md');
       });
-
-      // Verify the card is still present
-      expect(card).toBeInTheDocument();
     });
 
-    it('should apply hover styles when hovering over unread notification', async () => {
-      const user = userEvent.setup();
-      const mockNotification = {
-        id: 1,
-        title: 'Test Notification',
-        description: 'Test description',
-        is_read: false,
-        created_at: new Date().toISOString(),
-      };
-      const onMarkRead = vi.fn();
-
-      render(
-        <NotificationCard
-          n={mockNotification}
-          onMarkRead={onMarkRead}
-          isReading={false}
-        />
-      );
-
-      const card = screen.getByTestId('notification-1');
-      expect(card).toHaveClass('cursor-pointer');
-      expect(card).toHaveClass('hover:shadow-md');
+    it('should apply cursor-pointer class for unread notifications', async () => {
+      const { useNotifications } = await import('@/hooks/notifications/useNotifications');
       
-      await user.hover(card);
-      
-      // Verify hover indicator appears
+      vi.mocked(useNotifications).mockReturnValue({
+        actionNotifications: [],
+        regularNotifications: [
+          {
+            id: 1,
+            title: 'Unread Notification',
+            description: 'Test description',
+            is_read: false,
+            created_at: new Date().toISOString(),
+            user_id: '123',
+            topic: 'attendance',
+          },
+        ],
+        unreadCount: 1,
+        isLoading: false,
+        error: null,
+        markAsRead: vi.fn(),
+        markAllAsRead: vi.fn(),
+      } as any);
+
+      render(<NotificationsPage />);
+
       await waitFor(() => {
-        expect(screen.getByTestId('hover-indicator')).toBeInTheDocument();
+        const notification = screen.getByText('Unread Notification').closest('div[role="button"]');
+        expect(notification).toBeInTheDocument();
+        expect(notification?.className).toContain('cursor-pointer');
       });
-      
-      // Card should still have cursor-pointer class when hovered
-      expect(card).toHaveClass('cursor-pointer');
-    });
-
-    it('should handle hover on read notification', async () => {
-      const user = userEvent.setup();
-      const mockNotification = {
-        id: 1,
-        title: 'Test Notification',
-        description: 'Test description',
-        is_read: true,
-        created_at: new Date().toISOString(),
-      };
-      const onMarkRead = vi.fn();
-
-      render(
-        <NotificationCard
-          n={mockNotification}
-          onMarkRead={onMarkRead}
-          isReading={false}
-        />
-      );
-
-      const card = screen.getByTestId('notification-1');
-      
-      await user.hover(card);
-      
-      // Read notifications should not have cursor-pointer
-      expect(card).not.toHaveClass('cursor-pointer');
-    });
-
-    it('should not trigger mark as read when hovering', async () => {
-      const user = userEvent.setup();
-      const mockNotification = {
-        id: 1,
-        title: 'Test Notification',
-        description: 'Test description',
-        is_read: false,
-        created_at: new Date().toISOString(),
-      };
-      const onMarkRead = vi.fn();
-
-      render(
-        <NotificationCard
-          n={mockNotification}
-          onMarkRead={onMarkRead}
-          isReading={false}
-        />
-      );
-
-      const card = screen.getByTestId('notification-1');
-      
-      // Hover should not trigger mark as read
-      await user.hover(card);
-      expect(onMarkRead).not.toHaveBeenCalled();
-      
-      // Only click should trigger mark as read
-      await user.click(card);
-      expect(onMarkRead).toHaveBeenCalledWith(1);
-    });
-
-    it('should handle rapid hover/unhover events', async () => {
-      const user = userEvent.setup();
-      const mockNotification = {
-        id: 1,
-        title: 'Test Notification',
-        description: 'Test description',
-        is_read: false,
-        created_at: new Date().toISOString(),
-      };
-      const onMarkRead = vi.fn();
-
-      render(
-        <NotificationCard
-          n={mockNotification}
-          onMarkRead={onMarkRead}
-          isReading={false}
-        />
-      );
-
-      const card = screen.getByTestId('notification-1');
-      
-      // Rapid hover/unhover
-      await user.hover(card);
-      await user.unhover(card);
-      await user.hover(card);
-      await user.unhover(card);
-      
-      // Should still be functional
-      expect(card).toBeInTheDocument();
-      expect(onMarkRead).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('Shadow Effects on Hover', () => {
-    it('should apply hover:shadow-md class to unread notifications', () => {
-      const mockNotification = {
-        id: 1,
-        title: 'Test Notification',
-        description: 'Test description',
-        is_read: false,
-        created_at: new Date().toISOString(),
-      };
-      const onMarkRead = vi.fn();
-
-      render(
-        <NotificationCard
-          n={mockNotification}
-          onMarkRead={onMarkRead}
-          isReading={false}
-        />
-      );
-
-      const card = screen.getByTestId('notification-1');
-      // The component uses hover:shadow-md in className for unread notifications
-      expect(card).toBeInTheDocument();
-    });
-
-    it('should not apply hover effects to read notifications', () => {
-      const mockNotification = {
-        id: 1,
-        title: 'Test Notification',
-        description: 'Test description',
-        is_read: true,
-        created_at: new Date().toISOString(),
-      };
-      const onMarkRead = vi.fn();
-
-      render(
-        <NotificationCard
-          n={mockNotification}
-          onMarkRead={onMarkRead}
-          isReading={false}
-        />
-      );
-
-      const card = screen.getByTestId('notification-1');
-      expect(card).not.toHaveClass('cursor-pointer');
     });
   });
 });

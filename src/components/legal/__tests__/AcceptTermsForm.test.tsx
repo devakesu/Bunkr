@@ -378,8 +378,12 @@ describe('AcceptTermsForm', () => {
       // Should not redirect immediately
       expect(mockPush).not.toHaveBeenCalled();
 
-      // Advance timers by 100ms
-      vi.advanceTimersByTime(100);
+      // Verify redirect does NOT happen before 100ms
+      vi.advanceTimersByTime(50);
+      expect(mockPush).not.toHaveBeenCalled();
+
+      // Advance to 100ms total
+      vi.advanceTimersByTime(50);
 
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/dashboard');

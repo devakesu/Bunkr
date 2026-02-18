@@ -1,11 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-
-// Helper function that might be used in TrackingClient for percentage formatting
-const formatPct = (value: number): string => {
-  return `${Math.round(value * 100)}%`;
-};
+import TrackingClient from '../TrackingClient';
 
 // Mock all required hooks
 vi.mock('@/hooks/tracker/useTrackingData', () => ({
@@ -97,101 +93,95 @@ describe('TrackingClient', () => {
     vi.clearAllMocks();
   });
 
-  describe('formatPct Function (Line 541)', () => {
-    it('should format decimal values as percentages', () => {
-      expect(formatPct(0.5)).toBe('50%');
-      expect(formatPct(0.75)).toBe('75%');
-      expect(formatPct(1)).toBe('100%');
-      expect(formatPct(0)).toBe('0%');
-    });
-
-    it('should round percentage values correctly', () => {
-      expect(formatPct(0.666)).toBe('67%');
-      expect(formatPct(0.333)).toBe('33%');
-      expect(formatPct(0.999)).toBe('100%');
-      expect(formatPct(0.001)).toBe('0%');
-    });
-
-    it('should handle edge case percentages', () => {
-      expect(formatPct(0.005)).toBe('1%'); // Rounds up
-      expect(formatPct(0.004)).toBe('0%'); // Rounds down
-      expect(formatPct(1.5)).toBe('150%'); // Over 100%
-    });
-
-    it('should format negative percentages', () => {
-      expect(formatPct(-0.5)).toBe('-50%');
-      expect(formatPct(-1)).toBe('-100%');
-    });
-
-    it('should handle very small values', () => {
-      expect(formatPct(0.0001)).toBe('0%');
-      expect(formatPct(0.00001)).toBe('0%');
-    });
-
-    it('should handle very large values', () => {
-      expect(formatPct(10)).toBe('1000%');
-      expect(formatPct(100)).toBe('10000%');
-    });
-  });
-
-  describe('Conditional Rendering (Line 541)', () => {
-    it('should render AlertDialogContent for delete all confirmation', () => {
-      // Line 541 is <AlertDialogContent> in the delete all dialog
-      const MockDialog = () => (
-        <div data-testid="delete-all-dialog">
-          <div role="heading">Clear All Tracking Records?</div>
-          <div>
-            This will permanently delete all 5 tracking records. This action cannot be undone.
-          </div>
-        </div>
-      );
-
-      render(<MockDialog />);
+  describe('Ternary Operator - Singular vs Plural (Line 545)', () => {
+    it('should display "record" for count of 1', async () => {
+      const user = userEvent.setup();
+      const { useTrackingCount } = await import('@/hooks/tracker/useTrackingCount');
+      const { useTrackingData } = await import('@/hooks/tracker/useTrackingData');
       
-      expect(screen.getByTestId('delete-all-dialog')).toBeInTheDocument();
-      expect(screen.getByRole('heading')).toHaveTextContent('Clear All Tracking Records?');
+      vi.mocked(useTrackingCount).mockReturnValue({
+        data: 1,
+        isLoading: false,
+      } as any);
+
+      vi.mocked(useTrackingData).mockReturnValue({
+        data: [{ id: 1, course_id: '101', date: '20240101', session: '1' }],
+        isLoading: false,
+        error: null,
+      } as any);
+
+      render(<TrackingClient />);
+
+      // Click delete all button to open dialog
+      const deleteAllButton = screen.getByRole('button', { name: /delete all/i });
+      await user.click(deleteAllButton);
+
+      // Verify singular "record" is used
+      await waitFor(() => {
+        expect(screen.getByText(/1 tracking record/i)).toBeInTheDocument();
+      });
     });
 
-    it('should show correct message for single record', () => {
-      const count = 1;
-      const message = `This will permanently delete all ${count} tracking ${count === 1 ? 'record' : 'records'}. This action cannot be undone.`;
+    it('should display "records" for count of 0', async () => {
+      const user = userEvent.setup();
+      const { useTrackingCount } = await import('@/hooks/tracker/useTrackingCount');
+      const { useTrackingData } = await import('@/hooks/tracker/useTrackingData');
       
-      expect(message).toContain('1 tracking record');
-      expect(message).not.toContain('records');
+      vi.mocked(useTrackingCount).mockReturnValue({
+        data: 0,
+        isLoading: false,
+      } as any);
+
+      vi.mocked(useTrackingData).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+      } as any);
+
+      render(<TrackingClient />);
+
+      // Click delete all button to open dialog
+      const deleteAllButton = screen.getByRole('button', { name: /delete all/i });
+      await user.click(deleteAllButton);
+
+      // Verify plural "records" is used for 0
+      await waitFor(() => {
+        expect(screen.getByText(/0 tracking records/i)).toBeInTheDocument();
+      });
     });
 
-    it('should show correct message for multiple records', () => {
-      const count = 5;
-      const message = `This will permanently delete all ${count} tracking ${count === 1 ? 'record' : 'records'}. This action cannot be undone.`;
+    it('should display "records" for count greater than 1', async () => {
+      const user = userEvent.setup();
+      const { useTrackingCount } = await import('@/hooks/tracker/useTrackingCount');
+      const { useTrackingData } = await import('@/hooks/tracker/useTrackingData');
       
-      expect(message).toContain('5 tracking records');
-      expect(message).not.toContain('record.');
-    });
+      vi.mocked(useTrackingCount).mockReturnValue({
+        data: 5,
+        isLoading: false,
+      } as any);
 
-    it('should handle zero records edge case', () => {
-      const count = 0;
-      const message = `This will permanently delete all ${count} tracking ${count === 1 ? 'record' : 'records'}. This action cannot be undone.`;
-      
-      expect(message).toContain('0 tracking records');
-    });
-  });
+      vi.mocked(useTrackingData).mockReturnValue({
+        data: [
+          { id: 1, course_id: '101', date: '20240101', session: '1' },
+          { id: 2, course_id: '102', date: '20240102', session: '2' },
+          { id: 3, course_id: '103', date: '20240103', session: '3' },
+          { id: 4, course_id: '104', date: '20240104', session: '4' },
+          { id: 5, course_id: '105', date: '20240105', session: '5' },
+        ],
+        isLoading: false,
+        error: null,
+      } as any);
 
-  describe('Ternary Operator Coverage', () => {
-    it('should evaluate singular vs plural correctly', () => {
-      const getSuffix = (count: number) => count === 1 ? 'record' : 'records';
-      
-      expect(getSuffix(0)).toBe('records');
-      expect(getSuffix(1)).toBe('record');
-      expect(getSuffix(2)).toBe('records');
-      expect(getSuffix(100)).toBe('records');
-    });
+      render(<TrackingClient />);
 
-    it('should format tracking count message', () => {
-      const formatMessage = (count: number) => 
-        `all ${count} tracking ${count === 1 ? 'record' : 'records'}`;
-      
-      expect(formatMessage(1)).toBe('all 1 tracking record');
-      expect(formatMessage(5)).toBe('all 5 tracking records');
+      // Click delete all button to open dialog
+      const deleteAllButton = screen.getByRole('button', { name: /delete all/i });
+      await user.click(deleteAllButton);
+
+      // Verify plural "records" is used
+      await waitFor(() => {
+        expect(screen.getByText(/5 tracking records/i)).toBeInTheDocument();
+      });
     });
   });
 });

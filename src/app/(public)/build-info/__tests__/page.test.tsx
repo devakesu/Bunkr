@@ -51,10 +51,11 @@ describe('BuildInfoPage', () => {
       });
     });
 
-    it('should display error message when response is not ok', async () => {
+    it('should display error message when JSON parsing fails', async () => {
       global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
+        json: async () => {
+          throw new Error('Invalid JSON');
+        },
       });
 
       render(<BuildInfoPage />);
