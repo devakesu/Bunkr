@@ -98,7 +98,15 @@ export function AcceptTermsForm() {
               rel="noopener noreferrer"
               className="text-white hover:underline hover:text-purple-400 transition-colors"
               onClick={(e) => {
+                // Prevent the label from toggling the checkbox when link is clicked
+                e.preventDefault();
                 e.stopPropagation();
+                // Open link securely with noopener and noreferrer
+                const link = document.createElement('a');
+                link.href = '/legal';
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.click();
               }}
             >
               above Disclaimer and all Policies listed here
