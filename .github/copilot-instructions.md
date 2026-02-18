@@ -1058,18 +1058,17 @@ npx supabase db push
 ### Fixing a Linting Issue
 
 ```bash
-# 1. Run linter to see issues
+# 1. Run linter to identify and auto-fix issues
 npm run lint
+# ESLint will automatically fix issues where possible
+# and report any remaining issues that need manual fixes
 
-# 2. Auto-fix what can be fixed automatically
-npm run lint
-
-# 3. Manual fixes for remaining issues
+# 2. Manual fixes for remaining issues (if any)
 # - Add types for implicit any
 # - Prefix unused vars with _
 # - Fix React Hook dependencies
 
-# 4. Verify all issues resolved
+# 3. Verify all issues resolved
 npm run lint
 ```
 
@@ -1117,7 +1116,7 @@ git push origin feature/my-feature
 1. **Unit tests first** - Test logic in isolation
 2. **Component tests next** - Test UI behavior
 3. **E2E tests last** - Test full user flows
-4. **Coverage is important** - Maintain minimum 10% threshold
+4. **Coverage is important** - Maintain minimum thresholds (7% lines, 8% functions, 5% branches, 7% statements)
 5. **Test edge cases** - Consider boundary conditions
 
 ### Security Mindset
