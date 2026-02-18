@@ -233,12 +233,12 @@ For GhostClass:
 - Auto Version Bump workflow commits version changes
 - Without BOT_PAT:
   - Tests/Pipeline workflows won't run on those commits ❌
-  - For Dependabot PRs: Commits may appear as **unverified** (not signed)
+  - Commit verification still depends on GPG signing; Dependabot PRs do not have access to GPG secrets, so their bump commits may appear as **unverified** (not GPG-signed) ❌
   - Manual workflow trigger or new commit required to run checks
 - With BOT_PAT:
   - All workflows trigger properly ✅
-  - All commits are properly signed by GitHub ✅
-  - Automated CI/CD pipeline works seamlessly ✅
+  - BOT_PAT only controls whether workflows are triggered; commits are shown as **Verified** only when signed with the configured GPG keys, and Dependabot bump commits may still remain unverified
+  - Automated CI/CD pipeline for version bumps and releases works seamlessly ✅
 
 ### Setup Instructions
 
