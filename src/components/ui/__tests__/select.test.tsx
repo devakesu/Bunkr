@@ -65,10 +65,12 @@ describe('Select Components', () => {
     });
 
     it('should pass through props to Select root', () => {
-      render(<Select defaultValue="test"><div>Content</div></Select>);
+      render(<Select defaultValue="test" data-testvalue="test"><div>Content</div></Select>);
       
       const root = screen.getByTestId('select-root');
-      expect(root).toHaveAttribute('defaultValue', 'test');
+      // defaultValue is a React prop, not an HTML attribute
+      // Test that additional props are passed through
+      expect(root).toHaveAttribute('data-testvalue', 'test');
     });
   });
 
