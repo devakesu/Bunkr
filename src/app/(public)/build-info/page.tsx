@@ -38,10 +38,20 @@ export default function BuildInfoPage() {
       });
   }, []);
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(label);
-    setTimeout(() => setCopied(null), 2000);
+  const copyToClipboard = async (text: string, label: string) => {
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+      window.alert("Copy to clipboard is not supported in this browser or context.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(label);
+      setTimeout(() => setCopied(null), 2000);
+    } catch (error) {
+      console.error("Failed to copy text to clipboard:", error);
+      window.alert("Failed to copy to clipboard. Please copy the text manually.");
+    }
   };
 
   return (
