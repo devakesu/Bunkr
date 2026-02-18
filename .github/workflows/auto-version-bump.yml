@@ -23,6 +23,10 @@ jobs:
   auto-bump:
     name: Auto Bump Version
     runs-on: ubuntu-latest
+    # Skip this workflow for Dependabot PRs since:
+    # 1. Dependabot PRs don't need version bumps (they only update dependencies)
+    # 2. Dependabot PRs don't have access to secrets like GPG_PRIVATE_KEY
+    if: github.actor != 'dependabot[bot]'
     # Elevate permissions only for this job
     permissions:
       contents: write
