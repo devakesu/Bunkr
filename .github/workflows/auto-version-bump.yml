@@ -26,7 +26,9 @@ jobs:
     # Skip this workflow for Dependabot PRs since:
     # 1. Dependabot PRs don't need version bumps (they only update dependencies)
     # 2. Dependabot PRs don't have access to secrets like GPG_PRIVATE_KEY
-    if: github.actor != 'dependabot[bot]'
+    # Check both the actor and the branch name to handle cases where non-dependabot actors
+    # push to dependabot branches (which would fail due to permission issues)
+    if: github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/')
     # Elevate permissions only for this job
     permissions:
       contents: write
