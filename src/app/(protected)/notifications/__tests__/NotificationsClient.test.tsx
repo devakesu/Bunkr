@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 
 // Mock the NotificationsClient - we'll create a minimal version for testing
 const NotificationCard = ({ 
@@ -12,7 +13,7 @@ const NotificationCard = ({
   onMarkRead: (id: number) => void; 
   isReading: boolean;
 }) => {
-  const [isHovered, setIsHovered] = vi.fn(() => false);
+  const [isHovered, setIsHovered] = useState(false);
 
   return (
     <div
@@ -20,7 +21,7 @@ const NotificationCard = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => !n.is_read && onMarkRead(n.id)}
-      className={!n.is_read ? "cursor-pointer" : ""}
+      className={!n.is_read ? "cursor-pointer hover:shadow-md" : ""}
     >
       <h4>{n.title}</h4>
       <p>{n.description}</p>
@@ -85,8 +86,18 @@ describe('NotificationsClient - Hover Handlers', () => {
       // Hover over the card
       await user.hover(card);
       
+      // Verify hover indicator appears
+      await waitFor(() => {
+        expect(screen.getByTestId('hover-indicator')).toBeInTheDocument();
+      });
+      
       // Then unhover
       await user.unhover(card);
+
+      // Verify hover indicator disappears
+      await waitFor(() => {
+        expect(screen.queryByTestId('hover-indicator')).not.toBeInTheDocument();
+      });
 
       // Verify the card is still present
       expect(card).toBeInTheDocument();
@@ -113,8 +124,14 @@ describe('NotificationsClient - Hover Handlers', () => {
 
       const card = screen.getByTestId('notification-1');
       expect(card).toHaveClass('cursor-pointer');
+      expect(card).toHaveClass('hover:shadow-md');
       
       await user.hover(card);
+      
+      // Verify hover indicator appears
+      await waitFor(() => {
+        expect(screen.getByTestId('hover-indicator')).toBeInTheDocument();
+      });
       
       // Card should still have cursor-pointer class when hovered
       expect(card).toHaveClass('cursor-pointer');
