@@ -33,8 +33,17 @@ jobs:
         run: |
           # Check if this is a Dependabot PR (by actor or branch name)
           IS_DEPENDABOT="false"
-          if [ "${{ github.actor }}" = "dependabot[bot]" ] || [[ "${{ github.head_ref }}" == dependabot/* ]]; then
+          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
             IS_DEPENDABOT="true"
+          fi
+          # Also check if branch starts with "dependabot/"
+          case "${{ github.head_ref }}" in
+            dependabot/*)
+              IS_DEPENDABOT="true"
+              ;;
+          esac
+          
+          if [ "$IS_DEPENDABOT" = "true" ]; then
             echo "is_dependabot=true" >> $GITHUB_OUTPUT
             echo "✓ Dependabot PR detected - will run in read-only mode"
           else
