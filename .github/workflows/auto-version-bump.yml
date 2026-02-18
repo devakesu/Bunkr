@@ -46,13 +46,36 @@ jobs:
             echo "✓ Fork PR - will provide manual instructions"
           fi
 
+      - name: Validate BOT_PAT secret
+        if: steps.repo-check.outputs.is_same_repo == 'true'
+        run: |
+          if [ -z "${{ secrets.BOT_PAT }}" ]; then
+            echo "::warning::BOT_PAT secret is not configured. Version bump commits will use GITHUB_TOKEN."
+            echo "::warning::⚠️  IMPORTANT: Commits made with GITHUB_TOKEN will NOT trigger workflows (Tests, Pipeline, etc.)"
+            echo "::warning::This means CI checks won't run automatically after the version bump."
+            echo ""
+            echo "To fix this:"
+            echo "1. Create a Personal Access Token (Classic) with 'repo' and 'workflow' scopes"
+            echo "2. Add it as a repository secret named 'BOT_PAT'"
+            echo "3. Re-run this workflow or push a new commit"
+            echo ""
+            echo "For Dependabot PRs: Without BOT_PAT, commits will appear as unverified."
+            echo "has_bot_pat=false" >> $GITHUB_OUTPUT
+          else
+            echo "✓ BOT_PAT is configured - workflows will trigger after version bump"
+            echo "has_bot_pat=true" >> $GITHUB_OUTPUT
+          fi
+        id: validate-token
+
       - name: Checkout PR branch (same-repo only)
         if: steps.repo-check.outputs.is_same_repo == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          # Use BOT_PAT to trigger workflows after version bump commit
-          # Falls back to GITHUB_TOKEN if BOT_PAT is not configured
+          # IMPORTANT: BOT_PAT is REQUIRED for workflows to trigger after version bump
+          # - BOT_PAT: Personal Access Token with 'repo' and 'workflow' scopes
+          # - GITHUB_TOKEN: Fallback that works but WON'T trigger workflows (GitHub security)
+          # For Dependabot PRs, BOT_PAT is also required for commits to appear as verified
           token: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
@@ -179,119 +202,56 @@ jobs:
 
           echo "✓ Changes committed and pushed"
 
-      - name: Auto bump version (Dependabot PR via API)
+      - name: Auto bump version (Dependabot PR)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && steps.repo-check.outputs.is_dependabot == 'true'
         id: bump-dependabot
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        with:
-          script: |
-            const fs = require('fs');
-            const { execSync } = require('child_process');
+        env:
+          PR_HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
 
-            // Run the bump script
-            console.log('Running bump-version.js script...');
-            execSync('CI=true GITHUB_HEAD_REF="pr-branch" node scripts/bump-version.js', {
-              stdio: 'inherit',
-              cwd: process.env.GITHUB_WORKSPACE
-            });
+          echo "Running bump-version.js script..."
 
-            // Get the new version
-            const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            const newVersion = packageJson.version;
-            console.log(`✓ Version bumped to ${newVersion}`);
-            core.setOutput('new_version', newVersion);
+          # Set GITHUB_HEAD_REF to a safe placeholder value for the Node.js script
+          export GITHUB_HEAD_REF="pr-branch"
+          export CI="true"
 
-            // Read updated file contents
-            const packageJsonContent = fs.readFileSync('package.json', 'utf8');
-            const packageLockContent = fs.readFileSync('package-lock.json', 'utf8');
-            const exampleEnvContent = fs.readFileSync('.example.env', 'utf8');
-            const openapiContent = fs.readFileSync('public/api-docs/openapi.yaml', 'utf8');
+          # Run the bump script
+          node scripts/bump-version.js
 
-            // Get current commit SHA
-            const branch = context.payload.pull_request.head.ref;
-            const { data: refData } = await github.rest.git.getRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `heads/${branch}`
-            });
-            const currentCommitSha = refData.object.sha;
+          # Get the new version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "✓ Version bumped to ${NEW_VERSION}"
 
-            // Get the current commit to retrieve the tree
-            const { data: currentCommit } = await github.rest.git.getCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: currentCommitSha
-            });
+          # Checkout the branch to avoid detached HEAD state for pushing
+          BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$BRANCH_NAME" = "HEAD" ]; then
+            # We're in detached HEAD, need to checkout the branch
+            git checkout -B "$PR_HEAD_REF"
+          fi
 
-            // Create blobs for each file
-            const blobs = await Promise.all([
-              github.rest.git.createBlob({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                content: Buffer.from(packageJsonContent).toString('base64'),
-                encoding: 'base64'
-              }),
-              github.rest.git.createBlob({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                content: Buffer.from(packageLockContent).toString('base64'),
-                encoding: 'base64'
-              }),
-              github.rest.git.createBlob({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                content: Buffer.from(exampleEnvContent).toString('base64'),
-                encoding: 'base64'
-              }),
-              github.rest.git.createBlob({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                content: Buffer.from(openapiContent).toString('base64'),
-                encoding: 'base64'
-              })
-            ]);
+          # Configure git identity for Dependabot PRs
+          # Using github-actions[bot] identity to get GitHub's automatic signing
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-            // Create a new tree with updated files
-            const { data: newTree } = await github.rest.git.createTree({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              base_tree: currentCommit.tree.sha,
-              tree: [
-                { path: 'package.json', mode: '100644', type: 'blob', sha: blobs[0].data.sha },
-                { path: 'package-lock.json', mode: '100644', type: 'blob', sha: blobs[1].data.sha },
-                { path: '.example.env', mode: '100644', type: 'blob', sha: blobs[2].data.sha },
-                { path: 'public/api-docs/openapi.yaml', mode: '100644', type: 'blob', sha: blobs[3].data.sha }
-              ]
-            });
+          # Stage and commit changes
+          git add package.json package-lock.json .example.env public/api-docs/openapi.yaml
 
-            // Create a new commit (GitHub will sign this automatically)
-            const { data: newCommit } = await github.rest.git.createCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              message: `chore: auto-bump version to v${newVersion}`,
-              tree: newTree.sha,
-              parents: [currentCommitSha],
-              author: {
-                name: 'github-actions[bot]',
-                email: '41898282+github-actions[bot]@users.noreply.github.com'
-              },
-              committer: {
-                name: 'github-actions[bot]',
-                email: '41898282+github-actions[bot]@users.noreply.github.com'
-              }
-            });
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "⚠️  No changes to commit after running bump script"
+            exit 0
+          fi
 
-            // Update the branch reference
-            await github.rest.git.updateRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `heads/${branch}`,
-              sha: newCommit.sha,
-              force: false
-            });
+          git commit -m "chore: auto-bump version to v${NEW_VERSION}"
+          
+          # Push using the token from checkout (BOT_PAT or GITHUB_TOKEN)
+          # The token is already configured by actions/checkout above
+          git push --set-upstream origin "$PR_HEAD_REF"
 
-            console.log('✓ Changes committed and pushed via GitHub API (signed by GitHub)');
-            return newVersion;
+          echo "✓ Changes committed and pushed (signed by GitHub)"
 
       - name: Comment on PR (same-repo with auto-bump)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && (steps.bump.outputs.new_version != '' || steps.bump-dependabot.outputs.new_version != '')
@@ -324,9 +284,20 @@ jobs:
               ? '\n\n_Note: A previous automatic bump was performed. This is a re-bump after the PR was updated (e.g., rebased or synced with main)._'
               : '';
             
-            const signingNote = isDependabot
-              ? '\n\n_Note: This commit was created via GitHub API and is signed by GitHub (not custom GPG), as Dependabot PRs don\'t have access to repository secrets._'
-              : '';
+            // Check if BOT_PAT was used
+            const hasBotPat = '${{ steps.validate-token.outputs.has_bot_pat }}' === 'true';
+            
+            let signingNote = '';
+            if (isDependabot) {
+              if (hasBotPat) {
+                signingNote = '\n\n_Note: Commit created with BOT_PAT and signed by GitHub as `github-actions[bot]`. Workflows should trigger normally._';
+              } else {
+                signingNote = '\n\n⚠️ **Warning**: Commit created with GITHUB_TOKEN (BOT_PAT not configured).\n'
+                  + '- Commit may appear as unverified\n'
+                  + '- **CI workflows (Tests, Pipeline) will NOT trigger automatically**\n'
+                  + '- Please configure BOT_PAT secret to fix this issue';
+              }
+            }
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
