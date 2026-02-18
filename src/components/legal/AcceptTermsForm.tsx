@@ -81,15 +81,7 @@ export function AcceptTermsForm() {
 
       {/* Footer Actions */}
       <div className="p-6 pt-2 flex flex-col gap-4">
-        <label 
-          className="flex items-center space-x-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 hover:bg-zinc-900/80 transition-colors cursor-pointer"
-          onClick={(e) => {
-            // Prevent label click from toggling checkbox if clicking on the link
-            if ((e.target as HTMLElement).tagName === 'A' || (e.target as HTMLElement).closest('a')) {
-              e.preventDefault();
-            }
-          }}
-        >
+        <label className="flex items-center space-x-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 hover:bg-zinc-900/80 transition-colors cursor-pointer">
           <Checkbox
             id="terms"
             checked={checked}
@@ -105,6 +97,17 @@ export function AcceptTermsForm() {
               target="_blank"
               rel="noopener noreferrer"
               className="text-white hover:underline hover:text-purple-400 transition-colors"
+              onClick={(e) => {
+                // Prevent the label from toggling the checkbox when link is clicked
+                e.preventDefault();
+                e.stopPropagation();
+                // Open link securely with noopener and noreferrer
+                const link = document.createElement('a');
+                link.href = '/legal';
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.click();
+              }}
             >
               above Disclaimer and all Policies listed here
             </Link>.
