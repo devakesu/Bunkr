@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AcceptTermsForm } from '../AcceptTermsForm';
 
@@ -390,7 +390,7 @@ describe('AcceptTermsForm', () => {
     });
 
     it('should wait 100ms before redirecting for cookie propagation', async () => {
-      const user = userEvent.setup();
+      vi.useFakeTimers();
       mockAcceptTermsAction.mockResolvedValue(undefined);
 
       render(<AcceptTermsForm />);
@@ -398,27 +398,25 @@ describe('AcceptTermsForm', () => {
       const checkbox = screen.getByRole('checkbox');
       const button = screen.getByRole('button', { name: /Enter GhostClass/i });
 
-      await user.click(checkbox);
+      // Use fireEvent instead of userEvent because userEvent has built-in delays
+      // that don't work well with fake timers
+      fireEvent.click(checkbox);
       
-      const startTime = Date.now();
-      await user.click(button);
+      await act(async () => {
+        fireEvent.click(button);
+      });
+      
+      // Verify action was called but redirect hasn't happened yet (timer not advanced)
+      expect(mockAcceptTermsAction).toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalled();
 
-      // Wait for action to be called
-      await waitFor(() => {
-        expect(mockAcceptTermsAction).toHaveBeenCalled();
+      // Advance timers by 100ms to trigger the setTimeout
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
       });
 
-      // Wait for redirect to be called
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/dashboard');
-      }, { timeout: 300 });
-      
-      const endTime = Date.now();
-      const elapsed = endTime - startTime;
-      
-      // Verify at least 100ms has passed
-      // Allow some tolerance for test execution overhead
-      expect(elapsed).toBeGreaterThanOrEqual(90);
+      // Now the redirect should have been called
+      expect(mockPush).toHaveBeenCalledWith('/dashboard');
     });
   });
 });
