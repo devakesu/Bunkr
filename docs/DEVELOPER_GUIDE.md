@@ -199,7 +199,7 @@ EOF
 
 For non-expiring, unprotected GPG keys used in automation:
 
-- Treat the `GPP_PRIVATE_KEY` secret as highly sensitive
+- Treat the `GPG_PRIVATE_KEY` secret as highly sensitive
 - Rotate keys every 12-24 months
 - Revoke immediately if compromise is suspected
 - Monitor access to repository secrets
