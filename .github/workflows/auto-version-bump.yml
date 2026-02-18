@@ -59,7 +59,7 @@ jobs:
             echo "2. Add it as a repository secret named 'BOT_PAT'"
             echo "3. Re-run this workflow or push a new commit"
             echo ""
-            echo "For Dependabot PRs: Without BOT_PAT, commits will appear as unverified."
+            echo "Note: Dependabot bump commits will be unverified regardless of BOT_PAT (GPG signing is skipped)."
             echo "has_bot_pat=false" >> $GITHUB_OUTPUT
           else
             echo "✓ BOT_PAT is configured - workflows will trigger after version bump"
@@ -72,10 +72,10 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          # IMPORTANT: BOT_PAT is REQUIRED for workflows to trigger after version bump
-          # - BOT_PAT: Personal Access Token with 'repo' and 'workflow' scopes
-          # - GITHUB_TOKEN: Fallback that works but WON'T trigger workflows (GitHub security)
-          # For Dependabot PRs, BOT_PAT is also required for commits to appear as verified
+          # IMPORTANT: BOT_PAT is REQUIRED for downstream workflows to trigger after the version bump
+          # - BOT_PAT: Personal Access Token with 'repo' and 'workflow' scopes (allows follow-up workflows to run)
+          # - GITHUB_TOKEN: Fallback that works but WON'T trigger other workflows due to GitHub security restrictions
+          # For Dependabot PRs, this workflow skips GPG signing, so bump commits appear as unverified regardless of token; BOT_PAT here only affects whether downstream workflows are triggered
           token: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
@@ -231,8 +231,8 @@ jobs:
             git checkout -B "$PR_HEAD_REF"
           fi
 
-          # Configure git identity for Dependabot PRs
-          # Using github-actions[bot] identity to get GitHub's automatic signing
+          # Configure git identity for CI-generated commits (these will not be GPG-signed/Verified)
+          # Use the standard github-actions[bot] identity for clarity and auditability
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
