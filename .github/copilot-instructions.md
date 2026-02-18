@@ -10,7 +10,7 @@ This file provides comprehensive guidance for AI coding agents working on the Gh
 - **Security-First**: AES-256-GCM encryption, CSP Level 3, rate limiting, SLSA Level 3 compliance
 - **Performance-Optimized**: PWA with service workers, React Query caching, LRU cache, code splitting
 - **Type-Safe**: Strict TypeScript mode with comprehensive type checking
-- **Well-Tested**: Vitest for unit tests, Playwright for E2E, 10% coverage threshold enforced
+- **Well-Tested**: Vitest for unit tests, Playwright for E2E, coverage thresholds enforced
 - **Production-Ready**: Docker containerization, multi-platform builds, reproducible releases
 
 ## Tech Stack
@@ -397,8 +397,11 @@ test('homepage loads successfully', async ({ page }) => {
 
 ### Test Coverage Requirements
 
-**Minimum Thresholds:**
-- **10% overall** (enforced in vitest.config.ts)
+**Minimum Thresholds (enforced in vitest.config.ts):**
+- **Lines: 7%**
+- **Functions: 8%**
+- **Branches: 5%**
+- **Statements: 7%**
 - **100% critical paths** (attendance calculation, encryption)
 
 **Priority Areas:**
@@ -1055,10 +1058,10 @@ npx supabase db push
 ### Fixing a Linting Issue
 
 ```bash
-# 1. Run linter
+# 1. Run linter to see issues
 npm run lint
 
-# 2. Auto-fix (if possible)
+# 2. Auto-fix what can be fixed automatically
 npm run lint
 
 # 3. Manual fixes for remaining issues
@@ -1066,7 +1069,7 @@ npm run lint
 # - Prefix unused vars with _
 # - Fix React Hook dependencies
 
-# 4. Verify
+# 4. Verify all issues resolved
 npm run lint
 ```
 
