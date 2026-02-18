@@ -31,10 +31,17 @@ jobs:
       - name: Determine if same-repo or fork
         id: repo-check
         run: |
-          if [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
+          # Check if this is a Dependabot PR
+          if [ "${{ github.actor }}" = "dependabot[bot]" ] || [[ "${{ github.head_ref }}" == dependabot/* ]]; then
+            echo "is_dependabot=true" >> $GITHUB_OUTPUT
+            echo "is_same_repo=true" >> $GITHUB_OUTPUT
+            echo "✓ Dependabot PR detected - will skip GPG signing"
+          elif [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
+            echo "is_dependabot=false" >> $GITHUB_OUTPUT
             echo "is_same_repo=true" >> $GITHUB_OUTPUT
             echo "✓ Same-repo PR - can auto-commit version bump"
           else
+            echo "is_dependabot=false" >> $GITHUB_OUTPUT
             echo "is_same_repo=false" >> $GITHUB_OUTPUT
             echo "✓ Fork PR - will provide manual instructions"
           fi
@@ -56,8 +63,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
-      - name: Import GPG key (same-repo only)
-        if: steps.repo-check.outputs.is_same_repo == 'true'
+      - name: Import GPG key (same-repo non-Dependabot only)
+        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.repo-check.outputs.is_dependabot != 'true'
         uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -69,6 +76,14 @@ jobs:
           # This email MUST be verified in your GitHub account for commits to show as "Verified"
           git_committer_name: ${{ secrets.GPG_COMMITTER_NAME || 'GhostClass Bot' }}
           git_committer_email: ${{ secrets.GPG_COMMITTER_EMAIL || '61821107+devakesu@users.noreply.github.com' }}
+
+      - name: Configure Git identity (Dependabot PRs)
+        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.repo-check.outputs.is_dependabot == 'true'
+        run: |
+          git config --global user.name "GhostClass Bot"
+          git config --global user.email "61821107+devakesu@users.noreply.github.com"
+          git config --global commit.gpgsign false
+          echo "✓ Git configured for Dependabot PR (no GPG signing)"
 
       - name: Setup Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
