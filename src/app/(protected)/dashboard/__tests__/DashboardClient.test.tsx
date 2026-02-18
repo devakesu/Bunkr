@@ -17,6 +17,14 @@ vi.mock('next/dynamic', () => ({
   },
 }));
 
+// Mock ldrs/react
+vi.mock('ldrs/react', () => ({
+  Ring2: () => <div data-testid="ring2-spinner" />,
+}));
+
+// Mock ldrs/react CSS
+vi.mock('ldrs/react/Ring2.css', () => ({}));
+
 // Mock all the hooks
 vi.mock('@/hooks/users/profile', () => ({
   useProfile: () => ({ data: null, isLoading: false }),
@@ -69,6 +77,11 @@ vi.mock('@/providers/attendance-settings', () => ({
 }));
 
 vi.mock('@tanstack/react-query', () => ({
+  useQuery: vi.fn(() => ({
+    data: undefined,
+    isLoading: false,
+    error: null,
+  })),
   useQueryClient: () => ({
     invalidateQueries: vi.fn(),
   }),
@@ -79,6 +92,7 @@ vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
   },
+  AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 
 // Mock Sentry

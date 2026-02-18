@@ -9,6 +9,7 @@ vi.mock('@/hooks/tracker/useTrackingData', () => ({
     data: [],
     isLoading: false,
     error: null,
+    refetch: vi.fn().mockResolvedValue({ data: [], isLoading: false, error: null }),
   })),
 }));
 
@@ -16,6 +17,7 @@ vi.mock('@/hooks/tracker/useTrackingCount', () => ({
   useTrackingCount: vi.fn(() => ({
     data: 0,
     isLoading: false,
+    refetch: vi.fn().mockResolvedValue({ data: 0, isLoading: false }),
   })),
 }));
 
@@ -86,6 +88,36 @@ vi.mock('framer-motion', () => ({
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
   },
   AnimatePresence: ({ children }: any) => children,
+}));
+
+// Mock UI components
+vi.mock('@/components/ui/badge', () => ({
+  Badge: ({ children, ...props }: any) => <span {...props}>{children}</span>,
+}));
+
+vi.mock('@/components/ui/alert-dialog', () => ({
+  AlertDialog: ({ children, open }: any) => (open ? <div>{children}</div> : null),
+  AlertDialogAction: ({ children, onClick, ...props }: any) => <button onClick={onClick} {...props}>{children}</button>,
+  AlertDialogCancel: ({ children, onClick, ...props }: any) => <button onClick={onClick} {...props}>{children}</button>,
+  AlertDialogContent: ({ children }: any) => <div>{children}</div>,
+  AlertDialogDescription: ({ children }: any) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: any) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: any) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: any) => <div>{children}</div>,
+}));
+
+// Mock Loading component
+vi.mock('@/components/loading', () => ({
+  Loading: () => <div role="status">Loading...</div>,
+}));
+
+// Mock lucide-react icons
+vi.mock('lucide-react', () => ({
+  Trash2: () => <span data-testid="trash2-icon" />,
+  CircleAlert: () => <span data-testid="circle-alert-icon" />,
+  ChevronLeft: () => <span data-testid="chevron-left-icon" />,
+  ChevronRight: () => <span data-testid="chevron-right-icon" />,
+  BookOpen: () => <span data-testid="book-open-icon" />,
 }));
 
 describe('TrackingClient', () => {
