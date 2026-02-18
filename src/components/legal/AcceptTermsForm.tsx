@@ -95,11 +95,10 @@ export function AcceptTermsForm() {
             <Link
               href="/legal"
               target="_blank"
+              rel="noopener noreferrer"
               className="text-white hover:underline hover:text-purple-400 transition-colors"
               onClick={(e) => {
-                e.preventDefault();
                 e.stopPropagation();
-                window.open('/legal', '_blank');
               }}
             >
               above Disclaimer and all Policies listed here
