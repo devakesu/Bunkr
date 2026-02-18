@@ -23,7 +23,7 @@ vi.mock('@radix-ui/react-select', () => ({
   Trigger: ({ children, ...props }: any) => (
     <button data-testid="select-trigger" {...props}>{children}</button>
   ),
-  Icon: ({ children, asChild, ...props }: any) => (
+  Icon: ({ children, ...props }: any) => (
     <span data-testid="select-icon" {...props}>{children}</span>
   ),
   Portal: ({ children }: any) => <div data-testid="select-portal">{children}</div>,

@@ -220,6 +220,7 @@ describe('AcceptTermsForm', () => {
 
   describe('Error Handling', () => {
     it('should handle acceptTermsAction error gracefully', async () => {
+      const user = userEvent.setup();
       const mockError = new Error('Failed to accept terms');
       mockAcceptTermsAction.mockRejectedValue(mockError);
 

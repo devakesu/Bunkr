@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BuildInfoPage from '../page';
 
@@ -520,27 +520,31 @@ describe('BuildInfoPage', () => {
 
     it('should show alert when clipboard is not available', async () => {
       const user = userEvent.setup();
-      // @ts-expect-error - Testing clipboard unavailability
-      delete navigator.clipboard;
+      const originalClipboard = navigator.clipboard;
       
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => mockMeta,
-      });
+      try {
+        // @ts-expect-error - Testing clipboard unavailability
+        delete navigator.clipboard;
+        
+        global.fetch = vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => mockMeta,
+        });
 
-      render(<BuildInfoPage />);
+        render(<BuildInfoPage />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Copy JSON')).toBeInTheDocument();
-      });
+        await waitFor(() => {
+          expect(screen.getByText('Copy JSON')).toBeInTheDocument();
+        });
 
-      const copyButton = screen.getByRole('button', { name: /Copy JSON/i });
-      await user.click(copyButton);
+        const copyButton = screen.getByRole('button', { name: /Copy JSON/i });
+        await user.click(copyButton);
 
-      expect(global.alert).toHaveBeenCalledWith('Copy to clipboard is not supported in this browser or context.');
-      
-      // Restore clipboard
-      Object.assign(navigator, { clipboard: mockClipboard });
+        expect(global.alert).toHaveBeenCalledWith('Copy to clipboard is not supported in this browser or context.');
+      } finally {
+        // Restore clipboard
+        Object.assign(navigator, { clipboard: originalClipboard });
+      }
     });
 
     it('should show alert when clipboard write fails', async () => {

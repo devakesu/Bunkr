@@ -89,8 +89,14 @@ vi.mock('framer-motion', () => ({
 }));
 
 describe('TrackingClient', () => {
+  const originalFetch = global.fetch;
+
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
   describe('Ternary Operator - Singular vs Plural (Line 545)', () => {

@@ -4,8 +4,8 @@ import DashboardClient from '../DashboardClient';
 
 // Mock next/dynamic
 vi.mock('next/dynamic', () => ({
-  default: (loader: any, options: any) => {
-    const DynamicComponent = (props: any) => {
+  default: (_loader: any, options: any) => {
+    const DynamicComponent = (_props: any) => {
       // Render the loading component
       if (options?.loading) {
         return options.loading();
@@ -23,11 +23,21 @@ vi.mock('@/hooks/users/profile', () => ({
 }));
 
 vi.mock('@/hooks/users/user', () => ({
-  useUser: () => ({ data: null, isLoading: false }),
+  useUser: () => ({
+    data: { id: '123', email: 'test@example.com', username: 'testuser' },
+    isLoading: false,
+  }),
 }));
 
 vi.mock('@/hooks/courses/attendance', () => ({
-  useAttendanceReport: () => ({ data: null, isLoading: false }),
+  useAttendanceReport: () => ({
+    data: {
+      attendance_percentage: 85,
+      total_sessions: 20,
+      attended_sessions: 17,
+    },
+    isLoading: false,
+  }),
 }));
 
 vi.mock('@/hooks/courses/courses', () => ({
@@ -86,49 +96,73 @@ vi.mock('sonner', () => ({
 }));
 
 describe('DashboardClient', () => {
+  const originalFetch = global.fetch;
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
   describe('ChartSkeleton Component (Line 52)', () => {
-    it('should render ChartSkeleton with loading spinner', () => {
+    it('should render ChartSkeleton with loading spinner', async () => {
+      // Mock sync completion
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
       render(<DashboardClient initialData={null} />);
       
-      // The ChartSkeleton is rendered by the dynamic import's loading state
-      // It displays the CompLoading component
-      const loadingElements = screen.getAllByRole('status', { hidden: true });
+      // Wait for sync and check for loading state
+      const loadingElements = await screen.findAllByRole('status', { hidden: true });
       expect(loadingElements.length).toBeGreaterThan(0);
     });
   });
 
   describe('Dynamic Import Loading State (Line 61)', () => {
-    it('should render loading component during dynamic import', () => {
+    it('should render loading component during dynamic import', async () => {
+      // Mock sync completion
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
       render(<DashboardClient initialData={null} />);
       
-      // The loading function returns <ChartSkeleton />
-      // which renders CompLoading inside a flex container
-      const loadingElements = screen.getAllByRole('status', { hidden: true });
+      // Wait for sync and check for loading state
+      const loadingElements = await screen.findAllByRole('status', { hidden: true });
       expect(loadingElements.length).toBeGreaterThan(0);
     });
 
-    it('should use ChartSkeleton as loading fallback for AttendanceChart', () => {
-      // The dynamic import configuration specifies:
-      // loading: () => <ChartSkeleton />
-      // This test verifies that the loading prop is properly configured
+    it('should use ChartSkeleton as loading fallback for AttendanceChart', async () => {
+      // Mock sync completion
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
       render(<DashboardClient initialData={null} />);
       
-      // ChartSkeleton contains a div with flex layout and CompLoading
-      const container = screen.getByRole('status', { hidden: true }).closest('div');
+      // Wait for sync and check for loading state
+      const statusElement = await screen.findByRole('status', { hidden: true });
+      const container = statusElement.closest('div');
       expect(container).toBeInTheDocument();
     });
   });
 
   describe('SSR Configuration', () => {
-    it('should disable SSR for AttendanceChart', () => {
-      // The dynamic import has ssr: false
-      // This is tested implicitly - the component renders without SSR errors
+    it('should disable SSR for AttendanceChart', async () => {
+      // Mock sync completion
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
       render(<DashboardClient initialData={null} />);
-      expect(screen.getByRole('status', { hidden: true })).toBeInTheDocument();
+      expect(await screen.findByRole('status', { hidden: true })).toBeInTheDocument();
     });
   });
 });

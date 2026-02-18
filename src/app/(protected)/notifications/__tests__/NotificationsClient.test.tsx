@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import NotificationsPage from '../NotificationsClient';
 
 // Mock all required hooks and dependencies
@@ -44,6 +43,14 @@ vi.mock('@tanstack/react-virtual', () => ({
         end: 50,
         measureElement: vi.fn(),
       },
+      {
+        key: 1,
+        index: 1,
+        size: 50,
+        start: 50,
+        end: 100,
+        measureElement: vi.fn(),
+      },
     ],
     scrollToIndex: vi.fn(),
   }),
@@ -68,8 +75,14 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 describe('NotificationsClient', () => {
+  const originalFetch = global.fetch;
+
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
   describe('CSS Hover Effects (Line 47)', () => {
@@ -107,9 +120,9 @@ describe('NotificationsClient', () => {
 
       render(<NotificationsPage />);
 
-      // Wait for sync to complete
+      // Wait for sync to complete and notification to render
       await waitFor(() => {
-        expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
+        expect(screen.queryByText('Test Notification')).toBeInTheDocument();
       }, { timeout: 3000 });
 
       await waitFor(() => {
@@ -154,9 +167,9 @@ describe('NotificationsClient', () => {
 
       render(<NotificationsPage />);
 
-      // Wait for sync to complete
+      // Wait for sync to complete and notification to render
       await waitFor(() => {
-        expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
+        expect(screen.queryByText('Read Notification')).toBeInTheDocument();
       }, { timeout: 3000 });
 
       await waitFor(() => {
@@ -201,9 +214,9 @@ describe('NotificationsClient', () => {
 
       render(<NotificationsPage />);
 
-      // Wait for sync to complete
+      // Wait for sync to complete and notification to render
       await waitFor(() => {
-        expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
+        expect(screen.queryByText('Unread Notification')).toBeInTheDocument();
       }, { timeout: 3000 });
 
       await waitFor(() => {
