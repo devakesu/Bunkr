@@ -16,6 +16,13 @@ updates:
     patterns:
       - "*"
     multi-ecosystem-group: "all-dependencies"
+    ignore:
+      # ESLint v10 is not yet supported by typescript-eslint
+      # Keep ESLint at v9 until typescript-eslint adds v10 support
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "docker"
     directory: "/"
