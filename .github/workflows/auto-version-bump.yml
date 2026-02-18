@@ -77,14 +77,6 @@ jobs:
           git_committer_name: ${{ secrets.GPG_COMMITTER_NAME || 'GhostClass Bot' }}
           git_committer_email: ${{ secrets.GPG_COMMITTER_EMAIL || '61821107+devakesu@users.noreply.github.com' }}
 
-      - name: Configure Git identity (Dependabot PRs)
-        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.repo-check.outputs.is_dependabot == 'true'
-        run: |
-          git config --global user.name "GhostClass Bot"
-          git config --global user.email "61821107+devakesu@users.noreply.github.com"
-          git config --global commit.gpgsign false
-          echo "✓ Git configured for Dependabot PR (no GPG signing)"
-
       - name: Setup Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
@@ -138,8 +130,8 @@ jobs:
             echo "✓ Version already bumped (current: ${CURRENT}, main: ${MAIN_VERSION})"
           fi
 
-      - name: Auto bump version (same-repo only)
-        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true'
+      - name: Auto bump version (same-repo non-Dependabot)
+        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && steps.repo-check.outputs.is_dependabot != 'true'
         id: bump
         env:
           PR_HEAD_REF: ${{ github.head_ref }}
@@ -187,12 +179,127 @@ jobs:
 
           echo "✓ Changes committed and pushed"
 
-      - name: Comment on PR (same-repo with auto-bump)
-        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && steps.bump.outputs.new_version != ''
+      - name: Auto bump version (Dependabot PR via API)
+        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && steps.repo-check.outputs.is_dependabot == 'true'
+        id: bump-dependabot
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
-            const newVersion = '${{ steps.bump.outputs.new_version }}';
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+
+            // Run the bump script
+            console.log('Running bump-version.js script...');
+            execSync('CI=true GITHUB_HEAD_REF="pr-branch" node scripts/bump-version.js', {
+              stdio: 'inherit',
+              cwd: process.env.GITHUB_WORKSPACE
+            });
+
+            // Get the new version
+            const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const newVersion = packageJson.version;
+            console.log(`✓ Version bumped to ${newVersion}`);
+            core.setOutput('new_version', newVersion);
+
+            // Read updated file contents
+            const packageJsonContent = fs.readFileSync('package.json', 'utf8');
+            const packageLockContent = fs.readFileSync('package-lock.json', 'utf8');
+            const exampleEnvContent = fs.readFileSync('.example.env', 'utf8');
+            const openapiContent = fs.readFileSync('public/api-docs/openapi.yaml', 'utf8');
+
+            // Get current commit SHA
+            const branch = context.payload.pull_request.head.ref;
+            const { data: refData } = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${branch}`
+            });
+            const currentCommitSha = refData.object.sha;
+
+            // Get the current commit to retrieve the tree
+            const { data: currentCommit } = await github.rest.git.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: currentCommitSha
+            });
+
+            // Create blobs for each file
+            const blobs = await Promise.all([
+              github.rest.git.createBlob({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                content: Buffer.from(packageJsonContent).toString('base64'),
+                encoding: 'base64'
+              }),
+              github.rest.git.createBlob({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                content: Buffer.from(packageLockContent).toString('base64'),
+                encoding: 'base64'
+              }),
+              github.rest.git.createBlob({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                content: Buffer.from(exampleEnvContent).toString('base64'),
+                encoding: 'base64'
+              }),
+              github.rest.git.createBlob({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                content: Buffer.from(openapiContent).toString('base64'),
+                encoding: 'base64'
+              })
+            ]);
+
+            // Create a new tree with updated files
+            const { data: newTree } = await github.rest.git.createTree({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base_tree: currentCommit.tree.sha,
+              tree: [
+                { path: 'package.json', mode: '100644', type: 'blob', sha: blobs[0].data.sha },
+                { path: 'package-lock.json', mode: '100644', type: 'blob', sha: blobs[1].data.sha },
+                { path: '.example.env', mode: '100644', type: 'blob', sha: blobs[2].data.sha },
+                { path: 'public/api-docs/openapi.yaml', mode: '100644', type: 'blob', sha: blobs[3].data.sha }
+              ]
+            });
+
+            // Create a new commit (GitHub will sign this automatically)
+            const { data: newCommit } = await github.rest.git.createCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              message: `chore: auto-bump version to v${newVersion}`,
+              tree: newTree.sha,
+              parents: [currentCommitSha],
+              author: {
+                name: 'github-actions[bot]',
+                email: '41898282+github-actions[bot]@users.noreply.github.com'
+              },
+              committer: {
+                name: 'github-actions[bot]',
+                email: '41898282+github-actions[bot]@users.noreply.github.com'
+              }
+            });
+
+            // Update the branch reference
+            await github.rest.git.updateRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${branch}`,
+              sha: newCommit.sha,
+              force: false
+            });
+
+            console.log('✓ Changes committed and pushed via GitHub API (signed by GitHub)');
+            return newVersion;
+
+      - name: Comment on PR (same-repo with auto-bump)
+        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && (steps.bump.outputs.new_version != '' || steps.bump-dependabot.outputs.new_version != '')
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const newVersion = '${{ steps.bump.outputs.new_version }}' || '${{ steps.bump-dependabot.outputs.new_version }}';
+            const isDependabot = '${{ steps.repo-check.outputs.is_dependabot }}' === 'true';
 
             // Check for existing bump comments to avoid spam on synchronize events
             const { data: comments } = await github.rest.issues.listComments({
@@ -216,6 +323,10 @@ jobs:
             const rebumpNote = isRebump
               ? '\n\n_Note: A previous automatic bump was performed. This is a re-bump after the PR was updated (e.g., rebased or synced with main)._'
               : '';
+            
+            const signingNote = isDependabot
+              ? '\n\n_Note: This commit was created via GitHub API and is signed by GitHub (not custom GPG), as Dependabot PRs don\'t have access to repository secrets._'
+              : '';
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -223,7 +334,7 @@ jobs:
               repo: context.repo.repo,
               body: `✅ **Version automatically bumped to \`v${newVersion}\`**
 
-            This PR now includes the version bump commit.${rebumpNote}
+            This PR now includes the version bump commit.${rebumpNote}${signingNote}
 
             **Rollover versioning:** X.Y.Z where X ≥ 0 and Y, Z ∈ {0-9}
             - Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0, 9.9.9 → 10.0.0
