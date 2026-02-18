@@ -58,7 +58,7 @@ jobs:
 
       - name: Import GPG key (same-repo only)
         if: steps.repo-check.outputs.is_same_repo == 'true'
-        uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4 # v6.1.0
+        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
@@ -71,7 +71,7 @@ jobs:
           git_committer_email: ${{ secrets.GPG_COMMITTER_EMAIL || '61821107+devakesu@users.noreply.github.com' }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: '20'
 
@@ -174,7 +174,7 @@ jobs:
 
       - name: Comment on PR (same-repo with auto-bump)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && steps.bump.outputs.new_version != ''
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const newVersion = '${{ steps.bump.outputs.new_version }}';
@@ -218,7 +218,7 @@ jobs:
 
       - name: Comment on PR (same-repo, already bumped)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'false' && github.event.action != 'synchronize'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const currentVersion = '${{ steps.check.outputs.current_version }}';
@@ -235,7 +235,7 @@ jobs:
 
       - name: Comment on PR (fork, needs bump)
         if: steps.repo-check.outputs.is_same_repo == 'false' && steps.check.outputs.needs_bump == 'true' && github.event.action != 'synchronize'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const nextVersion = '${{ steps.check.outputs.next_version }}';
@@ -271,7 +271,7 @@ jobs:
 
       - name: Comment on PR (fork, already bumped)
         if: steps.repo-check.outputs.is_same_repo == 'false' && steps.check.outputs.needs_bump == 'false' && github.event.action != 'synchronize'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const currentVersion = '${{ steps.check.outputs.current_version }}';
