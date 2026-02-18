@@ -398,7 +398,8 @@ describe('AcceptTermsForm', () => {
       const checkbox = screen.getByRole('checkbox');
       const button = screen.getByRole('button', { name: /Enter GhostClass/i });
 
-      // Use fireEvent for simpler interaction with fake timers
+      // Use fireEvent instead of userEvent because userEvent has built-in delays
+      // that don't work well with fake timers
       fireEvent.click(checkbox);
       
       await act(async () => {
