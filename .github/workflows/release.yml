@@ -59,6 +59,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_VERSION_TAG_DISPATCH: ${{ github.event.client_payload.version_tag }}
           INPUT_VERSION_TAG_MANUAL: ${{ github.event.inputs.version_tag }}
+          INPUT_BUMP_TYPE: ${{ github.event.inputs.bump_type }}
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
         run: |
@@ -156,7 +157,7 @@ jobs:
             IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST_VERSION}"
 
             # Bump version based on input
-            case "${{ github.event.inputs.bump_type }}" in
+            case "$INPUT_BUMP_TYPE" in
               major)
                 MAJOR=$((MAJOR + 1))
                 MINOR=0
@@ -217,11 +218,13 @@ jobs:
         id: prep
         env:
           IMAGE_NAME_SECRET: ${{ secrets.IMAGE_NAME }}
+          REPO: ${{ github.repository }}
+          REPO_OWNER: ${{ github.repository_owner }}
         run: |
           # Use IMAGE_NAME from secrets with fallback to repo name
           if [ -z "${IMAGE_NAME_SECRET}" ]; then
             # Fallback: extract repo name and convert to lowercase
-            IMAGE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
+            IMAGE_NAME=$(echo "$REPO" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
             echo "⚠️  IMAGE_NAME secret not set, using fallback: ${IMAGE_NAME}"
           else
             IMAGE_NAME="${IMAGE_NAME_SECRET}"
@@ -233,7 +236,7 @@ jobs:
 
           # Debug: Show what will be used
           echo "🐳 Image name: ${IMAGE_NAME}"
-          echo "   Full path: ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME}"
+          echo "   Full path: ghcr.io/${REPO_OWNER}/${IMAGE_NAME}"
 
           # Determine build platforms
           # For tag pushes: Build both AMD64 and ARM64 (full release)
