@@ -160,33 +160,11 @@ describe('DashboardClient', () => {
 
     // TODO: This test is skipped because next/dynamic mock doesn't properly render ChartSkeleton
     // The mock returns null instead of the loading component
-    it.skip('should use ChartSkeleton as loading fallback for AttendanceChart', async () => {
-      // Mock sync completion
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ success: true }),
-      });
-
-      render(<DashboardClient initialData={null} />);
-      
-      // Wait for sync and check for loading state
-      const statusElement = await screen.findByRole('status', { hidden: true });
-      const container = statusElement.closest('div');
-      expect(container).toBeInTheDocument();
-    });
+    it.todo('should use ChartSkeleton as loading fallback for AttendanceChart');
   });
 
   describe('SSR Configuration', () => {
     // TODO: This test is skipped for the same reason as the ChartSkeleton test above
-    it.skip('should disable SSR for AttendanceChart', async () => {
-      // Mock sync completion
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ success: true }),
-      });
-
-      render(<DashboardClient initialData={null} />);
-      expect(await screen.findByRole('status', { hidden: true })).toBeInTheDocument();
-    });
+    it.todo('should disable SSR for AttendanceChart');
   });
 });

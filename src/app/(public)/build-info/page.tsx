@@ -28,7 +28,12 @@ export default function BuildInfoPage() {
 
   useEffect(() => {
     fetch("/api/provenance")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         setMeta(data);
         setLoading(false);
