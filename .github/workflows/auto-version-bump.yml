@@ -42,7 +42,7 @@ jobs:
               IS_DEPENDABOT="true"
               ;;
           esac
-          
+
           if [ "$IS_DEPENDABOT" = "true" ]; then
             echo "is_dependabot=true" >> $GITHUB_OUTPUT
             echo "✓ Dependabot PR detected - will run in read-only mode"
@@ -317,7 +317,7 @@ jobs:
           script: |
             const nextVersion = '${{ steps.check.outputs.next_version }}';
             const currentVersion = '${{ steps.check.outputs.current_version }}';
-            
+
             // Check for existing dependabot comments to avoid spam on synchronize events
             const { data: comments } = await github.rest.issues.listComments({
               issue_number: context.issue.number,
@@ -341,7 +341,7 @@ jobs:
               console.log('Dependabot comment already exists, skipping to avoid spam');
               return;
             }
-            
+
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -354,20 +354,20 @@ jobs:
             **Suggested next version:** \`${nextVersion}\`
 
             **For maintainers:** You have two options:
-            
+
             1. **Auto-bump the version** by running the workflow:
                - Go to the [Auto Version Bump workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/auto-version-bump.yml)
                - Click "Run workflow"
                - Select this PR's branch
-            
+
             2. **Manually bump the version** in this PR:
                \`\`\`bash
                # Checkout this PR branch
                gh pr checkout ${context.issue.number}
-               
+
                # Run the bump script
                CI=true GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
-               
+
                # Commit and push
                git add package.json package-lock.json .example.env public/api-docs/openapi.yaml
                git commit -m "chore: auto-bump version to v${nextVersion}"
@@ -386,7 +386,7 @@ jobs:
         with:
           script: |
             const currentVersion = '${{ steps.check.outputs.current_version }}';
-            
+
             // Check for existing dependabot comments to avoid spam on synchronize events
             const { data: comments } = await github.rest.issues.listComments({
               issue_number: context.issue.number,
@@ -410,7 +410,7 @@ jobs:
               console.log('Dependabot comment already exists, skipping to avoid spam');
               return;
             }
-            
+
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
