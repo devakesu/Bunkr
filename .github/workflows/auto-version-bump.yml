@@ -202,9 +202,11 @@ jobs:
 
           echo "✓ Changes committed and pushed"
 
-      - name: Prepare version bump files (Dependabot PR)
+      - name: Auto bump version (Dependabot PR)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && steps.repo-check.outputs.is_dependabot == 'true'
-        id: prepare-dependabot
+        id: bump-dependabot
+        env:
+          PR_HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
 
@@ -222,122 +224,34 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "✓ Version bumped to ${NEW_VERSION}"
 
-      - name: Create and push commit via GitHub API (Dependabot PR)
-        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && steps.repo-check.outputs.is_dependabot == 'true'
-        id: bump-dependabot
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        with:
-          github-token: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const newVersion = '${{ steps.prepare-dependabot.outputs.new_version }}';
-            
-            // Read updated file contents
-            const packageJson = fs.readFileSync('package.json', 'utf8');
-            const packageLockJson = fs.readFileSync('package-lock.json', 'utf8');
-            const exampleEnv = fs.readFileSync('.example.env', 'utf8');
-            const openapi = fs.readFileSync('public/api-docs/openapi.yaml', 'utf8');
-            
-            // Get current commit SHA (head of PR branch)
-            const headSha = context.payload.pull_request.head.sha;
-            
-            // Get the current tree
-            const { data: currentCommit } = await github.rest.git.getCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: headSha
-            });
-            
-            // Create blobs for each file
-            const [packageBlob, packageLockBlob, envBlob, openapiBlob] = await Promise.all([
-              github.rest.git.createBlob({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                content: Buffer.from(packageJson).toString('base64'),
-                encoding: 'base64'
-              }),
-              github.rest.git.createBlob({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                content: Buffer.from(packageLockJson).toString('base64'),
-                encoding: 'base64'
-              }),
-              github.rest.git.createBlob({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                content: Buffer.from(exampleEnv).toString('base64'),
-                encoding: 'base64'
-              }),
-              github.rest.git.createBlob({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                content: Buffer.from(openapi).toString('base64'),
-                encoding: 'base64'
-              })
-            ]);
-            
-            // Create new tree with updated files
-            const { data: newTree } = await github.rest.git.createTree({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              base_tree: currentCommit.tree.sha,
-              tree: [
-                {
-                  path: 'package.json',
-                  mode: '100644',
-                  type: 'blob',
-                  sha: packageBlob.data.sha
-                },
-                {
-                  path: 'package-lock.json',
-                  mode: '100644',
-                  type: 'blob',
-                  sha: packageLockBlob.data.sha
-                },
-                {
-                  path: '.example.env',
-                  mode: '100644',
-                  type: 'blob',
-                  sha: envBlob.data.sha
-                },
-                {
-                  path: 'public/api-docs/openapi.yaml',
-                  mode: '100644',
-                  type: 'blob',
-                  sha: openapiBlob.data.sha
-                }
-              ]
-            });
-            
-            // Create commit using GitHub API - this gets automatic GitHub signing
-            const { data: newCommit } = await github.rest.git.createCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              message: `chore: auto-bump version to v${newVersion}`,
-              tree: newTree.sha,
-              parents: [headSha],
-              author: {
-                name: 'github-actions[bot]',
-                email: '41898282+github-actions[bot]@users.noreply.github.com',
-              },
-              committer: {
-                name: 'github-actions[bot]',
-                email: '41898282+github-actions[bot]@users.noreply.github.com',
-              }
-            });
-            
-            // Update the branch reference to point to the new commit
-            await github.rest.git.updateRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `heads/${context.payload.pull_request.head.ref}`,
-              sha: newCommit.sha,
-              force: false
-            });
-            
-            console.log(`✓ Version bump commit created via API: ${newCommit.sha}`);
-            console.log('✓ Commit is signed by GitHub');
-            core.setOutput('new_version', newVersion);
+          # Checkout the branch to avoid detached HEAD state for pushing
+          BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$BRANCH_NAME" = "HEAD" ]; then
+            # We're in detached HEAD, need to checkout the branch
+            git checkout -B "$PR_HEAD_REF"
+          fi
+
+          # Configure git identity for Dependabot PRs
+          # Using github-actions[bot] identity to get GitHub's automatic signing
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Stage and commit changes
+          git add package.json package-lock.json .example.env public/api-docs/openapi.yaml
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "⚠️  No changes to commit after running bump script"
+            exit 0
+          fi
+
+          git commit -m "chore: auto-bump version to v${NEW_VERSION}"
+          
+          # Push using the token from checkout (BOT_PAT or GITHUB_TOKEN)
+          # The token is already configured by actions/checkout above
+          git push --set-upstream origin "$PR_HEAD_REF"
+
+          echo "✓ Changes committed and pushed (signed by GitHub)"
 
       - name: Comment on PR (same-repo with auto-bump)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && (steps.bump.outputs.new_version != '' || steps.bump-dependabot.outputs.new_version != '')
