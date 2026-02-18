@@ -133,7 +133,10 @@ Install cosign:
 brew install cosign
 
 # Linux
-wget https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64
+COSIGN_VERSION="3.0.4"
+COSIGN_CHECKSUM="10dab2fd2170b5aa0d5c0673a9a2793304960220b314f6a873bf39c2f08287aa"
+wget "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64"
+echo "${COSIGN_CHECKSUM}  cosign-linux-amd64" | sha256sum --check
 chmod +x cosign-linux-amd64
 sudo mv cosign-linux-amd64 /usr/local/bin/cosign
 
