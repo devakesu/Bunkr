@@ -99,6 +99,8 @@ export function AcceptTermsForm() {
               className="text-white hover:underline hover:text-purple-400 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
+                e.preventDefault();
+                window.open('/legal', '_blank', 'noopener,noreferrer');
               }}
             >
               above Disclaimer and all Policies listed here
