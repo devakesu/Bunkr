@@ -23,30 +23,39 @@ jobs:
   auto-bump:
     name: Auto Bump Version
     runs-on: ubuntu-latest
-    # Skip this workflow for Dependabot PRs since:
-    # 1. Dependabot PRs don't need version bumps (they only update dependencies)
-    # 2. Dependabot PRs don't have access to secrets like GPG_PRIVATE_KEY
-    # Check both the actor and the branch name to handle cases where non-dependabot actors
-    # push to dependabot branches (which would fail due to permission issues)
-    if: github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/')
     # Elevate permissions only for this job
     permissions:
       contents: write
       pull-requests: write
     steps:
-      - name: Determine if same-repo or fork
-        id: repo-check
+      - name: Determine PR type
+        id: pr-type
         run: |
+          # Check if this is a Dependabot PR (by actor or branch name)
+          IS_DEPENDABOT="false"
+          if [ "${{ github.actor }}" = "dependabot[bot]" ] || [[ "${{ github.head_ref }}" == dependabot/* ]]; then
+            IS_DEPENDABOT="true"
+            echo "is_dependabot=true" >> $GITHUB_OUTPUT
+            echo "✓ Dependabot PR detected - will run in read-only mode"
+          else
+            echo "is_dependabot=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Check if same-repo or fork
           if [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
             echo "is_same_repo=true" >> $GITHUB_OUTPUT
-            echo "✓ Same-repo PR - can auto-commit version bump"
+            if [ "$IS_DEPENDABOT" = "true" ]; then
+              echo "✓ Dependabot PR from same-repo - read-only mode (no secrets access)"
+            else
+              echo "✓ Same-repo PR - can auto-commit version bump"
+            fi
           else
             echo "is_same_repo=false" >> $GITHUB_OUTPUT
             echo "✓ Fork PR - will provide manual instructions"
           fi
 
-      - name: Checkout PR branch (same-repo only)
-        if: steps.repo-check.outputs.is_same_repo == 'true'
+      - name: Checkout PR branch (same-repo, non-dependabot)
+        if: steps.pr-type.outputs.is_same_repo == 'true' && steps.pr-type.outputs.is_dependabot != 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -55,15 +64,15 @@ jobs:
           token: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Checkout PR head (fork PR)
-        if: steps.repo-check.outputs.is_same_repo == 'false'
+      - name: Checkout PR head (fork PR or dependabot)
+        if: steps.pr-type.outputs.is_same_repo == 'false' || steps.pr-type.outputs.is_dependabot == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
-      - name: Import GPG key (same-repo only)
-        if: steps.repo-check.outputs.is_same_repo == 'true'
+      - name: Import GPG key (same-repo, non-dependabot only)
+        if: steps.pr-type.outputs.is_same_repo == 'true' && steps.pr-type.outputs.is_dependabot != 'true'
         uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4 # v6.1.0
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -129,8 +138,8 @@ jobs:
             echo "✓ Version already bumped (current: ${CURRENT}, main: ${MAIN_VERSION})"
           fi
 
-      - name: Auto bump version (same-repo only)
-        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true'
+      - name: Auto bump version (same-repo, non-dependabot only)
+        if: steps.pr-type.outputs.is_same_repo == 'true' && steps.pr-type.outputs.is_dependabot != 'true' && steps.check.outputs.needs_bump == 'true'
         id: bump
         env:
           PR_HEAD_REF: ${{ github.head_ref }}
@@ -178,8 +187,8 @@ jobs:
 
           echo "✓ Changes committed and pushed"
 
-      - name: Comment on PR (same-repo with auto-bump)
-        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && steps.bump.outputs.new_version != ''
+      - name: Comment on PR (same-repo with auto-bump, non-dependabot)
+        if: steps.pr-type.outputs.is_same_repo == 'true' && steps.pr-type.outputs.is_dependabot != 'true' && steps.check.outputs.needs_bump == 'true' && steps.bump.outputs.new_version != ''
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
@@ -222,8 +231,8 @@ jobs:
             This PR is ready for review! 🚀`
             });
 
-      - name: Comment on PR (same-repo, already bumped)
-        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'false' && github.event.action != 'synchronize'
+      - name: Comment on PR (same-repo, already bumped, non-dependabot)
+        if: steps.pr-type.outputs.is_same_repo == 'true' && steps.pr-type.outputs.is_dependabot != 'true' && steps.check.outputs.needs_bump == 'false' && github.event.action != 'synchronize'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
@@ -240,7 +249,7 @@ jobs:
             });
 
       - name: Comment on PR (fork, needs bump)
-        if: steps.repo-check.outputs.is_same_repo == 'false' && steps.check.outputs.needs_bump == 'true' && github.event.action != 'synchronize'
+        if: steps.pr-type.outputs.is_same_repo == 'false' && steps.pr-type.outputs.is_dependabot != 'true' && steps.check.outputs.needs_bump == 'true' && github.event.action != 'synchronize'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
@@ -276,7 +285,7 @@ jobs:
             });
 
       - name: Comment on PR (fork, already bumped)
-        if: steps.repo-check.outputs.is_same_repo == 'false' && steps.check.outputs.needs_bump == 'false' && github.event.action != 'synchronize'
+        if: steps.pr-type.outputs.is_same_repo == 'false' && steps.pr-type.outputs.is_dependabot != 'true' && steps.check.outputs.needs_bump == 'false' && github.event.action != 'synchronize'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
@@ -291,3 +300,66 @@ jobs:
 
             This PR is ready for review! 🚀`
             });
+
+      - name: Comment on PR (dependabot, needs bump)
+        if: steps.pr-type.outputs.is_dependabot == 'true' && steps.check.outputs.needs_bump == 'true' && github.event.action != 'synchronize'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const nextVersion = '${{ steps.check.outputs.next_version }}';
+            const currentVersion = '${{ steps.check.outputs.current_version }}';
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🤖 **Dependabot PR - Version Bump Required**
+
+            This dependency update PR requires a version bump before merging.
+
+            **Current version:** \`${currentVersion}\`
+            **Suggested next version:** \`${nextVersion}\`
+
+            **For maintainers:** You have two options:
+            
+            1. **Auto-bump the version** by running the workflow:
+               - Go to the [Auto Version Bump workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/auto-version-bump.yml)
+               - Click "Run workflow"
+               - Select this PR's branch
+            
+            2. **Manually bump the version** in this PR:
+               \`\`\`bash
+               # Checkout this PR branch
+               gh pr checkout ${context.issue.number}
+               
+               # Run the bump script
+               CI=true GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
+               
+               # Commit and push
+               git add package.json package-lock.json .example.env public/api-docs/openapi.yaml
+               git commit -m "chore: auto-bump version to v${nextVersion}"
+               git push
+               \`\`\`
+
+            **Rollover versioning:** X.Y.Z where X ≥ 0 and Y, Z ∈ {0-9}
+            - Example: 1.6.9 → 1.7.0, 1.9.9 → 2.0.0, 9.9.9 → 10.0.0
+
+            **Note:** Dependabot PRs run in read-only mode due to security restrictions (no access to repository secrets).`
+            });
+
+      - name: Comment on PR (dependabot, already bumped)
+        if: steps.pr-type.outputs.is_dependabot == 'true' && steps.check.outputs.needs_bump == 'false' && github.event.action != 'synchronize'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const currentVersion = '${{ steps.check.outputs.current_version }}';
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ **Dependabot PR - Version already bumped to \`v${currentVersion}\`**
+
+            Great! This dependency update PR already includes a version bump.
+
+            This PR is ready for review! 🚀`
+            });
+
