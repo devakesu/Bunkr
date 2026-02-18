@@ -55,10 +55,16 @@ jobs:
 
       - name: Calculate version
         id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION_TAG_DISPATCH: ${{ github.event.client_payload.version_tag }}
+          INPUT_VERSION_TAG_MANUAL: ${{ github.event.inputs.version_tag }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           # If triggered by repository_dispatch with version_tag
-          if [[ "${{ github.event_name }}" == "repository_dispatch" ]] && [[ -n "${{ github.event.client_payload.version_tag }}" ]]; then
-            VERSION_TAG="${{ github.event.client_payload.version_tag }}"
+          if [[ "$EVENT_NAME" == "repository_dispatch" ]] && [[ -n "$INPUT_VERSION_TAG_DISPATCH" ]]; then
+            VERSION_TAG="$INPUT_VERSION_TAG_DISPATCH"
             VERSION_NUMBER="${VERSION_TAG#v}"
             echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
             echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
@@ -101,8 +107,8 @@ jobs:
             git checkout "refs/tags/${VERSION_TAG}"
 
           # If triggered by a tag, use the tag version
-          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
-            VERSION="${{ github.ref_name }}"
+          elif [[ "$REF_TYPE" == "tag" ]]; then
+            VERSION="$REF_NAME"
             VERSION_TAG="${VERSION}"
             # Remove 'v' prefix if present for version number
             VERSION_NUMBER="${VERSION#v}"
@@ -110,8 +116,8 @@ jobs:
             echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
             echo "Using tag version: ${VERSION_NUMBER}"
           # If version_tag input is provided, use it
-          elif [[ -n "${{ github.event.inputs.version_tag }}" ]]; then
-            VERSION_TAG="${{ github.event.inputs.version_tag }}"
+          elif [[ -n "$INPUT_VERSION_TAG_MANUAL" ]]; then
+            VERSION_TAG="$INPUT_VERSION_TAG_MANUAL"
             # Remove 'v' prefix if present for version number
             VERSION_NUMBER="${VERSION_TAG#v}"
             echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
