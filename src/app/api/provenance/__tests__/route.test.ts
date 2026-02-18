@@ -8,6 +8,13 @@ import { GET } from "../route";
 describe("Provenance API Route", () => {
   const originalCommitSha = process.env.APP_COMMIT_SHA;
   const originalAppVersion = process.env.NEXT_PUBLIC_APP_VERSION;
+  const originalGithubRunId = process.env.GITHUB_RUN_ID;
+  const originalGithubRunNumber = process.env.GITHUB_RUN_NUMBER;
+  const originalGithubRepository = process.env.GITHUB_REPOSITORY;
+  const originalBuildTimestamp = process.env.BUILD_TIMESTAMP;
+  const originalAuditStatus = process.env.AUDIT_STATUS;
+  const originalSignatureStatus = process.env.SIGNATURE_STATUS;
+  const originalImageDigest = process.env.IMAGE_DIGEST;
 
   afterEach(() => {
     // Restore original environment variables
@@ -21,26 +28,63 @@ describe("Provenance API Route", () => {
     } else {
       delete process.env.NEXT_PUBLIC_APP_VERSION;
     }
+    if (originalGithubRunId !== undefined) {
+      process.env.GITHUB_RUN_ID = originalGithubRunId;
+    } else {
+      delete process.env.GITHUB_RUN_ID;
+    }
+    if (originalGithubRunNumber !== undefined) {
+      process.env.GITHUB_RUN_NUMBER = originalGithubRunNumber;
+    } else {
+      delete process.env.GITHUB_RUN_NUMBER;
+    }
+    if (originalGithubRepository !== undefined) {
+      process.env.GITHUB_REPOSITORY = originalGithubRepository;
+    } else {
+      delete process.env.GITHUB_REPOSITORY;
+    }
+    if (originalBuildTimestamp !== undefined) {
+      process.env.BUILD_TIMESTAMP = originalBuildTimestamp;
+    } else {
+      delete process.env.BUILD_TIMESTAMP;
+    }
+    if (originalAuditStatus !== undefined) {
+      process.env.AUDIT_STATUS = originalAuditStatus;
+    } else {
+      delete process.env.AUDIT_STATUS;
+    }
+    if (originalSignatureStatus !== undefined) {
+      process.env.SIGNATURE_STATUS = originalSignatureStatus;
+    } else {
+      delete process.env.SIGNATURE_STATUS;
+    }
+    if (originalImageDigest !== undefined) {
+      process.env.IMAGE_DIGEST = originalImageDigest;
+    } else {
+      delete process.env.IMAGE_DIGEST;
+    }
   });
 
   it("should return commit sha from environment", async () => {
     process.env.APP_COMMIT_SHA = "abc123def456";
+    delete process.env.GITHUB_RUN_ID; // Ensure GITHUB_RUN_ID is not set
 
     const response = GET();
     const data = await response.json();
 
     expect(data.commit).toBe("abc123def456");
-    expect(data.build_id).toBe("abc123def456");
+    expect(data.build_id).toBe("abc123def456"); // Should fallback to commit SHA when GITHUB_RUN_ID is not set
   });
 
   it("should return 'dev' when commit sha is not set", async () => {
     delete process.env.APP_COMMIT_SHA;
+    delete process.env.GITHUB_RUN_ID; // Ensure GITHUB_RUN_ID is not set
 
     const response = GET();
     const data = await response.json();
 
     expect(data.commit).toBe("dev");
-    expect(data.build_id).toBe("dev");
+    expect(data.build_id).toBe("dev"); // Should fallback to commit SHA ("dev") when GITHUB_RUN_ID is not set
   });
 
   it("should return app version from environment", async () => {
