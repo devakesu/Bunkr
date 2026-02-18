@@ -5,23 +5,23 @@ import TrackingClient from '../TrackingClient';
 
 // Mock all required hooks
 vi.mock('@/hooks/tracker/useTrackingData', () => ({
-  useTrackingData: () => ({
+  useTrackingData: vi.fn(() => ({
     data: [],
     isLoading: false,
     error: null,
-  }),
+  })),
 }));
 
 vi.mock('@/hooks/tracker/useTrackingCount', () => ({
-  useTrackingCount: () => ({
+  useTrackingCount: vi.fn(() => ({
     data: 0,
     isLoading: false,
-  }),
+  })),
 }));
 
 vi.mock('@/hooks/users/user', () => ({
   useUser: () => ({
-    data: { id: '123', email: 'test@example.com' },
+    data: { id: '123', email: 'test@example.com', username: 'testuser' },
     isLoading: false,
   }),
 }));
@@ -105,15 +105,34 @@ describe('TrackingClient', () => {
       } as any);
 
       vi.mocked(useTrackingData).mockReturnValue({
-        data: [{ id: 1, course_id: '101', date: '20240101', session: '1' }],
+        data: [{
+          id: 1,
+          course: 'CS101',
+          date: '2024-01-01',
+          session: '1',
+          semester: '1',
+          year: '2024',
+          auth_user_id: '123',
+        }],
         isLoading: false,
         error: null,
       } as any);
 
+      // Mock sync completion
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
       render(<TrackingClient />);
 
-      // Click delete all button to open dialog
-      const deleteAllButton = screen.getByRole('button', { name: /delete all/i });
+      // Wait for sync to complete
+      await waitFor(() => {
+        expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Click "Clear all" button to open dialog
+      const deleteAllButton = screen.getByRole('button', { name: /clear all/i });
       await user.click(deleteAllButton);
 
       // Verify singular "record" is used
@@ -138,10 +157,21 @@ describe('TrackingClient', () => {
         error: null,
       } as any);
 
+      // Mock sync completion
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
       render(<TrackingClient />);
 
-      // Click delete all button to open dialog
-      const deleteAllButton = screen.getByRole('button', { name: /delete all/i });
+      // Wait for sync to complete
+      await waitFor(() => {
+        expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Click "Clear all" button to open dialog
+      const deleteAllButton = screen.getByRole('button', { name: /clear all/i });
       await user.click(deleteAllButton);
 
       // Verify plural "records" is used for 0
@@ -162,20 +192,31 @@ describe('TrackingClient', () => {
 
       vi.mocked(useTrackingData).mockReturnValue({
         data: [
-          { id: 1, course_id: '101', date: '20240101', session: '1' },
-          { id: 2, course_id: '102', date: '20240102', session: '2' },
-          { id: 3, course_id: '103', date: '20240103', session: '3' },
-          { id: 4, course_id: '104', date: '20240104', session: '4' },
-          { id: 5, course_id: '105', date: '20240105', session: '5' },
+          { id: 1, course: 'CS101', date: '2024-01-01', session: '1', semester: '1', year: '2024', auth_user_id: '123' },
+          { id: 2, course: 'CS102', date: '2024-01-02', session: '2', semester: '1', year: '2024', auth_user_id: '123' },
+          { id: 3, course: 'CS103', date: '2024-01-03', session: '3', semester: '1', year: '2024', auth_user_id: '123' },
+          { id: 4, course: 'CS104', date: '2024-01-04', session: '4', semester: '1', year: '2024', auth_user_id: '123' },
+          { id: 5, course: 'CS105', date: '2024-01-05', session: '5', semester: '1', year: '2024', auth_user_id: '123' },
         ],
         isLoading: false,
         error: null,
       } as any);
 
+      // Mock sync completion
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
       render(<TrackingClient />);
 
-      // Click delete all button to open dialog
-      const deleteAllButton = screen.getByRole('button', { name: /delete all/i });
+      // Wait for sync to complete
+      await waitFor(() => {
+        expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Click "Clear all" button to open dialog
+      const deleteAllButton = screen.getByRole('button', { name: /clear all/i });
       await user.click(deleteAllButton);
 
       // Verify plural "records" is used

@@ -35,7 +35,9 @@ describe('BuildInfoPage', () => {
       render(<BuildInfoPage />);
 
       expect(screen.getByText('Loading build information...')).toBeInTheDocument();
-      expect(screen.getByRole('status', { hidden: true })).toBeInTheDocument();
+      // The loading spinner is a div with animate-spin class, not role="status"
+      const spinner = document.querySelector('.animate-spin');
+      expect(spinner).toBeInTheDocument();
     });
   });
 
@@ -383,6 +385,7 @@ describe('BuildInfoPage', () => {
           ...mockMeta,
           github_repo: '',
           github_run_id: '',
+          github_run_number: '',
           commit_sha: 'abc1234',
         }),
       });
@@ -467,6 +470,10 @@ describe('BuildInfoPage', () => {
       node_env: 'production',
       image_digest: 'sha256:abc123',
     };
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
 
     it('should copy JSON to clipboard when Copy JSON button is clicked', async () => {
       const user = userEvent.setup();
@@ -561,33 +568,35 @@ describe('BuildInfoPage', () => {
 
     it('should reset copied state after 2 seconds', async () => {
       vi.useFakeTimers();
-      const user = userEvent.setup({ delay: null });
-      
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => mockMeta,
-      });
+      try {
+        const user = userEvent.setup({ delay: null });
+        
+        global.fetch = vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => mockMeta,
+        });
 
-      render(<BuildInfoPage />);
+        render(<BuildInfoPage />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Copy JSON')).toBeInTheDocument();
-      });
+        await waitFor(() => {
+          expect(screen.getByText('Copy JSON')).toBeInTheDocument();
+        });
 
-      const copyButton = screen.getByRole('button', { name: /Copy JSON/i });
-      await user.click(copyButton);
+        const copyButton = screen.getByRole('button', { name: /Copy JSON/i });
+        await user.click(copyButton);
 
-      await waitFor(() => {
-        expect(screen.getByText('Copied')).toBeInTheDocument();
-      });
+        await waitFor(() => {
+          expect(screen.getByText('Copied')).toBeInTheDocument();
+        });
 
-      vi.advanceTimersByTime(2000);
+        vi.advanceTimersByTime(2000);
 
-      await waitFor(() => {
-        expect(screen.getByText('Copy JSON')).toBeInTheDocument();
-      });
-
-      vi.useRealTimers();
+        await waitFor(() => {
+          expect(screen.getByText('Copy JSON')).toBeInTheDocument();
+        });
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

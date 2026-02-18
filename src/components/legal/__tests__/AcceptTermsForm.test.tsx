@@ -220,7 +220,6 @@ describe('AcceptTermsForm', () => {
 
   describe('Error Handling', () => {
     it('should handle acceptTermsAction error gracefully', async () => {
-      const user = userEvent.setup();
       const mockError = new Error('Failed to accept terms');
       mockAcceptTermsAction.mockRejectedValue(mockError);
 
@@ -358,38 +357,49 @@ describe('AcceptTermsForm', () => {
   });
 
   describe('Timing and Race Conditions', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it('should wait 100ms before redirecting for cookie propagation', async () => {
       vi.useFakeTimers();
-      const user = userEvent.setup({ delay: null });
-      mockAcceptTermsAction.mockResolvedValue(undefined);
+      try {
+        const user = userEvent.setup({
+          delay: null,
+          advanceTimers: async (ms) => {
+            await vi.advanceTimersByTimeAsync(ms);
+          },
+        });
+        mockAcceptTermsAction.mockResolvedValue(undefined);
 
-      render(<AcceptTermsForm />);
+        render(<AcceptTermsForm />);
 
-      const checkbox = screen.getByRole('checkbox');
-      const button = screen.getByRole('button', { name: /Enter GhostClass/i });
+        const checkbox = screen.getByRole('checkbox');
+        const button = screen.getByRole('button', { name: /Enter GhostClass/i });
 
-      await user.click(checkbox);
-      await user.click(button);
+        await user.click(checkbox);
+        await user.click(button);
 
-      await waitFor(() => {
-        expect(mockAcceptTermsAction).toHaveBeenCalled();
-      });
+        await waitFor(() => {
+          expect(mockAcceptTermsAction).toHaveBeenCalled();
+        });
 
-      // Should not redirect immediately
-      expect(mockPush).not.toHaveBeenCalled();
+        // Should not redirect immediately
+        expect(mockPush).not.toHaveBeenCalled();
 
-      // Verify redirect does NOT happen before 100ms
-      vi.advanceTimersByTime(50);
-      expect(mockPush).not.toHaveBeenCalled();
+        // Verify redirect does NOT happen before 100ms
+        vi.advanceTimersByTime(50);
+        expect(mockPush).not.toHaveBeenCalled();
 
-      // Advance to 100ms total
-      vi.advanceTimersByTime(50);
+        // Advance to 100ms total
+        vi.advanceTimersByTime(50);
 
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/dashboard');
-      });
-
-      vi.useRealTimers();
+        await waitFor(() => {
+          expect(mockPush).toHaveBeenCalledWith('/dashboard');
+        });
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

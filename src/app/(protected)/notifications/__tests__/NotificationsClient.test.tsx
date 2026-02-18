@@ -5,7 +5,7 @@ import NotificationsPage from '../NotificationsClient';
 
 // Mock all required hooks and dependencies
 vi.mock('@/hooks/notifications/useNotifications', () => ({
-  useNotifications: () => ({
+  useNotifications: vi.fn(() => ({
     actionNotifications: [],
     regularNotifications: [],
     unreadCount: 0,
@@ -13,12 +13,15 @@ vi.mock('@/hooks/notifications/useNotifications', () => ({
     error: null,
     markAsRead: vi.fn(),
     markAllAsRead: vi.fn(),
-  }),
+    fetchNextPage: vi.fn(),
+    hasNextPage: false,
+    isFetchingNextPage: false,
+  })),
 }));
 
 vi.mock('@/hooks/users/user', () => ({
   useUser: () => ({
-    data: { id: '123', email: 'test@example.com' },
+    data: { id: '123', email: 'test@example.com', username: 'testuser' },
     isLoading: false,
   }),
 }));
@@ -31,8 +34,17 @@ vi.mock('@tanstack/react-query', () => ({
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: () => ({
-    getTotalSize: () => 0,
-    getVirtualItems: () => [],
+    getTotalSize: () => 100,
+    getVirtualItems: () => [
+      {
+        key: 0,
+        index: 0,
+        size: 50,
+        start: 0,
+        end: 50,
+        measureElement: vi.fn(),
+      },
+    ],
     scrollToIndex: vi.fn(),
   }),
 }));
@@ -82,9 +94,23 @@ describe('NotificationsClient', () => {
         error: null,
         markAsRead: vi.fn(),
         markAllAsRead: vi.fn(),
+        fetchNextPage: vi.fn(),
+        hasNextPage: false,
+        isFetchingNextPage: false,
       } as any);
 
+      // Mock sync completion
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
       render(<NotificationsPage />);
+
+      // Wait for sync to complete
+      await waitFor(() => {
+        expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
+      }, { timeout: 3000 });
 
       await waitFor(() => {
         const notification = screen.getByText('Test Notification').closest('div[role="button"]');
@@ -115,9 +141,23 @@ describe('NotificationsClient', () => {
         error: null,
         markAsRead: vi.fn(),
         markAllAsRead: vi.fn(),
+        fetchNextPage: vi.fn(),
+        hasNextPage: false,
+        isFetchingNextPage: false,
       } as any);
 
+      // Mock sync completion
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
       render(<NotificationsPage />);
+
+      // Wait for sync to complete
+      await waitFor(() => {
+        expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
+      }, { timeout: 3000 });
 
       await waitFor(() => {
         const notification = screen.getByText('Read Notification').closest('div[role="button"]');
@@ -148,9 +188,23 @@ describe('NotificationsClient', () => {
         error: null,
         markAsRead: vi.fn(),
         markAllAsRead: vi.fn(),
+        fetchNextPage: vi.fn(),
+        hasNextPage: false,
+        isFetchingNextPage: false,
       } as any);
 
+      // Mock sync completion
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
       render(<NotificationsPage />);
+
+      // Wait for sync to complete
+      await waitFor(() => {
+        expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
+      }, { timeout: 3000 });
 
       await waitFor(() => {
         const notification = screen.getByText('Unread Notification').closest('div[role="button"]');
