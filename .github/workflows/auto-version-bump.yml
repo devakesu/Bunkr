@@ -251,7 +251,7 @@ jobs:
           # The token is already configured by actions/checkout above
           git push --set-upstream origin "$PR_HEAD_REF"
 
-          echo "✓ Changes committed and pushed (signed by GitHub)"
+          echo "✓ Changes committed and pushed (commit will be unsigned)"
 
       - name: Comment on PR (same-repo with auto-bump)
         if: steps.repo-check.outputs.is_same_repo == 'true' && steps.check.outputs.needs_bump == 'true' && (steps.bump.outputs.new_version != '' || steps.bump-dependabot.outputs.new_version != '')
@@ -290,10 +290,10 @@ jobs:
             let signingNote = '';
             if (isDependabot) {
               if (hasBotPat) {
-                signingNote = '\n\n_Note: Commit created with BOT_PAT and signed by GitHub as `github-actions[bot]`. Workflows should trigger normally._';
+                signingNote = '\n\n_Note: Commit created with BOT_PAT by `github-actions[bot]`. Commit will appear as **unverified** but workflows will trigger normally._';
               } else {
                 signingNote = '\n\n⚠️ **Warning**: Commit created with GITHUB_TOKEN (BOT_PAT not configured).\n'
-                  + '- Commit may appear as unverified\n'
+                  + '- Commit will appear as unverified\n'
                   + '- **CI workflows (Tests, Pipeline) will NOT trigger automatically**\n'
                   + '- Please configure BOT_PAT secret to fix this issue';
               }
