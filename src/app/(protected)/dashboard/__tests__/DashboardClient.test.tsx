@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import DashboardClient from '../DashboardClient';
 
@@ -47,8 +47,8 @@ vi.mock('@/hooks/courses/courses', () => ({
 vi.mock('@/hooks/users/settings', () => ({
   useFetchSemester: () => ({ data: null, isLoading: false, isError: false }),
   useFetchAcademicYear: () => ({ data: null, isLoading: false, isError: false }),
-  useSetSemester: () => ({ mutate: vi.fn() }),
-  useSetAcademicYear: () => ({ mutate: vi.fn() }),
+  useSetSemester: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  useSetAcademicYear: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/tracker/useTrackingData', () => ({
