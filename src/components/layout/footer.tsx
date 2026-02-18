@@ -122,6 +122,7 @@ export const Footer = ({ className }: { className?: string }) => {
               <span className="opacity-30">/</span>
               <Link
                 target="_blank"
+                rel="noopener noreferrer"
                 href="/build-info"
                 className="flex items-center gap-1 hover:text-emerald-500 transition-colors"
                 aria-label="View build provenance and security information"
