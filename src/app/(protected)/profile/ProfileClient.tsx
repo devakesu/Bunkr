@@ -177,8 +177,8 @@ export default function ProfileClient() {
               <CardContent className="flex flex-col items-center md:items-start pt-12">
                 
                 {/* Banner Background */}
-                <div className="h-[120px] md:h-[140px] w-full absolute top-0 left-0 right-0 z-0 overflow-hidden pointer-events-none">
-                    <div className="absolute inset-0 bg-gradient-to-r from-violet-900/40 via-purple-900/40 to-slate-900/40" />
+                <div className="h-30 md:h-35 w-full absolute top-0 left-0 right-0 z-0 overflow-hidden pointer-events-none">
+                    <div className="absolute inset-0 bg-linear-to-r from-violet-900/40 via-purple-900/40 to-slate-900/40" />
                     <div className="absolute -bottom-10 left-8 w-32 h-32 bg-primary/20 blur-[50px] rounded-full" />
                 </div>
 

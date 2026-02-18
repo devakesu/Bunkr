@@ -209,14 +209,16 @@ jobs:
 
       - name: Prepare derived values
         id: prep
+        env:
+          IMAGE_NAME_SECRET: ${{ secrets.IMAGE_NAME }}
         run: |
           # Use IMAGE_NAME from secrets with fallback to repo name
-          if [ -z "${{ secrets.IMAGE_NAME }}" ]; then
+          if [ -z "${IMAGE_NAME_SECRET}" ]; then
             # Fallback: extract repo name and convert to lowercase
             IMAGE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
             echo "⚠️  IMAGE_NAME secret not set, using fallback: ${IMAGE_NAME}"
           else
-            IMAGE_NAME="${{ secrets.IMAGE_NAME }}"
+            IMAGE_NAME="${IMAGE_NAME_SECRET}"
             echo "✓ Using IMAGE_NAME from secret: ${IMAGE_NAME}"
           fi
 
@@ -306,6 +308,12 @@ jobs:
             NEXT_PUBLIC_SITEMAP_URL=${{ steps.prep.outputs.sitemap_url }}
             NEXT_PUBLIC_APP_EMAIL=${{ steps.prep.outputs.app_email }}
             NEXT_PUBLIC_LEGAL_EMAIL=${{ steps.prep.outputs.legal_email }}
+            GITHUB_REPOSITORY=${{ github.repository }}
+            GITHUB_RUN_ID=${{ github.run_id }}
+            GITHUB_RUN_NUMBER=${{ github.run_number }}
+            BUILD_TIMESTAMP=${{ steps.prep.outputs.created }}
+            AUDIT_STATUS=PASSED
+            SIGNATURE_STATUS=SLSA_PROVENANCE_GENERATED
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

@@ -95,8 +95,19 @@ export function AcceptTermsForm() {
             <Link
               href="/legal"
               target="_blank"
+              rel="noopener noreferrer"
               className="text-white hover:underline hover:text-purple-400 transition-colors"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                // Prevent the label from toggling the checkbox when link is clicked
+                e.preventDefault();
+                e.stopPropagation();
+                // Open link securely with noopener and noreferrer
+                const link = document.createElement('a');
+                link.href = '/legal';
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.click();
+              }}
             >
               above Disclaimer and all Policies listed here
             </Link>.
@@ -109,7 +120,7 @@ export function AcceptTermsForm() {
           className={cn(
             "w-full h-11 font-semibold transition-all duration-300",
             checked
-              ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 shadow-[0_0_30px_-5px_rgba(168,85,247,0.5)]"
+              ? "bg-linear-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 shadow-[0_0_30px_-5px_rgba(168,85,247,0.5)]"
               : "bg-zinc-800 text-zinc-500 hover:bg-zinc-800"
           )}
           aria-live="polite"

@@ -215,10 +215,10 @@ export function CourseCard({ course }: CourseCardProps) {
   );
 
   return (
-    <Card className="pt-0 pb-0 custom-container overflow-clip h-full min-h-[280px]">
+    <Card className="pt-0 pb-0 custom-container overflow-clip h-full min-h-70">
       <CardHeader className="flex justify-between items-start flex-row gap-2 pt-6 bg-[#2B2B2B]/40 pb-5 border-b-2 border-[#2B2B2B]/60">
         <div className="flex flex-col gap-1">
-          <CardTitle className="text-lg font-semibold break-words leading-tight">
+          <CardTitle className="text-lg font-semibold wrap-break-word leading-tight">
             {courseName}
           </CardTitle>
         </div>
@@ -310,7 +310,7 @@ export function CourseCard({ course }: CourseCardProps) {
                       className="absolute top-0 left-0 h-full bg-primary/40 transition-all duration-500 ease-in-out"
                       style={{ width: `${Math.min(stats.displayPercentage, 100)}%` }}
                     >
-                      <div className="h-full w-full opacity-30 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] [background-size:8px_8px]" />
+                      <div className="h-full w-full opacity-30 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-size-[8px_8px]" />
                     </div>
                     <div
                       className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-in-out"
@@ -324,7 +324,7 @@ export function CourseCard({ course }: CourseCardProps) {
                       className="absolute top-0 left-0 h-full bg-red-500/80 transition-all duration-500 ease-in-out"
                       style={{ width: `${Math.min(stats.officialPercentage, 100)}%` }}
                     >
-                        <div className="h-full w-full opacity-30 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] [background-size:8px_8px]" />
+                        <div className="h-full w-full opacity-30 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-size-[8px_8px]" />
                     </div>
                     <div
                       className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-in-out"

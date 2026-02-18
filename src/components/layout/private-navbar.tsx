@@ -201,7 +201,7 @@ export const Navbar = () => {
                 });
               }}
             >
-              <SelectTrigger className="w-[110px] custom-input cursor-pointer" aria-label="Set attendance target percentage">
+              <SelectTrigger className="w-27.5 custom-input cursor-pointer" aria-label="Set attendance target percentage">
                 <SelectValue>
                   <div className="flex items-center font-medium">
                     <Percent className="mr-2 h-4 w-4" />
@@ -229,7 +229,7 @@ export const Navbar = () => {
                 value={selectedInstitution}
                 onValueChange={handleInstitutionChange}
               >
-                <SelectTrigger className="w-[140px] md:w-[290px] custom-input cursor-pointer" aria-label="Select institution">
+                <SelectTrigger className="w-35 md:w-72.5 custom-input cursor-pointer" aria-label="Select institution">
                   <SelectValue>
                     {selectedInstitution &&
                       institutions?.find(
@@ -388,7 +388,7 @@ export const Navbar = () => {
                       <SelectTrigger className="w-20 h-8 text-xs bg-background/50 border-white/10">
                         <SelectValue placeholder={`${currentTarget}%`} />
                       </SelectTrigger>
-                      <SelectContent className="custom-dropdown z-[60]">
+                      <SelectContent className="custom-dropdown z-60">
                           {[75, 80, 85, 90, 95].map((p) => (
                             <SelectItem key={p} value={p.toString()}>{p}%</SelectItem>
                           ))}

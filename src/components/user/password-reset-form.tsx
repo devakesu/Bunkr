@@ -236,14 +236,14 @@ export function PasswordResetForm({
             <Button
               type="button"
               variant="outline"
-              className="flex-1 font-semibold min-h-[46px] mt-4 rounded-[12px] font-sm"
+              className="flex-1 font-semibold min-h-11.5 mt-4 rounded-[12px] font-sm"
               onClick={onCancel}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="flex-1 font-semibold min-h-[46px] mt-4 rounded-[12px] font-sm"
+              className="flex-1 font-semibold min-h-11.5 mt-4 rounded-[12px] font-sm"
               disabled={isLoading}
             >
               {isLoading ? "Checking..." : "Continue"}
@@ -282,14 +282,14 @@ export function PasswordResetForm({
             <Button
               type="button"
               variant="outline"
-              className="flex-1 font-semibold min-h-[46px] mt-4 rounded-[12px] font-sm"
+              className="flex-1 font-semibold min-h-11.5 mt-4 rounded-[12px] font-sm"
               onClick={onCancel}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="flex-1 font-semibold min-h-[46px] mt-4 rounded-[12px] font-sm"
+              className="flex-1 font-semibold min-h-11.5 mt-4 rounded-[12px] font-sm"
               disabled={isLoading || !selectedOption}
             >
               {isLoading ? "Sending..." : "Send Code"}
@@ -369,14 +369,14 @@ export function PasswordResetForm({
             <Button
               type="button"
               variant="outline"
-              className="flex-1 font-semibold min-h-[46px] mt-4 rounded-[12px] font-sm"
+              className="flex-1 font-semibold min-h-11.5 mt-4 rounded-[12px] font-sm"
               onClick={onCancel}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="flex-1 font-semibold min-h-[46px] mt-4 rounded-[12px] font-sm"
+              className="flex-1 font-semibold min-h-11.5 mt-4 rounded-[12px] font-sm"
               disabled={isLoading}
             >
               {isLoading ? "Resetting..." : "Reset Password"}

@@ -62,9 +62,9 @@ describe("sitemap.xml", () => {
     expect(legalPage?.priority).toBe(0.8);
   });
 
-  it("should have 4 URLs total", () => {
+  it("should have 5 URLs total", () => {
     const urls = sitemap();
-    expect(urls).toHaveLength(4);
+    expect(urls).toHaveLength(5);
   });
 
   it("should set lastModified for all URLs", () => {
@@ -87,7 +87,7 @@ describe("sitemap.xml", () => {
     delete process.env.NEXT_PUBLIC_APP_URL;
     
     const urls = sitemap();
-    expect(urls).toHaveLength(4);
+    expect(urls).toHaveLength(5);
     expect(urls[0].url).toBe("");
   });
 
@@ -112,13 +112,20 @@ describe("sitemap.xml", () => {
     expect(homepage.priority).toBeGreaterThan(others[0].priority || 0);
   });
 
-  it("should have equal priority for all non-homepage pages", () => {
+  it("should have priority hierarchy: homepage > public pages > build-info", () => {
     const urls = sitemap();
-    const nonHomepageUrls = urls.slice(1);
+    const homepage = urls[0];
+    const publicPages = urls.slice(1, 4); // login, contact, legal
+    const buildInfo = urls[4]; // build-info
     
-    const priorities = nonHomepageUrls.map(u => u.priority);
-    const allEqual = priorities.every(p => p === priorities[0]);
+    // Homepage should have highest priority
+    expect(homepage.priority).toBe(1);
     
-    expect(allEqual).toBe(true);
+    // Public pages should have equal priority
+    const publicPriorities = publicPages.map(u => u.priority);
+    expect(publicPriorities.every(p => p === 0.8)).toBe(true);
+    
+    // Build info should have lower priority
+    expect(buildInfo.priority).toBe(0.5);
   });
 });

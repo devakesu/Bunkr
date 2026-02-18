@@ -136,7 +136,7 @@ export function InstitutionSelector() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
                   // whileHover={{ scale: 1.02 }}
-                  className={`flex items-center bg-[#1F1F1F]/[0.4] cursor-pointer border-[#2B2B2B]/[0.6] border-2 rounded-[12px] space-x-2 p-2 md:p-3 ${
+                  className={`flex items-center bg-[#1F1F1F]/40 cursor-pointer border-[#2B2B2B]/60 border-2 rounded-[12px] space-x-2 p-2 md:p-3 ${
                     selectedInstitution === institution.id.toString()
                       ? "border-primary bg-primary/5"
                       : "border-input"
@@ -185,7 +185,7 @@ export function InstitutionSelector() {
                   pendingSelection === null ||
                   pendingSelection === defaultInstitutionUser?.toString()
                 }
-                className="w-full font-semibold min-h-[46px] rounded-[12px] mt-4 font-md"
+                className="w-full font-semibold min-h-11.5 rounded-[12px] mt-4 font-md"
                 aria-label="Save selected institution as default"
               >
                 {updateDefaultInstitutionUser.isPending && (

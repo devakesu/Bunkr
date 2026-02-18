@@ -1,13 +1,26 @@
 # ===============================
 # 0. Global deterministic settings
 # ===============================
-ARG NODE_IMAGE=node:20.19.0-alpine3.20@sha256:9a9c00587bcb88209b164b2dba1f59c7389ac3a2cec2cfe490fc43cd947ed531
+ARG NODE_IMAGE=node:20.19.2-alpine3.20@sha256:6e0e1a13235997255e6f36fd3da4169d99b5e87c0de01dc08300359d23224c33
 ARG SOURCE_DATE_EPOCH=1767225600
+
+# ===============================
+# 0.1. Base layer with npm upgrade (pinned by hash)
+# ===============================
+FROM ${NODE_IMAGE} AS base
+
+# Install wget and update npm to version 11 (pinned by hash)
+RUN apk add --no-cache wget && \
+    wget -O npm.tgz https://registry.npmjs.org/npm/-/npm-11.10.0.tgz && \
+    echo "43c653384c39617756846ad405705061a78fb6bbddb2ced57ab79fb92e8af2a7  npm.tgz" | sha256sum -c - && \
+    npm install -g npm.tgz && \
+    rm npm.tgz && \
+    rm -rf /var/cache/apk/*
 
 # ===============================
 # 1. Dependencies layer
 # ===============================
-FROM ${NODE_IMAGE} AS deps
+FROM base AS deps
 
 ARG SOURCE_DATE_EPOCH
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
@@ -17,9 +30,6 @@ ENV TZ=UTC
 RUN apk add --no-cache \
     libc6-compat \
     && rm -rf /var/cache/apk/*
-
-# Update npm to version 11
-RUN npm install -g npm@11.10.0
 
 WORKDIR /app
 
@@ -42,10 +52,16 @@ RUN npm ci \
 # ===============================
 # 2. Build layer
 # ===============================
-FROM ${NODE_IMAGE} AS builder
+FROM base AS builder
 
 ARG SOURCE_DATE_EPOCH
 ARG APP_COMMIT_SHA
+ARG GITHUB_REPOSITORY
+ARG GITHUB_RUN_ID
+ARG GITHUB_RUN_NUMBER
+ARG BUILD_TIMESTAMP
+ARG AUDIT_STATUS
+ARG SIGNATURE_STATUS
 ARG SENTRY_ORG
 ARG SENTRY_PROJECT
 ARG NEXT_PUBLIC_SENTRY_DSN
@@ -53,6 +69,12 @@ ARG NEXT_PUBLIC_SENTRY_DSN
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
 ENV NEXT_PUBLIC_GIT_COMMIT_SHA=${APP_COMMIT_SHA}
+ENV GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+ENV GITHUB_RUN_ID=${GITHUB_RUN_ID}
+ENV GITHUB_RUN_NUMBER=${GITHUB_RUN_NUMBER}
+ENV BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
+ENV AUDIT_STATUS=${AUDIT_STATUS}
+ENV SIGNATURE_STATUS=${SIGNATURE_STATUS}
 ENV TZ=UTC
 ENV NODE_ENV=production
 ENV TURBOPACK=0
@@ -61,9 +83,7 @@ ENV SENTRY_PROJECT=${SENTRY_PROJECT}
 ENV NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN}
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PRIVATE_BUILD_WORKER_COUNT=1
-
-# Update npm to version 11
-RUN npm install -g npm@11.10.0
+ENV NODE_OPTIONS="--max-old-space-size=2560"
 
 WORKDIR /app
 
@@ -167,11 +187,27 @@ FROM ${NODE_IMAGE} AS runner
 
 ARG SOURCE_DATE_EPOCH
 ARG APP_COMMIT_SHA
+ARG GITHUB_REPOSITORY
+ARG GITHUB_RUN_ID
+ARG GITHUB_RUN_NUMBER
+ARG BUILD_TIMESTAMP
+ARG AUDIT_STATUS
+ARG SIGNATURE_STATUS
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
+ENV GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+ENV GITHUB_RUN_ID=${GITHUB_RUN_ID}
+ENV GITHUB_RUN_NUMBER=${GITHUB_RUN_NUMBER}
+ENV BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
+ENV AUDIT_STATUS=${AUDIT_STATUS}
+ENV SIGNATURE_STATUS=${SIGNATURE_STATUS}
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+
+# Node.js memory limit: 2.5GB (leave 1.5GB for OS/Redis/other processes)
+# Adjust based on server RAM: 2GB server = 1536, 4GB server = 2560, 8GB server = 6144
+ENV NODE_OPTIONS="--max-old-space-size=2560"
 
 # Build argument for customizable hostname binding
 # Override at build time with: --build-arg NEXT_HOSTNAME=127.0.0.1 for localhost-only binding

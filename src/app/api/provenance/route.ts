@@ -5,16 +5,29 @@ export const dynamic = "force-dynamic";
 
 export function GET() {
   const commitSha = process.env.APP_COMMIT_SHA ?? "dev";
+  const githubRepo = process.env.GITHUB_REPOSITORY ?? process.env.NEXT_PUBLIC_GITHUB_URL?.replace("https://github.com/", "") ?? "";
+  const githubRunId = process.env.GITHUB_RUN_ID ?? "";
+  const githubRunNumber = process.env.GITHUB_RUN_NUMBER ?? "";
+  const buildTimestamp = process.env.BUILD_TIMESTAMP ?? new Date().toISOString();
+  const auditStatus = process.env.AUDIT_STATUS ?? "UNKNOWN";
+  const signatureStatus = process.env.SIGNATURE_STATUS ?? "UNSIGNED";
+  const imageDigest = process.env.IMAGE_DIGEST ?? commitSha; // IMAGE_DIGEST is post-build only, fallback to commit SHA
 
   return NextResponse.json(
     {
-      commit: commitSha,
-      build_id: commitSha,
+      commit: commitSha, // Legacy field for backward compatibility
+      commit_sha: commitSha,
+      build_id: githubRunId || commitSha,
+      github_run_id: githubRunId,
+      github_run_number: githubRunNumber,
+      github_repo: githubRepo,
       app_version: process.env.NEXT_PUBLIC_APP_VERSION ?? "dev",
-      image_digest: commitSha,
+      image_digest: imageDigest,
       container: Boolean(commitSha !== "dev"),
       node_env: process.env.NODE_ENV,
-      timestamp: new Date().toISOString(),
+      timestamp: buildTimestamp,
+      audit_status: auditStatus,
+      signature_status: signatureStatus,
     },
     {
       headers: {

@@ -49,6 +49,7 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: {
       getUser: vi.fn(() => Promise.resolve({ data: { user: null }, error: null })),
+      getSession: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
       signOut: vi.fn(() => Promise.resolve({ error: null })),
     },
     from: vi.fn(() => ({

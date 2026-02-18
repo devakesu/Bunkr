@@ -33,6 +33,7 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  compress: true, // Enable gzip compression for better performance
 
   async headers() {
     // 1. Define headers common to all environments

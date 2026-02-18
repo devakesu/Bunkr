@@ -128,7 +128,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       // Default Fallback UI (Tailwind + Lucide)
       return (
-        <div className="flex min-h-[400px] w-full flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-300">
+        <div className="flex min-h-100 w-full flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-300">
           <div className="rounded-full bg-red-100 p-3 dark:bg-red-900/20 mb-4">
             <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" aria-hidden="true" />
           </div>
@@ -137,7 +137,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             Something went wrong
           </h2>
           
-          <p className="text-sm text-muted-foreground max-w-[400px] mb-6" role="alert" aria-live="assertive">
+          <p className="text-sm text-muted-foreground max-w-100 mb-6" role="alert" aria-live="assertive">
             We encountered an unexpected error. You can try to recover the component or reload the page.
           </p>
 
