@@ -313,7 +313,7 @@ jobs:
             GITHUB_RUN_NUMBER=${{ github.run_number }}
             BUILD_TIMESTAMP=${{ steps.prep.outputs.created }}
             AUDIT_STATUS=PASSED
-            SIGNATURE_STATUS=SIGNED
+            SIGNATURE_STATUS=SLSA_PROVENANCE_GENERATED
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

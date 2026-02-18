@@ -277,12 +277,12 @@ export default function BuildInfoPage() {
                   <p className="text-sm text-muted-foreground mb-4">
                     View the source code and contribution history
                   </p>
-                  <a href={`https://github.com/${meta.github_repo}`} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full" asChild>
+                    <a href={`https://github.com/${meta.github_repo}`} target="_blank" rel="noopener noreferrer">
                       View on GitHub
                       <ExternalLink className="w-3 h-3 ml-2" />
-                    </Button>
-                  </a>
+                    </a>
+                  </Button>
                 </Card>
               )}
 
@@ -293,16 +293,16 @@ export default function BuildInfoPage() {
                   <p className="text-sm text-muted-foreground mb-4">
                     View the CI/CD pipeline logs for this build
                   </p>
-                  <a
-                    href={`https://github.com/${meta.github_repo}/actions/runs/${meta.github_run_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button variant="outline" size="sm" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full" asChild>
+                    <a
+                      href={`https://github.com/${meta.github_repo}/actions/runs/${meta.github_run_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       View Build #{meta.github_run_number || meta.build_id}
                       <ExternalLink className="w-3 h-3 ml-2" />
-                    </Button>
-                  </a>
+                    </a>
+                  </Button>
                 </Card>
               )}
 
@@ -313,16 +313,16 @@ export default function BuildInfoPage() {
                   <p className="text-sm text-muted-foreground mb-4">
                     SLSA Level 3 cryptographic proofs and signatures
                   </p>
-                  <a
-                    href={`https://github.com/${meta.github_repo}/attestations`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button variant="outline" size="sm" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full" asChild>
+                    <a
+                      href={`https://github.com/${meta.github_repo}/attestations`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       View Attestations
                       <ExternalLink className="w-3 h-3 ml-2" />
-                    </Button>
-                  </a>
+                    </a>
+                  </Button>
                 </Card>
               )}
 
@@ -333,16 +333,16 @@ export default function BuildInfoPage() {
                   <p className="text-sm text-muted-foreground mb-4">
                     OpenSSF security best practices compliance
                   </p>
-                  <a
-                    href={`https://scorecard.dev/viewer/?uri=github.com/${meta.github_repo}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button variant="outline" size="sm" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full" asChild>
+                    <a
+                      href={`https://scorecard.dev/viewer/?uri=github.com/${meta.github_repo}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       View Scorecard
                       <ExternalLink className="w-3 h-3 ml-2" />
-                    </Button>
-                  </a>
+                    </a>
+                  </Button>
                 </Card>
               )}
             </div>
