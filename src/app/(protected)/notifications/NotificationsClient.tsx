@@ -12,9 +12,7 @@ const captureSentryException = (error: unknown, context?: CaptureContext) => {
   void import("@sentry/nextjs")
     .then(({ captureException }) => captureException(error, context))
     .catch((importError) => {
-      // eslint-disable-next-line no-console
       console.error("[Sentry] Failed to load SDK for captureException:", importError);
-      // eslint-disable-next-line no-console
       console.error("[Sentry] Original error:", error);
     });
 };
@@ -22,9 +20,7 @@ const captureSentryMessage = (message: string, context?: CaptureContext) => {
   void import("@sentry/nextjs")
     .then(({ captureMessage }) => captureMessage(message, context))
     .catch((importError) => {
-      // eslint-disable-next-line no-console
       console.error("[Sentry] Failed to load SDK for captureMessage:", importError);
-      // eslint-disable-next-line no-console
       console.error("[Sentry] Original message:", message);
     });
 };
