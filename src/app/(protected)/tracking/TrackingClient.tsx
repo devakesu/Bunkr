@@ -1,15 +1,12 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import type {
-  captureException as SentryCaptureException,
-  captureMessage as SentryCaptureMessage,
-} from "@sentry/nextjs";
+import type { CaptureContext } from "@sentry/nextjs";
 // Lazy Sentry helpers – deferred import keeps the Sentry SDK (~250 KB) out of the initial bundle.
-const captureSentryException = (error: unknown, context?: Parameters<SentryCaptureException>[1]) => {
+const captureSentryException = (error: unknown, context?: CaptureContext) => {
   void import("@sentry/nextjs").then(({ captureException }) => captureException(error, context));
 };
-const captureSentryMessage = (message: string, context?: Parameters<SentryCaptureMessage>[1]) => {
+const captureSentryMessage = (message: string, context?: CaptureContext) => {
   void import("@sentry/nextjs").then(({ captureMessage }) => captureMessage(message, context));
 };
 import { logger } from "@/lib/logger";
