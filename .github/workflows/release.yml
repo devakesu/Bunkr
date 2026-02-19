@@ -217,25 +217,11 @@ jobs:
       - name: Prepare derived values
         id: prep
         env:
-          IMAGE_NAME_SECRET: ${{ secrets.IMAGE_NAME }}
           REPO: ${{ github.repository }}
           REPO_OWNER: ${{ github.repository_owner }}
         run: |
-          # Use IMAGE_NAME from secrets with fallback to repo name
-          if [ -z "${IMAGE_NAME_SECRET}" ]; then
-            # Fallback: extract repo name and convert to lowercase
-            IMAGE_NAME=$(echo "$REPO" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
-            echo "⚠️  IMAGE_NAME secret not set, using fallback: ${IMAGE_NAME}"
-          else
-            IMAGE_NAME="${IMAGE_NAME_SECRET}"
-            echo "✓ Using IMAGE_NAME from secret: ${IMAGE_NAME}"
-          fi
-
-          # Output the image name BEFORE masking to prevent GitHub Actions from skipping the output
+          IMAGE_NAME=$(echo "$REPO" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
           echo "image_name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
-
-          # Mask the image name in subsequent log output
-          echo "::add-mask::${IMAGE_NAME}"
 
           # Debug: Show what will be used
           echo "🐳 Image name: ${IMAGE_NAME}"
