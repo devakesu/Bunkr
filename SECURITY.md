@@ -45,6 +45,13 @@ GhostClass implements multiple layers of security:
 - **Reproducible Builds** - Deterministic builds with SOURCE_DATE_EPOCH
 - **Vulnerability Scanning** - Trivy scanning on every build
 
+### CI/CD Security
+- **Script Injection Prevention** - Environment variables used for all untrusted GitHub Actions inputs
+- **Least Privilege Permissions** - Workflows use minimum required permissions with explicit grants
+- **GPG Signing** - Commits and tags cryptographically signed (except Dependabot PRs)
+- **Secret Management** - GitHub secrets isolated per workflow with no cross-contamination
+- **Dependabot Isolation** - Special handling for Dependabot PRs without secret access
+
 ### Environment Security
 - **Environment Variable Validation** - Runtime validation of required secrets
 - **Two-Tier Secret Management** - Separate build-time and runtime secrets
@@ -120,6 +127,58 @@ GhostClass uses npm overrides to enforce minimum secure versions of transitive d
 - **Alternatives Considered**: Downgrading ESLint (rejected - security/feature trade-offs)
 - **Exploitability**: Requires `$data: true` configuration and attacker-controlled schema input (not present in linting/validation workflow)
 - **Future Resolution**: Will upgrade to ESLint 10 when typescript-eslint v9 releases (Q1 2026)
+
+## GitHub Actions Security
+
+### Script Injection Prevention
+
+GhostClass workflows are hardened against script injection attacks using environment variables for all untrusted inputs.
+
+#### Vulnerable Pattern (❌ DO NOT USE)
+```yaml
+run: |
+  VERSION_TAG="${{ github.event.inputs.version_tag }}"
+  git checkout "refs/tags/${VERSION_TAG}"
+```
+
+**Risk**: Attacker-controlled inputs like branch names, tag names, or workflow inputs can contain shell metacharacters (`;`, `|`, `$()`, etc.) that execute arbitrary commands.
+
+#### Secure Pattern (✅ ALWAYS USE)
+```yaml
+env:
+  INPUT_VERSION_TAG: ${{ github.event.inputs.version_tag }}
+run: |
+  VERSION_TAG="$INPUT_VERSION_TAG"
+  git checkout "refs/tags/${VERSION_TAG}"
+```
+
+**Protection**: Environment variables treat the entire input as literal data, preventing command injection.
+
+#### Protected Workflows
+
+**auto-version-bump.yml**
+- `github.actor` → `ACTOR` environment variable
+- `github.head_ref` → `HEAD_REF` environment variable
+- `github.event.pull_request.head.repo.full_name` → `PR_HEAD_REPO` environment variable
+- Prevents malicious branch names from executing code during Dependabot detection
+
+**release.yml**
+- `github.event.client_payload.version_tag` → `INPUT_VERSION_TAG_DISPATCH` environment variable
+- `github.event.inputs.version_tag` → `INPUT_VERSION_TAG_MANUAL` environment variable
+- `github.ref_name` → `REF_NAME` environment variable
+- `github.ref_type` → `REF_TYPE` environment variable
+- Prevents malicious tag names in repository_dispatch and manual workflow triggers
+
+**pipeline.yml**
+- `github.repository` → `REPO` environment variable
+- `github.run_id` → `RUN_ID` environment variable
+- Prevents repository name manipulation in GitHub API calls
+
+#### References
+
+- [GitHub Security Lab: Preventing pwn requests](https://securitylab.github.com/research/github-actions-preventing-pwn-requests/)
+- [GitHub Actions Security Hardening](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable)
+- [OpenSSF Scorecard: Token Permissions Check](https://github.com/ossf/scorecard/blob/main/docs/checks.md#token-permissions)
 
 ## Verifying Docker Image Signatures
 

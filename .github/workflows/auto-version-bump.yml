@@ -30,13 +30,18 @@ jobs:
     steps:
       - name: Determine if same-repo or fork
         id: repo-check
+        env:
+          ACTOR: ${{ github.actor }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
         run: |
           # Check if this is a Dependabot PR
-          if [ "${{ github.actor }}" = "dependabot[bot]" ] || [[ "${{ github.head_ref }}" == dependabot/* ]]; then
+          if [ "$ACTOR" = "dependabot[bot]" ] || [[ "$HEAD_REF" == dependabot/* ]]; then
             echo "is_dependabot=true" >> $GITHUB_OUTPUT
             echo "is_same_repo=true" >> $GITHUB_OUTPUT
             echo "✓ Dependabot PR detected - will skip GPG signing"
-          elif [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
+          elif [ "$PR_HEAD_REPO" = "$BASE_REPO" ]; then
             echo "is_dependabot=false" >> $GITHUB_OUTPUT
             echo "is_same_repo=true" >> $GITHUB_OUTPUT
             echo "✓ Same-repo PR - can auto-commit version bump"

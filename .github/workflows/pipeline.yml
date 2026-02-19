@@ -55,6 +55,8 @@ jobs:
       - name: Create and push signed tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
 
@@ -105,13 +107,13 @@ jobs:
           attempt=1
 
           while [ $attempt -le $max_attempts ]; do
-            if gh api repos/${{ github.repository }}/dispatches \
+            if gh api repos/${REPO}/dispatches \
               --method POST \
               -H "Accept: application/vnd.github+json" \
               -f event_type="release_requested" \
               -f client_payload[version_tag]="${VERSION_TAG}" \
               -f client_payload[triggered_by]="auto-tag" \
-              -f client_payload[run_id]="${{ github.run_id }}"; then
+              -f client_payload[run_id]="${RUN_ID}"; then
               echo "✓ Release workflow triggered for ${VERSION_TAG}"
               break
             fi
