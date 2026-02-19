@@ -9,10 +9,24 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { CaptureContext } from "@sentry/core";
 // Lazy Sentry helpers – deferred import keeps the Sentry SDK (~250 KB) out of the initial bundle.
 const captureSentryException = (error: unknown, context?: CaptureContext) => {
-  void import("@sentry/nextjs").then(({ captureException }) => captureException(error, context));
+  void import("@sentry/nextjs")
+    .then(({ captureException }) => captureException(error, context))
+    .catch((importError) => {
+      // eslint-disable-next-line no-console
+      console.error("[Sentry] Failed to load SDK for captureException:", importError);
+      // eslint-disable-next-line no-console
+      console.error("[Sentry] Original error:", error);
+    });
 };
 const captureSentryMessage = (message: string, context?: CaptureContext) => {
-  void import("@sentry/nextjs").then(({ captureMessage }) => captureMessage(message, context));
+  void import("@sentry/nextjs")
+    .then(({ captureMessage }) => captureMessage(message, context))
+    .catch((importError) => {
+      // eslint-disable-next-line no-console
+      console.error("[Sentry] Failed to load SDK for captureMessage:", importError);
+      // eslint-disable-next-line no-console
+      console.error("[Sentry] Original message:", message);
+    });
 };
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";

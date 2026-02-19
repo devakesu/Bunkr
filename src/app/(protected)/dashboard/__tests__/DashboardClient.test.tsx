@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import DashboardClient from '../DashboardClient';
 
 // Mock next/dynamic
@@ -189,7 +189,7 @@ describe('DashboardClient', () => {
       render(<DashboardClient initialData={null} />);
 
       // Wait for the sync effect to process the 207 response
-      await vi.waitFor(() => {
+      await waitFor(() => {
         expect(toast.warning).toHaveBeenCalledWith(
           'Partial Sync Completed',
           expect.objectContaining({ description: expect.any(String) })
@@ -207,7 +207,7 @@ describe('DashboardClient', () => {
       render(<DashboardClient initialData={null} />);
 
       // Wait for the sync effect to process the failure
-      await vi.waitFor(() => {
+      await waitFor(() => {
         // The dynamic import of Sentry happens asynchronously, but the module-level
         // captureSentryException wrapper is invoked when the error is caught
         expect(global.fetch).toHaveBeenCalled();
