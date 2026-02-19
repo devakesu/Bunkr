@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 /**
  * Extended Course interface with additional attendance statistics.
  */
-interface ExtendedCourse extends Course {
+export interface ExtendedCourse extends Course {
   /** Number of present marks */
   present?: number;
   /** Total attendance records */
@@ -338,7 +338,7 @@ export function CourseCard({ course }: CourseCardProps) {
                 <span>Attendance</span>
                 <div className="flex items-center gap-2">
                   {(stats.correctionPresent > 0 || stats.extras > 0) && stats.officialPercentage !== stats.displayPercentage && (
-                    <span className="text-xs opacity-70">
+                    <span className="text-xs">
                       {stats.officialPercentage}% <span className="mx-0.5">→</span>
                     </span>
                   )}

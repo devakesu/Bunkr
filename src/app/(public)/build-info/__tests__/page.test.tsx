@@ -32,7 +32,7 @@ describe('BuildInfoPage', () => {
 
   describe('Loading State', () => {
     it('should display loading spinner initially', () => {
-      global.fetch = vi.fn(() => new Promise(() => {})); // Never resolves
+      global.fetch = vi.fn(() => new Promise(() => {})) as typeof fetch; // Never resolves
 
       render(<BuildInfoPage />);
 
@@ -45,7 +45,7 @@ describe('BuildInfoPage', () => {
 
   describe('Error State', () => {
     it('should display error message when fetch fails', async () => {
-      global.fetch = vi.fn().mockRejectedValue(new Error('API Error'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('API Error')) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -60,7 +60,7 @@ describe('BuildInfoPage', () => {
         json: async () => {
           throw new Error('Invalid JSON');
         },
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -89,7 +89,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMetaMinimal,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -104,7 +104,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMetaMinimal, node_env: 'production' }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -117,7 +117,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMetaMinimal, container: true }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -130,7 +130,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMetaMinimal, timestamp: '' }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -159,7 +159,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMeta, audit_status: 'PASSED' }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -174,7 +174,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMeta, audit_status: 'SKIPPED' }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -189,7 +189,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMeta, audit_status: 'FAILED' }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -204,7 +204,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMeta, audit_status: '' }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -233,7 +233,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMetaSLSA,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -250,7 +250,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMetaSLSA,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -263,7 +263,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMetaSLSA,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -279,7 +279,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMetaSLSA, signature_status: 'UNSIGNED' }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -308,7 +308,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMeta,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -329,7 +329,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMeta,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -344,7 +344,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMeta,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -359,7 +359,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMeta,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -374,7 +374,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMeta, github_repo: '' }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -394,7 +394,7 @@ describe('BuildInfoPage', () => {
           github_run_number: '',
           commit_sha: 'abc1234',
         }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -425,7 +425,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMeta, image_digest: digest }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -438,7 +438,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMeta, image_digest: 'dev' }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -451,7 +451,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMeta,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -486,7 +486,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMeta,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -510,7 +510,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMeta, image_digest: digest }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -540,7 +540,7 @@ describe('BuildInfoPage', () => {
         global.fetch = vi.fn().mockResolvedValue({
           ok: true,
           json: async () => mockMeta,
-        });
+        }) as typeof fetch;
 
         render(<BuildInfoPage />);
 
@@ -570,7 +570,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMeta,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -615,7 +615,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMeta,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -629,7 +629,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockMeta, timestamp: '2026-02-18' }),
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -658,7 +658,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMeta,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -673,7 +673,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMeta,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 
@@ -692,7 +692,7 @@ describe('BuildInfoPage', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockMeta,
-      });
+      }) as typeof fetch;
 
       render(<BuildInfoPage />);
 

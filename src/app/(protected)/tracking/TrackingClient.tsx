@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import * as Sentry from "@sentry/nextjs";
+import type { CaptureContext } from "@sentry/core";
+// Lazy Sentry helpers – deferred import keeps the Sentry SDK (~250 KB) out of the initial bundle.
+const captureSentryException = (error: unknown, context?: CaptureContext) => {
+  void import("@sentry/nextjs").then(({ captureException }) => captureException(error, context));
+};
+const captureSentryMessage = (message: string, context?: CaptureContext) => {
+  void import("@sentry/nextjs").then(({ captureMessage }) => captureMessage(message, context));
+};
 import { logger } from "@/lib/logger";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useTrackingCount } from "@/hooks/tracker/useTrackingCount";
@@ -81,7 +88,7 @@ export default function TrackingClient() {
   const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [enabled, setEnabled] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [syncCompleted, setSyncCompleted] = useState(false);
   
   // Per-course record limits (for performance with 100+ records)
@@ -107,14 +114,17 @@ export default function TrackingClient() {
   useEffect(() => {
     // Guard: ensure both user ID and username exist before attempting sync
     // Username is required for the sync API call
-    if (!user?.id || !user?.username) return;
+    if (!user?.id || !user?.username) {
+      // User is loaded but has no username – skip sync so page can render
+      if (user?.id && !user?.username) setSyncCompleted(true);
+      return;
+    }
 
     // Check if sync already ran for THIS mount
     // In Strict Mode, the remount will have the SAME mountId, so we skip
     // On real navigation, mountId changes, so sync runs
     if (lastSyncMountId.current === mountId.current) {
       logger.dev('[Tracking] Sync already completed for this mount, skipping');
-      setIsSyncing(false);
       setSyncCompleted(true);
       return;
     }
@@ -125,7 +135,6 @@ export default function TrackingClient() {
     const runSync = async () => {
       logger.dev('[Tracking] Starting sync for mount:', mountId.current);
       setIsSyncing(true);
-      setSyncCompleted(false);
 
       try {
         const res = await fetch(`/api/cron/sync?username=${user.username}`, {
@@ -144,7 +153,7 @@ export default function TrackingClient() {
             description: "Some tracking records couldn't be synced. Your data may be incomplete."
           });
           
-          Sentry.captureMessage("Partial sync failure in tracking", {
+          captureSentryMessage("Partial sync failure in tracking", {
             level: "warning",
             tags: { type: "tracking_partial_sync", location: "TrackingClient/useEffect/runSync" },
             extra: { userId: redact("id", String(user?.id)), response: data }
@@ -170,7 +179,7 @@ export default function TrackingClient() {
 
         logger.error("Tracking sync error", err);
         
-        Sentry.captureException(err, {
+        captureSentryException(err, {
           tags: { type: "tracking_sync", location: "TrackingClient/useEffect/runSync" },
           extra: { userId: redact("id", String(user?.id)) }
         });
@@ -277,7 +286,7 @@ export default function TrackingClient() {
 
       } catch (error) {
         toast.error("Error deleting the record.");
-        Sentry.captureException(error, { tags: { type: "tracking_delete_single", location: "TrackingClient/handleDeleteTrackData" }, extra: { userId: redact("id", String(user?.id)), session, course, date } });
+        captureSentryException(error, { tags: { type: "tracking_delete_single", location: "TrackingClient/handleDeleteTrackData" }, extra: { userId: redact("id", String(user?.id)), session, course, date } });
       } finally {
         setDeleteId("");
       }
@@ -305,7 +314,7 @@ export default function TrackingClient() {
 
     } catch (error) {
       toast.error("Failed to delete all tracking data.");
-      Sentry.captureException(error, { tags: { type: "tracking_delete_all", location: "TrackingClient/deleteAllTrackingData" }, extra: { userId: redact("id", String(user?.id)) }   });
+      captureSentryException(error, { tags: { type: "tracking_delete_all", location: "TrackingClient/deleteAllTrackingData" }, extra: { userId: redact("id", String(user?.id)) }   });
     } finally {
       setIsProcessing(false);
     }
@@ -332,8 +341,8 @@ export default function TrackingClient() {
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.3, staggerChildren: 0.05 } } };
   const pageVariants = { enter: (d: number) => ({ x: d > 0 ? 50 : -50, opacity: 0 }), center: { x: 0, opacity: 1 }, exit: (d: number) => ({ x: d < 0 ? 50 : -50, opacity: 0 }) };
 
-  // Wait for both data loading AND sync completion
-  if (isDataLoading || isSyncing || !syncCompleted) return <Loading />;
+  // Block rendering until tracking is enabled, base data has loaded, and initial sync has completed.
+  if (!enabled || isDataLoading || isSyncing || !syncCompleted) return <Loading />;
 
   return isProcessing ? ( <div className="h-screen flex items-center justify-center"><Loading /></div> ) : (
     <LazyMotion features={domAnimation}>

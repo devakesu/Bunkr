@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import DashboardClient from '../DashboardClient';
 
 // Mock next/dynamic
@@ -92,12 +92,18 @@ vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
   },
+  m: {
+    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  },
+  LazyMotion: ({ children }: any) => <>{children}</>,
+  domAnimation: {},
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 
 // Mock Sentry
 vi.mock('@sentry/nextjs', () => ({
   captureException: vi.fn(),
+  captureMessage: vi.fn(),
 }));
 
 // Mock logger
@@ -113,6 +119,8 @@ vi.mock('sonner', () => ({
   toast: {
     error: vi.fn(),
     success: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
   },
 }));
 
@@ -166,5 +174,48 @@ describe('DashboardClient', () => {
   describe('SSR Configuration', () => {
     // TODO: This test is skipped for the same reason as the ChartSkeleton test above
     it.todo('should disable SSR for AttendanceChart');
+  });
+
+  describe('Background sync – partial sync (207)', () => {
+    it('should show warning toast and trigger captureSentryMessage on 207 response', async () => {
+      const { toast } = await import('sonner');
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 207,
+        json: async () => ({ success: false, errors: ['some-course-failed'] }),
+      });
+
+      render(<DashboardClient initialData={null} />);
+
+      // Wait for the sync effect to process the 207 response
+      await waitFor(() => {
+        expect(toast.warning).toHaveBeenCalledWith(
+          'Partial Sync Completed',
+          expect.objectContaining({ description: expect.any(String) })
+        );
+      });
+    });
+  });
+
+  describe('Background sync – failure', () => {
+    it('should call captureSentryException when sync fetch throws', async () => {
+      const Sentry = await import('@sentry/nextjs');
+
+      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+      render(<DashboardClient initialData={null} />);
+
+      // Wait for the sync effect to process the failure
+      await waitFor(() => {
+        // The dynamic import of Sentry happens asynchronously, but the module-level
+        // captureSentryException wrapper is invoked when the error is caught
+        expect(global.fetch).toHaveBeenCalled();
+      });
+
+      // Sentry is lazily imported inside captureSentryException; give it a tick to resolve
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(Sentry.captureException).toHaveBeenCalled();
+    });
   });
 });

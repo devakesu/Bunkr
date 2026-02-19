@@ -1,3 +1,5 @@
+# Pull Request
+
 ## Description
 
 <!-- Provide a clear and concise description of your changes -->
@@ -25,9 +27,9 @@ Relates to #
 
 <!-- List the main changes made in this PR -->
 
-- 
-- 
-- 
+-
+-
+-
 
 ## Version Bump
 
@@ -86,6 +88,7 @@ Relates to #
 ---
 
 **For maintainers:**
+
 - [ ] PR title follows conventional commit format
 - [ ] Version bump is correct
 - [ ] All checks pass

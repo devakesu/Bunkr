@@ -931,4 +931,3 @@ CREATE TRIGGER protect_buckets_delete BEFORE DELETE ON storage.buckets FOR EACH 
 
 CREATE TRIGGER protect_objects_delete BEFORE DELETE ON storage.objects FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete();
 
-

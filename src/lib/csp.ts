@@ -110,6 +110,10 @@ export const getCspHeader = (nonce?: string) => {
         "blob:",
         `'nonce-${nonce}'`,
         "'strict-dynamic'",
+        // 'unsafe-inline' is ignored by browsers that support nonces (CSP3).
+        // It acts purely as a backward-compatibility fallback for CSP2-only browsers.
+        // Lighthouse requires it here to not flag script-src as incomplete.
+        "'unsafe-inline'",
         // Note: With 'strict-dynamic', explicitly listed host sources below are ignored
         // by modern browsers (CSP Level 3) and only apply to older browsers as fallback.
         // For modern browsers, external scripts must be loaded dynamically by nonce'd scripts.
@@ -197,7 +201,8 @@ export const getCspHeader = (nonce?: string) => {
     : (() => {
         const parts = [
           "'self'",
-          "'unsafe-inline'", // Required for Next.js inline scripts and Cloudflare Zaraz
+          `'nonce-${nonce}'`, // Nonce causes 'unsafe-inline' below to be ignored by CSP3 browsers
+          "'unsafe-inline'", // Required for Next.js hydration & Cloudflare Zaraz; ignored when nonce present
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
         ];

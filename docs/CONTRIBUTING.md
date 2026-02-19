@@ -64,10 +64,12 @@ npm run test:coverage    # Generate coverage report
 2. Make your changes
 3. Write or update tests
 4. Run tests and linter:
+
    ```bash
    npm run test
    npm run lint
    ```
+
 5. Commit with clear messages (see [Commit Messages](#commit-messages))
 6. Push and create a Pull Request
 
@@ -90,6 +92,7 @@ When you create a PR from a branch in the main repository:
 **You don't need to manually bump versions!** 🎉
 
 **Files automatically updated:**
+
 - `package.json` and `package-lock.json`
 - `.example.env` (NEXT_PUBLIC_APP_VERSION)
 - `public/api-docs/openapi.yaml`
@@ -103,10 +106,13 @@ If contributing from a forked repository:
 1. Create your PR as normal
 2. The bot will comment with instructions
 3. Run the version bump script locally:
+
    ```bash
    CI=true GITHUB_HEAD_REF="$(git rev-parse --abbrev-ref HEAD)" node scripts/bump-version.js
    ```
+
 4. Commit and push the changes:
+
    ```bash
    git add package.json package-lock.json .example.env public/api-docs/openapi.yaml
    git commit -m "chore: bump version"
@@ -116,12 +122,14 @@ If contributing from a forked repository:
 ### Version Format (Rollover System)
 
 GhostClass uses `X.Y.Z` format where:
+
 - **X** = Major (can exceed 9)
 - **Y** = Minor (0-9, rolls over)
 - **Z** = Patch (0-9, rolls over)
 
 Examples:
-```
+
+```text
 1.6.9 → 1.7.0   (patch rollover)
 1.9.9 → 2.0.0   (minor rollover)
 9.9.9 → 10.0.0  (major version can exceed 9)
@@ -207,7 +215,7 @@ docker build \
 ### CI/CD Build Times
 
 | Build Type | Platforms | Time | Use Case |
-|-----------|-----------|------|----------|
+| --- | --- | --- | --- |
 | Cached build | AMD64 | ~3-5 min | Incremental changes |
 | Cold build | AMD64 | ~6-8 min | Fresh build |
 | Multi-arch | AMD64 + ARM64 | ~10-15 min | Production releases |
@@ -220,6 +228,7 @@ docker build \
 - **Dependency caching**: npm dependencies cached separately
 
 To test with ARM64 locally:
+
 ```bash
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
@@ -230,7 +239,7 @@ docker buildx build \
 
 Follow conventional commit format:
 
-```
+```text
 <type>(<scope>): <subject>
 ```
 
@@ -256,7 +265,8 @@ chore: bump version to v1.7.0
 ```
 
 For multi-line commits:
-```
+
+```text
 feat(dashboard): add attendance calendar view
 
 Implements a monthly calendar view showing attendance history.
@@ -298,14 +308,14 @@ To enable automated workflows and deployments, maintainers need:
 ### Maintainer Tools
 
 **Sync Secrets Script** (`npm run sync-secrets`)
+
 - Syncs `.env` values to GitHub repository secrets
 - Only needed when updating build-time environment variables
 - Requires GitHub CLI (`gh`) with authentication
 - External contributors don't need this
 
-**Version Management**
-- Same-repo PRs: Auto-bump commits directly to PR branches (uses BOT_PAT)
-- Fork PRs: Manual bump by contributor (no secrets needed)
+### Version Management
+
 - Tag creation: Automatic after merge to main
 
 For detailed maintainer workflows, see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).

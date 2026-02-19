@@ -11,9 +11,9 @@ FROM ${NODE_IMAGE} AS base
 
 # Install wget and update npm to version 11 (pinned by hash)
 RUN apk add --no-cache wget && \
-    wget -O npm.tgz https://registry.npmjs.org/npm/-/npm-11.10.0.tgz && \
-    echo "43c653384c39617756846ad405705061a78fb6bbddb2ced57ab79fb92e8af2a7  npm.tgz" | sha256sum -c - && \
-    npm install -g npm.tgz && \
+  wget -O npm.tgz https://registry.npmjs.org/npm/-/npm-11.10.0.tgz && \
+  echo "43c653384c39617756846ad405705061a78fb6bbddb2ced57ab79fb92e8af2a7  npm.tgz" | sha256sum -c - && \
+  npm install -g ./npm.tgz && \
     rm npm.tgz && \
     rm -rf /var/cache/apk/*
 
@@ -47,7 +47,8 @@ RUN npm ci \
     --ignore-scripts \
     --no-audit \
     --no-fund \
-    --prefer-offline
+    --prefer-offline \
+    --legacy-peer-deps
 
 # ===============================
 # 2. Build layer

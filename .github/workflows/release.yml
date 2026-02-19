@@ -231,6 +231,9 @@ jobs:
             echo "✓ Using IMAGE_NAME from secret: ${IMAGE_NAME}"
           fi
 
+          # Mask the image name output to suppress GitHub Actions warnings about potential secrets
+          echo "::add-mask::${IMAGE_NAME}"
+          
           # Output the image name
           echo "image_name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
 

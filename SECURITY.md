@@ -7,6 +7,7 @@ If you discover a security vulnerability in GhostClass, please report it respons
 **Email**: [admin@ghostclass.devakesu.com](mailto:admin@ghostclass.devakesu.com)
 
 Please include:
+
 - Description of the vulnerability
 - Steps to reproduce
 - Potential impact
@@ -19,11 +20,13 @@ We take security seriously and will respond to reports as quickly as possible.
 GhostClass implements multiple layers of security:
 
 ### Authentication & Authorization
+
 - **Supabase Auth** - Industry-standard authentication with JWT tokens
 - **Row Level Security (RLS)** - Database-level access control ensuring users only access their data
 - **Session Management** - Secure session handling with automatic expiration
 
 ### Data Protection
+
 - **HttpOnly Cookies** - Sensitive tokens stored in secure, HttpOnly cookies
 - **Secure Headers** - HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy
 - **Input Validation** - Zod schemas validate all user input
@@ -31,6 +34,7 @@ GhostClass implements multiple layers of security:
 - **AES-256-GCM Encryption** - Secure token encryption at rest
 
 ### API Security
+
 - **Rate Limiting** - Upstash Redis-based rate limiting per IP/user
 - **Circuit Breaker Pattern** - Graceful handling of upstream API failures
 - **Request Deduplication** - Prevents duplicate concurrent requests
@@ -38,6 +42,7 @@ GhostClass implements multiple layers of security:
 - **CSRF Protection** - Custom token-based CSRF protection
 
 ### Supply Chain Security
+
 - **Signed Docker Images** - All images signed with Sigstore cosign (keyless OIDC)
 - **SLSA Level 3 Provenance** - Build provenance attestations
 - **GitHub Attestations** - Native GitHub artifact attestations
@@ -46,6 +51,7 @@ GhostClass implements multiple layers of security:
 - **Vulnerability Scanning** - Trivy scanning on every build
 
 ### CI/CD Security
+
 - **Script Injection Prevention** - Environment variables used for all untrusted GitHub Actions inputs
 - **Least Privilege Permissions** - Workflows use minimum required permissions with explicit grants
 - **GPG Signing** - Commits and tags cryptographically signed (except Dependabot PRs)
@@ -53,6 +59,7 @@ GhostClass implements multiple layers of security:
 - **Dependabot Isolation** - Special handling for Dependabot PRs without secret access
 
 ### Environment Security
+
 - **Environment Variable Validation** - Runtime validation of required secrets
 - **Two-Tier Secret Management** - Separate build-time and runtime secrets
 - **Production Safety Checks** - Strict validation in production mode
@@ -63,37 +70,43 @@ GhostClass uses npm overrides to enforce minimum secure versions of transitive d
 
 ### Current Overrides (package.json)
 
-**tar: ^7.5.6**
+#### tar: ^7.5.6
+
 - **Reason**: Path traversal vulnerabilities in versions <6.1.9
 - **CVEs**: CVE-2021-32803, CVE-2021-32804, CVE-2021-37701, CVE-2021-37712, CVE-2021-37713
 - **Scope**: Dev-only (used by supabase CLI for unpacking)
 - **Status**: ✅ Patched
 
-**fast-xml-parser: ^5.3.4**
+#### fast-xml-parser: ^5.3.4
+
 - **Reason**: Prototype pollution and XXE (XML External Entity) vulnerabilities in versions <4.2.4
 - **CVEs**: CVE-2023-26920 (prototype pollution), CVE-2022-39353 (XXE)
 - **Scope**: Dev-only (used by @redocly/cli for OpenAPI parsing)
 - **Status**: ✅ Patched
 
-**js-yaml: ^4.1.1**
+#### js-yaml: ^4.1.1
+
 - **Reason**: Code execution via `load()` function in versions <4.0.0
 - **CVEs**: CVE-2021-23343
 - **Scope**: Dev-only (used by ESLint and Redocly CLI)
 - **Status**: ✅ Patched
 
-**glob: ^13.0.4**
+#### glob: ^13.0.4
+
 - **Reason**: Performance improvements and security hardening in v13+
 - **Scope**: Dev-only (used by build tools: Sentry, Serwist)
 - **Status**: ✅ Up-to-date
 
-**source-map: ^0.7.6**
+#### source-map: ^0.7.6
+
 - **Reason**: Dependency resolution conflicts and stability improvements
 - **Scope**: Dev-only (used by Vite/Terser for sourcemap generation)
 - **Status**: ✅ Up-to-date
 
-**@redocly/cli, @redocly/openapi-core, @redocly/respect-core → ajv: ^8.18.0 (selective override)**
+#### @redocly/cli, @redocly/openapi-core, @redocly/respect-core → ajv: ^8.18.0 (selective override)
+
 - **Reason**: ReDoS vulnerability when using `$data` option in @redocly packages' ajv dependency
-- **CVEs**: CVE-2025-69873
+- **CVEs**: CVE-2025-69873 / [GHSA-2g4f-4pwh-qvx6](https://github.com/advisories/GHSA-2g4f-4pwh-qvx6)
 - **Scope**: Dev-only (Redocly CLI for OpenAPI validation)
 - **Status**: ✅ Patched via selective overrides
 - **Note**: ESLint dependencies retain older ajv versions to maintain compatibility (see Known Issues)
@@ -109,24 +122,26 @@ GhostClass uses npm overrides to enforce minimum secure versions of transitive d
 
 ### Development Dependencies
 
-**ajv <8.18.0 ReDoS vulnerability (CVE-2025-69873) in ESLint dependencies**
+#### ajv <8.18.0 ReDoS vulnerability (CVE-2025-69873 / GHSA-2g4f-4pwh-qvx6) in ESLint dependencies
+
 - **Status**: ⚠️ Accepted (dev-only trade-off)
 - **Severity**: Moderate (CVSS 5.3)
-- **Scope**: ESLint and its dependencies (@eslint/eslintrc, @typescript-eslint/*)
-- **Decision Rationale**: 
-  - Global ajv override to 8.18.0 breaks ESLint due to incompatible API changes
-  - ESLint v9.39.2 requires older ajv version for internal configuration parsing
-  - Development tooling functionality prioritized over dev-only vulnerability
+- **Affected packages**: `eslint` (internal ajv v6), `@eslint/eslintrc`, `@typescript-eslint/*`
+- **Scope**: Dev tooling only — not present in the Docker image or production runtime
+- **Decision Rationale**:
+  - A global `ajv` override to v8 breaks ESLint because ajv v6→v8 has breaking API changes; ESLint v9 requires ajv v6 for internal configuration schema validation
+  - ESLint 10 was released but cannot be adopted yet: `typescript-eslint` v8 (latest: v8.56.0) does not support the new scope manager API introduced in ESLint 10; `typescript-eslint` v9 has not been released
+  - Selective `@redocly/*` overrides already patch the same CVE in the Redocly CLI dependency tree
 - **Mitigation**:
-  - ✅ @redocly packages patched via selective overrides (OpenAPI validation tools)
-  - ✅ ESLint runs in isolated CI/dev environments, not in production
-  - ✅ No user input processed by ESLint's ajv usage
-  - 📊 Monitoring ESLint/typescript-eslint for ajv 8.18.0+ compatibility
-- **Production Impact**: **None** - ESLint not included in Docker image or runtime bundle
-- **Expected Resolution**: ESLint v10 or typescript-eslint v9 (early 2026)
-- **Alternatives Considered**: Downgrading ESLint (rejected - security/feature trade-offs)
-- **Exploitability**: Requires `$data: true` configuration and attacker-controlled schema input (not present in linting/validation workflow)
-- **Future Resolution**: Will upgrade to ESLint 10 when typescript-eslint v9 releases (Q1 2026)
+  - ✅ @redocly packages patched via selective overrides (`eslint-config-next` ajv kept separate)
+  - ✅ ESLint runs only in isolated CI/dev environments, never in production
+  - ✅ No user-controlled input is processed by ESLint's internal ajv usage
+  - ✅ `$data` option is not enabled in this project's ESLint or typescript-eslint configuration
+  - 📊 Tracking typescript-eslint v9 release for ESLint 10 adoption
+- **Production Impact**: **None** — ESLint and devDependencies are excluded from the Docker image (`npm ci` in a multi-stage build; standalone output omits devDeps from the runtime layer)
+- **Exploitability**: Requires `$data: true` in an ajv schema with attacker-controlled JSON Schema input — not present in any linting or validation workflow here
+- **Alternatives Considered**: Global ajv override to v8 (rejected — breaks ESLint entirely); downgrading ESLint below v9 (rejected — loses security and flat-config features)
+- **Expected Resolution**: Will upgrade to ESLint 10 once `typescript-eslint` v9 is released with ESLint 10 support
 
 ## GitHub Actions Security
 
@@ -135,6 +150,7 @@ GhostClass uses npm overrides to enforce minimum secure versions of transitive d
 GhostClass workflows are hardened against script injection attacks using environment variables for all untrusted inputs.
 
 #### Vulnerable Pattern (❌ DO NOT USE)
+
 ```yaml
 run: |
   VERSION_TAG="${{ github.event.inputs.version_tag }}"
@@ -144,6 +160,7 @@ run: |
 **Risk**: Attacker-controlled inputs like branch names, tag names, or workflow inputs can contain shell metacharacters (`;`, `|`, `$()`, etc.) that execute arbitrary commands.
 
 #### Secure Pattern (✅ ALWAYS USE)
+
 ```yaml
 env:
   INPUT_VERSION_TAG: ${{ github.event.inputs.version_tag }}
@@ -156,20 +173,23 @@ run: |
 
 #### Protected Workflows
 
-**auto-version-bump.yml**
+##### auto-version-bump.yml
+
 - `github.actor` → `ACTOR` environment variable
 - `github.head_ref` → `HEAD_REF` environment variable
 - `github.event.pull_request.head.repo.full_name` → `PR_HEAD_REPO` environment variable
 - Prevents malicious branch names from executing code during Dependabot detection
 
-**release.yml**
+##### release.yml
+
 - `github.event.client_payload.version_tag` → `INPUT_VERSION_TAG_DISPATCH` environment variable
 - `github.event.inputs.version_tag` → `INPUT_VERSION_TAG_MANUAL` environment variable
 - `github.ref_name` → `REF_NAME` environment variable
 - `github.ref_type` → `REF_TYPE` environment variable
 - Prevents malicious tag names in repository_dispatch and manual workflow triggers
 
-**pipeline.yml**
+##### pipeline.yml
+
 - `github.repository` → `REPO` environment variable
 - `github.run_id` → `RUN_ID` environment variable
 - Prevents repository name manipulation in GitHub API calls
@@ -187,6 +207,7 @@ All Docker images are signed using Sigstore cosign with keyless (OIDC) signing.
 ### Prerequisites
 
 Install cosign:
+
 ```bash
 # macOS
 brew install cosign
@@ -255,6 +276,7 @@ docker pull "${IMAGE}"
 ### GitHub Attestations
 
 View build attestations:
+
 ```bash
 # View provenance
 gh attestation verify oci://ghcr.io/devakesu/ghostclass:latest \
@@ -267,13 +289,15 @@ gh attestation verify oci://ghcr.io/devakesu/ghostclass:latest \
 ```
 
 Or browse attestations on GitHub:
-https://github.com/devakesu/GhostClass/attestations
+
+[https://github.com/devakesu/GhostClass/attestations](https://github.com/devakesu/GhostClass/attestations)
 
 ### Web Interface
 
 View build provenance and security information directly in your browser:
 
 **Live Deployment**: Visit `/build-info` on any running instance to see:
+
 - Build ID with links to GitHub Actions workflow runs
 - Commit SHA and deployment timestamp
 - Security audit status (Trivy scan results)
@@ -289,6 +313,7 @@ The web interface provides a user-friendly way to verify build provenance withou
 Before deploying to production:
 
 ### Required Configuration
+
 - [ ] All required environment variables are set
 - [ ] Database RLS policies are enabled
 - [ ] Docker image signature verified
@@ -296,6 +321,7 @@ Before deploying to production:
 - [ ] Secure headers configured
 
 ### Security Controls
+
 - [ ] Origin validation enabled
 - [ ] Rate limiting configured (Upstash Redis)
 - [ ] Circuit breaker thresholds set appropriately
@@ -303,12 +329,14 @@ Before deploying to production:
 - [ ] CSRF protection enabled
 
 ### Monitoring & Logging
+
 - [ ] Sentry error tracking configured
 - [ ] Security event logging enabled
 - [ ] Health check endpoint accessible
 - [ ] Vulnerability scanning in CI/CD
 
 ### Network Security
+
 - [ ] Container behind reverse proxy/firewall
 - [ ] No direct external access to container
 - [ ] Internal network isolation
@@ -345,10 +373,10 @@ View our security score: [![OpenSSF Scorecard](https://api.scorecard.dev/project
 
 ## Additional Resources
 
-- **SLSA Framework**: https://slsa.dev
-- **Sigstore Project**: https://sigstore.dev
-- **OpenSSF Scorecard**: https://scorecard.dev
-- **GitHub Security**: https://docs.github.com/en/code-security
+- **SLSA Framework**: [https://slsa.dev](https://slsa.dev)
+- **Sigstore Project**: [https://sigstore.dev](https://sigstore.dev)
+- **OpenSSF Scorecard**: [https://scorecard.dev](https://scorecard.dev)
+- **GitHub Security**: [https://docs.github.com/en/code-security](https://docs.github.com/en/code-security)
 
 ---
 

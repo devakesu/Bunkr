@@ -7,7 +7,7 @@ import { useInstitutions } from "@/hooks/users/institutions";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Toaster } from "@/components/toaster";
-import { motion, useScroll } from "framer-motion";
+import { LazyMotion, domAnimation, m as motion, useScroll } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { createClient } from "@/lib/supabase/client";
@@ -130,6 +130,7 @@ export default function ProtectedLayout({
         {/* Only render protected content when definitively authorized and institutions loaded */}
         {!showLoading && (
           <>
+            <LazyMotion features={domAnimation}>
             <motion.div
               variants={{
                 visible: { y: 0 },
@@ -154,6 +155,7 @@ export default function ProtectedLayout({
             >
               <Navbar />
             </motion.div>
+            </LazyMotion>
             
             <main className="flex-1 w-full bg-background pt-20">
               <ErrorBoundary>

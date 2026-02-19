@@ -6,7 +6,28 @@ import { useNotifications, Notification } from "@/hooks/notifications/useNotific
 import { useUser } from "@/hooks/users/user";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import * as Sentry from "@sentry/nextjs";
+import type { CaptureContext } from "@sentry/core";
+// Lazy Sentry helpers – deferred import keeps the Sentry SDK (~250 KB) out of the initial bundle.
+const captureSentryException = (error: unknown, context?: CaptureContext) => {
+  void import("@sentry/nextjs")
+    .then(({ captureException }) => captureException(error, context))
+    .catch((importError) => {
+      // eslint-disable-next-line no-console
+      console.error("[Sentry] Failed to load SDK for captureException:", importError);
+      // eslint-disable-next-line no-console
+      console.error("[Sentry] Original error:", error);
+    });
+};
+const captureSentryMessage = (message: string, context?: CaptureContext) => {
+  void import("@sentry/nextjs")
+    .then(({ captureMessage }) => captureMessage(message, context))
+    .catch((importError) => {
+      // eslint-disable-next-line no-console
+      console.error("[Sentry] Failed to load SDK for captureMessage:", importError);
+      // eslint-disable-next-line no-console
+      console.error("[Sentry] Original message:", message);
+    });
+};
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
@@ -89,10 +110,6 @@ export default function NotificationsPage() {
   // Use mountId-based sync logic
   const mountId = useRef(Math.random().toString(36));
   const lastSyncMountId = useRef<string | null>(null);
-  
-  // Add sync state
-  const [isSyncing, setIsSyncing] = useState(true);
-  const [syncCompleted, setSyncCompleted] = useState(false);
 
   const { 
     actionNotifications, 
@@ -107,6 +124,8 @@ export default function NotificationsPage() {
   } = useNotifications(true);
 
   const [readingId, setReadingId] = useState<number | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncCompleted, setSyncCompleted] = useState(false);
 
   // BUILD VIRTUAL LIST WITH HEADERS
   const virtualItems = useMemo<VirtualItem[]>(() => {
@@ -191,12 +210,15 @@ export default function NotificationsPage() {
 
   // SYNC ON MOUNT (with mountId-based deduplication)
   useEffect(() => {
-    if (!user?.username) return;
+    if (!user?.username) {
+      // User is loaded but has no username – skip sync so page can render
+      if (user?.id) setSyncCompleted(true);
+      return;
+    }
 
     // Check if sync already ran for THIS mount
     if (lastSyncMountId.current === mountId.current) {
       logger.dev('[Notifications] Sync already completed for this mount, skipping');
-      setIsSyncing(false);
       setSyncCompleted(true);
       return;
     }
@@ -207,7 +229,6 @@ export default function NotificationsPage() {
     const syncNotifications = async () => {
       logger.dev('[Notifications] Starting sync for mount:', mountId.current);
       setIsSyncing(true);
-      setSyncCompleted(false);
 
       try {
         const res = await fetch(`/api/cron/sync?username=${user.username}`, {
@@ -226,7 +247,7 @@ export default function NotificationsPage() {
             description: "Some notifications couldn't be synced. Your notification list may be incomplete."
           });
           
-          Sentry.captureMessage("Partial sync failure in notifications", {
+          captureSentryMessage("Partial sync failure in notifications", {
             level: "warning",
             tags: { type: "notification_partial_sync", location: "NotificationsClient/useEffect/syncNotifications" },
             extra: { userId: redact("id", String(user?.id)), response: data }
@@ -251,7 +272,7 @@ export default function NotificationsPage() {
         if (process.env.NODE_ENV === 'development') {
           logger.error("Notification background sync failed", error);
         }
-        Sentry.captureException(error, {
+        captureSentryException(error, {
           tags: { type: "notification_sync", location: "NotificationsClient/useEffect/syncNotifications" },
           extra: { userId: redact("id", String(user?.id)) }
         });
@@ -301,7 +322,7 @@ export default function NotificationsPage() {
             logger.error("Failed to mark notification read", error);
           }
           toast.error("Could not update notification");
-          Sentry.captureException(error, {
+          captureSentryException(error, {
               tags: { type: "mark_notification_read", location: "NotificationsClient/handleMarkRead" },
               extra: { notification_id: id, action: "mark_read", userId: redact("id", String(user?.id)) }
           });
@@ -310,8 +331,8 @@ export default function NotificationsPage() {
       }
   }, [markAsRead, readingId, rowVirtualizer, user?.id]);
 
-  // Wait for both data loading AND sync completion
-  if (isLoading || isSyncing || !syncCompleted) return <Loading />;
+  // Block rendering until user is available, data has loaded, and initial sync has completed.
+  if (!user?.id || isLoading || isSyncing || !syncCompleted) return <Loading />;
 
   const isEmpty = virtualItems.length === 0;
 

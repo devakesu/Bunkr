@@ -1,7 +1,7 @@
 # GhostClass
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Version](https://img.shields.io/github/v/release/devakesu/GhostClass?label=Version)](https://github.com/devakesu/GhostClass/releases/latest)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/devakesu/GhostClass/badge)](https://scorecard.dev/viewer/?uri=github.com/devakesu/GhostClass)
 [![SLSA Level 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 [![Attestations](https://img.shields.io/badge/Attestations-View-brightgreen?logo=github)](https://github.com/devakesu/GhostClass/attestations)
@@ -12,8 +12,6 @@
 [![React](https://img.shields.io/badge/React-19.2.3-61DAFB?logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
-[![TanStack Query](https://img.shields.io/badge/TanStack%20Query-5.90.17-FF4154?logo=react-query&logoColor=white)](https://tanstack.com/query)
-[![Recharts](https://img.shields.io/badge/Recharts-3.6.0-22B5BF)](https://recharts.org)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19.2%2B%20%7C%2022.12.0%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![Tests](https://img.shields.io/badge/Tests-Vitest%20%2B%20Playwright-green)](https://vitest.dev/)
 
@@ -21,9 +19,8 @@
 
 GhostClass is the ultimate academic survival tool for students who want to manage their attendance without the main character energy of a professor. Featuring a sleek dashboard with real-time analytics and visual performance charts, it helps you track your classes so you never accidentally ghost your degree. With a built-in "bunk calculator" to tell you exactly how many lectures you can skip before it becomes a canon event, and a dedicated tracker for suspicious absences, GhostClass ensures your attendance stays valid while you live your best life. Built as a better alternative to Ezygo, it presents your attendance data with a clean, intuitive interface. No more confusing numbers - just clear, actionable insights!
 
-<br />
-
 ## 🎯 Key "Vibe" Features
+
 - **The Bunk Calc** 🧮: Know exactly how many classes you can miss before the threshold comes for your neck.
 - **Visual Receipts** 📊: Performance charts and a detailed calendar history so you can see your attendance glow-up in real-time.
 - **Anti-Ghosting Tracker** 👻: A personalized list to watch wrongly marked absences like a hawk until they get updated.
@@ -35,39 +32,43 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 - **API Documentation** 📚 - Interactive OpenAPI documentation at `/api-docs`
 - **Build Transparency** 🔍 - View complete build provenance and SLSA attestations at `/build-info`
 
-<br />
-
 ## 🛠️ Tech Stack
 
-**Core Framework**
+### Core Framework
+
 - **Next.js 16.1.6** - React 19 with App Router
 - **TypeScript 5.9.3** - Strict mode for type safety
 - **Node.js** - v20.19.2+ or v22.12.0+
 
-**Styling & UI**
+### Styling & UI
+
 - **Tailwind CSS 4** - Utility-first styling with custom design system
 - **Radix UI** - Accessible, unstyled component primitives
 - **Shadcn UI** - Beautiful pre-styled components
 - **Framer Motion** - Smooth animations and transitions
 - **Lucide Icons** - Modern, customizable icon library
 
-**Data & State Management**
+### Data & State Management
+
 - **TanStack Query (React Query) v5** - Server state management with smart caching
 - **React Hook Form + Zod v4** - Form validation with schema validation
 - **Recharts v3** - Interactive data visualizations with responsive charts
 
-**API & Documentation**
+### API & Documentation
+
 - **OpenAPI 3.1** - API specification standard
 - **Scalar** - Interactive API documentation viewer
 - **Redocly CLI** - OpenAPI validation and linting
 
-**Backend & Database**
+### Backend & Database
+
 - **Supabase** - PostgreSQL database with Row Level Security
 - **Supabase Auth** - Secure authentication system
 - **Axios v1** - HTTP client for API requests with retry logic
 - **LRU Cache v11** - In-memory caching for API responses
 
-**Security & Monitoring**
+### Security & Monitoring
+
 - **AES-256-GCM Encryption** - Secure token storage
 - **CSRF Protection** - Custom token-based protection
 - **Upstash Redis** - Rate limiting with `@upstash/ratelimit`
@@ -76,7 +77,8 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 - **Cloudflare Turnstile** - Bot protection
 - **OSSF Scorecard** - Security best practices monitoring
 
-**DevOps & Deployment**
+### DevOps & Deployment
+
 - **Docker** - Containerized deployment with multi-stage builds
 - **GitHub Actions** - CI/CD pipeline with reproducible builds
 - **SLSA Level 3** - Supply chain security with provenance attestation
@@ -85,11 +87,9 @@ GhostClass is the ultimate academic survival tool for students who want to manag
 - **Playwright** - E2E testing
 - **Vitest** - Unit and component testing
 
-<br />
-
 ## 📁 Project Structure
 
-```
+```text
 src/
 ├── instrumentation.ts        # Sentry server instrumentation
 ├── instrumentation-client.ts # Sentry browser instrumentation
@@ -127,9 +127,11 @@ src/
 │   └── layout.tsx            # Root layout with providers
 ├── components/               # Reusable React components
 │   ├── attendance/           # Attendance-specific components
-│   │   ├── course-card.tsx      # Individual course display
-│   │   ├── attendance-calendar.tsx # Calendar view
-│   │   └── attendance-chart.tsx # Performance charts
+│   │   ├── course-card.tsx         # Individual course display with bunk calculator
+│   │   ├── attendance-calendar.tsx # Calendar view of daily attendance
+│   │   ├── attendance-chart.tsx    # Performance charts
+│   │   ├── AddAttendanceDialog.tsx # Dialog for adding manual attendance records
+│   │   └── AddRecordTrigger.tsx    # Trigger button for the add-record dialog
 │   ├── layout/               # Layout components (navbar, footer, sidebar)
 │   ├── legal/                # Legal content components
 │   ├── user/                 # User-related components
@@ -193,10 +195,8 @@ src/
 supabase/
 ├── config.toml               # Supabase local config
 └── migrations/               # Database schema migrations
-    └── 20260212090500_remote_schema.sql
+    └── 20260217174834_remote_schema.sql
 ```
-
-<br />
 
 ## 🧮 Attendance Calculation Algorithm
 
@@ -204,7 +204,7 @@ The core attendance calculation algorithm is implemented in [bunk.ts](src/lib/lo
 
 ### Algorithm Flow
 
-```ts
+```typescript
 function calculateAttendance(present, total, targetPercentage):
   
   1. Input Validation & Normalization
@@ -253,7 +253,8 @@ The course card combines official attendance data with manual tracking:
    - `correctionPresent`: Wrongly marked absences corrected to present (status swap only)
 
 3. **Final Calculation**:
-   ```ts
+
+   ```typescript
    finalPresent = realPresent + correctionPresent + extraPresent
    finalTotal = realTotal + extras (extraPresent + extraAbsent)
    displayPercentage = (finalPresent / finalTotal) * 100
@@ -274,23 +275,26 @@ The course card combines official attendance data with manual tracking:
 
 ### Example Scenarios
 
-**Scenario 1: Need More Classes**
-```
+#### Scenario 1: Need More Classes
+
+```text
 Present: 45, Total: 60, Target: 75%
 Current: 75.0% → At target
 Result: isExact = true
 ```
 
-**Scenario 2: Can Bunk Classes**
-```
+#### Scenario 2: Can Bunk Classes
+
+```text
 Present: 50, Total: 60, Target: 75%
 Current: 83.33% → Above target
 bunkableExact = (100*50 - 75*60) / 75 = 6.67
 Result: canBunk = 6 classes
 ```
 
-**Scenario 3: Need to Attend**
-```
+#### Scenario 3: Need to Attend
+
+```text
 Present: 40, Total: 60, Target: 75%
 Current: 66.67% → Below target
 required = ceil((75*60 - 100*40) / (100-75)) = 6
@@ -298,7 +302,8 @@ Result: requiredToAttend = 6 classes
 ```
 
 *Formula derivation: To reach target% with x more classes attended:*
-```
+
+```text
 (present + x) / (total + x) = target / 100
 100(present + x) = target(total + x)
 100*present + 100x = target*total + target*x
@@ -306,8 +311,6 @@ Result: requiredToAttend = 6 classes
 x(100 - target) = target*total - 100*present
 x = (target*total - 100*present) / (100 - target)
 ```
-
-<br />
 
 ## 🚀 Getting Started
 
@@ -323,42 +326,52 @@ For detailed development environment setup including GPG signing and Bot PAT con
 ### Quick Start
 
 1. Clone the Repository
+
    ```bash
    git clone https://github.com/devakesu/GhostClass.git
    ```
 
 2. Navigate to Project Directory
+
    ```bash
    cd GhostClass
    ```
 
 3. Install Dependencies
+
    ```bash
-   npm install
-   # or
-   yarn install
+   npm install --legacy-peer-deps
    ```
 
+   > **Note:** The `--legacy-peer-deps` flag is required to resolve peer dependency conflicts between packages (including `minimatch` constraints from the Sentry SDK and `eslint-config-next` / `typescript-eslint` compatibility ranges). This flag is applied consistently across local development, GitHub Actions CI (`npm ci --legacy-peer-deps`), and Docker builds to ensure reproducible, identical dependency trees.
+
 4. Go to [Supabase.com](https://supabase.com) and create a new project.
-   
+
    Login & Link:
-    ```bash
+
+   ```bash
     npx supabase login
     npx supabase link --project-ref <your-new-project-id>
     ```
-    Create Database Tables: push the schema from this repo to your new remote database:
-    ```bash
+
+   Create Database Tables: push the schema from this repo to your new remote database:
+
+   ```bash
     npx supabase db push
     ```
-    *(This creates all tables, policies, and triggers defined in `supabase/migrations`)*
+
+   *(This creates all tables, policies, and triggers defined in `supabase/migrations`)*
 
 5. Copy the example environment file
+
+   ```bash
+   cp .example.env .env
    ```
-   cp .env.example .env
-   ```
+
    Open `.env` and populate the keys.
-    
+
 6. Start Development Server
+
    ```bash
    npm run dev
    # or
@@ -366,10 +379,9 @@ For detailed development environment setup including GPG signing and Bot PAT con
    ```
 
 The application will be available at:
+
 - **App**: `http://localhost:3000` 🎉
 - **API Docs**: `http://localhost:3000/api-docs`
-
-<br />
 
 ## ⚙️ Configuration
 
@@ -382,19 +394,19 @@ The default minimum attendance target has been updated from **50%** to **75%** t
 - Existing users: Any target below the minimum (75%) is automatically adjusted upward to meet the threshold
 
 To customize the minimum target, set the environment variable:
+
 ```bash
 NEXT_PUBLIC_ATTENDANCE_TARGET_MIN=75  # Default: 75%
 ```
 
 **Note:** All existing users with targets below 75% will have their targets automatically adjusted to 75% on next login or settings sync. This ensures compliance with institutional attendance policies while preserving targets that already meet or exceed the minimum.
 
-<br />
-
 ## ⚡ Performance Optimizations
 
 GhostClass is optimized for maximum performance:
 
-**Progressive Web App (PWA)**
+### Progressive Web App (PWA)
+
 - Service worker with Serwist for offline functionality and caching
 - **Production Build**: Service worker compiled via esbuild in Docker (standalone mode compatibility workaround)
   - `@serwist/next` doesn't generate SW with Next.js `output: "standalone"` mode
@@ -406,10 +418,12 @@ GhostClass is optimized for maximum performance:
   - Static assets: StaleWhileRevalidate for CSS/JS/workers
   - Images: CacheFirst with 30-day expiration (trusted sources only)
   - API requests: NetworkFirst (no explicit timeout; serves cache if network request fails)
-  - Note: Only /api/public/* and /api/static/* API endpoints are cached; all other API endpoints, including /api/user-settings and /api/attendance, always use the network to ensure fresh user data
+  - Note: Only `/api/public/*` and `/api/static/*` API endpoints are cached; all other API endpoints, including `/api/user-settings` and `/api/attendance`, always use the network to ensure fresh user data
 
-**Testing PWA Features Locally**
+### Testing PWA Features Locally
+
 By default, service workers are disabled in development to avoid caching issues. To test PWA functionality (offline mode, caching, install prompts) during development:
+
 ```bash
 # Unix/Linux/macOS
 NEXT_PUBLIC_ENABLE_SW_IN_DEV="true" npm run dev
@@ -420,15 +434,18 @@ set NEXT_PUBLIC_ENABLE_SW_IN_DEV=true && npm run dev
 # Windows PowerShell
 $env:NEXT_PUBLIC_ENABLE_SW_IN_DEV="true"; npm run dev
 ```
+
 This enables the service worker in development mode without requiring a production build.
 
-**Code Splitting & Loading Strategy**
+### Code Splitting & Loading Strategy
+
 - Next.js App Router automatic route-based code splitting for pages and layouts
 - Recharts chart components (XAxis, YAxis, Tooltip) imported directly from `recharts`
 - Lazy loaded Framer Motion with `domAnimation` features only
 - Direct dimension measurement for charts (eliminates ResponsiveContainer warnings)
 
-**Caching Strategy**
+### Caching Strategy
+
 - React Query with smart cache timing:
   - Profile data: 5min stale time, 30min garbage collection
   - General queries: 3min stale time, 10min garbage collection
@@ -438,20 +455,34 @@ This enables the service worker in development mode without requiring a producti
 - Static assets: 1-year cache headers for fonts and `_next/static`
 - Next.js Image optimization with AVIF/WebP formats
 
-**Bundle Optimization**
+### Bundle Optimization
+
 - Tree-shaking for `lucide-react`, `date-fns`, `framer-motion`
 - Console logging preserved in production (keeps log/error/warn)
 - Font optimization with `display: swap` (prevents FOIT)
 - Priority loading for critical images (logo, avatar)
 - Blur placeholders for instant image feedback
+- Production source maps are **off by default**; opt in with `ENABLE_PUBLIC_BROWSER_SOURCEMAPS=true` (see below)
 
-**Development Experience**
+### Production Source Maps
+
+By default, JavaScript source maps are **not** served publicly in production builds. Source maps are always uploaded to Sentry separately for private error symbolication.
+
+To enable public source maps (useful for Lighthouse audits or open DevTools debugging):
+
+```bash
+# .env
+ENABLE_PUBLIC_BROWSER_SOURCEMAPS=true
+```
+
+> ⚠️ **Security note:** Public source maps make it easier to analyse the exact deployed code. Enable only when the DevTools/Lighthouse benefit outweighs the trade-off.
+
+### Development Experience
+
 - Webpack bundler (for Serwist PWA compatibility)
 - Origin validation skipped in dev mode
 - Fast Refresh with React 19
 - No NProgress blur on login page
-
-<br />
 
 ## 🧪 Testing
 
@@ -459,7 +490,7 @@ GhostClass uses **Vitest** for unit/component tests and **Playwright** for E2E t
 
 ### Test Structure
 
-```
+```text
 src/
 ├── components/__tests__/
 │   └── error-boundary.test.tsx      # Error boundary component tests
@@ -500,6 +531,7 @@ npm run docs:validate      # Lint OpenAPI spec
 ### Test Coverage
 
 Current test suite includes:
+
 - ✅ **Attendance Algorithm** (`bunk.test.ts`) - 100% coverage of calculation logic
 - ✅ **Encryption/Decryption** (`crypto.test.ts`) - AES-256-GCM encryption tests
 - ✅ **Utility Functions** (`utils.test.ts`) - Helper function validation
@@ -508,11 +540,13 @@ Current test suite includes:
 - ✅ **E2E Smoke Tests** - Critical user flows
 
 **Coverage Goals:**
-- Current enforced threshold: **10%** (configured in `vitest.config.ts`)
+
+- Current enforced thresholds (configured in `vitest.config.ts`): lines **7%**, functions **8%**, branches **5%**, statements **7%**
 - All new features require accompanying tests
 - Critical paths (auth, attendance calculation, data sync) have priority coverage
 
 View detailed coverage report:
+
 ```bash
 npm run test:coverage
 # Open coverage/index.html in browser
@@ -544,6 +578,7 @@ describe('calculateAttendance', () => {
 ```
 
 For component tests using React Testing Library:
+
 ```typescript
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -552,8 +587,6 @@ it('should display attendance percentage', () => {
   expect(screen.getByText('75.0%')).toBeInTheDocument();
 });
 ```
-
-<br />
 
 ## 🔒 Security
 
@@ -573,17 +606,17 @@ GhostClass implements multiple layers of security:
 
 To report security vulnerabilities, please email: [admin@ghostclass.devakesu.com](mailto:admin@ghostclass.devakesu.com)
 
-<br />
-
 ## 🌍 Environment Variables
 
 GhostClass uses a two-tier secret management strategy:
 
-**Tier 1: Build-time (Public)**
+### Tier 1: Build-time (Public)
+
 - `NEXT_PUBLIC_*` variables - Safe for client-side exposure
 - `SENTRY_AUTH_TOKEN` - Secure BuildKit mount, not in image layers
 
-**Tier 2: Runtime (Private)**
+### Tier 2: Runtime (Private)
+
 - `ENCRYPTION_KEY` - AES-256-GCM encryption key
 - `CRON_SECRET` - Cron job authentication
 - `SUPABASE_SERVICE_ROLE_KEY` - Admin database access
@@ -595,13 +628,12 @@ See [.example.env](.example.env) for complete list with descriptions.
 
 **Important:** Never commit `.env` file to version control!
 
-<br />
-
 ## 🚀 Deployment
 
 GhostClass is deployed using Docker with reproducible builds:
 
 ### Docker Build
+
 ```bash
 # Build with BuildKit
 DOCKER_BUILDKIT=1 docker build -t ghostclass .
@@ -639,6 +671,7 @@ docker run -p 3000:3000 --env-file .env ghostclass
 For more details, see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md#versioning--releases).
 
 ### Production Checklist
+
 1. ✅ Set all required environment variables
 2. ✅ Configure Supabase
 3. ✅ Set up Sentry project for error tracking
@@ -650,13 +683,11 @@ For more details, see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md#versioning--r
 9. ✅ Configure legal terms version and effective date
 10. ✅ Set up GPG signing and Bot PAT for automated workflows (see [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md))
 
-<br />
-
 ## 🤝 Contributing
 
 We welcome contributions! GhostClass uses an **automatic version bumping system** that handles versioning for you.
 
-### Quick Start
+### Getting Started
 
 1. Fork the repository (or create a branch if you have write access)
 2. Create a feature branch (`git checkout -b feature/your-feature`)
@@ -678,13 +709,11 @@ We welcome contributions! GhostClass uses an **automatic version bumping system*
 
 For more details, see the [Contributing Guide](docs/CONTRIBUTING.md).
 
-<br />
-
 ## 👥 Maintained by
+
 - [Devanarayanan](https://github.com/devakesu/)
   
 Credits: [Bunkr](https://github.com/ABHAY-100/Bunkr/)
-<br />
 
 ## 📧 Contact
 
@@ -692,12 +721,8 @@ For any questions, feel free to reach out to me via email at
 [contact@ghostclass.devakesu.com](mailto:contact@ghostclass.devakesu.com)
 [fusion@devakesu.com](mailto:fusion@devakesu.com)
 
-<br />
-
 ## 📄 License
 
 This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
-
-<br />
 
 ***Thank you for your interest in GhostClass! Bunk classes & enjoy, but don't forget to study!! 😝🤝***
