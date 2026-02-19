@@ -48,11 +48,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { calculateAttendance } from "@/lib/logic/bunk";
 
+import type {
+  captureException as SentryCaptureException,
+  captureMessage as SentryCaptureMessage,
+} from "@sentry/nextjs";
+
 // Lazy Sentry helpers – deferred import keeps the Sentry SDK (~250 KB) out of the initial bundle.
-const captureSentryException = (error: unknown, context?: object) => {
+const captureSentryException = (error: unknown, context?: Parameters<SentryCaptureException>[1]) => {
   void import("@sentry/nextjs").then(({ captureException }) => captureException(error, context));
 };
-const captureSentryMessage = (message: string, context?: object) => {
+const captureSentryMessage = (message: string, context?: Parameters<SentryCaptureMessage>[1]) => {
   void import("@sentry/nextjs").then(({ captureMessage }) => captureMessage(message, context));
 };
 

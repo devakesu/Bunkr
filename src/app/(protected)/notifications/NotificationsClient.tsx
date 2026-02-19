@@ -6,11 +6,15 @@ import { useNotifications, Notification } from "@/hooks/notifications/useNotific
 import { useUser } from "@/hooks/users/user";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import type {
+  captureException as SentryCaptureException,
+  captureMessage as SentryCaptureMessage,
+} from "@sentry/nextjs";
 // Lazy Sentry helpers – deferred import keeps the Sentry SDK (~250 KB) out of the initial bundle.
-const captureSentryException = (error: unknown, context?: object) => {
+const captureSentryException = (error: unknown, context?: Parameters<SentryCaptureException>[1]) => {
   void import("@sentry/nextjs").then(({ captureException }) => captureException(error, context));
 };
-const captureSentryMessage = (message: string, context?: object) => {
+const captureSentryMessage = (message: string, context?: Parameters<SentryCaptureMessage>[1]) => {
   void import("@sentry/nextjs").then(({ captureMessage }) => captureMessage(message, context));
 };
 import { toast } from "sonner";

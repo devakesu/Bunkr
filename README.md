@@ -365,7 +365,7 @@ For detailed development environment setup including GPG signing and Bot PAT con
 5. Copy the example environment file
 
    ```bash
-   cp .env.example .env
+   cp .example.env .env
    ```
 
    Open `.env` and populate the keys.
