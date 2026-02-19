@@ -1,7 +1,6 @@
-import { describe, it, vi, beforeEach, afterEach } from 'vitest';
-import { render as _render, screen as _screen, waitFor as _waitFor } from '@testing-library/react';
-import _userEvent from '@testing-library/user-event';
-import _TrackingClient from '../TrackingClient';
+import { describe, it, vi, expect, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import TrackingClient from '../TrackingClient';
 
 // Mock all required hooks
 vi.mock('@/hooks/tracker/useTrackingData', () => ({
@@ -54,12 +53,18 @@ vi.mock('@/hooks/courses/courses', () => ({
 }));
 
 vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({
+  createClient: vi.fn(() => ({
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: 'auth-user-123' } },
+        error: null,
+      }),
+    },
     from: vi.fn(() => ({
       delete: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
     })),
-  }),
+  })),
 }));
 
 vi.mock('@sentry/nextjs', () => ({
@@ -120,21 +125,108 @@ vi.mock('lucide-react', () => ({
   BookOpen: () => <span data-testid="book-open-icon" />,
 }));
 
+// Mock attendance-reconciliation
+vi.mock('@/lib/logic/attendance-reconciliation', () => ({
+  getOfficialSessionRaw: vi.fn((session: any, sessionKey: string | number) => {
+    if (session && session.session != null && session.session !== '') return session.session;
+    return sessionKey;
+  }),
+}));
+
+import { useTrackingData } from '@/hooks/tracker/useTrackingData';
+import { useTrackingCount } from '@/hooks/tracker/useTrackingCount';
+
+// Shared sample tracking item matching semester/year from the useFetchSemester/useFetchAcademicYear mocks
+const sampleTrackingItem = {
+  auth_user_id: 'auth-user-123',
+  course: 'CS101',
+  session: '1',
+  date: '20240901',
+  attendance: 111,
+  status: 'extra',
+  semester: '1',
+  year: '2024',
+};
+
 describe('TrackingClient', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default sync: succeed silently
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
   });
 
-  describe('Ternary Operator - Singular vs Plural (Line 545)', () => {
-    // TODO: Fix async rendering issue preventing TrackingClient from rendering past loading state
-    // The component requires proper async handling for sync completion that needs to be debugged
-    it.todo('should display "record" for count of 1');
-    it.todo('should display "records" for count greater than 1');
+  describe('Loading state', () => {
+    it('should show loading indicator on initial render', () => {
+      render(<TrackingClient />);
+      expect(screen.getByRole('status')).toBeInTheDocument();
+    });
+  });
+
+  describe('Ternary Operator - Singular vs Plural (line 537)', () => {
+    it('should display "record" for count of 1 in delete-all dialog', async () => {
+      vi.mocked(useTrackingData).mockReturnValue({
+        data: [sampleTrackingItem] as any,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn().mockResolvedValue({ data: [sampleTrackingItem], isLoading: false, error: null }),
+      } as any);
+
+      vi.mocked(useTrackingCount).mockReturnValue({
+        data: 1,
+        isLoading: false,
+        refetch: vi.fn().mockResolvedValue({ data: 1, isLoading: false }),
+      } as any);
+
+      render(<TrackingClient />);
+
+      // Wait for enabled effect to switch from Loading to full UI
+      const clearBtn = await screen.findByRole('button', { name: /clear all 1 tracked class/i });
+      fireEvent.click(clearBtn);
+
+      // Dialog should now be open with "record" (singular)
+      expect(await screen.findByText(/1 tracking record\./i)).toBeInTheDocument();
+    });
+
+    it('should display "records" for count greater than 1 in delete-all dialog and close on confirm', async () => {
+      vi.mocked(useTrackingData).mockReturnValue({
+        data: [sampleTrackingItem, { ...sampleTrackingItem, session: '2' }] as any,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn().mockResolvedValue({ data: [], isLoading: false, error: null }),
+      } as any);
+
+      vi.mocked(useTrackingCount).mockReturnValue({
+        data: 2,
+        isLoading: false,
+        refetch: vi.fn().mockResolvedValue({ data: 0, isLoading: false }),
+      } as any);
+
+      render(<TrackingClient />);
+
+      // Wait for full UI, then open dialog
+      const clearBtn = await screen.findByRole('button', { name: /clear all 2 tracked classes/i });
+      fireEvent.click(clearBtn);
+
+      // Dialog should show "records" (plural)
+      expect(await screen.findByText(/2 tracking records\./i)).toBeInTheDocument();
+
+      // Click Delete All – exercises line 544-545 (deleteAllTrackingData + setDeleteAllConfirmOpen(false))
+      const deleteAllBtn = await screen.findByRole('button', { name: /delete all/i });
+      fireEvent.click(deleteAllBtn);
+
+      // After confirming, dialog should close (setDeleteAllConfirmOpen(false) called)
+      await waitFor(() => {
+        expect(screen.queryByText(/2 tracking records\./i)).not.toBeInTheDocument();
+      });
+    });
   });
 });
