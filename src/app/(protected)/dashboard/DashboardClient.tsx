@@ -58,7 +58,7 @@ type CaptureMessageContext = Parameters<typeof SentryCaptureMessage>[1];
 
 // Lazy Sentry helpers – deferred import keeps the Sentry SDK (~250 KB) out of the initial bundle.
 const captureSentryException = (error: unknown, context?: CaptureExceptionContext) => {
-  import("@sentry/nextjs")
+  void import("@sentry/nextjs")
     .then(({ captureException }) => captureException(error, context))
     .catch((importError) => {
       console.error("[Sentry] Failed to load SDK for captureException:", importError);
@@ -66,7 +66,7 @@ const captureSentryException = (error: unknown, context?: CaptureExceptionContex
     });
 };
 const captureSentryMessage = (message: string, context?: CaptureMessageContext) => {
-  import("@sentry/nextjs")
+  void import("@sentry/nextjs")
     .then(({ captureMessage }) => captureMessage(message, context))
     .catch((importError) => {
       console.error("[Sentry] Failed to load SDK for captureMessage:", importError);
