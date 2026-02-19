@@ -716,9 +716,9 @@ export function AttendanceCalendar({
                                             <AlertTriangle className="w-3 h-3" aria-hidden="true" />Official: {event.originalStatus}
                                         </Badge>
                                     )}
-                                    <Link href="/tracking">
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"><ArrowUpRight className="w-3 h-3" aria-label="View tracking details" /></Button>
-                                    </Link>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" aria-label="View tracking details" asChild>
+                                      <Link href="/tracking"><ArrowUpRight className="w-3 h-3" aria-hidden="true" /></Link>
+                                    </Button>
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-500 hover:bg-red-500/10" disabled={isDeleting} onClick={() => setDeleteConfirmOpen(`${event.courseId}|${dbDate}|${sessionForDB}`)}>{isDeleting ? <Loader2 className="h-3 w-3 animate-spin" aria-label="Deleting" /> : <Trash2 className="h-3 w-3" aria-label="Delete record" />}</Button>
                                 </div>
                             );
