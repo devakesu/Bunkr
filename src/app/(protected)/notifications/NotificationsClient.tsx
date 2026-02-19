@@ -196,7 +196,11 @@ export default function NotificationsPage() {
 
   // SYNC ON MOUNT (with mountId-based deduplication)
   useEffect(() => {
-    if (!user?.username) return;
+    if (!user?.username) {
+      // User is loaded but has no username – skip sync so page can render
+      if (user?.id) setSyncCompleted(true);
+      return;
+    }
 
     // Check if sync already ran for THIS mount
     if (lastSyncMountId.current === mountId.current) {

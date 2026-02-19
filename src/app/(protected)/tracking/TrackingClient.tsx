@@ -114,7 +114,11 @@ export default function TrackingClient() {
   useEffect(() => {
     // Guard: ensure both user ID and username exist before attempting sync
     // Username is required for the sync API call
-    if (!user?.id || !user?.username) return;
+    if (!user?.id || !user?.username) {
+      // User is loaded but has no username – skip sync so page can render
+      if (user?.id && !user?.username) setSyncCompleted(true);
+      return;
+    }
 
     // Check if sync already ran for THIS mount
     // In Strict Mode, the remount will have the SAME mountId, so we skip
