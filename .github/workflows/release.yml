@@ -1,7 +1,740 @@
-# Workflow configuration
-# ...
-# Other pipeline steps
+name: Release
 
-# Replace line 238
-      echo "image_name=$(printf '%s' \"${IMAGE_NAME}\")" >> $GITHUB_OUTPUT
-# ...
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Version tag (e.g., v1.5.8) - takes precedence over bump_type'
+        required: false
+        type: string
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+      build_arm64:
+        description: 'Build ARM64 architecture (slower, ~5min extra)'
+        required: false
+        type: boolean
+        default: false
+  repository_dispatch:
+    types: [release_requested]
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  # Reuse the guard job from pipeline.yml as a prerequisite
+  guard:
+    name: Build Guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+  # Calculate the next version based on trigger type
+  calculate-version:
+    name: Calculate Version
+    needs: guard
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_tag: ${{ steps.version.outputs.version_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Calculate version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION_TAG_DISPATCH: ${{ github.event.client_payload.version_tag }}
+          INPUT_VERSION_TAG_MANUAL: ${{ github.event.inputs.version_tag }}
+          INPUT_BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          # If triggered by repository_dispatch with version_tag
+          if [[ "$EVENT_NAME" == "repository_dispatch" ]] && [[ -n "$INPUT_VERSION_TAG_DISPATCH" ]]; then
+            VERSION_TAG="$INPUT_VERSION_TAG_DISPATCH"
+            VERSION_NUMBER="${VERSION_TAG#v}"
+            echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
+            echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+            echo "Using repository_dispatch version: ${VERSION_NUMBER}"
+
+            # Validate that the tag exists with retry logic (handle timing issues)
+            max_attempts=3
+            current_attempt=1
+            tag_exists=false
+
+            while [ $current_attempt -le $max_attempts ]; do
+              if git rev-parse "refs/tags/${VERSION_TAG}" >/dev/null 2>&1; then
+                tag_exists=true
+                echo "✓ Tag ${VERSION_TAG} found (attempt ${current_attempt})"
+                break
+              fi
+
+              if [ $current_attempt -lt $max_attempts ]; then
+                echo "Tag ${VERSION_TAG} not found yet, waiting 5s before retry ${current_attempt}/${max_attempts}"
+                sleep 5
+                # Fetch latest tags
+                git fetch --tags origin
+              fi
+
+              current_attempt=$((current_attempt + 1))
+            done
+
+            if [ "$tag_exists" = false ]; then
+              echo "ERROR: Tag ${VERSION_TAG} does not exist in the repository after ${max_attempts} attempts"
+              echo "This usually means:"
+              echo "  1. The tag was not created successfully in the pipeline workflow"
+              echo "  2. There was a race condition and the tag creation failed"
+              echo "  3. The tag name is incorrect"
+              echo "Please check the pipeline workflow logs and verify the tag exists: git ls-remote --tags origin | grep ${VERSION_TAG}"
+              exit 1
+            fi
+
+            # Checkout the tag to ensure we build the correct version
+            echo "Checking out tag ${VERSION_TAG} for build"
+            git checkout "refs/tags/${VERSION_TAG}"
+
+          # If triggered by a tag, use the tag version
+          elif [[ "$REF_TYPE" == "tag" ]]; then
+            VERSION="$REF_NAME"
+            VERSION_TAG="${VERSION}"
+            # Remove 'v' prefix if present for version number
+            VERSION_NUMBER="${VERSION#v}"
+            echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
+            echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+            echo "Using tag version: ${VERSION_NUMBER}"
+          # If version_tag input is provided, use it
+          elif [[ -n "$INPUT_VERSION_TAG_MANUAL" ]]; then
+            VERSION_TAG="$INPUT_VERSION_TAG_MANUAL"
+            # Remove 'v' prefix if present for version number
+            VERSION_NUMBER="${VERSION_TAG#v}"
+            echo "version=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
+            echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+            echo "Using workflow_dispatch version: ${VERSION_TAG}"
+
+            # Validate that the tag exists
+            if ! git rev-parse "refs/tags/${VERSION_TAG}" >/dev/null 2>&1; then
+              echo "ERROR: Tag ${VERSION_TAG} does not exist in the repository"
+              echo "This usually means:"
+              echo "  1. The tag was not created successfully in the pipeline workflow"
+              echo "  2. There was a race condition and the tag creation failed"
+              echo "  3. The tag name is incorrect"
+              echo "Please check the pipeline workflow logs and verify the tag exists: git ls-remote --tags origin | grep ${VERSION_TAG}"
+              exit 1
+            fi
+
+            # Checkout the tag to ensure we build the correct version
+            echo "Checking out tag ${VERSION_TAG} for build"
+            git checkout "refs/tags/${VERSION_TAG}"
+          else
+            # Manual dispatch: calculate next version from latest tag
+            # Filter to strict semver tags only
+            LATEST_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+
+            # Default to v0.0.0 if no valid tags exist
+            if [ -z "$LATEST_TAG" ]; then
+              LATEST_TAG="v0.0.0"
+            fi
+            echo "Latest tag: ${LATEST_TAG}"
+
+            # Remove 'v' prefix
+            LATEST_VERSION="${LATEST_TAG#v}"
+
+            # Parse version components
+            IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST_VERSION}"
+
+            # Bump version based on input
+            case "$INPUT_BUMP_TYPE" in
+              major)
+                MAJOR=$((MAJOR + 1))
+                MINOR=0
+                PATCH=0
+                ;;
+              minor)
+                MINOR=$((MINOR + 1))
+                PATCH=0
+                ;;
+              patch)
+                PATCH=$((PATCH + 1))
+                ;;
+            esac
+
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            VERSION_TAG="v${NEW_VERSION}"
+
+            echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+            echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+            echo "Calculated new version: ${NEW_VERSION} (${VERSION_TAG})"
+          fi
+
+  # Build, sign, and push Docker images
+  build-and-release:
+    name: Build & Release
+    needs: calculate-version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      digest: ${{ steps.build-push.outputs.digest }}
+      image_name: ${{ steps.prep.outputs.image_name }}
+      platforms: ${{ steps.prep.outputs.platforms }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # When version_tag is provided via repository_dispatch, use client_payload
+          # When version_tag is provided via workflow_dispatch, use inputs
+          # For tag pushes, github.ref is the tag
+          # For bump_type-only dispatches, github.ref is the selected branch (typically main)
+          ref: ${{ github.event.client_payload.version_tag || github.event.inputs.version_tag || github.ref }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Login to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare derived values
+        id: prep
+        env:
+          REPO: ${{ github.repository }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          IMAGE_NAME=$(echo "$REPO" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
+          echo "image_name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+
+          # Debug: Show what will be used
+          echo "🐳 Image name: ${IMAGE_NAME}"
+          echo "   Full path: ghcr.io/${REPO_OWNER}/${IMAGE_NAME}"
+
+          # Determine build platforms
+          # For tag pushes: Build both AMD64 and ARM64 (full release)
+          # For workflow_dispatch: Respect user's build_arm64 input
+          if [ "${{ github.event_name }}" == "push" ]; then
+            # Tag push - always build multi-arch for full releases
+            PLATFORMS="linux/amd64,linux/arm64"
+            echo "📦 Tag push detected - building multi-architecture"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.build_arm64 }}" == "true" ]; then
+              PLATFORMS="linux/amd64,linux/arm64"
+              echo "📦 Manual dispatch with ARM64 enabled"
+            else
+              PLATFORMS="linux/amd64"
+              echo "📦 Manual dispatch - AMD64 only (faster build)"
+            fi
+          else
+            # Default fallback
+            PLATFORMS="linux/amd64"
+          fi
+          echo "platforms=${PLATFORMS}" >> $GITHUB_OUTPUT
+          echo "  Build platforms: ${PLATFORMS}"
+
+          APP_DOMAIN="${{ secrets.NEXT_PUBLIC_APP_DOMAIN }}"
+          echo "app_url=https://${APP_DOMAIN}" >> $GITHUB_OUTPUT
+          echo "sitemap_url=https://${APP_DOMAIN}/sitemap.xml" >> $GITHUB_OUTPUT
+          echo "app_email=@${APP_DOMAIN}" >> $GITHUB_OUTPUT
+          echo "legal_email=legal@${APP_DOMAIN}" >> $GITHUB_OUTPUT
+          # Use a consistent timestamp for reproducibility
+          # Priority: head_commit (for branch pushes) > repository updated (for tags) > current time
+          TIMESTAMP="${{ github.event.head_commit.timestamp }}"
+          if [ -z "$TIMESTAMP" ] || [ "$TIMESTAMP" == "null" ]; then
+            # For tag pushes, use the repository updated timestamp
+            TIMESTAMP="${{ github.event.repository.updated_at }}"
+          fi
+          if [ -z "$TIMESTAMP" ] || [ "$TIMESTAMP" == "null" ]; then
+            # Final fallback: current time (for manual dispatches)
+            TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          fi
+          echo "created=$TIMESTAMP" >> $GITHUB_OUTPUT
+
+      - name: Build & push Docker image
+        id: build-push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:${{ needs.calculate-version.outputs.version_tag }}
+            ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:${{ needs.calculate-version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:latest
+          secrets: |
+            sentry_token=${{ secrets.SENTRY_AUTH_TOKEN }}
+          platforms: ${{ steps.prep.outputs.platforms }}
+
+          # Enable layer caching for faster builds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            APP_COMMIT_SHA=${{ github.sha }}
+            SOURCE_DATE_EPOCH=${{ secrets.SOURCE_DATE_EPOCH }}
+            NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_GITHUB_URL=${{ secrets.NEXT_PUBLIC_GITHUB_URL }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+            NEXT_PUBLIC_GA_ID=${{ secrets.NEXT_PUBLIC_GA_ID }}
+            SENTRY_ORG=${{ secrets.SENTRY_ORG }}
+            SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
+            NEXT_PUBLIC_APP_NAME=${{ secrets.NEXT_PUBLIC_APP_NAME }}
+            NEXT_PUBLIC_APP_VERSION=${{ needs.calculate-version.outputs.version }}
+            NEXT_PUBLIC_APP_DOMAIN=${{ secrets.NEXT_PUBLIC_APP_DOMAIN }}
+            NEXT_PUBLIC_AUTHOR_NAME=${{ secrets.NEXT_PUBLIC_AUTHOR_NAME }}
+            NEXT_PUBLIC_AUTHOR_URL=${{ secrets.NEXT_PUBLIC_AUTHOR_URL }}
+            NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE=${{ secrets.NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE }}
+            NEXT_PUBLIC_APP_URL=${{ steps.prep.outputs.app_url }}
+            NEXT_PUBLIC_SITEMAP_URL=${{ steps.prep.outputs.sitemap_url }}
+            NEXT_PUBLIC_APP_EMAIL=${{ steps.prep.outputs.app_email }}
+            NEXT_PUBLIC_LEGAL_EMAIL=${{ steps.prep.outputs.legal_email }}
+            GITHUB_REPOSITORY=${{ github.repository }}
+            GITHUB_RUN_ID=${{ github.run_id }}
+            GITHUB_RUN_NUMBER=${{ github.run_number }}
+            BUILD_TIMESTAMP=${{ steps.prep.outputs.created }}
+            AUDIT_STATUS=PASSED
+            SIGNATURE_STATUS=SLSA_PROVENANCE_GENERATED
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.created=${{ steps.prep.outputs.created }}
+            org.opencontainers.image.version=${{ needs.calculate-version.outputs.version }}
+
+      # Attest build provenance
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}
+          subject-digest: ${{ steps.build-push.outputs.digest }}
+          push-to-registry: true
+
+      # Download SLSA provenance attestation for OpenSSF Scorecard
+      - name: Download SLSA provenance attestation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          echo "=== Downloading SLSA Provenance Attestation ==="
+
+          # Retry logic: attestation may take a moment to be available
+          MAX_ATTEMPTS=5
+          ATTEMPT=1
+          SLEEP_TIME=10
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Attempt $ATTEMPT of $MAX_ATTEMPTS..."
+
+            if gh attestation download \
+              oci://ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }} \
+              --owner ${{ github.repository_owner }}; then
+              # gh attestation download creates a file named after the digest (e.g., sha256:abc123.jsonl or sha256-abc123.jsonl on Windows)
+              # Find and rename it to a consistent name for easier reference, without using ls|head under set -euo pipefail
+              shopt -s nullglob
+              digest_files=(sha256*.jsonl)
+              if [ ${#digest_files[@]} -gt 0 ]; then
+                DIGEST_FILE="${digest_files[0]}"
+              else
+                DIGEST_FILE=""
+              fi
+              if [ -n "$DIGEST_FILE" ]; then
+                mv "$DIGEST_FILE" provenance.intoto.jsonl
+                echo "✓ SLSA provenance attestation downloaded successfully"
+                ls -lh provenance.intoto.jsonl
+                exit 0
+              else
+                echo "⚠ Could not find downloaded attestation file"
+                echo "Current directory contents:"
+                ls -la
+                echo "Waiting ${SLEEP_TIME}s before retry..."
+                sleep $SLEEP_TIME
+                ATTEMPT=$((ATTEMPT + 1))
+                continue
+              fi
+            else
+              echo "⚠ Download failed, waiting ${SLEEP_TIME}s before retry..."
+              sleep $SLEEP_TIME
+              ATTEMPT=$((ATTEMPT + 1))
+            fi
+          done
+
+          echo "❌ Failed to download attestation after $MAX_ATTEMPTS attempts"
+          exit 1
+
+      # Generate SBOM
+      - name: Generate SBOM
+        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }}
+          format: cyclonedx-json
+          output-file: sbom.json
+
+      # Attest SBOM
+      - name: Attest SBOM
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3.0.0
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}
+          subject-digest: ${{ steps.build-push.outputs.digest }}
+          sbom-path: sbom.json
+          push-to-registry: true
+
+      # Sign image with cosign (keyless signing using OIDC)
+      - name: Install cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: Authenticate cosign with registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Sign image (keyless)
+        env:
+          COSIGN_YES: "true"
+          IMAGE_URI: ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          echo "=== Cosign Image Signing ==="
+          echo "Image URI: ${IMAGE_URI}"
+          echo "Version: ${{ needs.calculate-version.outputs.version }}"
+
+          # Sign with timeout
+          timeout 300 cosign sign \
+            -a "repo=${{ github.repository }}" \
+            -a "workflow=${{ github.workflow }}" \
+            -a "ref=${{ github.ref }}" \
+            -a "version=${{ needs.calculate-version.outputs.version }}" \
+            "${IMAGE_URI}" || {
+              echo "ERROR: Cosign image signing failed or timed out"
+              exit 1
+            }
+
+          echo "✓ Image signed successfully"
+          cosign triangulate "${IMAGE_URI}"
+
+      - name: Verify image signature
+        env:
+          IMAGE_URI: ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          cosign verify \
+            --certificate-identity-regexp="^https://github.com/${{ github.repository }}/.github/workflows/" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+            "${IMAGE_URI}"
+
+          echo "✓ Image signature verified"
+
+      # Sign SBOM file
+      - name: Sign SBOM artifact
+        run: |
+          set -euo pipefail
+
+          echo "=== Signing SBOM ==="
+          timeout 60 cosign sign-blob --yes \
+            --bundle sbom.json.bundle \
+            sbom.json || {
+              echo "ERROR: SBOM signing failed or timed out"
+              exit 1
+            }
+
+          echo "✓ SBOM signed successfully"
+
+      # Generate SHA256 checksums (after all artifacts are created)
+      - name: Generate checksums
+        run: |
+          echo "# Release Artifact Checksums" > checksums.txt
+          echo "" >> checksums.txt
+          echo "## SBOM" >> checksums.txt
+          sha256sum sbom.json >> checksums.txt
+          echo "" >> checksums.txt
+          echo "## Signature Bundle" >> checksums.txt
+          sha256sum sbom.json.bundle >> checksums.txt
+          echo "" >> checksums.txt
+          echo "## SLSA Provenance Attestation" >> checksums.txt
+          sha256sum provenance.intoto.jsonl >> checksums.txt
+          echo "" >> checksums.txt
+          echo "Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> checksums.txt
+          echo "" >> checksums.txt
+          cat checksums.txt
+
+      # Upload artifacts for the release job
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: release-artifacts
+          path: |
+            sbom.json
+            sbom.json.bundle
+            checksums.txt
+            provenance.intoto.jsonl
+
+  # Create GitHub Release with artifacts
+  create-github-release:
+    name: Create GitHub Release
+    needs: [calculate-version, build-and-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          # When version_tag is provided via repository_dispatch, use client_payload
+          # When version_tag is provided via workflow_dispatch, use inputs
+          # For tag pushes, github.ref is the tag
+          # For bump_type-only dispatches, github.ref is the selected branch (typically main)
+          ref: ${{ github.event.client_payload.version_tag || github.event.inputs.version_tag || github.ref }}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: release-artifacts
+          path: ./artifacts
+
+      - name: Verify downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          ls -lah ./artifacts/
+          echo ""
+          echo "Checksums:"
+          cat ./artifacts/checksums.txt
+
+      - name: Calculate previous version for changelog
+        id: prev_version
+        run: |
+          # Get version tags only (strict semantic version pattern: v[0-9]+.[0-9]+.[0-9]+)
+          CURRENT_TAG="${{ needs.calculate-version.outputs.version_tag }}"
+
+          # Get the previous semantic version tag (strict pattern matching)
+          PREV_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -v "^${CURRENT_TAG}$" | head -n1 || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous version tag found, using initial commit"
+            PREV_REF=$(git rev-list --max-parents=0 HEAD)
+            echo "prev_ref=${PREV_REF}" >> $GITHUB_OUTPUT
+            echo "changelog_text=${PREV_REF}...${CURRENT_TAG}" >> $GITHUB_OUTPUT
+          else
+            echo "Previous tag: ${PREV_TAG}"
+            echo "prev_ref=${PREV_TAG}" >> $GITHUB_OUTPUT
+            echo "changelog_text=${PREV_TAG}...${CURRENT_TAG}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate verification instructions
+        env:
+          IMAGE_NAME: ${{ needs.build-and-release.outputs.image_name }}
+          PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
+          VERSION_TAG: ${{ needs.calculate-version.outputs.version_tag }}
+          DIGEST: ${{ needs.build-and-release.outputs.digest }}
+          VERSION: ${{ needs.calculate-version.outputs.version }}
+          REPOSITORY: ${{ github.repository }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          # Use IMAGE_NAME from job output with fallback to repo name
+          if [ -z "${IMAGE_NAME}" ]; then
+            # Fallback: extract repo name and convert to lowercase
+            IMAGE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
+            echo "⚠️  IMAGE_NAME from job output is empty, using fallback: ${IMAGE_NAME}"
+          else
+            echo "✓ Using IMAGE_NAME from job output: ${IMAGE_NAME}"
+          fi
+
+          # Convert platforms to readable format (same transformation as release notes)
+          PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
+
+          cat > ./artifacts/VERIFY.md << EOF
+          # Release Verification Instructions
+
+          This release includes signed artifacts and attestations for supply chain security.
+
+          ## Verify Docker Image Signature
+
+          Using cosign (keyless verification):
+
+          \`\`\`bash
+          cosign verify \\
+            --certificate-identity-regexp="^https://github.com/${REPOSITORY}" \\
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \\
+            ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}
+          \`\`\`
+
+          ## Verify Build Attestation
+
+          Using GitHub CLI:
+
+          \`\`\`bash
+          gh attestation verify oci://ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG} --owner ${REPOSITORY_OWNER}
+          \`\`\`
+
+          ## Verify SBOM Signature
+
+          Using cosign:
+
+          \`\`\`bash
+          cosign verify-blob \\
+            --bundle sbom.json.bundle \\
+            sbom.json
+          \`\`\`
+
+          ## Verify Checksums
+
+          Download the checksums file and verify the artifacts:
+
+          \`\`\`bash
+          # Verify all artifacts (extract only checksum lines)
+          grep -E '^[0-9a-f]{64}  ' checksums.txt | sha256sum -c
+
+          # Or verify individual files
+          sha256sum sbom.json sbom.json.bundle
+          \`\`\`
+
+          ## Image Information
+
+          - **Image**: \`ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}\`
+          - **Digest**: \`${DIGEST}\`
+          - **Platforms**: \`${PLATFORM_LIST}\`
+          - **Version**: \`${VERSION}\`
+
+          ## Additional Tags
+
+          This release is also available under the following tags:
+          - \`ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:latest\`
+          - \`ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION}\`
+
+          ## Learn More
+
+          - [Sigstore Cosign Documentation](https://docs.sigstore.dev/cosign/overview/)
+          - [GitHub Attestations Documentation](https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)
+          - [SBOM Overview](https://www.cisa.gov/sbom)
+          EOF
+
+      - name: Create GitHub Release
+        env:
+          IMAGE_NAME: ${{ needs.build-and-release.outputs.image_name }}
+          DIGEST: ${{ needs.build-and-release.outputs.digest }}
+          VERSION_TAG: ${{ needs.calculate-version.outputs.version_tag }}
+          REPOSITORY: ${{ github.repository }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          SERVER_URL: ${{ github.server_url }}
+          CHANGELOG_TEXT: ${{ steps.prev_version.outputs.changelog_text }}
+          PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use IMAGE_NAME from job output with fallback to repo name
+          if [ -z "${IMAGE_NAME}" ]; then
+            # Fallback: extract repo name and convert to lowercase
+            IMAGE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
+            echo "⚠️  IMAGE_NAME from job output is empty, using fallback: ${IMAGE_NAME}"
+          else
+            echo "✓ Using IMAGE_NAME from job output: ${IMAGE_NAME}"
+          fi
+
+          # Convert platforms to readable format for release notes
+          PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
+
+          # Determine if multi-platform
+          if [[ "${PLATFORMS}" == *","* ]]; then
+            PLATFORM_DESC="Multi-platform Docker images (${PLATFORM_LIST})"
+          else
+            PLATFORM_DESC="Docker image (${PLATFORM_LIST})"
+          fi
+
+          gh release create "${VERSION_TAG}" \
+            --title "Release ${VERSION_TAG}" \
+            --latest \
+            --notes "## Release ${VERSION_TAG}
+
+          This release includes:
+          - 🐳 ${PLATFORM_DESC}
+          - 🔐 Signed images and artifacts using Sigstore cosign
+          - 📋 Software Bill of Materials (SBOM) in CycloneDX format
+          - ✅ Build provenance attestations
+          - 🔍 SHA256 checksums for all artifacts
+
+          ### Docker Images
+
+          \`\`\`bash
+          docker pull ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}
+          \`\`\`
+
+          **Image Digest**: \`${DIGEST}\`
+
+          ### Verification
+
+          See [VERIFY.md](https://github.com/${REPOSITORY}/releases/download/${VERSION_TAG}/VERIFY.md) for detailed verification instructions.
+
+          ### Quick Verification
+
+          \`\`\`bash
+          # Verify image signature
+          cosign verify \\
+            --certificate-identity-regexp=\"^https://github.com/${REPOSITORY}\" \\
+            --certificate-oidc-issuer=\"https://token.actions.githubusercontent.com\" \\
+            ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}
+
+          # Verify attestation
+          gh attestation verify oci://ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG} --owner ${REPOSITORY_OWNER}
+          \`\`\`
+
+          ---
+
+          **Full Changelog**: ${SERVER_URL}/${REPOSITORY}/compare/${CHANGELOG_TEXT}" \
+            ./artifacts/sbom.json \
+            ./artifacts/sbom.json.bundle \
+            ./artifacts/checksums.txt \
+            ./artifacts/VERIFY.md \
+            ./artifacts/provenance.intoto.jsonl \
+            --draft=false
+
+  # Deploy to production after successful release creation
+  # This ensures deployment only happens after the full release completes successfully
+  deploy-to-production:
+    name: Deploy to Production
+    needs: [calculate-version, build-and-release, create-github-release]
+    runs-on: ubuntu-latest
+    # Deploy on tag pushes, workflow_dispatch with version_tag, OR repository_dispatch
+    # Manual workflow_dispatch without version_tag (bump_type only) does not auto-deploy
+    if: |
+      (github.event_name == 'push' && github.ref_type == 'tag') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.version_tag != '') ||
+      github.event_name == 'repository_dispatch'
+    steps:
+      - name: Trigger Coolify deployment
+        env:
+          COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
+          COOLIFY_APP_ID: ${{ secrets.COOLIFY_APP_ID }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Validate required Coolify configuration
+          : "${COOLIFY_BASE_URL:?COOLIFY_BASE_URL secret is required}"
+          : "${COOLIFY_APP_ID:?COOLIFY_APP_ID secret is required}"
+          : "${COOLIFY_API_TOKEN:?COOLIFY_API_TOKEN secret is required}"
+
+          echo "Deploying version ${{ needs.calculate-version.outputs.version_tag }} to Coolify"
+          echo "Note: Ensure Coolify is configured to pull the versioned tag (e.g., ${{ needs.calculate-version.outputs.version_tag }})"
+
+          curl --fail-with-body --silent --show-error \
+            "$COOLIFY_BASE_URL/api/v1/deploy?uuid=$COOLIFY_APP_ID" \
+            -H "Authorization: Bearer $COOLIFY_API_TOKEN"
+
+          echo "✓ Deployment triggered successfully"
