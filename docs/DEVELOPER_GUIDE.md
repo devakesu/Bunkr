@@ -158,7 +158,7 @@ When prompted:
 
 #### Step 2: Export Keys
 
-```bashbash
+```bash
 # List keys to get the key ID
 gpg --list-secret-keys --keyid-format=long
 
@@ -192,7 +192,7 @@ Go to repository **Settings** → **Secrets and variables** → **Actions**:
 
 **Note**: For automated workflows, you can generate a key without a passphrase using:
 
-```bashbash
+```bash
 gpg --batch --gen-key <<EOF
 Key-Type: RSA
 Key-Length: 4096

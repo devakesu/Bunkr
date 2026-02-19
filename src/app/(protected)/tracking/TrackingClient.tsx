@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import * as Sentry from "@sentry/nextjs";
+// Lazy Sentry helpers – deferred import keeps the Sentry SDK (~250 KB) out of the initial bundle.
+const captureSentryException = (error: unknown, context?: object) => {
+  void import("@sentry/nextjs").then(({ captureException }) => captureException(error, context));
+};
+const captureSentryMessage = (message: string, context?: object) => {
+  void import("@sentry/nextjs").then(({ captureMessage }) => captureMessage(message, context));
+};
 import { logger } from "@/lib/logger";
 import { useTrackingData } from "@/hooks/tracker/useTrackingData";
 import { useTrackingCount } from "@/hooks/tracker/useTrackingCount";
@@ -138,7 +144,7 @@ export default function TrackingClient() {
             description: "Some tracking records couldn't be synced. Your data may be incomplete."
           });
           
-          Sentry.captureMessage("Partial sync failure in tracking", {
+          captureSentryMessage("Partial sync failure in tracking", {
             level: "warning",
             tags: { type: "tracking_partial_sync", location: "TrackingClient/useEffect/runSync" },
             extra: { userId: redact("id", String(user?.id)), response: data }
@@ -164,7 +170,7 @@ export default function TrackingClient() {
 
         logger.error("Tracking sync error", err);
         
-        Sentry.captureException(err, {
+        captureSentryException(err, {
           tags: { type: "tracking_sync", location: "TrackingClient/useEffect/runSync" },
           extra: { userId: redact("id", String(user?.id)) }
         });
@@ -269,7 +275,7 @@ export default function TrackingClient() {
 
       } catch (error) {
         toast.error("Error deleting the record.");
-        Sentry.captureException(error, { tags: { type: "tracking_delete_single", location: "TrackingClient/handleDeleteTrackData" }, extra: { userId: redact("id", String(user?.id)), session, course, date } });
+        captureSentryException(error, { tags: { type: "tracking_delete_single", location: "TrackingClient/handleDeleteTrackData" }, extra: { userId: redact("id", String(user?.id)), session, course, date } });
       } finally {
         setDeleteId("");
       }
@@ -297,7 +303,7 @@ export default function TrackingClient() {
 
     } catch (error) {
       toast.error("Failed to delete all tracking data.");
-      Sentry.captureException(error, { tags: { type: "tracking_delete_all", location: "TrackingClient/deleteAllTrackingData" }, extra: { userId: redact("id", String(user?.id)) }   });
+      captureSentryException(error, { tags: { type: "tracking_delete_all", location: "TrackingClient/deleteAllTrackingData" }, extra: { userId: redact("id", String(user?.id)) }   });
     } finally {
       setIsProcessing(false);
     }

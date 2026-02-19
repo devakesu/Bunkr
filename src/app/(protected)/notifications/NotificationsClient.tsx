@@ -6,7 +6,13 @@ import { useNotifications, Notification } from "@/hooks/notifications/useNotific
 import { useUser } from "@/hooks/users/user";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import * as Sentry from "@sentry/nextjs";
+// Lazy Sentry helpers – deferred import keeps the Sentry SDK (~250 KB) out of the initial bundle.
+const captureSentryException = (error: unknown, context?: object) => {
+  void import("@sentry/nextjs").then(({ captureException }) => captureException(error, context));
+};
+const captureSentryMessage = (message: string, context?: object) => {
+  void import("@sentry/nextjs").then(({ captureMessage }) => captureMessage(message, context));
+};
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
@@ -218,7 +224,7 @@ export default function NotificationsPage() {
             description: "Some notifications couldn't be synced. Your notification list may be incomplete."
           });
           
-          Sentry.captureMessage("Partial sync failure in notifications", {
+          captureSentryMessage("Partial sync failure in notifications", {
             level: "warning",
             tags: { type: "notification_partial_sync", location: "NotificationsClient/useEffect/syncNotifications" },
             extra: { userId: redact("id", String(user?.id)), response: data }
@@ -243,7 +249,7 @@ export default function NotificationsPage() {
         if (process.env.NODE_ENV === 'development') {
           logger.error("Notification background sync failed", error);
         }
-        Sentry.captureException(error, {
+        captureSentryException(error, {
           tags: { type: "notification_sync", location: "NotificationsClient/useEffect/syncNotifications" },
           extra: { userId: redact("id", String(user?.id)) }
         });
@@ -291,7 +297,7 @@ export default function NotificationsPage() {
             logger.error("Failed to mark notification read", error);
           }
           toast.error("Could not update notification");
-          Sentry.captureException(error, {
+          captureSentryException(error, {
               tags: { type: "mark_notification_read", location: "NotificationsClient/handleMarkRead" },
               extra: { notification_id: id, action: "mark_read", userId: redact("id", String(user?.id)) }
           });
