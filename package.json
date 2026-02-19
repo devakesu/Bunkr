@@ -112,7 +112,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^0.1.0",
     "@eslint/js": "^9.39.2",
     "@playwright/test": "^1.58.2",
     "@redocly/cli": "^2.19.0",
