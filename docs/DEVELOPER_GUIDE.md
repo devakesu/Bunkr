@@ -725,19 +725,19 @@ npm audit
 - `ajv < 8.18.0` and `minimatch < 10.2.1` in ESLint/TypeScript tooling
 - **Severity**: MODERATE/HIGH but dev-only
 - **Risk**: build-time tooling only, not in production code
-- **Status**: Cannot be fixed until ESLint 9+ released
+- **Status**: Partially mitigated; remaining dev-only issues depend on upstream ESLint/TypeScript tooling updates
 
 **Why Not Fixed**:
 
-- `npm audit fix --force` would install ESLint 4.1.1, breaking TypeScript support
-- ESLint v9+ not yet released; Next.js eslint-config still pins older versions
+- Vulnerable `ajv`/`minimatch` versions are bundled transitively via ESLint / `@typescript-eslint/*` / Next.js eslint-config
+- Forcing direct upgrades would desync versions from what `eslint-config-next` and the wider ecosystem support, risking broken linting/TypeScript integration
 - These don't reach production—only used during builds and local linting
 
 **Action Plan**:
 
 1. ✅ Use `.npmrc` to suppress harmless dev-only audit warnings
-2. ⏳ Monitor ESLint 9+ release and Next.js 17+ upgrade
-3. ✅ When available: `npm install` will automatically pick up fixed versions
+2. ⏳ Monitor ESLint 10+ / `typescript-eslint` / Next.js eslint-config updates that pull in patched `ajv`/`minimatch`
+3. ✅ When ecosystem updates are available: run `npm update` (or accept Renovate/Dependabot PRs) to pick up fixed versions
 
 **For CI/CD**:
 
