@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 /**
  * Extended Course interface with additional attendance statistics.
  */
-interface ExtendedCourse extends Course {
+export interface ExtendedCourse extends Course {
   /** Number of present marks */
   present?: number;
   /** Total attendance records */
