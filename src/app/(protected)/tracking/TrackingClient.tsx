@@ -81,8 +81,6 @@ export default function TrackingClient() {
   const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [enabled, setEnabled] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(true);
-  const [syncCompleted, setSyncCompleted] = useState(false);
   
   // Per-course record limits (for performance with 100+ records)
   const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
@@ -114,8 +112,6 @@ export default function TrackingClient() {
     // On real navigation, mountId changes, so sync runs
     if (lastSyncMountId.current === mountId.current) {
       logger.dev('[Tracking] Sync already completed for this mount, skipping');
-      setIsSyncing(false);
-      setSyncCompleted(true);
       return;
     }
 
@@ -124,8 +120,6 @@ export default function TrackingClient() {
 
     const runSync = async () => {
       logger.dev('[Tracking] Starting sync for mount:', mountId.current);
-      setIsSyncing(true);
-      setSyncCompleted(false);
 
       try {
         const res = await fetch(`/api/cron/sync?username=${user.username}`, {
@@ -179,8 +173,6 @@ export default function TrackingClient() {
         if (!isCleanedUp) {
           logger.dev('[Tracking] Sync completed for mount:', mountId.current);
           lastSyncMountId.current = mountId.current;
-          setIsSyncing(false);
-          setSyncCompleted(true);
         }
       }
     };
@@ -332,8 +324,8 @@ export default function TrackingClient() {
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.3, staggerChildren: 0.05 } } };
   const pageVariants = { enter: (d: number) => ({ x: d > 0 ? 50 : -50, opacity: 0 }), center: { x: 0, opacity: 1 }, exit: (d: number) => ({ x: d < 0 ? 50 : -50, opacity: 0 }) };
 
-  // Wait for both data loading AND sync completion
-  if (isDataLoading || isSyncing || !syncCompleted) return <Loading />;
+  // Render as soon as initial user/data are available; sync continues in background.
+  if (!enabled || isDataLoading) return <Loading />;
 
   return isProcessing ? ( <div className="h-screen flex items-center justify-center"><Loading /></div> ) : (
     <LazyMotion features={domAnimation}>

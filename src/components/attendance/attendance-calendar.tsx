@@ -717,9 +717,9 @@ export function AttendanceCalendar({
                                         </Badge>
                                     )}
                                     <Link href="/tracking">
-                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><ArrowUpRight className="w-3 h-3" aria-label="View tracking details" /></Button>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"><ArrowUpRight className="w-3 h-3" aria-label="View tracking details" /></Button>
                                     </Link>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-500/10" disabled={isDeleting} onClick={() => setDeleteConfirmOpen(`${event.courseId}|${dbDate}|${sessionForDB}`)}>{isDeleting ? <Loader2 className="h-3 w-3 animate-spin" aria-label="Deleting" /> : <Trash2 className="h-3 w-3" aria-label="Delete record" />}</Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-500 hover:bg-red-500/10" disabled={isDeleting} onClick={() => setDeleteConfirmOpen(`${event.courseId}|${dbDate}|${sessionForDB}`)}>{isDeleting ? <Loader2 className="h-3 w-3 animate-spin" aria-label="Deleting" /> : <Trash2 className="h-3 w-3" aria-label="Delete record" />}</Button>
                                 </div>
                             );
                         }
@@ -740,7 +740,7 @@ export function AttendanceCalendar({
                     return (
                       <motion.div key={`event-${event.sessionKey}-${index}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }} className={`group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all gap-4 ${cardStyle}`}>
                         <div className="flex flex-col gap-1.5">
-                          <h4 className="font-semibold text-sm text-foreground leading-tight capitalize flex items-center gap-2">{event.title.toLowerCase()}</h4>
+                          <h3 className="font-semibold text-sm text-foreground leading-tight capitalize flex items-center gap-2">{event.title.toLowerCase()}</h3>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="bg-background/50 px-1.5 py-0.5 rounded border border-border/30">{event.sessionName ? formatSessionName(event.sessionName) : `Session ${event.sessionKey}`}</span>
                             <Badge variant="outline" className={`h-5 px-1.5 gap-1 font-medium ${badgeClass}`}><Icon className="w-3 h-3" aria-hidden="true" />{event.status}</Badge>

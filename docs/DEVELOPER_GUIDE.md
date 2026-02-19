@@ -12,6 +12,8 @@ Complete guide for development, contribution, and release workflows for GhostCla
 - [Contributing](#contributing)
 - [Versioning & Releases](#versioning--releases)
 - [Release Verification](#release-verification)
+- [Known Issues](#known-issues)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -32,8 +34,8 @@ Complete guide for development, contribution, and release workflows for GhostCla
 git clone https://github.com/devakesu/GhostClass.git
 cd GhostClass
 
-# 2. Install dependencies
-npm install
+# 2. Install dependencies (--legacy-peer-deps is required)
+npm install --legacy-peer-deps
 
 # 3. Set up environment
 cp .example.env .env
@@ -52,7 +54,7 @@ npm run test
 
 ### Local Environment
 
-**Development server options:**
+Development server options:
 
 ```bash
 # HTTP development server (default)
@@ -64,30 +66,34 @@ npm run dev:https
 
 ### Development Workflow
 
-1. **Create a feature branch from `main`:**
-   ```bash
-   git checkout main
-   git pull origin main
-   git checkout -b feature/your-feature-name
-   ```
+- **Create a feature branch from `main`:**
 
-2. **Make changes and commit with clear messages:**
-   ```bash
-   git add .
-   git commit -m "feat: add new feature"
-   ```
+```bash
+git checkout main
+git pull origin main
+git checkout -b feature/your-feature-name
+```
 
-3. **Run linter and tests before pushing:**
-   ```bash
-   npm run lint
-   npm run test
-   ```
+- **Make changes and commit with clear messages:**
 
-4. **Push and create a Pull Request:**
-   ```bash
-   git push origin feature/your-feature-name
-   # Open PR on GitHub
-   ```
+```bash
+git add .
+git commit -m "feat: add new feature"
+```
+
+- **Run linter and tests before pushing:**
+
+```bash
+npm run lint
+npm run test
+```
+
+- **Push and create a Pull Request:**
+
+```bash
+git push origin feature/your-feature-name
+# Open PR on GitHub
+```
 
 **Important**: Version bumping is automatic! When you create a PR and merge it to `main`, the Auto Version Bump workflow will increment the version and create a release for you. See [Versioning & Releases](#versioning--releases) for details.
 
@@ -128,6 +134,7 @@ gpg --armor --export YOUR_KEY_ID              # For GitHub profile
 ```
 
 Then add to:
+
 - **GitHub Profile**: Settings → SSH and GPG keys → New GPG key (public key)
 - **Repository Secrets**: Settings → Secrets → Actions (private key + passphrase)
 
@@ -142,6 +149,7 @@ gpg --full-generate-key
 ```
 
 When prompted:
+
 - **Key type**: `(1) RSA and RSA (default)` ⚠️ **Use RSA, NOT ECC**
 - **Key size**: `4096`
 - **Expiration**: `0` (no expiration) or set based on your security policy
@@ -150,7 +158,7 @@ When prompted:
 
 #### Step 2: Export Keys
 
-```bash
+```bashbash
 # List keys to get the key ID
 gpg --list-secret-keys --keyid-format=long
 
@@ -178,13 +186,13 @@ gpg --armor --export ABC123DEF456
 Go to repository **Settings** → **Secrets and variables** → **Actions**:
 
 | Secret Name | Value | Required |
-|------------|-------|----------|
+| --- | --- | --- |
 | `GPG_PRIVATE_KEY` | Output from `gpg --armor --export-secret-keys` | ✅ Yes |
 | `GPG_PASSPHRASE` | Your GPG key passphrase | ✅ Yes |
 
 **Note**: For automated workflows, you can generate a key without a passphrase using:
 
-```bash
+```bashbash
 gpg --batch --gen-key <<EOF
 Key-Type: RSA
 Key-Length: 4096
@@ -207,15 +215,18 @@ For non-expiring, unprotected GPG keys used in automation:
 
 #### Troubleshooting GPG
 
-**Error: "Inappropriate ioctl for device"**
+##### Error: Inappropriate ioctl for device
+
 - Cause: Using ECC/EdDSA key type in CI/CD
 - Solution: Regenerate key using RSA 4096-bit
 
-**Error: "gpg: signing failed: No such file or directory"**
+##### Error: gpg: signing failed: No such file or directory
+
 - Cause: Missing GPG secret or incorrect passphrase
 - Solution: Verify `GPG_PRIVATE_KEY` and `GPG_PASSPHRASE` secrets are set correctly
 
-**Warning: "Email not verified"**
+##### Warning: Email not verified
+
 - Cause: GPG key email not verified in GitHub account
 - Solution: Go to Settings → Emails and verify the email address
 
@@ -230,6 +241,7 @@ Enable workflows to trigger after automated version bump commits.
 By default, when a GitHub Actions workflow creates a commit using `GITHUB_TOKEN`, that commit **does not trigger other workflows** (intentional GitHub behavior to prevent infinite loops).
 
 For GhostClass:
+
 - Auto Version Bump workflow commits version changes
 - Without BOT_PAT:
   - Tests/Pipeline workflows won't run on those commits ❌
@@ -245,20 +257,19 @@ For GhostClass:
 #### Step 1: Create Personal Access Token
 
 1. Go to **GitHub Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)**
-   - Direct link: https://github.com/settings/tokens
+   - Direct link: [github.com/settings/tokens](https://github.com/settings/tokens)
 
 2. Click **Generate new token** → **Generate new token (classic)**
 
 3. Configure token:
+
    - **Note**: `GhostClass Bot PAT` (descriptive name)
    - **Expiration**: 90 days or 1 year (set calendar reminder to renew)
    - **Scopes**: Select **only**:
      - ✅ `repo` (Full control of private repositories)
      - ✅ `workflow` (Update GitHub Action workflows) - **REQUIRED** for workflows to trigger after version bump commits
 
-4. Click **Generate token**
-
-5. ⚠️ **Copy token immediately** - you won't see it again!
+   - ⚠️ **Copy token immediately** - you won't see it again!
 
 #### Step 2: Add to Repository Secrets
 
@@ -326,7 +337,7 @@ npm run test:e2e:headed
 
 ### Test Structure
 
-```
+```text
 src/
 ├── lib/__tests__/          # Library unit tests
 ├── components/__tests__/   # Component tests
@@ -339,6 +350,7 @@ e2e/
 ### Writing Tests
 
 **Unit tests** (Vitest):
+
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { myFunction } from './myFunction';
@@ -351,6 +363,7 @@ describe('myFunction', () => {
 ```
 
 **E2E tests** (Playwright):
+
 ```typescript
 import { test, expect } from '@playwright/test';
 
@@ -388,7 +401,7 @@ test('homepage loads correctly', async ({ page }) => {
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 <type>(<scope>): <description>
 
 [optional body]
@@ -397,6 +410,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 
 **Types:**
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation changes
@@ -406,7 +420,8 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore`: Maintenance tasks
 
 **Examples:**
-```
+
+```text
 feat(auth): add two-factor authentication
 fix(api): resolve rate limiting issue
 docs: update installation instructions
@@ -498,15 +513,12 @@ git push origin 1.6.0
 - **Minor** (0.x.0): New features, enhancements, non-breaking API additions
 - **Major** (x.0.0): Breaking changes, major refactors, incompatible API changes
 
-**Documentation Changes:**
-- **Trivial** (no release): Typo fixes, grammar corrections
-- **Substantial** (patch bump): New feature docs, API reference updates, new guides
-
 ### Release Artifacts
 
 Each release includes:
 
 **Docker Images** (pushed to GitHub Container Registry):
+
 ```bash
 # Pull by version tag
 docker pull ghcr.io/devakesu/ghostclass:vX.Y.Z
@@ -519,6 +531,7 @@ docker pull ghcr.io/devakesu/ghostclass:latest
 **Platforms**: `linux/amd64`, `linux/arm64`
 
 **Attached Files**:
+
 - `sbom.json` - Software Bill of Materials (CycloneDX format)
 - `sbom.json.bundle` - Cosign signature bundle for SBOM
 - `checksums.txt` - SHA256 checksums for all artifacts
@@ -539,6 +552,7 @@ docker pull ghcr.io/devakesu/ghostclass:latest
 9. **Deploy**: Automatically deploys to production via Coolify
 
 **Key Benefits:**
+
 - ✅ Single Docker build per release (no duplicates)
 - ✅ Version tag matches Docker image tag
 - ✅ Automatic deployment for tag-based releases
@@ -549,7 +563,7 @@ docker pull ghcr.io/devakesu/ghostclass:latest
 
 ## Release Verification
 
-### Prerequisites
+### Prerequisites: Verification Tools
 
 Install verification tools:
 
@@ -659,30 +673,128 @@ grep -E '^[0-9a-f]{64}  ' checksums.txt | sha256sum -c
 
 ---
 
+## Known Issues
+
+### Production Vulnerability: minimatch ReDoS (GHSA-3ppc-4f35-3m26)
+
+**Status:** ✅ Fixed via package.json override + `--legacy-peer-deps`
+
+**Description:**
+
+- `@sentry/nextjs @ 10.39.0` depends on `@sentry/node` which requires `minimatch < 10.2.1`
+- minimatch < 10.2.1 contains a ReDoS vulnerability (GHSA-3ppc-4f35-3m26)
+- **Risk Level:** MEDIUM
+  - **Attack Surface:** Low (Sentry configuration is application-controlled, not user-input)
+  - **Exploitability:** Requires crafted patterns in app code using Sentry filtering
+
+**Fix Applied:**
+
+- ✅ Minimatch 10.2.1 released (fixes ReDoS)
+- ✅ Added `"minimatch": "^10.2.1"` override to `package.json` (forces patched version across all transitive dependencies)
+- ✅ All build stages use `--legacy-peer-deps` flag (bypasses peer dependency conflict from override):
+  - **Local development:** `npm install --legacy-peer-deps` ✅
+  - **GitHub Actions (test.yml):** `npm ci --legacy-peer-deps` (2 jobs) ✅
+  - **Docker production:** `npm ci --legacy-peer-deps` ✅
+
+**Next Steps:**
+
+1. **Short-term** (Current): Use package.json override + `--legacy-peer-deps` flag (applied consistently everywhere)
+2. **Long-term** (Watch for Sentry SDK update): Wait for `@sentry/nextjs` to release a version that bumps `minimatch >= 10.2.1` in its dependencies
+   - Once Sentry releases a patched version, run: `npm install @sentry/nextjs@latest`
+   - Package.json override can be removed once Sentry's transitive dependency is fixed
+
+**Verification:**
+
+```bash
+# Check production-only vulnerabilities (dev deps excluded)
+npm audit --omit=dev
+
+# Check all vulnerabilities (including dev)
+npm audit
+
+# Verify --legacy-peer-deps is used across all builds
+# Local: npm install --legacy-peer-deps
+# CI: grep 'npm ci --legacy-peer-deps' .github/workflows/test.yml
+# Docker: grep 'npm ci' Dockerfile | grep legacy-peer-deps
+```
+
+### Verify Dev Dependencies: ESLint/TypeScript Vulnerabilities
+
+#### ESLint/TypeScript/API Docs Vulnerabilities
+
+- `ajv < 8.18.0` and `minimatch < 10.2.1` in ESLint/TypeScript tooling
+- **Severity**: MODERATE/HIGH but dev-only
+- **Risk**: build-time tooling only, not in production code
+- **Status**: Cannot be fixed until ESLint 9+ released
+
+**Why Not Fixed**:
+
+- `npm audit fix --force` would install ESLint 4.1.1, breaking TypeScript support
+- ESLint v9+ not yet released; Next.js eslint-config still pins older versions
+- These don't reach production—only used during builds and local linting
+
+**Action Plan**:
+
+1. ✅ Use `.npmrc` to suppress harmless dev-only audit warnings
+2. ⏳ Monitor ESLint 9+ release and Next.js 17+ upgrade
+3. ✅ When available: `npm install` will automatically pick up fixed versions
+
+**For CI/CD**:
+
+- GitHub dependency scanning flags as known vulnerabilities (acknowledged)
+- `.npmrc` suppresses exit code 1 for known dev-only issues
+- Production scan (`npm audit --omit=dev`) shows only Sentry minimatch issue
+
+---
+
 ## Troubleshooting
+
+### npm Audit Dev Dependencies
+
+Run production-only audit to exclude dev-tool vulnerabilities:
+
+```bash
+npm audit --omit=dev
+```
+
+This shows only production risks (currently just Sentry's minimatch issue).
+
+**For CI/CD**: Update your audit step to use `--omit=dev`:
+
+```bash
+npm ci
+npm audit --omit=dev  # Instead of: npm audit
+```
+
+This prevents the build from failing on harmless dev-dependency vulnerabilities while still catching production issues.
 
 ### Common Issues
 
-**Problem: Version bump not triggering**
+#### Problem: Version bump not triggering
+
 - Check BOT_PAT secret is configured
 - Verify GPG secrets are set correctly
 - Check workflow runs in Actions tab for errors
 
-**Problem: Tests failing after version bump**
+#### Problem: Tests failing after version bump
+
 - Version bump PR merges immediately (tests already passed on feature PR)
 - If tests fail on feature PR, fix before merging
 
-**Problem: Docker image not deploying**
+#### Problem: Docker image not deploying
+
 - Verify Coolify webhook is configured
 - Check release workflow completed successfully
 - Review deployment logs in Coolify
 
-**Problem: GPG signature verification failing**
+#### Problem: GPG signature verification failing
+
 - Ensure GPG public key is added to GitHub profile
 - Verify GPG_PRIVATE_KEY secret is correct
 - Check email in GPG key matches verified GitHub email
 
-**Problem: Cosign verification failing**
+#### Problem: Cosign verification failing
+
 - Verify image name and tag are correct (lowercase)
 - Check certificate identity regexp matches repository URL
 - Ensure OIDC issuer is `https://token.actions.githubusercontent.com`
@@ -691,9 +803,9 @@ grep -E '^[0-9a-f]{64}  ' checksums.txt | sha256sum -c
 
 ## Additional Resources
 
-- **Contributing Guidelines**: [CONTRIBUTING.md](../docs/CONTRIBUTING.md)
-- **Security Policy**: [SECURITY.md](../SECURITY.md)
-- **Project README**: [README.md](../README.md)
+- **Contributing Guidelines**: [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Security Policy**: [../SECURITY.md](../SECURITY.md)
+- **Project README**: [../README.md](../README.md)
 - **EzyGo Integration**: [EZYGO_INTEGRATION.md](EZYGO_INTEGRATION.md)
 - **Edge Cases Testing**: [EDGE_CASES_TESTS.md](EDGE_CASES_TESTS.md)
 

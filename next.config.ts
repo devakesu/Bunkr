@@ -2,6 +2,10 @@ import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
 
+if (process.env.NODE_ENV === "production") {
+  process.env.SERWIST_SUPPRESS_TURBOPACK_WARNING = "1";
+}
+
 // Simplified: Only disable SW in development, unless explicitly enabled
 // In production builds, SW is ALWAYS enabled (disable: false)
 const withSerwist = withSerwistInit({
@@ -34,6 +38,10 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   output: "standalone",
   compress: true, // Enable gzip compression for better performance
+  // Serve source maps publicly in production so Lighthouse / DevTools can resolve them.
+  // Safe to expose because the project is GPL open-source (no secret logic to protect).
+  // Maps are also uploaded to Sentry separately for private error symbolication.
+  productionBrowserSourceMaps: true,
 
   async headers() {
     // 1. Define headers common to all environments
@@ -58,9 +66,19 @@ const nextConfig: NextConfig = {
 
     // 2. Only add HSTS in Production to prevent local SSL errors
     if (process.env.NODE_ENV === 'production') {
+      // 2-year max-age satisfies Lighthouse "max-age too low" audit (minimum recommended: 63072000).
+      // preload qualifies the domain for HSTS preload lists (https://hstspreload.org).
       headersList.push({
         key: "Strict-Transport-Security",
-        value: "max-age=31536000; includeSubDomains; preload",
+        value: "max-age=63072000; includeSubDomains; preload",
+      });
+      // Isolates the top-level browsing context from cross-origin documents opened in pop-ups.
+      // Prevents cross-origin window references that could be exploited for XS-Leaks.
+      // 'same-origin' is safe here: Cloudflare Turnstile runs inside an iframe (not a pop-up)
+      // and is unaffected by COOP. Supabase OAuth uses redirect flows, not pop-ups.
+      headersList.push({
+        key: "Cross-Origin-Opener-Policy",
+        value: "same-origin",
       });
     }
 

@@ -20,6 +20,7 @@ Complete documentation for EzyGo API rate limiting, batch fetcher implementation
 The EzyGo API integration uses a sophisticated three-layer protection system to prevent rate limiting and ensure reliable access to attendance data. This system combines request deduplication, rate limiting, and circuit breaker patterns to optimize concurrent user access while protecting both the EzyGo API and our application.
 
 **Key Features:**
+
 - ✅ Request deduplication with LRU caching
 - ✅ Configurable rate limiting (default: 3 concurrent requests)
 - ✅ Circuit breaker for graceful degradation
@@ -38,6 +39,7 @@ When multiple users access the dashboard simultaneously, the application makes 6
 - Plus additional calls for settings
 
 **Without optimization:**
+
 - 20 concurrent users = **120 concurrent API requests** to EzyGo
 - Risk of rate limiting
 - Potential server overload
@@ -55,18 +57,20 @@ The implementation uses a hybrid approach combining server-side rendering, reque
 
 Implements the Circuit Breaker pattern to prevent cascading failures:
 
-```
+```text
 CLOSED → OPEN → HALF_OPEN → CLOSED
    ↑                           ↓
    └───────── (recovery) ──────┘
 ```
 
 **States:**
+
 - **CLOSED**: Normal operation - all requests go through
 - **OPEN**: API is down, fail fast for 60 seconds
 - **HALF_OPEN**: Testing recovery with 2 test requests
 
 **Configuration:**
+
 - Opens after 3 consecutive failures
 - Stays open for 60 seconds
 - Tests with 2 requests before closing
@@ -75,19 +79,22 @@ CLOSED → OPEN → HALF_OPEN → CLOSED
 
 Three-layer protection system:
 
-**Layer 1: Request Deduplication (LRU Cache)**
+#### Layer 1: Request Deduplication (LRU Cache)
+
 - 60-second TTL cache
 - Stores in-flight promises and resolved results
 - Multiple requests from the same user/token share cached response
 - Prevents duplicate concurrent requests
 
-**Layer 2: Rate Limiting**
+#### Layer 2: Rate Limiting
+
 - Max 3 concurrent requests (configurable via `MAX_CONCURRENT`)
 - Automatic queuing for excess requests
 - Fair distribution via FIFO queue
 - Customizable per deployment needs
 
-**Layer 3: Circuit Breaker Integration**
+#### Layer 3: Circuit Breaker Integration
+
 - Wraps all requests
 - Automatic fail-fast when API is down
 - Prevents wasted resources
@@ -96,6 +103,7 @@ Three-layer protection system:
 #### 3. Server Components (`src/app/(protected)/dashboard/page.tsx`)
 
 Server-side rendering with:
+
 - Authentication check on the server
 - Token validation before fetching
 - Pre-fetch dashboard data
@@ -104,6 +112,7 @@ Server-side rendering with:
 #### 4. Client Component (`src/app/(protected)/dashboard/DashboardClient.tsx`)
 
 Client-side hydration:
+
 - Receives initial data from SSR
 - Hydrates React Query cache with initial data
 - Maintains existing functionality
@@ -118,7 +127,7 @@ Client-side hydration:
 **20 users hit /dashboard simultaneously:**
 
 | Metric | Before Optimization | After Optimization |
-|--------|---------------------|-------------------|
+| --- | --- | --- |
 | Peak concurrent requests | 120 | 3 |
 | First user load time | ~2s | ~2s (same) |
 | 20th user load time | ~2s | ~6s (queued) |
@@ -126,6 +135,7 @@ Client-side hydration:
 | Circuit breaker protection | None | Full |
 
 **Result (with MAX_CONCURRENT = 3):**
+
 - ✅ Significantly reduces risk of rate limiting
 - ✅ Maintains fast UX for early users
 - ✅ Graceful queueing for later users
@@ -133,7 +143,7 @@ Client-side hydration:
 
 ### Request Flow
 
-```
+```text
 User Request
     ↓
 Check Cache (Layer 1)
@@ -204,6 +214,7 @@ console.log('Last failure:', circuitBreaker['lastFailureTime']);
 ### ✅ Server-Side Calls (Direct to EzyGo)
 
 **Dashboard Page** (`src/app/(protected)/dashboard/page.tsx`):
+
 - Uses `fetchDashboardData()` with full protection
 - Fetches: `/institutionuser/courses/withusers`, `/attendancereports/student/detailed`
 - ✅ Request deduplication
@@ -215,25 +226,30 @@ console.log('Last failure:', circuitBreaker['lastFailureTime']);
 All client-side hooks use `axios` which routes through `/api/backend/*` proxy:
 
 **Authentication Endpoints**:
+
 - `login`, `save-token`
 - ✅ Circuit breaker protection in proxy
 - ✅ NOT rate-limited (login is critical path)
 - ✅ Origin validation prevents abuse
 
 **Profile Hook** (`src/hooks/users/profile.ts`):
+
 - Calls `/myprofile` via axios
 - ✅ Circuit breaker protection in proxy
 
 **User Hook** (`src/hooks/users/user.ts`):
+
 - Calls `/user` via axios
 - ✅ Circuit breaker protection in proxy
 
 **Courses Hook** (`src/hooks/courses/courses.ts`):
+
 - Calls `/institutionuser/courses/withusers` via axios
 - ✅ Circuit breaker protection in proxy
 - ✅ Accepts `initialData` from SSR
 
 **Attendance Hook** (`src/hooks/courses/attendance.ts`):
+
 - Calls `/attendancereports/student/detailed` via axios
 - ✅ Circuit breaker protection in proxy
 - ✅ Accepts `initialData` from SSR
@@ -241,6 +257,7 @@ All client-side hooks use `axios` which routes through `/api/backend/*` proxy:
 ### ⚠️ Cron/Background Jobs
 
 **Sync Cron** (`src/app/api/cron/sync/route.ts`):
+
 - Direct calls to EzyGo API
 - ⚠️ **NOT rate-limited** (runs infrequently, separate from user traffic)
 - Consider: Add rate limiting if frequency increases
@@ -311,6 +328,7 @@ const MAX_CONCURRENT = 15;
 ```
 
 **Why this works:**
+
 - EzyGo rate limiting is often per-IP, not per-user
 - Single IP = effectively one "client" from EzyGo's perspective
 - In-flight request deduplication still protects against duplicate requests
@@ -319,6 +337,7 @@ const MAX_CONCURRENT = 15;
 ### Testing Your Deployment
 
 1. **Monitor circuit breaker state:**
+
    ```typescript
    import { circuitBreaker } from '@/lib/circuit-breaker';
    console.log('State:', circuitBreaker.getState());
@@ -329,32 +348,38 @@ const MAX_CONCURRENT = 15;
    - Watch for circuit breaker opening frequently
 
 3. **Adjust based on observations:**
+
    - If circuit opens rarely: Increase `MAX_CONCURRENT`
    - If circuit opens frequently: Keep conservative limit
    - If users experience slow response: Increase limit slightly
 
 ### Edge Cases Handled
 
-**Issue: User Refreshes Dashboard Rapidly**
+#### Issue: User Refreshes Dashboard Rapidly
+
 - ✅ Request deduplication prevents duplicate in-flight requests
 - ✅ Cache returns cached data for subsequent requests within TTL
 
-**Issue: 100 Users Hit Dashboard Simultaneously**
+#### Issue: 100 Users Hit Dashboard Simultaneously
+
 - ✅ Rate limiter queues excess requests
 - ✅ First 3 (or MAX_CONCURRENT) users get immediate response
 - ✅ Remaining users wait in queue, served as slots free up
 
-**Issue: EzyGo API Goes Down Mid-Request**
+#### Issue: EzyGo API Goes Down Mid-Request
+
 - ✅ Circuit breaker opens after 3 failures
 - ✅ Fail-fast for 60 seconds
 - ✅ Automatic recovery testing after cooldown
 
-**Issue: Different Users, Same Data Request**
+#### Issue: Different Users, Same Data Request
+
 - ✅ Each user has separate token
 - ✅ Cache is per-token (user-specific data)
 - ✅ No cross-user data leakage
 
-**Issue: Login During Circuit Open**
+#### Issue: Login During Circuit Open
+
 - ✅ Login endpoint bypasses rate limiter
 - ✅ Circuit breaker applied but with separate failure tracking
 
@@ -373,23 +398,27 @@ const MAX_CONCURRENT = 15;
 
 ## Troubleshooting
 
-**Problem: Circuit breaker opens frequently**
+### Problem: Circuit breaker opens frequently
+
 - Check EzyGo API status
 - Verify network connectivity
 - Review error logs in Sentry
 - Consider increasing failure threshold
 
-**Problem: Users experience slow response times**
+### Problem: Users experience slow response times
+
 - Increase `MAX_CONCURRENT` if rate limits allow
 - Check cache hit rate
 - Verify SSR is working properly
 
-**Problem: 429 Rate Limit errors**
+### Problem: 429 Rate Limit errors
+
 - Decrease `MAX_CONCURRENT`
 - Increase cache TTL
 - Review request patterns in logs
 
-**Problem: Stale data displayed**
+### Problem: Stale data displayed
+
 - Reduce cache TTL
 - Implement cache invalidation on user actions
 - Use React Query refetch strategies
@@ -397,6 +426,7 @@ const MAX_CONCURRENT = 15;
 ---
 
 For implementation details and code examples, see:
+
 - `src/lib/circuit-breaker.ts`
 - `src/lib/ezygo-batch-fetcher.ts`
 - `src/app/(protected)/dashboard/page.tsx`

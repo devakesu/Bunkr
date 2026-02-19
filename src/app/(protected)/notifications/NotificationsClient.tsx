@@ -89,10 +89,6 @@ export default function NotificationsPage() {
   // Use mountId-based sync logic
   const mountId = useRef(Math.random().toString(36));
   const lastSyncMountId = useRef<string | null>(null);
-  
-  // Add sync state
-  const [isSyncing, setIsSyncing] = useState(true);
-  const [syncCompleted, setSyncCompleted] = useState(false);
 
   const { 
     actionNotifications, 
@@ -196,8 +192,6 @@ export default function NotificationsPage() {
     // Check if sync already ran for THIS mount
     if (lastSyncMountId.current === mountId.current) {
       logger.dev('[Notifications] Sync already completed for this mount, skipping');
-      setIsSyncing(false);
-      setSyncCompleted(true);
       return;
     }
 
@@ -206,8 +200,6 @@ export default function NotificationsPage() {
 
     const syncNotifications = async () => {
       logger.dev('[Notifications] Starting sync for mount:', mountId.current);
-      setIsSyncing(true);
-      setSyncCompleted(false);
 
       try {
         const res = await fetch(`/api/cron/sync?username=${user.username}`, {
@@ -259,8 +251,6 @@ export default function NotificationsPage() {
         if (!isCleanedUp) {
           logger.dev('[Notifications] Sync completed for mount:', mountId.current);
           lastSyncMountId.current = mountId.current;
-          setIsSyncing(false);
-          setSyncCompleted(true);
         }
       }
     };
@@ -310,8 +300,8 @@ export default function NotificationsPage() {
       }
   }, [markAsRead, readingId, rowVirtualizer, user?.id]);
 
-  // Wait for both data loading AND sync completion
-  if (isLoading || isSyncing || !syncCompleted) return <Loading />;
+  // Render as soon as initial user/data are available; sync continues in background.
+  if (!user?.id || isLoading) return <Loading />;
 
   const isEmpty = virtualItems.length === 0;
 

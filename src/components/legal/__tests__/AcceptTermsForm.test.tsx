@@ -224,12 +224,11 @@ describe('AcceptTermsForm', () => {
     });
 
     it('should not submit if checkbox is not checked', async () => {
-      const user = userEvent.setup();
       render(<AcceptTermsForm />);
 
       const button = screen.getByRole('button', { name: /Enter GhostClass/i });
 
-      // Try to click the disabled button
+      // Try to click the disabled button (no interaction needed - button is structurally disabled)
       expect(button).toBeDisabled();
       
       // Mock implementation should not be called

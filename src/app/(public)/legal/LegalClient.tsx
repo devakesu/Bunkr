@@ -12,7 +12,7 @@ export default function LegalClient() {
         <div className="flex items-center gap-4 border-b border-zinc-800 pb-6">
           <div>
             <h1 className="text-3xl font-bold text-white tracking-tight">Legal Policies</h1>
-            <p className="text-zinc-500 text-sm mt-1">Transparency is our only policy.</p>
+            <p className="text-zinc-400 text-sm mt-1">Transparency is our only policy.</p>
           </div>
         </div>
 

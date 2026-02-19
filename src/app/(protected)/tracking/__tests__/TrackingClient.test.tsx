@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import TrackingClient from '../TrackingClient';
+import { describe, it, vi, beforeEach, afterEach } from 'vitest';
+import { render as _render, screen as _screen, waitFor as _waitFor } from '@testing-library/react';
+import _userEvent from '@testing-library/user-event';
+import _TrackingClient from '../TrackingClient';
 
 // Mock all required hooks
 vi.mock('@/hooks/tracker/useTrackingData', () => ({

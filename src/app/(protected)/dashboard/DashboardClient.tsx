@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m as motion } from "framer-motion";
 import { toast } from "sonner";
-import * as Sentry from "@sentry/nextjs";
 import { logger } from "@/lib/logger";
 import {
   Card,
@@ -18,7 +17,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import { AttendanceCalendar } from "@/components/attendance/attendance-calendar";
+// AttendanceCalendar is below-the-fold and heavy – load it lazily
 import { CourseCard } from "@/components/attendance/course-card";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useProfile } from "@/hooks/users/profile";
@@ -49,6 +48,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { calculateAttendance } from "@/lib/logic/bunk";
 
+// Lazy Sentry helpers – deferred import keeps the Sentry SDK (~250 KB) out of the initial bundle.
+const captureSentryException = (error: unknown, context?: object) => {
+  void import("@sentry/nextjs").then(({ captureException }) => captureException(error, context));
+};
+const captureSentryMessage = (message: string, context?: object) => {
+  void import("@sentry/nextjs").then(({ captureMessage }) => captureMessage(message, context));
+};
+
 const ChartSkeleton = () => (
   <div className="flex items-center justify-center h-full">
     <CompLoading />
@@ -57,6 +64,14 @@ const ChartSkeleton = () => (
 
 const AttendanceChart = dynamic(
   () => import('@/components/attendance/attendance-chart').then((mod) => mod.AttendanceChart), 
+  {
+    loading: () => <ChartSkeleton />,
+    ssr: false
+  }
+);
+
+const AttendanceCalendar = dynamic(
+  () => import('@/components/attendance/attendance-calendar').then((mod) => mod.AttendanceCalendar),
   {
     loading: () => <ChartSkeleton />,
     ssr: false
@@ -106,8 +121,6 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [hoveredCourseId, setHoveredCourseId] = useState<string | null>(null);
-
-  const [isSyncing, setIsSyncing] = useState(true);
 
   const [pendingChange, setPendingChange] = useState<
     | { type: "semester"; value: "even" | "odd" }
@@ -197,7 +210,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     } catch (error) {
         logger.error("Settings Update Failed:", error);
         
-        Sentry.captureException(error, {
+        captureSentryException(error, {
             tags: { type: "update_settings_failed", location: "DashboardClient/handleConfirmChange" },
             extra: {
                 change_type: pendingChange?.type,
@@ -250,7 +263,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             await Promise.all([refetchCourses(), refetchAttendance()]); 
           } catch (error) {
             logger.error("Failed to set default semester", error);
-            Sentry.captureException(error, {
+            captureSentryException(error, {
                 tags: { type: "auto_init_semester", location: "DashboardClient/useEffect/SemesterInitialization" },
                 extra: { 
                     attempted_value: defaultSem,
@@ -281,7 +294,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             await Promise.all([refetchCourses(), refetchAttendance()]);
           } catch (error) {
              logger.error("Failed to set default year", error);
-             Sentry.captureException(error, {
+             captureSentryException(error, {
                 tags: { type: "auto_init_year", location: "DashboardClient/useEffect/AcademicYearInitialization" },
                 extra: { 
                     attempted_value: defaultYear,
@@ -307,11 +320,9 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
     // 2. Check if sync already ran for THIS mount
     if (lastSyncMountId.current === mountId.current) {
-        setIsSyncing(false);
         return;
     }
 
-    setIsSyncing(true);
     const abortController = new AbortController();
     let isCleanedUp = false;
 
@@ -332,7 +343,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                     description: "Some attendance data couldn't be synced. Your dashboard may be incomplete."
                 });
                 
-                Sentry.captureMessage("Partial sync failure in dashboard", {
+                captureSentryMessage("Partial sync failure in dashboard", {
                     level: "warning",
                     tags: { type: "dashboard_partial_sync", location: "DashboardClient/useEffect/performSync" },
                     extra: { userId: redact("id", String(user?.id)), response: data }
@@ -361,13 +372,12 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
             logger.error("Background sync failed", error);
             
-            Sentry.captureException(error, {
+            captureSentryException(error, {
                 tags: { type: "background_sync", location: "DashboardClient/useEffect/performSync" },
                 extra: { userId: redact("id", String(user?.id)) }
             });
         } finally {
             if (!isCleanedUp) {
-                setIsSyncing(false);
                 lastSyncMountId.current = mountId.current;
             }
         }
@@ -571,7 +581,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
       });
   }, [coursesData?.courses, stats?.courseStats, targetPercentage]);
 
-  if (isLoadingSemester || isLoadingAcademicYear || isLoadingAttendance || isLoadingCourses || isLoadingTracking || isUpdating || isSyncing) {
+  if (isLoadingSemester || isLoadingAcademicYear || isLoadingAttendance || isLoadingCourses || isLoadingTracking || isUpdating) {
     return <CompLoading />;
   }
 
@@ -584,6 +594,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
   const diffTotal = stats.finalTotal - stats.realTotal;
 
   return (
+    <LazyMotion features={domAnimation}>
     <div className="flex flex-col min-h-screen bg-background font-manrope">
       <main className="flex-1 container mx-auto p-4 md:p-6">
         <div className="mb-6 flex flex-col lg:flex-row gap-6 lg:items-end justify-between">
@@ -596,12 +607,12 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
               <p className="flex flex-wrap items-center gap-2.5 max-sm:text-md text-muted-foreground">
                 <span>You&apos;re checking out the</span>
                 <Select value={selectedSemester || undefined} onValueChange={(value) => handleSemesterChange(value as "even" | "odd")} disabled={setSemesterMutation.isPending}>
-                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 uppercase custom-dropdown" aria-label="Select semester">{selectedSemester || "semester"}</SelectTrigger>
+                  <SelectTrigger className="w-fit h-8 px-2 text-[14px] font-medium rounded-xl pl-3 uppercase custom-dropdown" aria-label={`Semester: ${selectedSemester ?? 'not set'}`}>{selectedSemester || "semester"}</SelectTrigger>
                   <SelectContent className="custom-dropdown"><SelectItem value="odd">ODD</SelectItem><SelectItem value="even">EVEN</SelectItem></SelectContent>
                 </Select>
                 <span>semester reports for academic year</span>
                 <Select value={selectedYear || undefined} onValueChange={handleAcademicYearChange} disabled={setAcademicYearMutation.isPending}>
-                  <SelectTrigger className="w-fit h-6 px-2 text-[14px] font-medium rounded-xl pl-3 custom-dropdown" aria-label="Select academic year">{selectedYear || "year"}</SelectTrigger>
+                  <SelectTrigger className="w-fit h-8 px-2 text-[14px] font-medium rounded-xl pl-3 custom-dropdown" aria-label={`Academic year: ${selectedYear ?? 'not set'}`}>{selectedYear || "year"}</SelectTrigger>
                   <SelectContent className="custom-dropdown max-h-70">{academicYears.map((year) => <SelectItem key={year} value={year}>{year}</SelectItem>)}</SelectContent>
                 </Select>
               </p>
@@ -614,7 +625,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                 <CardTitle className="text-sm font-medium">Total Attendance</CardTitle>
                 <div className="flex items-center gap-2 text-sm font-bold" role="status" aria-live="polite">
                   {(diffPresent !== 0 || diffTotal > 0) && stats.officialPercentage !== stats.percentage && (
-                    <span className="text-muted-foreground opacity-70">{stats.officialPercentage}% <span className="mx-0.5">→</span></span>
+                    <span className="text-muted-foreground">{stats.officialPercentage}% <span className="mx-0.5">→</span></span>
                   )}
                   <span className={stats.rawPercentage >= targetPercentage ? "text-primary" : "text-red-400"}>
                     {stats.percentage}%
@@ -807,5 +818,6 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         </AlertDialog>
       </main>
     </div>
+    </LazyMotion>
   );
 }
