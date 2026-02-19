@@ -64,6 +64,19 @@ npm run dev
 npm run dev:https
 ```
 
+### Optional Environment Variables
+
+These variables are **not required** for local development but enable additional behaviour when set.
+
+| Variable | Default | Description |
+|---|---|---|
+| `NEXT_PUBLIC_ENABLE_SW_IN_DEV` | `""` (disabled) | Set `"true"` to enable the service worker in development mode (useful for testing PWA/offline behaviour). |
+| `ENABLE_PUBLIC_BROWSER_SOURCEMAPS` | `""` (disabled) | Set `"true"` to serve JS source maps publicly in production builds (opt-in — see note below). |
+| `FORCE_STRICT_CSP` | `""` (disabled) | Set `"true"` to enforce production-like strict CSP in development (useful for reproducing CSP violations locally). |
+| `NEXT_PUBLIC_ATTENDANCE_TARGET_MIN` | `75` | Minimum attendance target percentage (1–100). Adjust to match your institution's requirements. |
+
+> **`ENABLE_PUBLIC_BROWSER_SOURCEMAPS` note:** By default, JavaScript source maps are *not* served publicly. They are always uploaded to Sentry separately for private error symbolication. Set this variable to `"true"` only when you need browser DevTools or Lighthouse to resolve production stack traces locally. Exposing source maps makes it easier for attackers to analyse deployed code, so treat this as a debugging aid rather than a permanent setting.
+
 ### Development Workflow
 
 - **Create a feature branch from `main`:**
@@ -681,11 +694,15 @@ grep -E '^[0-9a-f]{64}  ' checksums.txt | sha256sum -c
 
 **Description:**
 
-- `@sentry/nextjs @ 10.39.0` depends on `@sentry/node` which requires `minimatch < 10.2.1`
+- `@sentry/nextjs @ 9.20.0` depends on `@sentry/node` which requires `minimatch < 10.2.1`
 - minimatch < 10.2.1 contains a ReDoS vulnerability (GHSA-3ppc-4f35-3m26)
 - **Risk Level:** MEDIUM
   - **Attack Surface:** Low (Sentry configuration is application-controlled, not user-input)
   - **Exploitability:** Requires crafted patterns in app code using Sentry filtering
+
+**Version note (Sentry downgrade 10.x → 9.x):**
+
+The project is pinned to `@sentry/nextjs @ 9.20.0`. The 10.x line introduced breaking changes with the Next.js 16 App Router + edge runtime integration, causing instability in error reporting. Until the Sentry configuration can be safely migrated, we remain on 9.20.0 with the `minimatch` override below.
 
 **Fix Applied:**
 

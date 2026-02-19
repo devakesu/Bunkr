@@ -88,6 +88,8 @@ export default function TrackingClient() {
   const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [enabled, setEnabled] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncCompleted, setSyncCompleted] = useState(false);
   
   // Per-course record limits (for performance with 100+ records)
   const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
@@ -112,13 +114,18 @@ export default function TrackingClient() {
   useEffect(() => {
     // Guard: ensure both user ID and username exist before attempting sync
     // Username is required for the sync API call
-    if (!user?.id || !user?.username) return;
+    if (!user?.id || !user?.username) {
+      // User is loaded but has no username – skip sync so page can render
+      if (user?.id && !user?.username) setSyncCompleted(true);
+      return;
+    }
 
     // Check if sync already ran for THIS mount
     // In Strict Mode, the remount will have the SAME mountId, so we skip
     // On real navigation, mountId changes, so sync runs
     if (lastSyncMountId.current === mountId.current) {
       logger.dev('[Tracking] Sync already completed for this mount, skipping');
+      setSyncCompleted(true);
       return;
     }
 
@@ -127,6 +134,7 @@ export default function TrackingClient() {
 
     const runSync = async () => {
       logger.dev('[Tracking] Starting sync for mount:', mountId.current);
+      setIsSyncing(true);
 
       try {
         const res = await fetch(`/api/cron/sync?username=${user.username}`, {
@@ -180,6 +188,8 @@ export default function TrackingClient() {
         if (!isCleanedUp) {
           logger.dev('[Tracking] Sync completed for mount:', mountId.current);
           lastSyncMountId.current = mountId.current;
+          setIsSyncing(false);
+          setSyncCompleted(true);
         }
       }
     };

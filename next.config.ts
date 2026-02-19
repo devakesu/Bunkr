@@ -38,10 +38,11 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   output: "standalone",
   compress: true, // Enable gzip compression for better performance
-  // Serve source maps publicly in production so Lighthouse / DevTools can resolve them.
-  // Safe to expose because the project is GPL open-source (no secret logic to protect).
-  // Maps are also uploaded to Sentry separately for private error symbolication.
-  productionBrowserSourceMaps: true,
+  // Serve source maps publicly in production only when explicitly opted in.
+  // Even though the project is GPL open-source, public browser source maps increase bandwidth
+  // and make it easier for attackers to analyse the exact deployed code.
+  // Source maps are always uploaded to Sentry separately for private error symbolication.
+  productionBrowserSourceMaps: process.env.ENABLE_PUBLIC_BROWSER_SOURCEMAPS === "true",
 
   async headers() {
     // 1. Define headers common to all environments

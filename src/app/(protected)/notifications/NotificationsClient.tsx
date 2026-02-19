@@ -110,6 +110,8 @@ export default function NotificationsPage() {
   } = useNotifications(true);
 
   const [readingId, setReadingId] = useState<number | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncCompleted, setSyncCompleted] = useState(false);
 
   // BUILD VIRTUAL LIST WITH HEADERS
   const virtualItems = useMemo<VirtualItem[]>(() => {
@@ -194,11 +196,16 @@ export default function NotificationsPage() {
 
   // SYNC ON MOUNT (with mountId-based deduplication)
   useEffect(() => {
-    if (!user?.username) return;
+    if (!user?.username) {
+      // User is loaded but has no username – skip sync so page can render
+      if (user?.id) setSyncCompleted(true);
+      return;
+    }
 
     // Check if sync already ran for THIS mount
     if (lastSyncMountId.current === mountId.current) {
       logger.dev('[Notifications] Sync already completed for this mount, skipping');
+      setSyncCompleted(true);
       return;
     }
 
@@ -207,6 +214,7 @@ export default function NotificationsPage() {
 
     const syncNotifications = async () => {
       logger.dev('[Notifications] Starting sync for mount:', mountId.current);
+      setIsSyncing(true);
 
       try {
         const res = await fetch(`/api/cron/sync?username=${user.username}`, {
@@ -258,6 +266,8 @@ export default function NotificationsPage() {
         if (!isCleanedUp) {
           logger.dev('[Notifications] Sync completed for mount:', mountId.current);
           lastSyncMountId.current = mountId.current;
+          setIsSyncing(false);
+          setSyncCompleted(true);
         }
       }
     };
@@ -307,8 +317,8 @@ export default function NotificationsPage() {
       }
   }, [markAsRead, readingId, rowVirtualizer, user?.id]);
 
-  // Render as soon as initial user/data are available; sync continues in background.
-  if (!user?.id || isLoading) return <Loading />;
+  // Block rendering until user is available, data has loaded, and initial sync has completed.
+  if (!user?.id || isLoading || isSyncing || !syncCompleted) return <Loading />;
 
   const isEmpty = virtualItems.length === 0;
 
