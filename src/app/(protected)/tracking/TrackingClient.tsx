@@ -331,8 +331,8 @@ export default function TrackingClient() {
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.3, staggerChildren: 0.05 } } };
   const pageVariants = { enter: (d: number) => ({ x: d > 0 ? 50 : -50, opacity: 0 }), center: { x: 0, opacity: 1 }, exit: (d: number) => ({ x: d < 0 ? 50 : -50, opacity: 0 }) };
 
-  // Render as soon as initial user/data are available; sync continues in background.
-  if (!enabled || isDataLoading) return <Loading />;
+  // Block rendering until tracking is enabled, base data has loaded, and initial sync has completed.
+  if (!enabled || isDataLoading || isSyncing || !syncCompleted) return <Loading />;
 
   return isProcessing ? ( <div className="h-screen flex items-center justify-center"><Loading /></div> ) : (
     <LazyMotion features={domAnimation}>
