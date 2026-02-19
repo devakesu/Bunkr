@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { CourseCard } from '../course-card';
+import { CourseCard, ExtendedCourse } from '../course-card';
 
 vi.mock('@/hooks/courses/attendance', () => ({
   useCourseDetails: vi.fn(() => ({
@@ -45,7 +45,7 @@ vi.mock('lucide-react', () => ({
   AlertCircle: () => <span data-testid="alert-circle-icon" />,
 }));
 
-const sampleCourse = {
+const sampleCourse: ExtendedCourse = {
   id: 42,
   name: 'Computer Science',
   code: 'CS101',
@@ -68,19 +68,19 @@ describe('CourseCard', () => {
   });
 
   it('should render the course name', async () => {
-    render(<CourseCard course={sampleCourse as any} />);
+    render(<CourseCard course={sampleCourse} />);
 
     expect(await screen.findByText('Computer Science')).toBeInTheDocument();
   });
 
   it('should render the course code badge', async () => {
-    render(<CourseCard course={sampleCourse as any} />);
+    render(<CourseCard course={sampleCourse} />);
 
     expect(await screen.findByText('CS101')).toBeInTheDocument();
   });
 
   it('should render attendance stats when data is available', async () => {
-    render(<CourseCard course={sampleCourse as any} />);
+    render(<CourseCard course={sampleCourse} />);
 
     expect(await screen.findByText('Present')).toBeInTheDocument();
     expect(await screen.findByText('Absent')).toBeInTheDocument();
