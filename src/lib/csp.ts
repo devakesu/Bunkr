@@ -275,6 +275,5 @@ export const getCspHeader = (nonce?: string) => {
       ${process.env.NODE_ENV !== 'production' ? 'http://localhost:3000 http://127.0.0.1:3000' : ''}
       ${process.env.NODE_ENV !== 'production' ? 'https://localhost:3000 https://127.0.0.1:3000' : ''};
     ${process.env.NODE_ENV === 'production' ? 'upgrade-insecure-requests;' : ''}
-    ${!isDev ? "require-trusted-types-for 'script';" : ''}
   `.replace(/\s{2,}/g, ' ').trim();
 };

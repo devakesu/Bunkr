@@ -156,8 +156,9 @@ describe('TrackingClient', () => {
     // Default sync: succeed silently
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
+      status: 200,
       json: async () => ({ success: true }),
-    });
+    }) as unknown as typeof fetch;
   });
 
   afterEach(() => {
