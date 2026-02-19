@@ -91,6 +91,7 @@ vi.mock('framer-motion', () => ({
   domAnimation: {},
   m: {
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
   },
   AnimatePresence: ({ children }: any) => children,
 }));
@@ -167,6 +168,12 @@ describe('TrackingClient', () => {
 
   describe('Loading state', () => {
     it('should show loading indicator on initial render', () => {
+      vi.mocked(useTrackingData).mockReturnValue({
+        data: null,
+        isLoading: true,
+        error: null,
+        refetch: vi.fn().mockResolvedValue({ data: null, isLoading: true, error: null }),
+      } as any);
       render(<TrackingClient />);
       expect(screen.getByRole('status')).toBeInTheDocument();
     });

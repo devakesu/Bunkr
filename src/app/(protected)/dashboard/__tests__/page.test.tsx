@@ -48,7 +48,7 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-import DashboardPage from '../page';
+import DashboardPage, { DashboardDataLoader } from '../page';
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { fetchDashboardData } from '@/lib/ezygo-batch-fetcher';
@@ -131,10 +131,10 @@ describe('DashboardPage', () => {
       render(element as ReactElement);
       expect(screen.getByRole('status')).toBeInTheDocument();
 
-      // DashboardDataLoader resolves and renders DashboardClient
-      await waitFor(() => {
-        expect(screen.getByTestId('dashboard-client')).toBeInTheDocument();
-      });
+      // Call DashboardDataLoader directly – async RSC doesn't resolve in jsdom
+      const loaderElement = await DashboardDataLoader({ token: 'test-token-abc', userId: 'user-123' });
+      const { getByTestId } = render(loaderElement as ReactElement);
+      expect(getByTestId('dashboard-client')).toBeInTheDocument();
     });
 
     it('should render DashboardClient with null initialData when fetchDashboardData fails', async () => {
@@ -156,12 +156,12 @@ describe('DashboardPage', () => {
       const element = await DashboardPage();
       render(element as ReactElement);
 
-      // Graceful degradation: DashboardClient still renders with null initialData
-      await waitFor(() => {
-        const client = screen.getByTestId('dashboard-client');
-        expect(client).toBeInTheDocument();
-        expect(client.getAttribute('data-has-data')).toBe('false');
-      });
+      // Call DashboardDataLoader directly – async RSC doesn't resolve in jsdom
+      const loaderElement = await DashboardDataLoader({ token: 'bad-token', userId: 'user-123' });
+      const { getByTestId } = render(loaderElement as ReactElement);
+      const client = getByTestId('dashboard-client');
+      expect(client).toBeInTheDocument();
+      expect(client.getAttribute('data-has-data')).toBe('false');
     });
   });
 });
