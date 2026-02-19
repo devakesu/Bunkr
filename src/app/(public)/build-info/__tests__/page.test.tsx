@@ -32,7 +32,7 @@ describe('BuildInfoPage', () => {
 
   describe('Loading State', () => {
     it('should display loading spinner initially', () => {
-      global.fetch = vi.fn(async () => new Promise(() => {})) as typeof fetch; // Never resolves
+      global.fetch = vi.fn(() => new Promise(() => {})) as typeof fetch; // Never resolves
 
       render(<BuildInfoPage />);
 

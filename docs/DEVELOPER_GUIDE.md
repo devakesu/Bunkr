@@ -681,11 +681,15 @@ grep -E '^[0-9a-f]{64}  ' checksums.txt | sha256sum -c
 
 **Description:**
 
-- `@sentry/nextjs @ 10.39.0` depends on `@sentry/node` which requires `minimatch < 10.2.1`
+- `@sentry/nextjs @ 9.20.0` depends on `@sentry/node` which requires `minimatch < 10.2.1`
 - minimatch < 10.2.1 contains a ReDoS vulnerability (GHSA-3ppc-4f35-3m26)
 - **Risk Level:** MEDIUM
   - **Attack Surface:** Low (Sentry configuration is application-controlled, not user-input)
   - **Exploitability:** Requires crafted patterns in app code using Sentry filtering
+
+**Version note (Sentry downgrade 10.x → 9.x):**
+
+The project is pinned to `@sentry/nextjs @ 9.20.0`. The 10.x line introduced breaking changes with the Next.js 16 App Router + edge runtime integration, causing instability in error reporting. Until the Sentry configuration can be safely migrated, we remain on 9.20.0 with the `minimatch` override below.
 
 **Fix Applied:**
 
