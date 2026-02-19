@@ -166,7 +166,7 @@ RUN --mount=type=secret,id=sentry_token \
 # runtime caching strategies (NetworkFirst, CacheFirst, StaleWhileRevalidate) can only serve previously cached resources offline (full offline support would require precaching or explicit caching logic)
 RUN if [ ! -f "public/sw.js" ]; then \
       echo "Compiling service worker from src/sw.ts..."; \
-      npm exec esbuild@0.25.12 -- src/sw.ts \
+      ./node_modules/.bin/esbuild src/sw.ts \
         --bundle \
         --outfile=public/sw.js \
         --format=iife \
