@@ -67,7 +67,7 @@ const nextConfig: NextConfig = {
 
     // 2. Only add HSTS in Production to prevent local SSL errors
     if (process.env.NODE_ENV === 'production') {
-      // 2-year max-age satisfies Lighthouse "max-age too low" audit (minimum recommended: 63072000).
+      // 2-year max-age (63072000 seconds = 2 years) satisfies Lighthouse "max-age too low" audit (minimum recommended: 63072000).
       // preload qualifies the domain for HSTS preload lists (https://hstspreload.org).
       headersList.push({
         key: "Strict-Transport-Security",
