@@ -72,8 +72,8 @@ These variables are **not required** for local development but enable additional
 | --- | --- | --- |
 | `NEXT_PUBLIC_ENABLE_SW_IN_DEV` | `""` (disabled) | Set `"true"` to enable the service worker in development mode (useful for testing PWA/offline behaviour). |
 | `ENABLE_PUBLIC_BROWSER_SOURCEMAPS` | `""` (disabled) | Set `"true"` to serve JS source maps publicly in production builds (opt-in — see note below). |
-| `FORCE_STRICT_CSP` | `""` (disabled) | Set `"true"` to enforce production-like strict CSP in development (useful for reproducing CSP violations locally). |
-| `NEXT_PUBLIC_ATTENDANCE_TARGET_MIN` | `75` | Minimum attendance target percentage (1–100). Adjust to match your institution's requirements. |
+| `FORCE_STRICT_CSP` / `NEXT_PUBLIC_FORCE_STRICT_CSP` | `""` (disabled) | Set `"true"` to enforce stricter CSP in development (disables `'unsafe-inline'`; useful for reproducing CSP violations locally). **Note:** `'unsafe-eval'` is NOT removed in dev mode even when set — Next.js HMR requires it. Only absent in a real production build. Use `npm run build && npm start` to test a fully strict CSP. |
+| `NEXT_PUBLIC_ATTENDANCE_TARGET_MIN` | `75` | Minimum attendance target percentage (1–100). Applies in both development and production. Adjust to match your institution's minimum attendance requirements. |
 
 > **`ENABLE_PUBLIC_BROWSER_SOURCEMAPS` note:** By default, JavaScript source maps are *not* served publicly. They are always uploaded to Sentry separately for private error symbolication. Set this variable to `"true"` only when you need browser DevTools or Lighthouse to resolve production stack traces locally. Exposing source maps makes it easier for attackers to analyse deployed code, so treat this as a debugging aid rather than a permanent setting.
 

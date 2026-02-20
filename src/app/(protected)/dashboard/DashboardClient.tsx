@@ -624,12 +624,12 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             <div className="flex gap-4 items-center font-normal">
               <p className="flex flex-wrap items-center gap-2.5 max-sm:text-md text-muted-foreground">
                 <span>You&apos;re checking out the</span>
-                <Select value={selectedSemester || undefined} onValueChange={(value) => handleSemesterChange(value as "even" | "odd")} disabled={setSemesterMutation.isPending}>
+                <Select value={selectedSemester || ""} onValueChange={(value) => handleSemesterChange(value as "even" | "odd")} disabled={setSemesterMutation.isPending}>
                   <SelectTrigger className="w-fit h-8 px-2 text-[14px] font-medium rounded-xl pl-3 uppercase custom-dropdown" aria-label="Select semester">{selectedSemester || "semester"}</SelectTrigger>
                   <SelectContent className="custom-dropdown"><SelectItem value="odd">ODD</SelectItem><SelectItem value="even">EVEN</SelectItem></SelectContent>
                 </Select>
                 <span>semester reports for academic year</span>
-                <Select value={selectedYear || undefined} onValueChange={handleAcademicYearChange} disabled={setAcademicYearMutation.isPending}>
+                <Select value={selectedYear || ""} onValueChange={handleAcademicYearChange} disabled={setAcademicYearMutation.isPending}>
                   <SelectTrigger className="w-fit h-8 px-2 text-[14px] font-medium rounded-xl pl-3 custom-dropdown" aria-label="Select academic year">{selectedYear || "year"}</SelectTrigger>
                   <SelectContent className="custom-dropdown max-h-70">{academicYears.map((year) => <SelectItem key={year} value={year}>{year}</SelectItem>)}</SelectContent>
                 </Select>
@@ -729,7 +729,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                   <Card className="custom-container flex flex-col justify-center py-4 px-2">
                     <CardHeader className="pb-1 px-4"><CardTitle className="text-sm font-medium">Present (+DL)</CardTitle></CardHeader>
                     <CardContent className="px-4 pb-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5">
                         <span className="text-2xl font-bold text-green-500">{stats.realPresent}</span>
                         {stats.correctionPresent > 0 && <span className="text-lg font-bold text-orange-500">+{stats.correctionPresent}</span>}
                         {stats.extraPresent > 0 && <span className="text-lg font-bold text-blue-400">+{stats.extraPresent}</span>}
@@ -741,7 +741,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                   <Card className="custom-container flex flex-col justify-center py-4 px-2">
                     <CardHeader className="pb-1 px-4"><CardTitle className="text-sm font-medium">Absent</CardTitle></CardHeader>
                     <CardContent className="px-4 pb-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5">
                         <span className="text-2xl font-bold text-red-500">{stats.realAbsent}</span>
                         {stats.savedAbsent > 0 && <span className="text-lg font-bold text-orange-500">-{stats.savedAbsent}</span>}
                         {stats.extraAbsent > 0 && <span className="text-lg font-bold text-blue-400">+{stats.extraAbsent}</span>}
@@ -756,7 +756,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                   <Card className="custom-container flex flex-col justify-center py-4 px-2">
                     <CardHeader className="pb-1 px-4"><CardTitle className="text-sm font-medium">Duty Leave(s)</CardTitle></CardHeader>
                     <CardContent className="px-4 pb-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5">
                           <span className="text-2xl font-bold text-yellow-500">{stats.realDL}</span>
                           {stats.correctionDL > 0 && <span className="text-lg font-bold text-orange-500">+{stats.correctionDL}</span>}
                           {stats.extraDL > 0 && <span className="text-lg font-bold text-blue-400">+{stats.extraDL}</span>}
@@ -765,7 +765,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                   </Card>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.4 }}>
-                  <Card className="custom-container flex flex-col justify-center py-4 px-2"><CardHeader className="pb-1 px-4"><CardTitle className="text-sm font-medium">Special Leave(s)</CardTitle></CardHeader><CardContent className="px-4 pb-2"><div className="text-2xl font-bold text-teal-400">{stats.otherLeave}</div></CardContent></Card>
+                  <Card className="custom-container flex flex-col justify-center py-4 px-2"><CardHeader className="pb-1 px-4"><CardTitle className="text-sm font-medium whitespace-nowrap">Special Leave(s)</CardTitle></CardHeader><CardContent className="px-4 pb-2"><div className="text-2xl font-bold text-teal-400">{stats.otherLeave}</div></CardContent></Card>
                 </motion.div>
               </div>
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.5 }}>

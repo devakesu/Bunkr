@@ -232,6 +232,13 @@ body {
   transition: backdrop-filter 0.2s ease;
 }
 
+html:has(#nprogress):not(:has(.login-page)),
+body:has(#nprogress):not(:has(.login-page)) {
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
 body:has(#nprogress):not(:has(.login-page)) {
   backdrop-filter: blur(4px);
 }

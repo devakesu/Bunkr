@@ -415,7 +415,7 @@ export default function HelpClient() {
                 <span className="text-orange-500 font-semibold">
                   Orange <code>+N</code>
                 </span>{" "}
-                next to Present = Correction entries that convert absences to present
+                next to Present = Correction entries that convert absences to present/DL
                 (does <strong className="text-zinc-200">NOT</strong> add to total)
               </li>
               <li>
@@ -531,7 +531,6 @@ export default function HelpClient() {
               <ul className="text-zinc-400 text-sm space-y-2 list-disc list-inside">
                 <li>
                   Used when EzyGo marked you absent but you were actually present
-                  (or vice versa)
                 </li>
                 <li>
                   Does <strong className="text-zinc-200">NOT</strong> add to the
@@ -556,7 +555,7 @@ export default function HelpClient() {
               <ul className="text-zinc-400 text-sm space-y-2 list-disc list-inside">
                 <li>
                   Used for classes that EzyGo doesn&apos;t know about yet (newly
-                  held class not synced, or a makeup class)
+                  held class not synced)
                 </li>
                 <li>
                   <strong className="text-zinc-200">ADDS</strong> to the total

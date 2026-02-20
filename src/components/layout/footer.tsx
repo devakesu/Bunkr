@@ -73,11 +73,10 @@ export const Footer = ({ className }: { className?: string }) => {
               </Link>
               <span className="text-muted-foreground/40 mx-1">·</span>
               <Link
-                target="_blank"
-                href="/contact"
+                href="/help"
                 className="hover:text-foreground hover:underline underline-offset-4 transition-all"
               >
-                Contact
+                Help
               </Link>
             </div>
 

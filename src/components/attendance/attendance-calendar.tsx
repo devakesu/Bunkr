@@ -635,10 +635,11 @@ export function AttendanceCalendar({
         <CardHeader className="border-b border-border/40 py-4 px-6 bg-muted/20">
           <CardTitle className="text-sm flex items-center justify-between font-semibold">
             <div className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4 text-primary" aria-hidden="true" />
-              <span id="selected-date-label">
-                {selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-              </span>
+              <CalendarIcon className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+              <div id="selected-date-label" className="flex flex-col leading-tight">
+                <span className="font-semibold">{selectedDate.toLocaleDateString("en-US", { weekday: "long" })}</span>
+                <span className="text-sm font-normal text-muted-foreground">{selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric" })}</span>
+              </div>
             </div>
             <Badge variant="secondary" className="font-normal text-xs bg-background/80" aria-label={`${selectedDateEvents.length} attendance sessions`}>
               {selectedDateEvents.length} Sessions
@@ -649,7 +650,7 @@ export function AttendanceCalendar({
           <AnimatePresence mode="wait">
             <motion.div key={selectedDate.toString()} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col">
               {selectedDateEvents.length > 0 ? (
-                <div className="flex flex-col gap-3 p-4">
+                <div className="flex flex-col gap-5 p-4">
                   {selectedDateEvents.map((event, index) => {
                     let badgeClass = "text-muted-foreground border-border";
                     let Icon = Clock;
@@ -727,9 +728,9 @@ export function AttendanceCalendar({
                         if (event.status === "Absent") {
                             return (
                                 <div className="shrink-0 w-full sm:w-auto">
-                                    <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full">
-                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 225, "Duty Leave"); }} aria-label={`Mark ${event.title} as Duty Leave for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-8 py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-yellow-500/40 text-yellow-600 hover:bg-yellow-500/10 hover:border-yellow-500 hover:text-yellow-700 dark:text-yellow-500"}`}>{isLoading ? "..." : <><Briefcase className="w-3 h-3 shrink-0" aria-hidden="true"/><span className="truncate">Mark DL</span></>}</Button>
-                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 110, "Incorrectly marked absent"); }} aria-label={`Mark ${event.title} as Present for ${event.sessionName}`} className={`w-full sm:w-auto h-auto min-h-8 py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500 hover:text-green-700 dark:text-green-500"}`}>{isLoading ? "..." : <><CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" /><span className="truncate">Mark Present</span></>}</Button>
+                                    <div className="flex flex-row gap-2 w-full">
+                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 225, "Duty Leave"); }} aria-label={`Mark ${event.title} as Duty Leave for ${event.sessionName}`} className={`flex-1 h-auto min-h-8 py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-yellow-500/40 text-yellow-600 hover:bg-yellow-500/10 hover:border-yellow-500 hover:text-yellow-700 dark:text-yellow-500"}`}>{isLoading ? "..." : <><Briefcase className="w-3 h-3 shrink-0" aria-hidden="true"/><span>Mark DL</span></>}</Button>
+                                        <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { if (clickedButtons.current?.has(buttonKey)) return; clickedButtons.current?.add(buttonKey); if (authUserId) handleWriteTracking(event.courseId, dbDate, "correction", sessionForDB, 110, "Incorrectly marked absent"); }} aria-label={`Mark ${event.title} as Present for ${event.sessionName}`} className={`flex-1 h-auto min-h-8 py-1.5 text-xs gap-1.5 border-dashed transition-all ${isLoading ? "opacity-70 cursor-wait" : "border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500 hover:text-green-700 dark:text-green-500"}`}>{isLoading ? "..." : <><CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" /><span>Mark Present</span></>}</Button>
                                     </div>
                                 </div>
                             );

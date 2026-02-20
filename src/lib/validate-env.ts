@@ -199,6 +199,39 @@ export function validateEnvironment() {
     }
   }
 
+  // Rate Limiting (all optional — defaults are hardcoded in ratelimit.ts)
+  const rateLimitRequests = process.env.RATE_LIMIT_REQUESTS;
+  if (rateLimitRequests) {
+    const val = parseInt(rateLimitRequests, 10);
+    if (isNaN(val) || val < 1 || val > 10000) {
+      warnings.push('⚠️  RATE_LIMIT_REQUESTS is invalid (must be 1–10000); using default of 10');
+    }
+  }
+
+  const rateLimitWindow = process.env.RATE_LIMIT_WINDOW;
+  if (rateLimitWindow) {
+    const val = parseInt(rateLimitWindow, 10);
+    if (isNaN(val) || val < 1 || val > 3600) {
+      warnings.push('⚠️  RATE_LIMIT_WINDOW is invalid (must be 1–3600 seconds); using default of 10');
+    }
+  }
+
+  const authRateLimitRequests = process.env.AUTH_RATE_LIMIT_REQUESTS;
+  if (authRateLimitRequests) {
+    const val = parseInt(authRateLimitRequests, 10);
+    if (isNaN(val) || val < 1 || val > 100) {
+      warnings.push('⚠️  AUTH_RATE_LIMIT_REQUESTS is invalid (must be 1–100); using default of 5');
+    }
+  }
+
+  const authRateLimitWindow = process.env.AUTH_RATE_LIMIT_WINDOW;
+  if (authRateLimitWindow) {
+    const val = parseInt(authRateLimitWindow, 10);
+    if (isNaN(val) || val < 10 || val > 3600) {
+      warnings.push('⚠️  AUTH_RATE_LIMIT_WINDOW is invalid (must be 10–3600 seconds); using default of 60');
+    }
+  }
+
   // Request Signature Max Age
   const requestSigMaxAge = process.env.REQUEST_SIGNATURE_MAX_AGE;
   if (requestSigMaxAge) {

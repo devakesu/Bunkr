@@ -120,6 +120,7 @@ export default function ProtectedLayout({
   return (
     <ErrorBoundary>
       <div className="flex min-h-screen flex-col" suppressHydrationWarning>
+        <Toaster />
         {/* Show loading state while checking auth or if institutions are loading/error */}
         {showLoading && (
           <div className="h-screen flex items-center justify-center" suppressHydrationWarning>
@@ -164,7 +165,6 @@ export default function ProtectedLayout({
             </main>
             
             <Footer />
-            <Toaster />
           </>
         )}
       </div>

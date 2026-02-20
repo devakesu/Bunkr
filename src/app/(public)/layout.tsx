@@ -69,11 +69,14 @@ export default function PublicLayout({
             "fixed top-0 left-0 right-0 z-50",
             isHidden ? "pointer-events-none" : "pointer-events-auto"
           )}
-          // Accessibility: prevent interaction with hidden navbar
-          // - aria-hidden hides from screen readers (all browsers)
-          // - inert disables keyboard interaction (modern browsers: Chrome 102+, Safari 15.5+, Firefox 112+)
-          // Feature detection ensures graceful degradation on older browsers
-          aria-hidden={isHidden ? "true" : "false"}
+          // Accessibility: use only `inert` to hide the navbar from AT and remove it from
+          // the tab order when scrolled away. Do NOT combine with aria-hidden — the spec
+          // (and browsers) warn when aria-hidden is set on an ancestor of a focused element,
+          // which can occur during the scroll animation. `inert` handles both AT hiding AND
+          // focus removal atomically, making aria-hidden redundant here.
+          // Browser support: Chrome 102+, Safari 15.5+, Firefox 112+ (March 2023+)
+          // Graceful degradation: on older browsers the navbar is visually off-screen via
+          // the CSS transform but remains keyboard-reachable (acceptable fallback).
           {...((isHidden &&
             typeof HTMLElement !== "undefined" &&
             HTMLElement?.prototype &&

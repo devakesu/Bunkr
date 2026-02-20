@@ -70,9 +70,16 @@ export default function BuildInfoPage() {
               Back to Home
             </Button>
           </Link>
-          <h1 className="text-4xl font-bold mb-2 font-klick tracking-wide bg-linear-to-r from-primary to-purple-400 bg-clip-text text-transparent">
-            Build Information
-          </h1>
+          <div className="flex items-center gap-3 mb-2 flex-wrap">
+            <h1 className="text-4xl font-bold font-klick tracking-wide bg-linear-to-r from-primary to-purple-400 bg-clip-text text-transparent">
+              Build Information
+            </h1>
+            {process.env.NEXT_PUBLIC_APP_VERSION && (
+              <span className="font-mono text-sm px-2 py-0.5 rounded-full border border-primary/30 bg-primary/10 text-primary self-end mb-1">
+                v{process.env.NEXT_PUBLIC_APP_VERSION}
+              </span>
+            )}
+          </div>
           <p className="text-muted-foreground">
             Transparency and provenance details for this deployment
           </p>

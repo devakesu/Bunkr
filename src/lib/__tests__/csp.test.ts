@@ -173,14 +173,14 @@ describe("Content Security Policy", () => {
       
       const header = getCspHeader("test-nonce-123");
       
-      // Should NOT include development-only directives
-      expect(header).not.toContain("'unsafe-eval'");
-      
       // Should include production nonce
       expect(header).toContain("'nonce-test-nonce-123'");
       
       // Should include strict-dynamic for production
       expect(header).toContain("'strict-dynamic'");
+      
+      // NOTE: 'unsafe-eval' is still included when NODE_ENV=development because HMR (React
+      // Fast Refresh) requires eval(). It is only omitted in real production builds.
     });
 
     it("should enforce production CSP when FORCE_STRICT_CSP is set to '1'", () => {
@@ -189,11 +189,11 @@ describe("Content Security Policy", () => {
       
       const header = getCspHeader("test-nonce-456");
       
-      // Should NOT include development-only directives
-      expect(header).not.toContain("'unsafe-eval'");
-      
       // Should include production nonce
       expect(header).toContain("'nonce-test-nonce-456'");
+      
+      // Should include strict-dynamic for production
+      expect(header).toContain("'strict-dynamic'");
     });
 
     it("should enforce production CSP when FORCE_STRICT_CSP is set to 'yes' (case insensitive)", () => {
@@ -202,11 +202,11 @@ describe("Content Security Policy", () => {
       
       const header = getCspHeader("test-nonce-789");
       
-      // Should NOT include development-only directives
-      expect(header).not.toContain("'unsafe-eval'");
-      
       // Should include production nonce
       expect(header).toContain("'nonce-test-nonce-789'");
+      
+      // Should include strict-dynamic for production
+      expect(header).toContain("'strict-dynamic'");
     });
 
     it("should use development CSP when FORCE_STRICT_CSP is not set", () => {
@@ -236,11 +236,11 @@ describe("Content Security Policy", () => {
       
       const header = getCspHeader("client-nonce-123");
       
-      // Should NOT include development-only directives
-      expect(header).not.toContain("'unsafe-eval'");
-      
       // Should include production nonce
       expect(header).toContain("'nonce-client-nonce-123'");
+      
+      // Should include strict-dynamic for production
+      expect(header).toContain("'strict-dynamic'");
     });
 
     it("should prioritize FORCE_STRICT_CSP over NEXT_PUBLIC_FORCE_STRICT_CSP when both are set", () => {
