@@ -109,7 +109,7 @@ export const Footer = ({ className }: { className?: string }) => {
             </div>
             
             <div className="flex items-center gap-1.5">
-              <span className="opacity-70">ver</span>
+              <span>ver</span>
               <a
                 href={githubUrl ? `${githubUrl}/commit/${commitSha}` : "#"}
                 target="_blank"
