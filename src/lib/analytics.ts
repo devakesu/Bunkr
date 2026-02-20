@@ -110,10 +110,13 @@ export function getOrCreateClientId(): string {
   if (typeof document === "undefined") return "";
 
   const cookieName = "_ga_client_id";
-  const match = document.cookie.match(new RegExp(`${cookieName}=([^;]+)`));
-  
-  if (match) {
-    return match[1];
+  // Use split-based lookup instead of RegExp to avoid regex injection risk
+  const prefix = `${cookieName}=`;
+  const pair = document.cookie.split('; ').find(c => c.startsWith(prefix));
+  const existingId = pair ? pair.slice(prefix.length) : null;
+
+  if (existingId) {
+    return existingId;
   }
 
   // Generate new client ID: timestamp.random

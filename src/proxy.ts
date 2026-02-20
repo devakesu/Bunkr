@@ -64,6 +64,9 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   // 6. Routing Logic
+  // SECURITY: ezygo_access_token MUST be set with httpOnly:true in setAuthCookie (src/lib/security/auth-cookie.ts).
+  // This routing logic depends on that — if the cookie is not httpOnly, the token is exposed to XSS.
+  // See: src/lib/security/auth-cookie.ts
   const ezygoToken = request.cookies.get("ezygo_access_token")?.value;
   const termsVersion = request.cookies.get("terms_version")?.value;
   const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard");
@@ -95,7 +98,8 @@ export async function proxy(request: NextRequest) {
     // Redirect loop protection: use httpOnly cookie to track redirect attempts
     // This prevents manipulation via URL parameters which could be exploited for DoS
     const redirectCountCookie = request.cookies.get('terms_redirect_count');
-    const redirectCount = redirectCountCookie ? parseInt(redirectCountCookie.value, 10) : 0;
+    const raw = redirectCountCookie?.value;
+    const redirectCount = (raw && /^\d+$/.test(raw)) ? parseInt(raw, 10) : 0;
     
     if (redirectCount >= 3) {
       // Too many redirect attempts - log user out to break the loop

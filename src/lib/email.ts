@@ -59,19 +59,23 @@ const getSenderEmail = () => {
 
 // Configuration
 const CONFIG = {
-  sender: {
-    name: process.env.NEXT_PUBLIC_APP_NAME || 'GhostClass',
-    email: getSenderEmail(),
+  // Lazy getter: evaluated only when sending email, not at module load time.
+  // This prevents a crash on cold start if NEXT_PUBLIC_APP_EMAIL is not yet set.
+  get sender() {
+    return {
+      name: process.env.NEXT_PUBLIC_APP_NAME || 'GhostClass',
+      email: getSenderEmail(),
+    };
   },
   brevo: {
     url: "https://api.brevo.com/v3/smtp/email",
-    key: process.env.BREVO_API_KEY,
+    get key() { return process.env.BREVO_API_KEY; },
   },
   sendpulse: {
     authUrl: "https://api.sendpulse.com/oauth/access_token",
     emailUrl: "https://api.sendpulse.com/smtp/emails",
-    clientId: process.env.SENDPULSE_CLIENT_ID,
-    clientSecret: process.env.SENDPULSE_CLIENT_SECRET,
+    get clientId() { return process.env.SENDPULSE_CLIENT_ID; },
+    get clientSecret() { return process.env.SENDPULSE_CLIENT_SECRET; },
   },
 };
 

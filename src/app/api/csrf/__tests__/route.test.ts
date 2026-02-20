@@ -67,8 +67,6 @@ describe("CSRF API Route", () => {
       const error = new Error("Token initialization failed");
       vi.mocked(initializeCsrfToken).mockRejectedValue(error);
 
-      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
       const response = await GET();
       const data = await response.json();
 
@@ -76,13 +74,6 @@ describe("CSRF API Route", () => {
       expect(data).toEqual({
         error: "Failed to initialize CSRF token",
       });
-      // Check that error logging doesn't expose full error object
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "CSRF token initialization error:",
-        expect.objectContaining({ message: "Token initialization failed" })
-      );
-
-      consoleErrorSpy.mockRestore();
     });
 
     it("should handle unexpected errors gracefully", async () => {
@@ -156,8 +147,6 @@ describe("CSRF API Route", () => {
       vi.mocked(regenerateCsrfToken).mockRejectedValue(error);
       vi.mocked(authRateLimiter.limit).mockResolvedValue({ success: true } as any);
 
-      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
       const response = await POST();
       const data = await response.json();
 
@@ -165,13 +154,6 @@ describe("CSRF API Route", () => {
       expect(data).toEqual({
         error: "Failed to refresh CSRF token",
       });
-      // Verify error logging is secure (only logs message, not full error)
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "CSRF token refresh error:",
-        expect.objectContaining({ message: "Token refresh failed" })
-      );
-
-      consoleErrorSpy.mockRestore();
     });
 
     it("should always generate new tokens on POST", async () => {

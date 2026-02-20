@@ -1,6 +1,12 @@
+import type { Metadata } from 'next';
 import { PublicNavbar } from "@/components/layout/public-navbar";
 import { Footer } from "@/components/layout/footer";
 import { NotFoundContent } from "@/components/not-found-content";
+
+export const metadata: Metadata = {
+  title: 'Page Not Found',
+  robots: { index: false, follow: false },
+};
 
 /**
  * Custom 404 Not Found Page

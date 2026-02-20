@@ -278,13 +278,13 @@ export function useUserSettings() {
     // Gate the query itself on a non-null userId so we never fetch for ["userSettings", null].
     enabled: !!userId,
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return null;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
 
       const { data, error } = await supabase
         .from("user_settings")
         .select("bunk_calculator_enabled, target_percentage")
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (error) {
@@ -318,12 +318,12 @@ export function useUserSettings() {
   // 2. Mutation to update settings
   const updateSettingsMutation = useMutation({
     mutationFn: async (newSettings: { bunk_calculator_enabled?: boolean; target_percentage?: number }) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) throw new Error("No user");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user");
 
       const { data, error } = await supabase
         .from("user_settings")
-        .upsert({ user_id: session.user.id, ...newSettings })
+        .upsert({ user_id: user.id, ...newSettings })
         .select()
         .single();
 
@@ -335,10 +335,11 @@ export function useUserSettings() {
       // Mark that we're in a mutation window - prevents focus refetch from pulling stale data
       isMutatingRef.current = true;
       
-      // Derive userId from the same source as the mutation (getSession) to ensure
-      // cache updates happen even if currentUserIdRef is stale/null
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUserId = session?.user?.id ?? null;
+      // Derive userId from the same source as the mutation (getUser) to ensure
+      // cache updates happen even if currentUserIdRef is stale/null.
+      // getUser() validates the session with the server (unlike getSession() which reads localStorage).
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id ?? null;
       
       // If no userId is available, we shouldn't proceed with cache operations
       if (!currentUserId) {
@@ -434,6 +435,9 @@ export function useUserSettings() {
 
     // Helper to validate session is still active and belongs to the expected user
     // Returns true if session is valid, matches the expected userId, and component is still mounted
+    // NOTE: getSession() is intentionally used here (not getUser()) because this check is
+    // only verifying mount/user consistency for localStorage sync, not making any security
+    // decisions. Using getSession() avoids an extra network round-trip in this hot path.
     const validateActiveSession = async (expectedUserId: string): Promise<boolean> => {
       // Check current mount state from closure to prevent race conditions
       if (!isMounted) return false;

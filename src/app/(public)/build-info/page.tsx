@@ -26,6 +26,8 @@ export default function BuildInfoPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
 
+  const isValidGitHubRepo = (repo: string) => /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repo);
+
   useEffect(() => {
     fetch("/api/provenance")
       .then((res) => {
@@ -144,7 +146,7 @@ export default function BuildInfoPage() {
 
                 <div>
                   <span className="text-cyan-400">&gt; BUILD_ID:</span>{" "}
-                  {meta.github_run_id && meta.github_repo ? (
+                  {meta.github_run_id && meta.github_repo && isValidGitHubRepo(meta.github_repo) ? (
                     <a
                       href={`https://github.com/${meta.github_repo}/actions/runs/${meta.github_run_id}`}
                       target="_blank"
@@ -160,7 +162,7 @@ export default function BuildInfoPage() {
                   )}{" "}
                   <span className="text-neutral-600">
                     (
-                    {meta.commit_sha && meta.github_repo ? (
+                    {meta.commit_sha && meta.github_repo && isValidGitHubRepo(meta.github_repo) ? (
                       <a
                         href={`https://github.com/${meta.github_repo}/commit/${meta.commit_sha}`}
                         target="_blank"
@@ -224,7 +226,7 @@ export default function BuildInfoPage() {
                 <div>
                   <span className="text-cyan-400">&gt; PROVENANCE:</span>{" "}
                   {meta.signature_status === "SLSA_PROVENANCE_GENERATED" &&
-                  meta.github_repo ? (
+                  meta.github_repo && isValidGitHubRepo(meta.github_repo) ? (
                     <a
                       href={`https://github.com/${meta.github_repo}/attestations`}
                       target="_blank"
@@ -284,7 +286,7 @@ export default function BuildInfoPage() {
             {/* Info Cards Grid */}
             <div className="grid md:grid-cols-2 gap-4">
               {/* Source Code */}
-              {meta.github_repo && (
+              {meta.github_repo && isValidGitHubRepo(meta.github_repo) && (
                 <Card className="p-6 hover:border-primary/50 transition-colors">
                   <h3 className="font-semibold mb-2 flex items-center gap-2">
                     <svg
@@ -309,7 +311,7 @@ export default function BuildInfoPage() {
               )}
 
               {/* Build Logs */}
-              {meta.github_run_id && meta.github_repo && (
+              {meta.github_run_id && meta.github_repo && isValidGitHubRepo(meta.github_repo) && (
                 <Card className="p-6 hover:border-primary/50 transition-colors">
                   <h3 className="font-semibold mb-2">Build Logs</h3>
                   <p className="text-sm text-muted-foreground mb-4">
@@ -329,7 +331,7 @@ export default function BuildInfoPage() {
               )}
 
               {/* Attestations */}
-              {meta.signature_status === "SLSA_PROVENANCE_GENERATED" && meta.github_repo && (
+              {meta.signature_status === "SLSA_PROVENANCE_GENERATED" && meta.github_repo && isValidGitHubRepo(meta.github_repo) && (
                 <Card className="p-6 hover:border-primary/50 transition-colors">
                   <h3 className="font-semibold mb-2">Attestations</h3>
                   <p className="text-sm text-muted-foreground mb-4">
@@ -349,7 +351,7 @@ export default function BuildInfoPage() {
               )}
 
               {/* Security Scorecard */}
-              {meta.github_repo && (
+              {meta.github_repo && isValidGitHubRepo(meta.github_repo) && (
                 <Card className="p-6 hover:border-primary/50 transition-colors">
                   <h3 className="font-semibold mb-2">Security Scorecard</h3>
                   <p className="text-sm text-muted-foreground mb-4">

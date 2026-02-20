@@ -32,14 +32,13 @@ describe("sitemap.xml", () => {
     expect(homepage?.priority).toBe(1);
   });
 
-  it("should include login page", () => {
+  it("should not include login page", () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://example.com";
     
     const urls = sitemap();
     const loginPage = urls.find(u => u.url === "https://example.com/login");
     
-    expect(loginPage).toBeDefined();
-    expect(loginPage?.priority).toBe(0.8);
+    expect(loginPage).toBeUndefined();
   });
 
   it("should include contact page", () => {
@@ -72,9 +71,9 @@ describe("sitemap.xml", () => {
     expect(helpPage?.priority).toBe(0.7);
   });
 
-  it("should have 6 URLs total", () => {
+  it("should have 4 URLs total", () => {
     const urls = sitemap();
-    expect(urls).toHaveLength(6);
+    expect(urls).toHaveLength(4);
   });
 
   it("should set lastModified for all URLs", () => {
@@ -121,7 +120,7 @@ describe("sitemap.xml", () => {
     expect(homepage.priority).toBeGreaterThan(others[0].priority || 0);
   });
 
-  it("should have priority hierarchy: homepage > public pages > help > build-info", () => {
+  it("should have priority hierarchy: homepage > public pages > help", () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://test.com";
 
     const urls = sitemap();
@@ -131,19 +130,18 @@ describe("sitemap.xml", () => {
     expect(find("")?.priority).toBe(1);
 
     // Core public pages at 0.8
-    expect(find("/login")?.priority).toBe(0.8);
     expect(find("/contact")?.priority).toBe(0.8);
     expect(find("/legal")?.priority).toBe(0.8);
 
     // Help page at 0.7 (useful but lower than core)
     expect(find("/help")?.priority).toBe(0.7);
 
-    // Build info at lowest priority
-    expect(find("/build-info")?.priority).toBe(0.5);
+    // /login and /build-info should not be present
+    expect(find("/login")).toBeUndefined();
+    expect(find("/build-info")).toBeUndefined();
 
-    // Ordering: homepage > core (0.8) > help (0.7) > build-info (0.5)
-    expect((find("")?.priority ?? 0)).toBeGreaterThan(find("/login")?.priority ?? 0);
-    expect((find("/login")?.priority ?? 0)).toBeGreaterThan(find("/help")?.priority ?? 0);
-    expect((find("/help")?.priority ?? 0)).toBeGreaterThan(find("/build-info")?.priority ?? 0);
+    // Ordering: homepage > core (0.8) > help (0.7)
+    expect((find("")?.priority ?? 0)).toBeGreaterThan(find("/contact")?.priority ?? 0);
+    expect((find("/contact")?.priority ?? 0)).toBeGreaterThan(find("/help")?.priority ?? 0);
   });
 });
