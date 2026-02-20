@@ -52,7 +52,8 @@ jobs:
           fi
 
       - name: Validate BOT_PAT secret
-        if: steps.repo-check.outputs.is_same_repo == 'true'
+        # Dependabot PRs cannot access repository secrets (GitHub security restriction) - skip for them
+        if: steps.repo-check.outputs.is_same_repo == 'true' && steps.repo-check.outputs.is_dependabot != 'true'
         run: |
           if [ -z "${{ secrets.BOT_PAT }}" ]; then
             echo "::warning::BOT_PAT secret is not configured. Version bump commits will use GITHUB_TOKEN."
@@ -63,8 +64,6 @@ jobs:
             echo "1. Create a Personal Access Token (Classic) with 'repo' and 'workflow' scopes"
             echo "2. Add it as a repository secret named 'BOT_PAT'"
             echo "3. Re-run this workflow or push a new commit"
-            echo ""
-            echo "Note: Dependabot bump commits will be unverified regardless of BOT_PAT (GPG signing is skipped)."
             echo "has_bot_pat=false" >> $GITHUB_OUTPUT
           else
             echo "✓ BOT_PAT is configured - workflows will trigger after version bump"
@@ -289,19 +288,21 @@ jobs:
               ? '\n\n_Note: A previous automatic bump was performed. This is a re-bump after the PR was updated (e.g., rebased or synced with main)._'
               : '';
             
-            // Check if BOT_PAT was used
+            // Check if BOT_PAT was used (only set for non-Dependabot same-repo PRs)
             const hasBotPat = '${{ steps.validate-token.outputs.has_bot_pat }}' === 'true';
             
             let signingNote = '';
             if (isDependabot) {
-              if (hasBotPat) {
-                signingNote = '\n\n_Note: Commit created with BOT_PAT by `github-actions[bot]`. Commit will appear as **unverified** but workflows will trigger normally._';
-              } else {
-                signingNote = '\n\n⚠️ **Warning**: Commit created with GITHUB_TOKEN (BOT_PAT not configured).\n'
-                  + '- Commit will appear as unverified\n'
-                  + '- **CI workflows (Tests, Pipeline) will NOT trigger automatically**\n'
-                  + '- Please configure BOT_PAT secret to fix this issue';
-              }
+              // Dependabot PRs cannot access repository secrets (GitHub security restriction)
+              // so the workflow always falls back to GITHUB_TOKEN — this is expected, not a config issue
+              signingNote = '\n\n_Note: Commit created with `GITHUB_TOKEN` by `github-actions[bot]`. '
+                + 'Dependabot PRs cannot access repository secrets (GitHub security restriction), so BOT_PAT is unavailable regardless of configuration. '
+                + 'CI workflows may not trigger automatically after this bump — re-run them manually if needed._';
+            } else if (!hasBotPat) {
+              signingNote = '\n\n⚠️ **Warning**: Commit created with GITHUB_TOKEN (BOT_PAT not configured).\n'
+                + '- Commit will appear as unverified\n'
+                + '- **CI workflows (Tests, Pipeline) will NOT trigger automatically**\n'
+                + '- Please configure BOT_PAT secret to fix this issue';
             }
 
             await github.rest.issues.createComment({
