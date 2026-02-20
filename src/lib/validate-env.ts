@@ -1,5 +1,12 @@
 // src/lib/validate-env.ts
 
+/** Parses a string as a non-negative integer. Returns NaN for values with non-numeric suffixes (e.g. "10abc"), decimals, or unsafe integers. */
+function parseStrictInt(value: string): number {
+  if (!/^\d+$/.test(value)) return NaN;
+  const n = Number(value);
+  return Number.isSafeInteger(n) ? n : NaN;
+}
+
 /**
  * Validates required and critical environment variables at startup.
  * Throws an error and prevents app from starting if critical vars are missing or invalid.
@@ -184,7 +191,7 @@ export function validateEnvironment() {
   // Attendance Target Minimum
   const attendanceTargetMin = process.env.NEXT_PUBLIC_ATTENDANCE_TARGET_MIN;
   if (attendanceTargetMin) {
-    const minValue = parseInt(attendanceTargetMin, 10);
+    const minValue = parseStrictInt(attendanceTargetMin);
     if (isNaN(minValue) || minValue < 1 || minValue > 100) {
       errors.push('❌ NEXT_PUBLIC_ATTENDANCE_TARGET_MIN must be a number between 1 and 100 (default: 75)');
     }
@@ -193,7 +200,7 @@ export function validateEnvironment() {
   // Authentication Lock TTL
   const authLockTtl = process.env.AUTH_LOCK_TTL;
   if (authLockTtl) {
-    const ttlValue = parseInt(authLockTtl, 10);
+    const ttlValue = parseStrictInt(authLockTtl);
     if (isNaN(ttlValue) || ttlValue < 15 || ttlValue > 60) {
       errors.push('❌ AUTH_LOCK_TTL must be a number between 15 and 60 seconds (default: 20)');
     }
@@ -202,7 +209,7 @@ export function validateEnvironment() {
   // Rate Limiting (all optional — defaults are hardcoded in ratelimit.ts)
   const rateLimitRequests = process.env.RATE_LIMIT_REQUESTS;
   if (rateLimitRequests) {
-    const val = parseInt(rateLimitRequests, 10);
+    const val = parseStrictInt(rateLimitRequests);
     if (isNaN(val) || val < 1 || val > 1000) {
       errors.push('❌ RATE_LIMIT_REQUESTS must be a number between 1 and 1000 (default when unset: 10)');
     }
@@ -210,7 +217,7 @@ export function validateEnvironment() {
 
   const rateLimitWindow = process.env.RATE_LIMIT_WINDOW;
   if (rateLimitWindow) {
-    const val = parseInt(rateLimitWindow, 10);
+    const val = parseStrictInt(rateLimitWindow);
     if (isNaN(val) || val < 1 || val > 3600) {
       errors.push('❌ RATE_LIMIT_WINDOW is invalid (must be 1–3600 seconds)');
     }
@@ -218,7 +225,7 @@ export function validateEnvironment() {
 
   const authRateLimitRequests = process.env.AUTH_RATE_LIMIT_REQUESTS;
   if (authRateLimitRequests) {
-    const val = parseInt(authRateLimitRequests, 10);
+    const val = parseStrictInt(authRateLimitRequests);
     if (isNaN(val) || val < 1 || val > 1000) {
       errors.push('❌ AUTH_RATE_LIMIT_REQUESTS is invalid (must be 1–1000)');
     }
@@ -226,7 +233,7 @@ export function validateEnvironment() {
 
   const authRateLimitWindow = process.env.AUTH_RATE_LIMIT_WINDOW;
   if (authRateLimitWindow) {
-    const val = parseInt(authRateLimitWindow, 10);
+    const val = parseStrictInt(authRateLimitWindow);
     if (isNaN(val) || val < 1 || val > 3600) {
       errors.push('❌ AUTH_RATE_LIMIT_WINDOW is invalid (must be 1–3600 seconds)');
     }
@@ -235,7 +242,7 @@ export function validateEnvironment() {
   // Request Signature Max Age
   const requestSigMaxAge = process.env.REQUEST_SIGNATURE_MAX_AGE;
   if (requestSigMaxAge) {
-    const maxAgeValue = parseInt(requestSigMaxAge, 10);
+    const maxAgeValue = parseStrictInt(requestSigMaxAge);
     if (isNaN(maxAgeValue) || maxAgeValue < 60 || maxAgeValue > 3600) {
       errors.push('❌ REQUEST_SIGNATURE_MAX_AGE must be a number between 60 and 3600 seconds (default: 600)');
     }
