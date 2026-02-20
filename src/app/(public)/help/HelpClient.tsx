@@ -173,7 +173,12 @@ function MockCourseCard() {
           <div className="bg-purple-950/40 border border-purple-700/40 rounded-lg p-3 space-y-1">
             <p className="text-purple-300 font-semibold">+ Tracking Data</p>
             <p className="text-zinc-400">Can bunk</p>
-            <p className="text-green-400 font-bold text-lg">4 🥳</p>
+            <p className="text-green-400 font-bold text-lg">
+              4
+              <span aria-hidden="true" className="ml-1">
+                🥳
+              </span>
+            </p>
           </div>
         </div>
       </CardContent>
