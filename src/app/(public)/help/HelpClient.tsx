@@ -25,12 +25,14 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 // ─── FAQ item ──────────────────────────────────────────────────────────────────
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
+  const panelId = `faq-panel-${question.replace(/\s+/g, "-").toLowerCase().slice(0, 40)}`;
   return (
     <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-lg overflow-hidden">
       <button
         className="w-full flex items-center justify-between gap-4 p-4 text-left text-zinc-200 font-medium hover:bg-zinc-800/40 transition-colors"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-controls={panelId}
       >
         <span>{question}</span>
         {open ? (
@@ -40,7 +42,10 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
         )}
       </button>
       {open && (
-        <div className="px-4 pb-4 text-zinc-400 text-sm leading-relaxed border-t border-zinc-800/50 pt-3">
+        <div
+          id={panelId}
+          className="px-4 pb-4 text-zinc-400 text-sm leading-relaxed border-t border-zinc-800/50 pt-3"
+        >
           {answer}
         </div>
       )}
@@ -94,14 +99,24 @@ function MockCourseCard() {
           {/* Absent */}
           <span className="flex items-center gap-1">
             <span className="text-red-500 font-semibold">8</span>
-            <span className="text-orange-500 text-xs">-2</span>
+            <span
+              className="text-orange-500 text-xs cursor-default"
+              title="Corrections"
+            >
+              -2
+            </span>
             <span className="text-zinc-500 text-xs">absent</span>
           </span>
 
           {/* Total */}
           <span className="flex items-center gap-1">
             <span className="text-zinc-200 font-semibold">40</span>
-            <span className="text-blue-400 text-xs">+1</span>
+            <span
+              className="text-blue-400 text-xs cursor-default"
+              title="Extras"
+            >
+              +1
+            </span>
             <span className="text-zinc-500 text-xs">total</span>
           </span>
         </div>
