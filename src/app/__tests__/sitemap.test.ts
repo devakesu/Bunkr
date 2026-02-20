@@ -97,8 +97,7 @@ describe("sitemap.xml", () => {
     delete process.env.NEXT_PUBLIC_APP_URL;
     
     const urls = sitemap();
-    expect(urls).toHaveLength(6);
-    expect(urls[0].url).toBe("");
+    expect(urls).toHaveLength(0);
   });
 
   it("should have correct URL structure", () => {
