@@ -23,12 +23,24 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 }
 
 // ─── FAQ item ──────────────────────────────────────────────────────────────────
+function makePanelId(question: string): string {
+  const slug = question
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return `faq-panel-${slug || "item"}`;
+}
+
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
-  const panelId = `faq-panel-${question.replace(/\s+/g, "-").toLowerCase().slice(0, 40)}`;
+  const panelId = makePanelId(question);
+  const btnId = `${panelId}-btn`;
   return (
     <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-lg overflow-hidden">
       <button
+        id={btnId}
         className="w-full flex items-center justify-between gap-4 p-4 text-left text-zinc-200 font-medium hover:bg-zinc-800/40 transition-colors"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
@@ -41,14 +53,15 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
           <ChevronDown className="shrink-0 size-4 text-zinc-500" aria-hidden="true" />
         )}
       </button>
-      {open && (
-        <div
-          id={panelId}
-          className="px-4 pb-4 text-zinc-400 text-sm leading-relaxed border-t border-zinc-800/50 pt-3"
-        >
-          {answer}
-        </div>
-      )}
+      <div
+        id={panelId}
+        role="region"
+        aria-labelledby={btnId}
+        hidden={!open}
+        className="px-4 pb-4 text-zinc-400 text-sm leading-relaxed border-t border-zinc-800/50 pt-3"
+      >
+        {answer}
+      </div>
     </div>
   );
 }
@@ -60,7 +73,7 @@ function MockCourseCard() {
   const isGain = adjustedPct >= officialPct;
 
   return (
-    <Card className="bg-zinc-900/50 border-zinc-800 w-full max-w-md mx-auto">
+    <Card className="bg-zinc-900/50 border-zinc-800 w-full max-w-md mx-auto" data-testid="mock-course-card">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -613,7 +626,7 @@ export default function HelpClient() {
             Frequently Asked Questions
           </SectionHeading>
 
-          <div className="space-y-3">
+          <div className="space-y-3" data-testid="faq-section">
             {faqs.map((faq) => (
               <FaqItem
                 key={faq.question}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import HelpClient from "../HelpClient";
 
 describe("HelpClient", () => {
@@ -28,9 +28,12 @@ describe("HelpClient", () => {
       expect(screen.getAllByText("CSE301").length).toBeGreaterThanOrEqual(1);
     });
 
-    it("shows official present count", () => {
+    it("shows official present count scoped to card", () => {
       render(<HelpClient />);
-      expect(screen.getByText("32")).toBeInTheDocument();
+      const card = screen.getByTestId("mock-course-card");
+      // "32" is the present count in the card (legend text says "e.g. 32" but
+      // the legend renders it as inline text, not the standalone text node "32")
+      expect(within(card).getByText("32")).toBeInTheDocument();
     });
 
     it("shows bunk calculator panels", () => {
@@ -44,7 +47,8 @@ describe("HelpClient", () => {
   describe("FAQ accordion", () => {
     it("renders all six FAQ questions collapsed by default", () => {
       render(<HelpClient />);
-      const buttons = screen.getAllByRole("button");
+      const faqSection = screen.getByTestId("faq-section");
+      const buttons = within(faqSection).getAllByRole("button");
       expect(buttons.length).toBe(6);
       buttons.forEach((btn) => {
         expect(btn).toHaveAttribute("aria-expanded", "false");
@@ -53,22 +57,25 @@ describe("HelpClient", () => {
 
     it("expands a FAQ item when clicked", () => {
       render(<HelpClient />);
-      const firstButton = screen.getAllByRole("button")[0];
+      const faqSection = screen.getByTestId("faq-section");
+      const firstButton = within(faqSection).getAllByRole("button")[0];
       expect(firstButton).toHaveAttribute("aria-expanded", "false");
 
       fireEvent.click(firstButton);
 
       expect(firstButton).toHaveAttribute("aria-expanded", "true");
+      // Panel is always in DOM; check it becomes visible
       expect(
         screen.getByText(
           /GhostClass shows your official data plus any manually tracked corrections/i
         )
-      ).toBeInTheDocument();
+      ).toBeVisible();
     });
 
     it("collapses a FAQ item when clicked again", () => {
       render(<HelpClient />);
-      const firstButton = screen.getAllByRole("button")[0];
+      const faqSection = screen.getByTestId("faq-section");
+      const firstButton = within(faqSection).getAllByRole("button")[0];
 
       fireEvent.click(firstButton);
       expect(firstButton).toHaveAttribute("aria-expanded", "true");
