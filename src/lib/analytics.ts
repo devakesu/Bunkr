@@ -122,7 +122,11 @@ export function getOrCreateClientId(): string {
   // Generate new client ID: timestamp.random
   const clientId = `${Date.now()}.${Math.random().toString(36).substring(2, 11)}`;
   
-  // Add Secure attribute in production to ensure cookie is only sent over HTTPS
+  // SameSite=Lax is intentional: the analytics client ID cookie must be sent on top-level
+  // navigations from external sites (e.g. clicking a link to this app) so that returning
+  // visitors are recognised across sessions. SameSite=Strict would drop the cookie on those
+  // navigations, breaking session continuity. Secure ensures the cookie is only sent over
+  // HTTPS in production, preventing transmission over plain HTTP connections.
   // Note: HttpOnly is intentionally omitted because this analytics client ID
   // must be readable from client-side code (via document.cookie). This means
   // the cookie is accessible to JavaScript and could be exposed via XSS, but

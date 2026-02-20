@@ -1,7 +1,7 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, RefreshCcw, Home } from "lucide-react";
 
 /**
@@ -16,6 +16,8 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [prefersLight, setPrefersLight] = useState(false);
+
   useEffect(() => {
     Sentry.captureException(error, {
       tags: {
@@ -24,6 +26,15 @@ export default function GlobalError({
       },
     });
   }, [error]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional for hydration fix: initial colour scheme must be set after mount
+    setPrefersLight(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setPrefersLight(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   const handleRefresh = () => {
     try {
@@ -37,6 +48,18 @@ export default function GlobalError({
     window.location.href = "/";
   };
 
+  const theme = {
+    bodyBg: prefersLight
+      ? 'linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%)'
+      : 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
+    bodyColor: prefersLight ? '#1a1a1a' : '#fafafa',
+    cardBg: prefersLight ? '#ffffff' : '#18181b',
+    cardBorder: prefersLight ? '#e4e4e7' : '#27272a',
+    mutedText: prefersLight ? '#71717a' : '#a1a1aa',
+    secondaryBorder: prefersLight ? '#d4d4d8' : '#3f3f46',
+    secondaryText: prefersLight ? '#1a1a1a' : '#fafafa',
+  };
+
   return (
     <html lang="en">
       <head>
@@ -48,8 +71,8 @@ export default function GlobalError({
         margin: 0,
         padding: '1rem',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-        background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
-        color: '#fafafa',
+        background: theme.bodyBg,
+        color: theme.bodyColor,
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
@@ -61,9 +84,9 @@ export default function GlobalError({
           width: '100%',
           textAlign: 'center',
           padding: '2.5rem',
-          background: '#18181b',
+          background: theme.cardBg,
           borderRadius: '1rem',
-          border: '1px solid #27272a',
+          border: `1px solid ${theme.cardBorder}`,
           boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
           boxSizing: 'border-box',
         }}>
@@ -92,7 +115,7 @@ export default function GlobalError({
             Critical Error
           </h1>
 
-          <p style={{ color: '#a1a1aa', margin: '0 0 2rem', lineHeight: 1.6 }}>
+          <p style={{ color: theme.mutedText, margin: '0 0 2rem', lineHeight: 1.6 }}>
             We encountered a critical error. This has been automatically reported to our team.
             You can try refreshing the page or return to the homepage.
           </p>
@@ -172,8 +195,8 @@ export default function GlobalError({
                 borderRadius: '0.5rem',
                 cursor: 'pointer',
                 background: 'transparent',
-                border: '1px solid #3f3f46',
-                color: '#fafafa',
+                border: `1px solid ${theme.secondaryBorder}`,
+                color: theme.secondaryText,
                 minWidth: '140px',
               }}
             >

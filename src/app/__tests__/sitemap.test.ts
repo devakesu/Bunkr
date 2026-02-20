@@ -76,11 +76,22 @@ describe("sitemap.xml", () => {
     expect(urls).toHaveLength(4);
   });
 
-  it("should set lastModified for all URLs", () => {
+  it("should set lastModified to Date when BUILD_TIMESTAMP is set", () => {
+    process.env.BUILD_TIMESTAMP = '2026-02-18T10:00:00Z';
     const urls = sitemap();
     
     urls.forEach(url => {
       expect(url.lastModified).toBeInstanceOf(Date);
+    });
+    delete process.env.BUILD_TIMESTAMP;
+  });
+
+  it("should omit lastModified when BUILD_TIMESTAMP is not set", () => {
+    delete process.env.BUILD_TIMESTAMP;
+    const urls = sitemap();
+    
+    urls.forEach(url => {
+      expect(url.lastModified).toBeUndefined();
     });
   });
 

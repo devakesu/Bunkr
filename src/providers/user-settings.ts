@@ -12,6 +12,10 @@ import { logger } from "@/lib/logger";
 // This constant ensures consistency across different parts of the codebase
 export const DEFAULT_TARGET_PERCENTAGE = 75;
 
+// Shared error message for "no authenticated user" — used in mutationFn throw,
+// retry logic, and onError handler to avoid fragile string duplication.
+const NO_USER_ERROR_MESSAGE = "No user";
+
 // normalizeTarget is defined at module-level (outside the hook) to avoid recreation on every render.
 // This is preferred over useCallback because:
 // 1. The function has no dependencies (pure function with no closure over component state/props)
@@ -310,7 +314,7 @@ export function useUserSettings() {
       // currently provide specific error codes for "no user" scenarios, so string matching
       // is the most reliable method available. If Supabase adds error codes in the future,
       // this should be updated to use those instead (e.g., error.code === "NO_USER").
-      const isNoUserError = error instanceof Error && error.message === "No user";
+      const isNoUserError = error instanceof Error && error.message === NO_USER_ERROR_MESSAGE;
       return failureCount < 3 && !isNoUserError;
     }
   });
@@ -319,7 +323,7 @@ export function useUserSettings() {
   const updateSettingsMutation = useMutation({
     mutationFn: async (newSettings: { bunk_calculator_enabled?: boolean; target_percentage?: number }) => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No user");
+      if (!user) throw new Error(NO_USER_ERROR_MESSAGE);
 
       const { data, error } = await supabase
         .from("user_settings")
@@ -406,7 +410,7 @@ export function useUserSettings() {
         queryClient.setQueryData(["userSettings", context.currentUserId], context.previousSettings);
       }
       
-      if (err.message !== "No user") {
+      if (err.message !== NO_USER_ERROR_MESSAGE) {
         toast.error("Failed to save settings");
         Sentry.captureException(err, { tags: { type: "settings_update_error", location: "useUserSettings" } });
       }

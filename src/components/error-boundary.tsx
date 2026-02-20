@@ -138,7 +138,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             Something went wrong
           </h2>
           
-          <p className="text-sm text-muted-foreground max-w-100 mb-6" role="alert" aria-live="assertive">
+          <p className="text-sm text-muted-foreground max-w-100 mb-6" role="alert" aria-live="polite">
             We encountered an unexpected error. You can try to recover the component or reload the page.
           </p>
 

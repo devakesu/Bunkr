@@ -1,5 +1,4 @@
 // src/lib/email.ts
-import axios from "axios";
 import * as Sentry from "@sentry/nextjs";
 import sanitizeHtml from "sanitize-html";
 import { redact } from "./utils";
@@ -90,12 +89,18 @@ async function getSendPulseToken() {
   if (!hasSendPulse) throw new Error("SendPulse credentials not configured");
   
   try {
-    const res = await axios.post(CONFIG.sendpulse.authUrl, {
-      grant_type: "client_credentials",
-      client_id: CONFIG.sendpulse.clientId,
-      client_secret: CONFIG.sendpulse.clientSecret,
+    const res = await fetch(CONFIG.sendpulse.authUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grant_type: "client_credentials",
+        client_id: CONFIG.sendpulse.clientId,
+        client_secret: CONFIG.sendpulse.clientSecret,
+      }),
     });
-    return res.data.access_token;
+    if (!res.ok) throw new Error(`SendPulse auth HTTP ${res.status}`);
+    const data = await res.json();
+    return data.access_token;
   } catch (error) {
     logger.error("Failed to get SendPulse token", error);
     throw new Error("SendPulse Auth Failed");
@@ -126,15 +131,24 @@ async function sendViaSendPulse({ to, subject, html, text }: SendEmailProps): Pr
       },
     };
 
-    const { data } = await axios.post(CONFIG.sendpulse.emailUrl, payload, {
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(CONFIG.sendpulse.emailUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { message?: string };
+      throw new Error(err.message || `SendPulse API error: ${res.status}`);
+    }
+    const data = await res.json() as { id?: string };
 
     return { success: true, provider: "SendPulse", id: data.id };
   } catch (error: unknown) {
-    const err = error as { response?: { data?: { message?: string } }; message?: string };
-    const msg = err.response?.data?.message || err.message || 'Unknown error';
-    throw new Error(msg);
+    const err = error as { message?: string };
+    throw new Error(err.message || 'Unknown error');
   }
 }
 
@@ -153,19 +167,25 @@ async function sendViaBrevo({ to, subject, html, text }: SendEmailProps): Promis
       textContent: text || sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} }),
     };
 
-    const { data } = await axios.post(CONFIG.brevo.url, payload, {
+    const res = await fetch(CONFIG.brevo.url, {
+      method: 'POST',
       headers: {
-        "api-key": CONFIG.brevo.key,
+        "api-key": CONFIG.brevo.key!,
         "content-type": "application/json",
         accept: "application/json",
       },
+      body: JSON.stringify(payload),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { message?: string };
+      throw new Error(err.message || `Brevo API error: ${res.status}`);
+    }
+    const data = await res.json() as { messageId?: string };
 
     return { success: true, provider: "Brevo", id: data.messageId };
   } catch (error: unknown) {
-    const err = error as { response?: { data?: { message?: string } }; message?: string };
-    const msg = err.response?.data?.message || err.message || 'Unknown error';
-    throw new Error(msg);
+    const err = error as { message?: string };
+    throw new Error(err.message || 'Unknown error');
   }
 }
 
