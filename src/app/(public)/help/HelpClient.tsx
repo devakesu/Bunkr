@@ -163,25 +163,21 @@ function MockAttendanceChart() {
       code: "CSE301",
       official: 82,
       adjusted: null,
-      label: "Safe",
     },
     {
       code: "MAT201",
       official: 60,
       adjusted: null,
-      label: "Danger",
     },
     {
       code: "PHY101",
       official: 78,
       adjusted: 85,
-      label: "Safe + Gain",
     },
     {
       code: "ENG401",
       official: 65,
       adjusted: 58,
-      label: "Danger + Loss",
     },
   ] as const;
 
