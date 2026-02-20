@@ -102,9 +102,10 @@ src/
 │   │   ├── profile/          # User profile and settings
 │   │   ├── tracking/         # Manual attendance tracking interface
 │   │   └── notifications/    # Notification center
-│   ├── (public)/             # Public routes (home, contact, legal, build-info)
+│   ├── (public)/             # Public routes (home, contact, legal, build-info, help)
 │   │   ├── build-info/       # Build provenance and transparency page
 │   │   ├── contact/          # Contact form
+│   │   ├── help/             # Help centre and FAQ
 │   │   └── legal/            # Legal pages (privacy, terms, cookies)
 │   ├── accept-terms/         # Terms acceptance page (authenticated)
 │   ├── actions/              # Server actions (contact, user operations)

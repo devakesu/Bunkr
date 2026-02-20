@@ -62,9 +62,19 @@ describe("sitemap.xml", () => {
     expect(legalPage?.priority).toBe(0.8);
   });
 
-  it("should have 5 URLs total", () => {
+  it("should include help page", () => {
+    process.env.NEXT_PUBLIC_APP_URL = "https://example.com";
+
     const urls = sitemap();
-    expect(urls).toHaveLength(5);
+    const helpPage = urls.find(u => u.url === "https://example.com/help");
+
+    expect(helpPage).toBeDefined();
+    expect(helpPage?.priority).toBe(0.7);
+  });
+
+  it("should have 6 URLs total", () => {
+    const urls = sitemap();
+    expect(urls).toHaveLength(6);
   });
 
   it("should set lastModified for all URLs", () => {
@@ -87,8 +97,7 @@ describe("sitemap.xml", () => {
     delete process.env.NEXT_PUBLIC_APP_URL;
     
     const urls = sitemap();
-    expect(urls).toHaveLength(5);
-    expect(urls[0].url).toBe("");
+    expect(urls).toHaveLength(0);
   });
 
   it("should have correct URL structure", () => {
@@ -112,20 +121,29 @@ describe("sitemap.xml", () => {
     expect(homepage.priority).toBeGreaterThan(others[0].priority || 0);
   });
 
-  it("should have priority hierarchy: homepage > public pages > build-info", () => {
+  it("should have priority hierarchy: homepage > public pages > help > build-info", () => {
+    process.env.NEXT_PUBLIC_APP_URL = "https://test.com";
+
     const urls = sitemap();
-    const homepage = urls[0];
-    const publicPages = urls.slice(1, 4); // login, contact, legal
-    const buildInfo = urls[4]; // build-info
-    
-    // Homepage should have highest priority
-    expect(homepage.priority).toBe(1);
-    
-    // Public pages should have equal priority
-    const publicPriorities = publicPages.map(u => u.priority);
-    expect(publicPriorities.every(p => p === 0.8)).toBe(true);
-    
-    // Build info should have lower priority
-    expect(buildInfo.priority).toBe(0.5);
+    const find = (suffix: string) => urls.find(u => u.url === `https://test.com${suffix}`);
+
+    // Homepage has highest priority
+    expect(find("")?.priority).toBe(1);
+
+    // Core public pages at 0.8
+    expect(find("/login")?.priority).toBe(0.8);
+    expect(find("/contact")?.priority).toBe(0.8);
+    expect(find("/legal")?.priority).toBe(0.8);
+
+    // Help page at 0.7 (useful but lower than core)
+    expect(find("/help")?.priority).toBe(0.7);
+
+    // Build info at lowest priority
+    expect(find("/build-info")?.priority).toBe(0.5);
+
+    // Ordering: homepage > core (0.8) > help (0.7) > build-info (0.5)
+    expect((find("")?.priority ?? 0)).toBeGreaterThan(find("/login")?.priority ?? 0);
+    expect((find("/login")?.priority ?? 0)).toBeGreaterThan(find("/help")?.priority ?? 0);
+    expect((find("/help")?.priority ?? 0)).toBeGreaterThan(find("/build-info")?.priority ?? 0);
   });
 });

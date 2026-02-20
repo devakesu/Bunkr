@@ -32,7 +32,8 @@ export const getCspHeader = (nonce?: string) => {
   // so that all CSP decisions match production behavior whenever forceStrictCsp is enabled.
   const forceStrictCspValue = process.env.FORCE_STRICT_CSP ?? process.env.NEXT_PUBLIC_FORCE_STRICT_CSP;
   const forceStrictCsp = /^(true|1|yes)$/i.test(forceStrictCspValue ?? "");
-  const isDev = process.env.NODE_ENV !== "production" && !forceStrictCsp;
+  const isActualProduction = process.env.NODE_ENV === "production";
+  const isDev = !isActualProduction && !forceStrictCsp;
   const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : "";
   
   // Supabase WebSocket URL for Realtime features
@@ -114,6 +115,11 @@ export const getCspHeader = (nonce?: string) => {
         // It acts purely as a backward-compatibility fallback for CSP2-only browsers.
         // Lighthouse requires it here to not flag script-src as incomplete.
         "'unsafe-inline'",
+        // When FORCE_STRICT_CSP is set in a non-production environment (e.g. to test
+        // strict CSP locally), React Fast Refresh (HMR) is still active and requires
+        // 'unsafe-eval'. We include it here so the dev server is not broken.
+        // In a real production build, NODE_ENV === 'production' so this is never emitted.
+        ...(!isActualProduction ? ["'unsafe-eval'"] : []),
         // Note: With 'strict-dynamic', explicitly listed host sources below are ignored
         // by modern browsers (CSP Level 3) and only apply to older browsers as fallback.
         // For modern browsers, external scripts must be loaded dynamically by nonce'd scripts.
@@ -162,7 +168,13 @@ export const getCspHeader = (nonce?: string) => {
   // - 'sha256-Q9MUdYBtYzn5frLpoNRLdFYW76cJ4ok2SmIKzTFq57Q='
   //   → Inline styles injected at runtime (observed in production CSP violation)
   //   → Update/remove if the source is identified and migrated to static CSS
-  const styleSrcElemParts = isDev
+  // IMPORTANT: 'unsafe-inline' is silently ignored by CSP3 browsers when a nonce or hash is
+  // also present in the directive. Therefore, mixing nonce + 'unsafe-inline' does NOT work.
+  // For non-production environments (including FORCE_STRICT_CSP dev mode), Next.js dev tooling
+  // (error overlay, devtool-style-inject.js) injects dynamic <style> blocks that change every
+  // build — making hashing impractical. We skip the nonce branch entirely for style directives
+  // outside real production and fall back to the simple 'unsafe-inline' path.
+  const styleSrcElemParts = !isActualProduction
     ? ["'self'", "'unsafe-inline'"]
     : [
         "'self'", 
@@ -173,36 +185,28 @@ export const getCspHeader = (nonce?: string) => {
         "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='", // Next.js/React hydration
         "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='", // Animation libraries
         "'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='", // Login/auth inline styles
-        "'sha256-Q9MUdYBtYzn5frLpoNRLdFYW76cJ4ok2SmIKzTFq57Q='"  // Runtime inline styles (CSP violation hash)
+        "'sha256-Q9MUdYBtYzn5frLpoNRLdFYW76cJ4ok2SmIKzTFq57Q='"   // Runtime inline styles
       ];
   
   // script-src-elem: Controls <script> elements specifically
   // Separate from script-src, which uses nonce + 'strict-dynamic' for dynamically loaded scripts
   // Here we intentionally avoid 'strict-dynamic' and instead rely on explicit host allowlisting
-  // so that third-party scripts from Cloudflare and Google Tag Manager can load. In CSP3-compliant
-  // browsers, combining 'strict-dynamic' with host-based sources would cause those host-based
-  // sources to be ignored.
+  // so that third-party scripts from Cloudflare can load.
   //
-  // IMPORTANT: Without Next.js middleware, we cannot automatically inject nonces into Next.js's
-  // internal hydration scripts. Therefore, we use 'unsafe-inline' to allow Next.js inline scripts
-  // and Cloudflare Zaraz scripts. This is a security trade-off:
-  // - Allows Next.js hydration and client-side navigation to work
-  // - Allows Cloudflare Zaraz to inject its tracking scripts
-  // - External scripts are still restricted to whitelisted hosts
-  //
-  // NOTE: This app uses a hybrid analytics approach:
-  // - Server-side GA4 Measurement Protocol API (/api/analytics/track) for backend events
-  // - Client-side Google Analytics (gtag.js via Cloudflare Zaraz) for frontend user interactions
-  // The connect-src directive below includes google-analytics.com and doubleclick.net to allow
-  // the browser to make outbound analytics requests to Google's endpoints.
+  // CRITICAL: The nonce must NOT be placed in script-src-elem. When a nonce (or hash) is present
+  // in a directive, CSP3 browsers silently ignore 'unsafe-inline' in that same directive. Since
+  // Next.js App Router injects inline hydration scripts without nonce attributes, placing the
+  // nonce here would block all those inline scripts. The nonce lives in script-src only, where
+  // 'strict-dynamic' handles propagation to dynamically loaded scripts. script-src-elem uses
+  // 'unsafe-inline' to permit Next.js inline scripts and Cloudflare scripts, with external
+  // origins still restricted to the whitelisted hosts below.
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
   const scriptSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
     : (() => {
         const parts = [
           "'self'",
-          `'nonce-${nonce}'`, // Nonce causes 'unsafe-inline' below to be ignored by CSP3 browsers
-          "'unsafe-inline'", // Required for Next.js hydration & Cloudflare Zaraz; ignored when nonce present
+          "'unsafe-inline'", // Effective because no nonce is present in this directive
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
         ];
@@ -218,21 +222,13 @@ export const getCspHeader = (nonce?: string) => {
         return parts.filter(Boolean) as string[];
       })();
   
-  // style-src-attr: Controls inline style attributes (e.g., <div style="color: red;">)
-  // Recharts, Sonner, and shadcn/ui components use inline style attributes for positioning/animations
-  // We allow 'unsafe-inline' here because:
-  // 1. Inline style attributes are less of a security concern than inline <style> elements
-  // 2. Using hashes is impractical - each unique inline style needs its own hash
-  // 3. Modern UI libraries legitimately use dynamic inline styles for animations/positioning
-  // Note: style-src-attr contains only 'unsafe-inline', so it will be honored by browsers
   const styleSrcAttrParts = ["'unsafe-inline'"];
-  
-  const styleSrcAttrDirective = `style-src-attr ${styleSrcAttrParts.join(" ")};`;
   
   // Fallback style-src for CSP Level 2 browsers (no style-src-elem/style-src-attr support)
   // Include nonce and all hashes for backwards compatibility with older browsers
   // Modern browsers (CSP Level 3+) will ignore this in favor of style-src-elem/style-src-attr
-  const styleSrcParts = isDev
+  // See styleSrcElemParts comment: use the simple path outside real production.
+  const styleSrcParts = !isActualProduction
     ? ["'self'", "'unsafe-inline'"]
     : [
         "'self'", 
@@ -243,37 +239,53 @@ export const getCspHeader = (nonce?: string) => {
         "'sha256-AMd96FJ0GSrxFtEVT53SsztnJlpK57ZkVSOwhrM6Jjg='", // Next.js/React hydration
         "'sha256-DnU2FixQA4mFSjGuLz5b9dJ5ARj46/zX6IW2U4X4iIs='", // Animation libraries
         "'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='", // Login/auth inline styles
-        "'sha256-Q9MUdYBtYzn5frLpoNRLdFYW76cJ4ok2SmIKzTFq57Q='"  // Runtime inline styles (CSP violation hash)
+        "'sha256-Q9MUdYBtYzn5frLpoNRLdFYW76cJ4ok2SmIKzTFq57Q='"   // Runtime inline styles
       ];
 
-  return `
-    default-src 'self';
-    script-src ${scriptSrcParts.join(" ")};
-    script-src-elem ${scriptSrcElemParts.join(" ")};
-    style-src ${styleSrcParts.join(" ")};
-    style-src-elem ${styleSrcElemParts.join(" ")};${styleSrcAttrDirective ? `\n    ${styleSrcAttrDirective}` : ''}
-    img-src 'self' blob: data: ${supabaseOrigin};
-    font-src 'self' data:;
-    object-src 'none';
-    base-uri 'self';
-    form-action 'self';
-    frame-src 'self' https://challenges.cloudflare.com;
-    frame-ancestors 'none';
-    worker-src 'self' blob:;
-    connect-src 'self' 
-      ${supabaseOrigin}
-      ${supabaseWsUrl}
-      https://production.api.ezygo.app
-      https://*.ingest.sentry.io 
-      https://challenges.cloudflare.com
-      https://cloudflareinsights.com
-      https://static.cloudflareinsights.com
-      https://stats.g.doubleclick.net
-      https://www.google-analytics.com
-      https://analytics.google.com
-      ${process.env.NODE_ENV !== 'production' ? 'ws://localhost:3000 ws://127.0.0.1:3000 wss://localhost:3000 wss://127.0.0.1:3000' : ''}
-      ${process.env.NODE_ENV !== 'production' ? 'http://localhost:3000 http://127.0.0.1:3000' : ''}
-      ${process.env.NODE_ENV !== 'production' ? 'https://localhost:3000 https://127.0.0.1:3000' : ''};
-    ${process.env.NODE_ENV === 'production' ? 'upgrade-insecure-requests;' : ''}
-  `.replace(/\s{2,}/g, ' ').trim();
+  // Build connect-src parts, filtering out empty values from unset env vars
+  const connectSrcParts = [
+    "'self'",
+    supabaseOrigin,
+    supabaseWsUrl,
+    "https://production.api.ezygo.app",
+    "https://*.ingest.sentry.io",
+    "https://challenges.cloudflare.com",
+    "https://cloudflareinsights.com",
+    "https://static.cloudflareinsights.com",
+    "https://stats.g.doubleclick.net",
+    "https://www.google-analytics.com",
+    "https://analytics.google.com",
+    // Dev-only: HMR websockets and local server
+    ...(!isActualProduction ? [
+      "ws://localhost:3000",
+      "ws://127.0.0.1:3000",
+      "wss://localhost:3000",
+      "wss://127.0.0.1:3000",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "https://localhost:3000",
+      "https://127.0.0.1:3000",
+    ] : []),
+  ].filter(Boolean);
+
+  return [
+    `default-src 'self'`,
+    `script-src ${scriptSrcParts.join(" ")}`,
+    `script-src-elem ${scriptSrcElemParts.join(" ")}`,
+    `style-src ${styleSrcParts.join(" ")}`,
+    `style-src-elem ${styleSrcElemParts.join(" ")}`,
+    `style-src-attr ${styleSrcAttrParts.join(" ")}`,
+    `img-src ${["'self'", "blob:", "data:", supabaseOrigin].filter(Boolean).join(" ")}`,
+    `font-src 'self' data:`,
+    `media-src 'none'`,
+    `manifest-src 'self'`,
+    `object-src 'none'`,
+    `base-uri 'self'`,
+    `form-action 'self'`,
+    `frame-src 'self' https://challenges.cloudflare.com`,
+    `frame-ancestors 'none'`,
+    `worker-src 'self' blob:`,
+    `connect-src ${connectSrcParts.join(" ")}`,
+    ...(isActualProduction ? ["upgrade-insecure-requests"] : []),
+  ].join("; ");
 };

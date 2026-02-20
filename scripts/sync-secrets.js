@@ -3,13 +3,13 @@
 /**
  * sync-secrets.js - Push local .env values to GitHub Secrets
  * Works on Windows, macOS, and Linux
- * 
- * MODES:
- * - Critical-only (SYNC_CRITICAL_ONLY=1): Always syncs NEXT_PUBLIC_APP_VERSION (FAILS if unsuccessful)
- * - Full sync (SYNC_SECRETS=1): Syncs all build-time secrets (FAILS if unsuccessful)
- * - CI environment: Auto-skips but still syncs critical secrets
- * 
- * Critical secrets (version) MUST sync successfully to prevent version drift
+ *
+ * Run manually: SYNC_SECRETS=1 node scripts/sync-secrets.js
+ *
+ * NOTE: NEXT_PUBLIC_APP_VERSION is intentionally NOT synced here.
+ * The release workflow derives the version directly from the git tag
+ * (calculate-version job → needs.calculate-version.outputs.version),
+ * so a GitHub Secret for it would always be stale after an auto-bump.
  */
 
 const { execSync } = require('child_process');
@@ -117,99 +117,13 @@ function setSecret(repo, name, value) {
   }
 }
 
-// Sync critical secrets (like version) even when sync is disabled
-function syncCriticalSecrets(failOnError = false) {
-  // Check prerequisites
-  if (!isGhInstalled()) {
-    if (failOnError) {
-      log.error('❌ ERROR: GitHub CLI (gh) is not installed.');
-      log.error('📥 Install from: https://cli.github.com/');
-      log.error('\n🚨 Version sync FAILED - GitHub CLI is required.\n');
-      process.exit(1);
-    }
-    return false;
-  }
-
-  if (!isGhAuthenticated()) {
-    if (failOnError) {
-      log.error('❌ ERROR: Not authenticated with GitHub CLI.');
-      log.error('🔐 Run: gh auth login');
-      log.error('\n🚨 Version sync FAILED - authentication required.\n');
-      process.exit(1);
-    }
-    return false;
-  }
-
-  const repo = getRepo();
-  if (!repo) {
-    if (failOnError) {
-      log.error('❌ ERROR: Could not detect repository.');
-      log.error('💡 Make sure you are in a Git repository with GitHub remote.');
-      log.error('💡 Or run: gh repo set-default');
-      log.error('\n🚨 Version sync FAILED - repository detection failed.\n');
-      process.exit(1);
-    }
-    return false;
-  }
-
-  const envPath = path.join(process.cwd(), '.env');
-  const envConfig = parseEnvFile(envPath);
-  
-  if (!envConfig) {
-    if (failOnError) {
-      log.error('❌ ERROR: .env file not found.');
-      log.error(`📁 Expected location: ${envPath}`);
-      log.error('\n🚨 Version sync FAILED - .env file is required.\n');
-      process.exit(1);
-    }
-    return false;
-  }
-
-  // Always sync NEXT_PUBLIC_APP_VERSION
-  const version = envConfig['NEXT_PUBLIC_APP_VERSION'];
-  if (!version || version.trim() === '') {
-    if (failOnError) {
-      log.error('❌ ERROR: NEXT_PUBLIC_APP_VERSION not set in .env');
-      log.error('\n🚨 Version sync FAILED - version is required.\n');
-      process.exit(1);
-    }
-    return false;
-  }
-
-  const result = setSecret(repo, 'NEXT_PUBLIC_APP_VERSION', version);
-  if (result.success) {
-    log.success(`✓ Synced NEXT_PUBLIC_APP_VERSION: ${version}`);
-    return true;
-  } else {
-    if (failOnError) {
-      log.error(`✗ Failed to sync NEXT_PUBLIC_APP_VERSION: ${version}`);
-      log.error(`  Error: ${result.error}`);
-      log.error('\n💡 Troubleshooting:');
-      log.error('   1. Check GitHub CLI permissions: gh auth refresh -s admin:org');
-      log.error('   2. Verify repository access: gh repo view');
-      log.error('\n🚨 Version sync FAILED\n');
-      process.exit(1);
-    }
-    return false;
-  }
-}
-
 // Main function
 function main() {
-  // Handle critical-only mode (always sync version - FAIL if unsuccessful)
-  if (process.env.SYNC_CRITICAL_ONLY === '1') {
-    log.info('🔄 Critical Secrets Sync\n');
-    syncCriticalSecrets(true); // Fail on error
-    log.success('\n✅ Critical secrets synced!\n');
-    return;
-  }
-
   log.info('🚀 GitHub Secrets Sync\n');
 
-  // Auto-skip in CI environments (pre-commit hook already handles opt-in via SYNC_SECRETS=1)
+  // Auto-skip in CI environments
   if (process.env.CI) {
     log.info('⏭️  Secret sync skipped in CI environment.\n');
-    syncCriticalSecrets();
     return;
   }
   // Check prerequisites - FAIL if not met
@@ -251,13 +165,14 @@ function main() {
 
   // List of secrets to sync (BUILD-TIME ONLY)
   const secretsToSync = [
-    'IMAGE_NAME',
     'SOURCE_DATE_EPOCH',
     'SENTRY_ORG',
     'SENTRY_PROJECT',
     'SENTRY_AUTH_TOKEN',
     'NEXT_PUBLIC_APP_NAME',
-    'NEXT_PUBLIC_APP_VERSION',
+    // NEXT_PUBLIC_APP_VERSION is intentionally excluded: the release workflow derives
+    // it from the git tag (calculate-version job), not from GitHub Secrets.
+    // Syncing it here would leave the secret stale after every auto-version bump.
     'NEXT_PUBLIC_APP_DOMAIN',
     'NEXT_PUBLIC_AUTHOR_NAME',
     'NEXT_PUBLIC_AUTHOR_URL',
@@ -266,6 +181,8 @@ function main() {
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
     'NEXT_PUBLIC_GITHUB_URL',
+    'NEXT_PUBLIC_DONATE_URL',
+    'NEXT_PUBLIC_DEFAULT_DOMAIN',
     'NEXT_PUBLIC_SENTRY_DSN',
     'NEXT_PUBLIC_TURNSTILE_SITE_KEY',
     'NEXT_PUBLIC_GA_ID',

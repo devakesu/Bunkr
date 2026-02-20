@@ -40,6 +40,7 @@ import {
   SquareAsterisk,
   Calculator,
   Contact,
+  HelpCircle,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useUserSettings } from "@/providers/user-settings";
@@ -132,7 +133,7 @@ export const Navbar = () => {
     <header className="top-0 z-10 flex h-20 items-center justify-between gap-4 border-b-2 bg-background px-4 md:px-6 text-white mr-0.5 border-white/5">
       <div className="flex items-center gap-2">
         <Link href="/" className="group text-3xl sm:text-4xl lg:text-[2.50rem] font-semibold gradient-logo font-klick tracking-wide">
-          <div className="relative w-40 sm:w-64 md:w-60 h-20 overflow-hidden">
+          <div className="relative w-40 sm:w-48 md:w-52 lg:w-60 h-20 overflow-hidden">
             <Image 
               src="/logo.png" 
               alt="GhostClass Logo"
@@ -224,20 +225,20 @@ export const Navbar = () => {
 
           {/* Institution Selector */}
           {!institutionsLoading && institutions && institutions.length > 0 && (
-            <div className="flex max-md:hidden">
+            <div className="flex max-lg:hidden">
               <Select
                 value={selectedInstitution}
                 onValueChange={handleInstitutionChange}
               >
-                <SelectTrigger className="w-35 md:w-72.5 custom-input cursor-pointer" aria-label="Select institution">
+                <SelectTrigger className="w-35 md:w-44 lg:w-72.5 custom-input cursor-pointer" aria-label="Select institution">
                   <SelectValue>
                     {selectedInstitution &&
                       institutions?.find(
                         (i) => i.id.toString() === selectedInstitution
                       ) && (
-                        <div className="flex items-center font-medium">
-                          <Building2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                          <span>
+                        <div className="flex items-center font-medium min-w-0">
+                          <Building2 className="mr-2 h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span className="truncate">
                             {(
                               institutions.find(
                                 (i) => i.id.toString() === selectedInstitution
@@ -290,7 +291,7 @@ export const Navbar = () => {
             </Button>
           </Link>
 
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="ghost" 
@@ -338,6 +339,10 @@ export const Navbar = () => {
               <DropdownMenuItem onClick={() => navigateTo("/profile")} className="cursor-pointer" role="menuitem">
                 <UserRound className="mr-2 h-4 w-4" aria-hidden="true" />
                 <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigateTo("/help")} className="cursor-pointer" role="menuitem">
+                <HelpCircle className="mr-2 h-4 w-4" aria-hidden="true" />
+                <span>Help & FAQ</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigateTo("/contact")} className="cursor-pointer" role="menuitem">
                 <Contact className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -388,7 +393,7 @@ export const Navbar = () => {
                       <SelectTrigger className="w-20 h-8 text-xs bg-background/50 border-white/10">
                         <SelectValue placeholder={`${currentTarget}%`} />
                       </SelectTrigger>
-                      <SelectContent className="custom-dropdown z-60">
+                      <SelectContent className="custom-dropdown z-[60]">
                           {[75, 80, 85, 90, 95].map((p) => (
                             <SelectItem key={p} value={p.toString()}>{p}%</SelectItem>
                           ))}
@@ -396,6 +401,32 @@ export const Navbar = () => {
                     </Select>
                   </div>
               </div>
+
+              {/* Institution Selector (Tablet/Mobile Only) */}
+              {!institutionsLoading && institutions && institutions.length > 0 && (
+                <div className="px-2 py-2 lg:hidden border-t border-white/10 mt-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Building2 className="h-4 w-4" aria-hidden="true" />
+                      <span className="text-sm">Institution</span>
+                    </div>
+                    <Select value={selectedInstitution} onValueChange={handleInstitutionChange}>
+                      <SelectTrigger className="w-10 h-9 text-xs bg-background/50 border-white/10 shrink-0 [&>span]:hidden [&>svg:last-child]:hidden" aria-label="Select institution">
+                        <SelectValue>
+                          <Building2 className="h-5 w-5 shrink-0" aria-hidden="true" />
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="custom-dropdown z-[60]">
+                        {institutions.map((inst) => (
+                          <SelectItem key={inst.id} value={inst.id.toString()}>
+                            <span className="font-medium">{inst.institution.name}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
 
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onLogoutClick} className="cursor-pointer" variant="destructive">
