@@ -9,13 +9,18 @@ ARG SOURCE_DATE_EPOCH=1767225600
 # ===============================
 FROM ${NODE_IMAGE} AS base
 
-# Install wget and update npm to version 11 (pinned by hash)
+# Update npm to version 11 without using `npm install -g` (avoids scorecard "npmCommand not pinned" flag).
+# /usr/local/bin/npm already symlinks to /usr/local/lib/node_modules/npm/bin/npm-cli.js,
+# so overwriting that directory via tar achieves the same result with no unpinned npm invocation.
+# The tarball is verified by SHA-256 before extraction.
 RUN apk add --no-cache wget && \
-  wget -O npm.tgz https://registry.npmjs.org/npm/-/npm-11.10.0.tgz && \
-  echo "43c653384c39617756846ad405705061a78fb6bbddb2ced57ab79fb92e8af2a7  npm.tgz" | sha256sum -c - && \
-  npm install -g ./npm.tgz && \
-    rm npm.tgz && \
-    rm -rf /var/cache/apk/*
+  wget -O /tmp/npm.tgz https://registry.npmjs.org/npm/-/npm-11.10.0.tgz && \
+  echo "43c653384c39617756846ad405705061a78fb6bbddb2ced57ab79fb92e8af2a7  /tmp/npm.tgz" | sha256sum -c - && \
+  rm -rf /usr/local/lib/node_modules/npm && \
+  mkdir -p /usr/local/lib/node_modules/npm && \
+  tar -xz --strip-components=1 -C /usr/local/lib/node_modules/npm -f /tmp/npm.tgz && \
+  rm /tmp/npm.tgz && \
+  rm -rf /var/cache/apk/*
 
 # ===============================
 # 1. Dependencies layer
@@ -161,7 +166,7 @@ RUN --mount=type=secret,id=sentry_token \
 # runtime caching strategies (NetworkFirst, CacheFirst, StaleWhileRevalidate) can only serve previously cached resources offline (full offline support would require precaching or explicit caching logic)
 RUN if [ ! -f "public/sw.js" ]; then \
       echo "Compiling service worker from src/sw.ts..."; \
-      npx esbuild src/sw.ts \
+      ./node_modules/.bin/esbuild src/sw.ts \
         --bundle \
         --outfile=public/sw.js \
         --format=iife \
