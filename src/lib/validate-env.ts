@@ -203,8 +203,8 @@ export function validateEnvironment() {
   const rateLimitRequests = process.env.RATE_LIMIT_REQUESTS;
   if (rateLimitRequests) {
     const val = parseInt(rateLimitRequests, 10);
-    if (isNaN(val) || val < 1 || val > 10000) {
-      warnings.push('⚠️  RATE_LIMIT_REQUESTS is invalid (must be 1–10000); using default of 10');
+    if (isNaN(val) || val < 1 || val > 1000) {
+      errors.push('❌ RATE_LIMIT_REQUESTS must be a number between 1 and 1000 (default when unset: 10)');
     }
   }
 
@@ -212,23 +212,23 @@ export function validateEnvironment() {
   if (rateLimitWindow) {
     const val = parseInt(rateLimitWindow, 10);
     if (isNaN(val) || val < 1 || val > 3600) {
-      warnings.push('⚠️  RATE_LIMIT_WINDOW is invalid (must be 1–3600 seconds); using default of 10');
+      errors.push('❌ RATE_LIMIT_WINDOW is invalid (must be 1–3600 seconds)');
     }
   }
 
   const authRateLimitRequests = process.env.AUTH_RATE_LIMIT_REQUESTS;
   if (authRateLimitRequests) {
     const val = parseInt(authRateLimitRequests, 10);
-    if (isNaN(val) || val < 1 || val > 100) {
-      warnings.push('⚠️  AUTH_RATE_LIMIT_REQUESTS is invalid (must be 1–100); using default of 5');
+    if (isNaN(val) || val < 1 || val > 1000) {
+      errors.push('❌ AUTH_RATE_LIMIT_REQUESTS is invalid (must be 1–1000)');
     }
   }
 
   const authRateLimitWindow = process.env.AUTH_RATE_LIMIT_WINDOW;
   if (authRateLimitWindow) {
     const val = parseInt(authRateLimitWindow, 10);
-    if (isNaN(val) || val < 10 || val > 3600) {
-      warnings.push('⚠️  AUTH_RATE_LIMIT_WINDOW is invalid (must be 10–3600 seconds); using default of 60');
+    if (isNaN(val) || val < 1 || val > 3600) {
+      errors.push('❌ AUTH_RATE_LIMIT_WINDOW is invalid (must be 1–3600 seconds)');
     }
   }
 
