@@ -71,11 +71,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read the per-request nonce injected by middleware (src/proxy.ts) via the x-nonce header.
-  // Making the layout async and calling headers() here enables Next.js's rendering pipeline
-  // to propagate this nonce to its own internally generated inline bootstrap scripts, so that
-  // script-src-elem 'nonce-{nonce}' in the CSP protects against XSS without blocking hydration.
-  const _nonce = (await headers()).get("x-nonce") ?? undefined;
+  // Calling headers() here makes this layout dynamic so that Next.js will read the
+  // per-request x-nonce set by middleware. The return value is intentionally discarded;
+  // the app relies on the 'unsafe-inline' CSP2 fallback for inline hydration scripts
+  // because the nonce is not forwarded to any <Script> component.
+  void (await headers()).get("x-nonce");
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
   const hasGoogleAnalytics = !!gaId && gaId !== 'undefined' && gaId.startsWith('G-');
   

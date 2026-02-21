@@ -197,6 +197,19 @@ export async function GET(req: Request) {
 
     if (usersToSync.length === 0) return NextResponse.json({ success: true, processed: 0 });
 
+    // Audit breadcrumb: record that a cron batch is starting, with redacted user IDs
+    if (isCron) {
+      Sentry.addBreadcrumb({
+        category: "cron",
+        message: "Starting cron sync batch",
+        level: "info",
+        data: {
+          batchSize: usersToSync.length,
+          userIds: usersToSync.map(u => redact("id", u.auth_id)),
+        },
+      });
+    }
+
     // ---------------------------------------------------------
     // 3. CHUNKED PARALLEL PROCESSING
     // ---------------------------------------------------------

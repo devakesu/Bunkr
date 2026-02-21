@@ -131,7 +131,7 @@ export async function proxy(request: NextRequest) {
     // Increment redirect count in httpOnly cookie (secure, non-manipulable)
     redirectRes.cookies.set('terms_redirect_count', String(redirectCount + 1), {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.HTTPS === 'true' || process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
       maxAge: 300, // 5 minutes - enough for legitimate redirects, prevents long-term accumulation

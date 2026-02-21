@@ -208,8 +208,8 @@ export const getCspHeader = (nonce?: string) => {
   //     a nonce is present in the directive. Only scripts whose nonce attribute matches the
   //     per-request nonce are allowed to execute, providing full XSS protection.
   //   - CSP Level 2 browsers: 'unsafe-inline' acts as a backward-compatibility fallback.
-  // The root layout reads the nonce from the x-nonce request header (set by middleware) so
-  // that Next.js's rendering pipeline can apply it to its own inline bootstrap scripts.
+  // NOTE: The nonce is not forwarded to any <Script> component in the root layout, so
+  // inline bootstrap scripts rely on the 'unsafe-inline' CSP Level 2 fallback.
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
   const scriptSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
