@@ -2,7 +2,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { z } from "zod";
 import sanitizeHtml from "sanitize-html";
@@ -258,17 +258,16 @@ export async function submitContactForm(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 4. Initialize Admin Client (Bypasses RLS for writing)
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  // The contact_messages table has an open INSERT RLS policy ("Anyone can insert contact messages"
+  // WITH CHECK (true)), so no elevated privileges are needed for the insert. The admin client is
+  // only needed for the rollback DELETE, which has no per-user RLS policy.
+  const supabaseAdmin = getAdminClient();
 
   let insertedId: string | null = null;
 
   try {
-    // 5. Save to Database (Using ADMIN Client)
-    const { data: insertedMessage, error: dbError } = await supabaseAdmin
+    // 5. Save to Database (Using regular client — INSERT RLS policy is open to all)
+    const { data: insertedMessage, error: dbError } = await supabase
       .from("contact_messages")
       .insert({
         user_id: user?.id || null,

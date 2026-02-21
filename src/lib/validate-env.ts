@@ -53,6 +53,9 @@ export function validateEnvironment() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     errors.push('❌ SUPABASE_SERVICE_ROLE_KEY is required');
   }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_API_URL) {
+    errors.push('❌ NEXT_PUBLIC_SUPABASE_API_URL is required (typically NEXT_PUBLIC_SUPABASE_URL + "/functions/v1")');
+  }
 
   // Upstash Redis (Rate Limiting)
   if (!process.env.UPSTASH_REDIS_REST_URL) {

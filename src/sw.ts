@@ -62,8 +62,8 @@ const serwist = new Serwist({
       //   and will always go through the network without caching.
       // - Use an allowlist approach to only cache static/public API endpoints that are
       //   guaranteed safe to cache, avoiding stale data for dynamic/user-specific endpoints.
-      // - No explicit network timeout is used here to avoid serving stale cache for
-      //   legitimately long-running operations.
+      // - networkTimeoutSeconds: 10 ensures a hanging request (e.g. slow EzyGo/Supabase
+      //   response) falls back to cached data instead of leaving the user waiting indefinitely.
       matcher: ({ request, url }) => {
         if (request.method !== "GET") {
           return false;
@@ -82,6 +82,7 @@ const serwist = new Serwist({
       },
       handler: new NetworkFirst({
         cacheName: "api",
+        networkTimeoutSeconds: 10,
       }),
     },
   ],
