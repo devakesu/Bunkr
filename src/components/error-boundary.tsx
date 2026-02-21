@@ -105,7 +105,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (!error) return;
 
     const appDomain = getAppDomain();
-    const safeAppDomain = appDomain.replace(/[^a-zA-Z0-9.-]/g, '');
+    // Validate domain: proper hostname format (no consecutive dots, no leading/trailing hyphens in labels)
+    if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/.test(appDomain)) return;
     const subject = encodeURIComponent('Error Report - GhostClass');
     const body = encodeURIComponent(
       `Hi Admin,\n\nI encountered an error while using GhostClass.\n\n` +
@@ -114,7 +115,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       `Please help resolve this issue.\n\nThank you!`
     );
 
-    window.location.href = `mailto:admin@${safeAppDomain}?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:admin@${appDomain}?subject=${subject}&body=${body}`;
   };
 
   render(): ReactNode {

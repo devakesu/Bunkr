@@ -3,10 +3,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (!baseUrl) return [];
   // Use BUILD_TIMESTAMP for stable, deterministic lastModified across requests.
-  // Omit lastModified when not set (e.g. local dev) to avoid non-deterministic dates.
-  const lastModified = process.env.BUILD_TIMESTAMP
-    ? new Date(process.env.BUILD_TIMESTAMP)
-    : undefined;
+  // Omit lastModified when not set or invalid (e.g. local dev) to avoid non-deterministic dates.
+  const lastModified = (() => {
+    if (!process.env.BUILD_TIMESTAMP) return undefined;
+    const d = new Date(process.env.BUILD_TIMESTAMP);
+    return isNaN(d.getTime()) ? undefined : d;
+  })();
   return [
     { url: baseUrl, lastModified, changeFrequency: 'monthly', priority: 1 },
     { url: `${baseUrl}/contact`, lastModified, changeFrequency: 'monthly', priority: 0.8 },

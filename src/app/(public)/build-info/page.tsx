@@ -23,6 +23,16 @@ function isValidGitHubRepo(repo: string) {
   return /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repo);
 }
 
+function isValidRunId(id: string | undefined): id is string {
+  if (!id) return false;
+  return /^\d+$/.test(id);
+}
+
+function isValidCommitSha(sha: string | undefined): sha is string {
+  if (!sha) return false;
+  return /^[a-f0-9]{4,40}$/i.test(sha);
+}
+
 function getBuildMeta(): BuildMeta {
   const commitSha = process.env.APP_COMMIT_SHA ?? "dev";
   const githubRepo =
@@ -55,6 +65,8 @@ export default function BuildInfoPage() {
   const meta = getBuildMeta();
   const metaJson = JSON.stringify(meta, null, 2);
   const validRepo = meta.github_repo && isValidGitHubRepo(meta.github_repo);
+  const validRunId = isValidRunId(meta.github_run_id);
+  const validCommitSha = isValidCommitSha(meta.commit_sha);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -109,7 +121,7 @@ export default function BuildInfoPage() {
 
               <div>
                 <span className="text-cyan-400">&gt; BUILD_ID:</span>{" "}
-                {meta.github_run_id && validRepo ? (
+                {validRunId && validRepo ? (
                   <a
                     href={`https://github.com/${meta.github_repo}/actions/runs/${meta.github_run_id}`}
                     target="_blank"
@@ -125,7 +137,7 @@ export default function BuildInfoPage() {
                 )}{" "}
                 <span className="text-neutral-600">
                   (
-                  {meta.commit_sha && validRepo ? (
+                  {validCommitSha && validRepo ? (
                     <a
                       href={`https://github.com/${meta.github_repo}/commit/${meta.commit_sha}`}
                       target="_blank"
@@ -261,7 +273,7 @@ export default function BuildInfoPage() {
             )}
 
             {/* Build Logs */}
-            {meta.github_run_id && validRepo && (
+            {validRunId && validRepo && (
               <Card className="p-6 hover:border-primary/50 transition-colors">
                 <h3 className="font-semibold mb-2">Build Logs</h3>
                 <p className="text-sm text-muted-foreground mb-4">
