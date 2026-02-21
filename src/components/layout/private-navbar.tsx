@@ -48,10 +48,11 @@ import { AddRecordTrigger } from "@/components/attendance/AddRecordTrigger";
 import UserPlaceholder from "@/assets/user.png";
 import { Bell } from "lucide-react";
 import { useNotifications } from "@/hooks/notifications/useNotifications";
-import NProgress from "nprogress";
+import { useTopLoader } from "nextjs-toploader";
 
 export const Navbar = () => {
   const router = useRouter();
+  const topLoader = useTopLoader();
   const { data: user } = useUser();
   const { data: profile } = useProfile();
   const { settings, updateBunkCalc, updateTarget, isLoading: settingsLoading } = useUserSettings();
@@ -81,7 +82,7 @@ export const Navbar = () => {
 
   const navigateTo = (path: string) => {
     if (pathname !== path) {
-        NProgress.start();
+        topLoader.start();
         router.push(path);
     }
   };

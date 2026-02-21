@@ -88,13 +88,13 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: headersList,
       },
-      // Cache fonts for 30 days (font files are not versioned/hashed, shorter cache prevents stale fonts)
+      // Cache fonts for 7 days with 30-day stale-while-revalidate (fonts are not content-hashed)
       {
         source: "/fonts/:path*",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=2592000",
+            value: "public, max-age=604800, stale-while-revalidate=2592000",
           },
         ],
       },
@@ -137,7 +137,7 @@ const nextConfig: NextConfig = {
   // Performance: Minimize JavaScript bundle
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn', 'log', 'info'], // Preserve console.log (logger.dev()), warn, error, and info
+      exclude: ['error', 'warn'], // Preserve console.error and console.warn; strip log/info from production
     } : false,
   },
   

@@ -1,8 +1,10 @@
 /**
  * CSRF Token API Route
  * 
- * This route handler provides CSRF token initialization.
- * It's a Route Handler, which is allowed to modify cookies in Next.js App Router.
+ * This is the single canonical CSRF endpoint.
+ * Both pre-authentication (login page) and post-authentication (session refresh)
+ * callers use this route. The separate /api/csrf/init endpoint has been consolidated
+ * here to eliminate overlap.
  */
 
 import { NextResponse } from "next/server";
@@ -16,11 +18,39 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/csrf
- * Returns CSRF token for use in forms
- * Initializes token if it doesn't exist
+ * Returns (or initializes) the CSRF token for the current session.
+ * Rate limited per IP to prevent DoS attacks.
  */
 export async function GET() {
   try {
+    // Get client IP for rate limiting (10 requests per minute per IP)
+    const headersList = await headers();
+    const ip = getClientIp(headersList);
+
+    if (!ip) {
+      logger.warn("Unable to determine client IP for CSRF init rate limiting");
+    }
+
+    if (ip) {
+      const { success, limit, reset, remaining } = await authRateLimiter.limit(`csrf_init_${ip}`);
+      if (!success) {
+        return NextResponse.json(
+          {
+            error: "Too many CSRF initialization requests. Please try again later.",
+            retryAfter: reset,
+          },
+          {
+            status: 429,
+            headers: {
+              'X-RateLimit-Limit': limit.toString(),
+              'X-RateLimit-Remaining': remaining.toString(),
+              'X-RateLimit-Reset': reset.toString(),
+            },
+          }
+        );
+      }
+    }
+
     // Initialize token if needed (this will set the cookie via Route Handler)
     const token = await initializeCsrfToken();
     

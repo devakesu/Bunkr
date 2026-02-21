@@ -12,6 +12,17 @@
  * - Opens after 3 consecutive failures
  * - Stays open for 60 seconds before attempting recovery
  * - Tests with 2 requests before closing
+ * 
+ * ⚠️ DEPLOYMENT NOTE — IN-MEMORY STATE:
+ * This implementation stores state in the Node.js module singleton (in-memory).
+ * It works correctly for the current Docker-based deployment (`output: "standalone"`)
+ * where a single persistent Node.js process handles all requests.
+ * 
+ * If the app is ever deployed to a multi-instance or serverless platform (e.g., Vercel,
+ * AWS Lambda, Kubernetes with >1 replica), each instance will have its own independent
+ * circuit-breaker state, making the protection ineffective across instances.
+ * In that scenario, circuit-breaker state should be migrated to Redis (which is already
+ * available via `@/lib/redis`) using atomic INCR/SET operations.
  */
 
 import { logger } from './logger';
