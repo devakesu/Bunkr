@@ -459,7 +459,7 @@ This enables the service worker in development mode without requiring a producti
 ### Bundle Optimization
 
 - Tree-shaking for `lucide-react`, `date-fns`, `framer-motion`
-- Console logging preserved in production (keeps log/error/warn)
+- Console logging stripped in production (`log`/`info` removed; `error`/`warn` preserved)
 - Font optimization with `display: swap` (prevents FOIT)
 - Priority loading for critical images (logo, avatar)
 - Blur placeholders for instant image feedback
