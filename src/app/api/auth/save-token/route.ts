@@ -141,7 +141,10 @@ export async function POST(req: Request) {
 
   // 2. Origin/Host Validation
   // Note: Rate limiting is performed later in this handler after client IP extraction.
-  // SKIP origin validation in development mode for easier local testing
+  // SKIP origin validation in development mode for easier local testing.
+  // This is safe in dev because: (1) the CSRF token still validates the request,
+  // (2) rate limiting is still applied, and (3) there is no production traffic
+  // in development. Never set NODE_ENV=development in a publicly accessible deployment.
   if (process.env.NODE_ENV !== "development") {
     const origin = headerList.get("origin");
     const host = headerList.get("host");
