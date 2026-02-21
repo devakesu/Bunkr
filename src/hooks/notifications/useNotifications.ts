@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import * as Sentry from "@sentry/nextjs";
-import { logger } from "@/lib/logger";
 
 export interface Notification {
   id: number;
@@ -70,30 +69,6 @@ export function useNotifications(enabled = true) {
     refetchInterval: 30000,
   });
 
-  // DEDICATED QUERY: Total Unread Count
-  const { data: unreadCountData, isLoading: isUnreadCountLoading } = useQuery({
-    queryKey: ["notifications", "unreadCount"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return 0;
-
-      const { count, error } = await supabase
-        .from("notification")
-        .select("*", { count: "exact", head: true })
-        .eq("auth_user_id", user.id)
-        .eq("is_read", false);
-
-      if (error) {
-        logger.error(`Error fetching unread count for user ${user.id}:`, error);
-        return 0;
-      }
-
-      return count ?? 0;
-    },
-    enabled: enabled,
-    refetchInterval: 30000,
-  });
-
   // 2. INFINITE FEED: Fetch Everything Else
   const {
     data: feedData,
@@ -145,7 +120,14 @@ export function useNotifications(enabled = true) {
       return { actionNotifications: actions, regularNotifications: regular };
   }, [actionData, feedData]);
 
-  const unreadCount = unreadCountData ?? 0;
+  // Derived from the already-fetched feed pages — avoids a separate DB round-trip.
+  // Note: this count reflects only notifications loaded so far; unread items on
+  // un-fetched pages are not included. For the unread *conflict* badge specifically,
+  // the actions query above provides the accurate count independent of pagination.
+  const unreadCount = useMemo(
+    () => feedData?.pages.flatMap(p => p.data).filter(n => !n.is_read).length ?? 0,
+    [feedData]
+  );
 
   // 4. MUTATIONS (With Optimistic Updates)
   const markReadMutation = useMutation({
@@ -165,15 +147,8 @@ export function useNotifications(enabled = true) {
       if (error) throw error;
     },
     // Optimistic Update: Update UI instantly
-    onMutate: async (targetId?: number) => {
+    onMutate: async () => {
         await queryClient.cancelQueries({ queryKey: ["notifications"] });
-
-        // Update Unread Count
-        queryClient.setQueryData(["notifications", "unreadCount"], (old: number | undefined) => {
-            if (old === undefined) return 0;
-            if (targetId) return Math.max(0, old - 1);
-            return 0; // Mark All Read
-        });
     },
     onError: (err, targetId) => {
         Sentry.captureException(err, { 
@@ -192,7 +167,7 @@ export function useNotifications(enabled = true) {
     actionNotifications,   // Always Unread Conflicts
     regularNotifications,  // Everything else
     unreadCount,
-    isLoading: isActionLoading || isFeedLoading || isUnreadCountLoading,
+    isLoading: isActionLoading || isFeedLoading,
     error,
     fetchNextPage,
     hasNextPage,

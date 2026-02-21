@@ -1,10 +1,19 @@
 // Calculate attendance statistics
 // src/utils/bunk.ts
+
+// Represents less than 1 class of headroom at the smallest meaningful scale.
+// When bunkableExact is in (0, BORDERLINE_THRESHOLD), the user is technically
+// above the target but cannot safely skip even a single class yet.
+const BORDERLINE_THRESHOLD = 0.9;
+
 interface AttendanceResult {
   canBunk: number;
   requiredToAttend: number;
   targetPercentage: number;
+  /** True only when current attendance percentage exactly equals the safe target (clamped between 1–100). */
   isExact: boolean;
+  /** True when slightly above the target but not enough to skip a full class. */
+  isBorderline: boolean;
 }
 
 export function calculateAttendance(
@@ -20,6 +29,7 @@ export function calculateAttendance(
     requiredToAttend: 0,
     targetPercentage: safeTarget,
     isExact: false,
+    isBorderline: false,
   };
 
   if (total <= 0 || present < 0 || present > total) {
@@ -42,14 +52,14 @@ export function calculateAttendance(
       result.requiredToAttend = Math.max(0, required);
     }
     return result;
-  }  if (currentPercentage > safeTarget) {
+  } else if (currentPercentage > safeTarget) {
     const bunkableExact = (100 * present - safeTarget * total) / safeTarget;
     const bunkable = Math.floor(bunkableExact);
     
     result.canBunk = Math.max(0, bunkable);
     
-    if (bunkableExact > 0 && bunkableExact < 0.9 && bunkable === 0) {
-      result.isExact = true;
+    if (bunkableExact > 0 && bunkableExact < BORDERLINE_THRESHOLD && bunkable === 0) {
+      result.isBorderline = true;
     }
     
     return result;
