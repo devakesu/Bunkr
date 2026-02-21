@@ -35,6 +35,12 @@ const serwist = new Serwist({
         request.destination === "worker",
       handler: new StaleWhileRevalidate({
         cacheName: "assets",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 200,
+            maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+          }),
+        ],
       }),
     },
     {

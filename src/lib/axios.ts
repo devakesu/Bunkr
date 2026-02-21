@@ -219,14 +219,6 @@ export function setCsrfToken(token: string | null): void {
   }
 }
 
-/**
- * Legacy function name for backward compatibility.
- * @deprecated Use getCsrfToken() instead
- */
-export function ensureCsrfToken(): string | null {
-  return getCsrfToken();
-}
-
 // Attach CSRF token from memory (Synchronizer Token Pattern)
 axiosInstance.interceptors.request.use((config) => {
   if (typeof document !== "undefined") {

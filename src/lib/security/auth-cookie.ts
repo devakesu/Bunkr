@@ -7,7 +7,7 @@ export async function setAuthCookie(token: string, days = 31) {
   (await cookies()).set("ezygo_access_token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax", // Use "lax" for better compatibility with OAuth redirects and external links
+    sameSite: "strict",
     path: "/",
     expires,
   });
@@ -17,7 +17,7 @@ export async function clearAuthCookie() {
   (await cookies()).set("ezygo_access_token", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
     expires: new Date(0),
   });

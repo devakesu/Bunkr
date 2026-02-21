@@ -1,6 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
 import axios, { isAxiosError } from "axios";
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { authRateLimiter } from "@/lib/ratelimit";
@@ -16,6 +15,7 @@ import { validateCsrfToken } from "@/lib/security/csrf";
 import { setAuthCookie } from "@/lib/security/auth-cookie";
 import { TERMS_VERSION } from "@/app/config/legal";
 import { setTermsVersionCookie } from "@/app/actions/user";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = 'force-dynamic';
 
@@ -33,17 +33,6 @@ const EzygoUserSchema = z.object({
   email: z.email(),
   mobile: z.string().optional(),
 });
-
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  
-  if (!url || !key) {
-    throw new Error("Missing Supabase Admin credentials");
-  }
-  
-  return createClient(url, key);
-}
 
 // Lock TTL in seconds - configurable via environment variable
 const AUTH_LOCK_TTL = (() => {
