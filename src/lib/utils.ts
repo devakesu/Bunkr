@@ -197,8 +197,14 @@ export function normalizeToISODate(str: string): string {
   if (!str) return '';
   if (str.includes('T')) return str.split('T')[0];
   if (str.includes('/')) {
-    const [d, m, y] = str.split('/');
-    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    const parts = str.split('/');
+    if (parts.length === 3) {
+      const [rawD, rawM, rawY] = parts.map((p) => p.trim());
+      if (rawD && rawM && rawY) {
+        return `${rawY}-${rawM.padStart(2, '0')}-${rawD.padStart(2, '0')}`;
+      }
+    }
+    return str;
   }
   return str;
 }

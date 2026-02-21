@@ -129,6 +129,13 @@ describe('Utils', () => {
     it('should return empty string for empty input', () => {
       expect(normalizeToISODate('')).toBe('')
     })
+
+    it('should return the original string unchanged for malformed slash-separated input', () => {
+      // Only two parts — not DD/MM/YYYY
+      expect(normalizeToISODate('15/01')).toBe('15/01')
+      // Empty part
+      expect(normalizeToISODate('15//2024')).toBe('15//2024')
+    })
   })
 
   describe('normalizeDate', () => {
