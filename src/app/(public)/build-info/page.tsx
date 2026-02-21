@@ -44,7 +44,7 @@ function getBuildMeta(): BuildMeta {
     app_version: process.env.NEXT_PUBLIC_APP_VERSION ?? "dev",
     image_digest: imageDigest,
     container: commitSha !== "dev",
-    node_env: process.env.NODE_ENV,
+    node_env: process.env.NODE_ENV ?? "development",
     timestamp: buildTimestamp,
     audit_status: auditStatus,
     signature_status: signatureStatus,

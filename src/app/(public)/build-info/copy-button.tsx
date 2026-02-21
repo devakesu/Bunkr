@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 
@@ -23,6 +23,13 @@ interface CopyButtonProps {
  */
 export function CopyButton({ text, label, className, size = "sm", variant = "ghost" }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleCopy = async () => {
     if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
@@ -32,14 +39,15 @@ export function CopyButton({ text, label, className, size = "sm", variant = "gho
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       window.alert("Failed to copy to clipboard. Please copy the text manually.");
     }
   };
 
   return (
-    <Button variant={variant} size={size} className={className} onClick={handleCopy} aria-label={`Copy ${label}`}>
+    <Button variant={variant} size={size} className={className} onClick={handleCopy} aria-label={label}>
       {copied ? (
         <>
           <Check className="w-3 h-3 mr-1" aria-hidden="true" />
@@ -65,6 +73,13 @@ interface InlineCopyButtonProps {
  */
 export function InlineCopyButton({ text }: InlineCopyButtonProps) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleCopy = async () => {
     if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
@@ -74,7 +89,8 @@ export function InlineCopyButton({ text }: InlineCopyButtonProps) {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       window.alert("Failed to copy to clipboard. Please copy the text manually.");
     }

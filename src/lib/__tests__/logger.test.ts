@@ -38,16 +38,16 @@ describe('logger', () => {
   })
 
   describe('warn', () => {
-    it('should suppress warnings in test environment (NODE_ENV=test)', () => {
-      // In test mode, warn is suppressed to avoid noisy CI output
+    it('should suppress warnings in test environment (VITEST=true)', () => {
+      // In test mode (detected via process.env.VITEST), warn is suppressed to avoid noisy CI output
       logger.warn('test warning')
       expect(consoleWarnSpy).not.toHaveBeenCalled()
     })
   })
 
   describe('error', () => {
-    it('should suppress errors in test environment (NODE_ENV=test)', () => {
-      // In test mode, error is suppressed to avoid noisy CI output
+    it('should suppress errors in test environment (VITEST=true)', () => {
+      // In test mode (detected via process.env.VITEST), error is suppressed to avoid noisy CI output
       logger.error('test error')
       expect(consoleErrorSpy).not.toHaveBeenCalled()
     })

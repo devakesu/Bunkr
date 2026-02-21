@@ -32,8 +32,9 @@ export async function proxy(request: NextRequest) {
   });
 
   // 3. Apply CSP to the initial response
-  // x-nonce is forwarded in the response so that Next.js server components can read it
-  // via headers() to inject the nonce into inline <script>/<style> tags (e.g., in layout.tsx).
+  // x-nonce is attached to the *request* (see requestHeaders + NextResponse.next above)
+  // so that Next.js Server Components can read it via headers() and inject it into inline
+  // <script>/<style> tags (e.g., in layout.tsx). We also mirror it on the response header.
   response.headers.set('Content-Security-Policy', cspHeader);
   response.headers.set("x-nonce", nonce);
 

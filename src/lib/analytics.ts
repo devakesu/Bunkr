@@ -112,7 +112,10 @@ export function getOrCreateClientId(): string {
   const cookieName = "_ga_client_id";
   // Use split-based lookup instead of RegExp to avoid regex injection risk
   const prefix = `${cookieName}=`;
-  const pair = document.cookie.split('; ').find(c => c.startsWith(prefix));
+  const pair = document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(prefix));
   const existingId = pair ? pair.slice(prefix.length) : null;
 
   if (existingId) {
