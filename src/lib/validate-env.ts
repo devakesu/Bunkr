@@ -54,7 +54,7 @@ export function validateEnvironment() {
     errors.push('❌ SUPABASE_SERVICE_ROLE_KEY is required');
   }
   if (!process.env.NEXT_PUBLIC_SUPABASE_API_URL) {
-    errors.push('❌ NEXT_PUBLIC_SUPABASE_API_URL is required (set to ${NEXT_PUBLIC_SUPABASE_URL}/functions/v1)');
+    errors.push('❌ NEXT_PUBLIC_SUPABASE_API_URL is required (typically NEXT_PUBLIC_SUPABASE_URL + "/functions/v1")');
   }
 
   // Upstash Redis (Rate Limiting)
