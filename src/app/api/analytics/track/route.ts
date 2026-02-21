@@ -12,6 +12,11 @@ interface GA4Event {
   params?: Record<string, unknown>;
 }
 
+/** Type guard for values already in GA4 user property format { value: string } */
+function isGA4UserProperty(val: unknown): val is { value: string } {
+  return typeof val === 'object' && val !== null && 'value' in val && typeof (val as { value: unknown }).value === 'string';
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Validate request origin to prevent cross-site analytics pollution
@@ -135,15 +140,15 @@ export async function POST(req: NextRequest) {
       const maxUserPropertyKeyLength = 24; // GA4 limit
       const maxUserPropertyValueLength = 36; // GA4 limit
       
-      for (const [key, value] of Object.entries(userProperties as Record<string, unknown>)) {
+      for (const [key, value] of Object.entries(userProperties)) {
         const sanitizedKey = key.slice(0, maxUserPropertyKeyLength);
         
         // Only allow string values for user properties (GA4 requirement)
         if (typeof value === 'string') {
           sanitizedUserProperties[sanitizedKey] = { value: value.slice(0, maxUserPropertyValueLength) };
-        } else if (typeof value === 'object' && value !== null && 'value' in value && typeof (value as { value: unknown }).value === 'string') {
+        } else if (isGA4UserProperty(value)) {
           // Already in GA4 format
-          sanitizedUserProperties[sanitizedKey] = { value: ((value as { value: string }).value).slice(0, maxUserPropertyValueLength) };
+          sanitizedUserProperties[sanitizedKey] = { value: value.value.slice(0, maxUserPropertyValueLength) };
         }
       }
     }
