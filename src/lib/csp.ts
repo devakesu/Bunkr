@@ -101,6 +101,8 @@ export const getCspHeader = (nonce?: string) => {
         https://stats.g.doubleclick.net
         https://www.google-analytics.com
         https://analytics.google.com;
+      report-to csp-endpoint;
+      report-uri /api/csp-report;
       upgrade-insecure-requests;
     `.replace(/\s{2,}/g, ' ').trim();
   }
@@ -298,6 +300,10 @@ export const getCspHeader = (nonce?: string) => {
     `frame-ancestors 'none'`,
     `worker-src 'self' blob:`,
     `connect-src ${connectSrcParts.join(" ")}`,
-    ...(isActualProduction ? ["upgrade-insecure-requests"] : []),
+    ...(isActualProduction ? [
+      `report-to csp-endpoint`,
+      `report-uri /api/csp-report`,
+      "upgrade-insecure-requests",
+    ] : []),
   ].join("; ");
 };

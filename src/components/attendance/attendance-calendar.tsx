@@ -47,7 +47,7 @@ import { useTrackingCount } from "@/hooks/tracker/useTrackingCount";
 import { useFetchCourses } from "@/hooks/courses/courses";
 import { isDutyLeaveConstraintError, getDutyLeaveErrorMessage } from "@/lib/error-handling";
 import Link from "next/link";
-import { formatSessionName, generateSlotKey, normalizeSession, toRoman } from "@/lib/utils";
+import { formatSessionName, generateSlotKey, normalizeSession, toRoman, normalizeToISODate } from "@/lib/utils";
 
 interface AttendanceCalendarProps {
   attendanceData: AttendanceReport | undefined;
@@ -348,9 +348,7 @@ export function AttendanceCalendar({
       const dateEvents = rawEvents.filter((event) => isSameDay(event.date, date));
       const dbDateStr = formatDateForDB(date);
       const hasExtra = trackingData?.some(t => {
-         let tDate = t.date;
-         if (tDate.includes('T')) tDate = tDate.split('T')[0];
-         if (tDate.includes('/')) { const [d,m,y] = tDate.split('/'); tDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+         const tDate = normalizeToISODate(t.date);
          return tDate === dbDateStr && t.status === 'extra' && t.semester === semesterData && t.year === academicYearData;
       });
 
@@ -360,8 +358,7 @@ export function AttendanceCalendar({
       dateEvents.forEach(ev => {
           const key = generateSlotKey(ev.courseId, date, ev.sessionName);
           const override = trackingData?.find(t => {
-             let tDate = t.date;
-             if (tDate.includes('/')) { const [d,m,y] = tDate.split('/'); tDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+             const tDate = normalizeToISODate(t.date);
              return tDate === dbDateStr && generateSlotKey(t.course, dbDateStr, t.session) === key;
           });
 
@@ -401,8 +398,7 @@ export function AttendanceCalendar({
         const key = generateSlotKey(ev.courseId, selectedDate, ev.sessionName);
 
         const override = trackingData?.find(t => {
-            let tDate = t.date;
-            if (tDate.includes('/')) { const [d,m,y] = tDate.split('/'); tDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+            const tDate = normalizeToISODate(t.date);
             
             const isDateMatch = tDate === dbDateStr;
             const isKeyMatch = generateSlotKey(t.course, t.date, t.session) === key;
@@ -435,8 +431,7 @@ export function AttendanceCalendar({
               return;
             }
 
-            let tDate = t.date;
-            if (tDate.includes('/')) { const [d,m,y] = tDate.split('/'); tDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+            const tDate = normalizeToISODate(t.date);
             
             if (tDate === dbDateStr) {
                 const key = generateSlotKey(t.course, t.date, t.session);

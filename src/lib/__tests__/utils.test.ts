@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cn, toRoman, normalizeSession, generateSlotKey, formatSessionName, getSessionNumber, formatCourseCode, normalizeDate, redact, getClientIp } from '@/lib/utils'
+import { cn, toRoman, normalizeSession, generateSlotKey, formatSessionName, getSessionNumber, formatCourseCode, normalizeDate, redact, getClientIp, normalizeToISODate } from '@/lib/utils'
 
 describe('Utils', () => {
   describe('cn', () => {
@@ -104,6 +104,37 @@ describe('Utils', () => {
 
     it('should handle codes without hyphens', () => {
       expect(formatCourseCode('MATH101')).toBe('MATH101')
+    })
+  })
+
+  describe('normalizeToISODate', () => {
+    it('should strip time part from ISO datetime strings', () => {
+      expect(normalizeToISODate('2024-01-15T10:30:00Z')).toBe('2024-01-15')
+      expect(normalizeToISODate('2024-01-15T00:00:00.000Z')).toBe('2024-01-15')
+    })
+
+    it('should convert DD/MM/YYYY to YYYY-MM-DD', () => {
+      expect(normalizeToISODate('15/01/2024')).toBe('2024-01-15')
+      expect(normalizeToISODate('01/02/2026')).toBe('2026-02-01')
+    })
+
+    it('should pad single-digit day and month', () => {
+      expect(normalizeToISODate('5/3/2024')).toBe('2024-03-05')
+    })
+
+    it('should return already-normalized YYYY-MM-DD strings unchanged', () => {
+      expect(normalizeToISODate('2024-01-15')).toBe('2024-01-15')
+    })
+
+    it('should return empty string for empty input', () => {
+      expect(normalizeToISODate('')).toBe('')
+    })
+
+    it('should return the original string unchanged for malformed slash-separated input', () => {
+      // Only two parts — not DD/MM/YYYY
+      expect(normalizeToISODate('15/01')).toBe('15/01')
+      // Empty part
+      expect(normalizeToISODate('15//2024')).toBe('15//2024')
     })
   })
 

@@ -181,6 +181,35 @@ export const normalizeSession = (session: string | number): string => {
 };
 
 /**
+ * Normalizes a date string to ISO date format (YYYY-MM-DD).
+ * Handles ISO datetime strings (with T), DD/MM/YYYY, and already-normalized YYYY-MM-DD strings.
+ *
+ * @param str - Date string in any of the supported formats
+ * @returns Date string in YYYY-MM-DD format
+ * @example
+ * ```ts
+ * normalizeToISODate("2024-01-15T10:30:00Z") // Returns "2024-01-15"
+ * normalizeToISODate("15/01/2024")            // Returns "2024-01-15"
+ * normalizeToISODate("2024-01-15")            // Returns "2024-01-15"
+ * ```
+ */
+export function normalizeToISODate(str: string): string {
+  if (!str) return '';
+  if (str.includes('T')) return str.split('T')[0];
+  if (str.includes('/')) {
+    const parts = str.split('/');
+    if (parts.length === 3) {
+      const [rawD, rawM, rawY] = parts.map((p) => p.trim());
+      if (rawD && rawM && rawY) {
+        return `${rawY}-${rawM.padStart(2, '0')}-${rawD.padStart(2, '0')}`;
+      }
+    }
+    return str;
+  }
+  return str;
+}
+
+/**
  * Standardizes date to YYYYMMDD format.
  * Handles Date objects, ISO strings, and "DD-MM-YYYY" formats.
  * 
