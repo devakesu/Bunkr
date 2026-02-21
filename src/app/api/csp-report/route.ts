@@ -87,15 +87,24 @@ export async function POST(req: NextRequest) {
   // Reject oversized bodies before reading them to prevent memory/CPU abuse on
   // this unauthenticated endpoint.
   const contentLength = req.headers.get("content-length");
-  if (contentLength !== null && parseInt(contentLength, 10) > MAX_BODY_BYTES) {
-    return new NextResponse(null, { status: 413 });
+  if (contentLength !== null) {
+    const parsedLength = Number(contentLength);
+    // Explicitly handle invalid or negative Content-Length values.
+    if (!Number.isFinite(parsedLength) || parsedLength < 0) {
+      return new NextResponse(null, { status: 400 });
+    }
+    if (parsedLength > MAX_BODY_BYTES) {
+      return new NextResponse(null, { status: 413 });
+    }
   }
 
   try {
-    const text = await req.text();
-    if (text.length > MAX_BODY_BYTES) {
+    const bodyBuffer = await req.arrayBuffer();
+    if (bodyBuffer.byteLength > MAX_BODY_BYTES) {
       return new NextResponse(null, { status: 413 });
     }
+
+    const text = new TextDecoder("utf-8").decode(bodyBuffer);
     const fields = extractLogFields(text);
     logger.warn("[CSP] Violation report received", fields);
   } catch {
