@@ -439,17 +439,22 @@ export function useUserSettings() {
 
     // Helper to validate session is still active and belongs to the expected user
     // Returns true if session is valid, matches the expected userId, and component is still mounted
-    // NOTE: getSession() is intentionally used here (not getUser()) because this check is
-    // only verifying mount/user consistency for localStorage sync, not making any security
-    // decisions. Using getSession() avoids an extra network round-trip in this hot path.
     const validateActiveSession = async (expectedUserId: string): Promise<boolean> => {
       // Check current mount state from closure to prevent race conditions
       if (!isMounted) return false;
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        // Verify session exists, user matches, and component is still mounted (re-check after async)
-        return !!(session && session.user.id === expectedUserId && isMounted);
-      } catch {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) {
+          // Log at dev level so auth/network issues are diagnosable while still treating them as "no user"
+          logger.dev("Error fetching auth user in validateActiveSession:", error);
+          return false;
+        }
+        const user = data?.user;
+        // Verify user exists, matches, and component is still mounted (re-check after async)
+        return !!(user && user.id === expectedUserId && isMounted);
+      } catch (err) {
+        // Catch any unexpected thrown errors from the Supabase client
+        logger.dev("Unexpected error in validateActiveSession:", err);
         return false;
       }
     };
@@ -460,9 +465,9 @@ export function useUserSettings() {
       if (!isMounted) return;
 
       try {
-        // Get current user ID from auth session
-        const { data: { session } } = await supabase.auth.getSession();
-        const userId = session?.user?.id;
+        // Get current user ID from auth (getUser() validates the token server-side)
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const userId = currentUser?.id;
         
         if (!userId) {
           logger.dev("No user ID available for storage sync, skipping");
