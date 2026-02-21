@@ -7,7 +7,7 @@ import { sendEmail } from "@/lib/email";
 import { z } from "zod";
 import sanitizeHtml from "sanitize-html";
 import { headers } from "next/headers";
-import { syncRateLimiter } from "@/lib/ratelimit";
+import { contactRateLimiter } from "@/lib/ratelimit";
 import { redact, getClientIp } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { validateCsrfToken } from "@/lib/security/csrf";
@@ -113,7 +113,7 @@ const getContactEmail = () => {
   if (!appEmail) {
     throw new Error('NEXT_PUBLIC_APP_EMAIL is not configured');
   }
-  return 'contact' + appEmail;
+  return 'contact@' + appEmail.replace(/^@/, '');
 };
 
 /**
@@ -214,7 +214,7 @@ export async function submitContactForm(formData: FormData) {
     return { error: "Unable to determine client IP" };
   }
 
-  const { success } = await syncRateLimiter.limit(`contact:${ip}`);
+  const { success } = await contactRateLimiter.limit(`contact:${ip}`);
   
   if (!success) {
     return { error: "Too many requests. Please try again later." };

@@ -85,6 +85,10 @@ export async function proxy(request: NextRequest) {
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
     redirectRes.headers.set("x-nonce", nonce);
+    // Clear orphaned EzyGo token cookie — the Supabase session may have expired while
+    // the custom cookie persisted. Deleting it here prevents stale-token issues on
+    // the next login attempt.
+    redirectRes.cookies.delete('ezygo_access_token');
     return redirectRes;
   }
 
@@ -139,8 +143,6 @@ export async function proxy(request: NextRequest) {
   if (user && termsVersion === TERMS_VERSION && isAcceptTermsRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
-    // Clear redirect_count parameter to keep URLs clean after successful terms acceptance
-    url.searchParams.delete('redirect_count');
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
     redirectRes.headers.set("x-nonce", nonce);
@@ -153,8 +155,6 @@ export async function proxy(request: NextRequest) {
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
-    // Clear redirect_count parameter to keep URLs clean
-    url.searchParams.delete('redirect_count');
     const redirectRes = NextResponse.redirect(url);
     redirectRes.headers.set('Content-Security-Policy', cspHeader);
     redirectRes.headers.set("x-nonce", nonce);

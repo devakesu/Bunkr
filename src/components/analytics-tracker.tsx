@@ -44,7 +44,15 @@ export function AnalyticsTracker() {
                   params: {
                     page_location: url,
                     page_title: document.title,
-                    page_referrer: document.referrer,
+                    page_referrer: (() => {
+                      if (!document.referrer) return "";
+                      try {
+                        const ref = new URL(document.referrer);
+                        return ref.origin + ref.pathname;
+                      } catch {
+                        return "";
+                      }
+                    })(),
                   },
                 },
               ],
