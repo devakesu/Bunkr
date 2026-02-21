@@ -46,7 +46,7 @@ export const metadata: Metadata = {
 };
 
 const klick = localFont({
-  src: "../../public/fonts/Klick.woff2",
+  src: "./fonts/Klick.woff2",
   variable: "--font-klick",
   display: "swap",
 });
