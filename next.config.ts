@@ -81,6 +81,13 @@ const nextConfig: NextConfig = {
         key: "Cross-Origin-Opener-Policy",
         value: "same-origin",
       });
+      // Define the named reporting endpoint consumed by the CSP report-to directive.
+      // The endpoint /api/csp-report receives violation reports sent by the browser.
+      // report-to (Reporting API v1) and report-uri (legacy fallback) both point here.
+      headersList.push({
+        key: "Reporting-Endpoints",
+        value: 'csp-endpoint="/api/csp-report"',
+      });
     }
 
     return [

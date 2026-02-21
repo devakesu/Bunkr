@@ -166,6 +166,34 @@ describe("Content Security Policy", () => {
     expect(header[header.length - 1]).not.toBe(" ");
   });
 
+  it("should include report-to and report-uri directives in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+
+    const header = getCspHeader("prod-nonce");
+
+    expect(header).toContain("report-to csp-endpoint");
+    expect(header).toContain("report-uri /api/csp-report");
+  });
+
+  it("should not include report-to or report-uri directives in development", () => {
+    vi.stubEnv("NODE_ENV", "development");
+
+    const header = getCspHeader();
+
+    expect(header).not.toContain("report-to");
+    expect(header).not.toContain("report-uri");
+  });
+
+  it("should include report-to and report-uri in the fallback no-nonce production CSP", () => {
+    vi.stubEnv("NODE_ENV", "production");
+
+    // Passing no nonce triggers the fallback CSP path in production
+    const header = getCspHeader();
+
+    expect(header).toContain("report-to csp-endpoint");
+    expect(header).toContain("report-uri /api/csp-report");
+  });
+
   describe("FORCE_STRICT_CSP feature", () => {
     it("should enforce production CSP when FORCE_STRICT_CSP is set to 'true'", () => {
       vi.stubEnv("NODE_ENV", "development");
