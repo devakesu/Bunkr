@@ -229,7 +229,7 @@ export async function submitContactForm(formData: FormData) {
     csrf_token: formData.get("csrf_token"),
   };
 
-  // 1. Validate Input
+  // 5. Validate Input
   const result = contactSchema.safeParse(rawData);
   if (!result.success) {
     return { error: result.error.issues[0].message };
@@ -237,7 +237,7 @@ export async function submitContactForm(formData: FormData) {
   
   const { name, email, subject, message, token } = result.data;
 
-  // 2. Verify CAPTCHA
+  // 6. Verify CAPTCHA
   const verifyRes = await fetch(
     "https://challenges.cloudflare.com/turnstile/v0/siteverify",
     {
@@ -254,7 +254,7 @@ export async function submitContactForm(formData: FormData) {
     return { error: "CAPTCHA validation failed. Are you a robot?" };
   }
 
-  // 3. Get User Context (Read-Only check)
+  // 7. Get User Context (Read-Only check)
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -266,7 +266,7 @@ export async function submitContactForm(formData: FormData) {
   let insertedId: string | null = null;
 
   try {
-    // 5. Save to Database (Using regular client — INSERT RLS policy is open to all)
+    // 8. Save to Database (Using regular client — INSERT RLS policy is open to all)
     const { data: insertedMessage, error: dbError } = await supabase
       .from("contact_messages")
       .insert({
@@ -291,7 +291,7 @@ export async function submitContactForm(formData: FormData) {
     const safeEmail = escapeHtml(email);
     const userType = user ? "Registered User" : "Guest Visitor";
 
-    // 6. Send Notification to ADMIN
+    // 9. Send Notification to ADMIN
     const adminEmailResult = await sendEmail({
       to: getContactEmail(),
       subject: `[New Inquiry] ${safeSubject}`,
@@ -341,7 +341,7 @@ export async function submitContactForm(formData: FormData) {
       throw new Error(`Admin email failed: ${adminEmailResult?.error || "Unknown error"}`);
     }
 
-    // 7. Send Confirmation to USER
+    // 9b. Send Confirmation to USER
     try {
       await sendEmail({
         to: email,
@@ -400,7 +400,7 @@ export async function submitContactForm(formData: FormData) {
         }
     });
 
-    // 8. ROLLBACK (Using Admin Client)
+    // ROLLBACK (Using Admin Client)
     if (insertedId) {
       logger.warn(`Rolling back: Deleting message ${insertedId}...`);
       

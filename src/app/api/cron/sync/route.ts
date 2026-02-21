@@ -34,6 +34,20 @@ const CourseSchema = z.object({
   code: z.string().optional(),
 });
 
+// EzyGo attendance report schemas — validate the shape of officialData before processing
+// so that type changes in the API (e.g. attendance becoming a string) are caught immediately.
+const AttendanceSessionSchema = z.object({
+  class_type: z.string().optional(),
+  session: z.union([z.string(), z.number()]).optional(),
+  attendance: z.union([z.string(), z.number()]),
+  course: z.union([z.string(), z.number()]),
+});
+
+const OfficialAttendanceDataSchema = z.record(
+  z.string(),
+  z.record(z.string(), AttendanceSessionSchema)
+);
+
 // Sync statistics type
 interface SyncStats {
   processed: number;
@@ -221,7 +235,8 @@ export async function GET(req: Request) {
         chunks.push(usersToSync.slice(i, i + CONCURRENCY_LIMIT));
     }
 
-    for (const chunk of chunks) {
+    for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
         // Process users in this chunk concurrently
         const promises = chunk.map(async (user) => {
             // Per-user stats to avoid race conditions
@@ -265,7 +280,12 @@ export async function GET(req: Request) {
                 if (attRes.status !== 200 || !attRes.data?.studentAttendanceData) throw new Error(`Attendance API failed: ${attRes.status}`);
 
                 // C. Sync Logic
-                const officialData = attRes.data.studentAttendanceData;
+                const rawOfficialData = attRes.data.studentAttendanceData;
+                const officialDataResult = OfficialAttendanceDataSchema.safeParse(rawOfficialData);
+                if (!officialDataResult.success) {
+                    throw new Error(`Invalid attendance data from EzyGo API: ${officialDataResult.error.message}`);
+                }
+                const officialData = officialDataResult.data;
                 const { data: trackingData } = await supabaseAdmin
                     .from("tracker")
                     .select("id, course, date, session, attendance, status")
@@ -274,8 +294,8 @@ export async function GET(req: Request) {
                 if (trackingData && trackingData.length > 0) {
                     const officialMap = new Map<string, { code: number, course: string, course_name: string }>();
                     
-                    Object.entries(officialData).forEach(([dateStr, dateObj]: [string, any]) => {
-                        Object.entries(dateObj).forEach(([sessionKey, session]: [string, any]) => {
+                    Object.entries(officialData).forEach(([dateStr, dateObj]) => {
+                        Object.entries(dateObj).forEach(([sessionKey, session]) => {
                             if (session.class_type === "Revision") return;
                             const rawSession = session.session || sessionKey;
                             const normalizedSession = toRoman(parseInt(normalizeSession(rawSession)) || rawSession);
@@ -428,7 +448,7 @@ export async function GET(req: Request) {
         });
         
         // Small delay between chunks to respect rate limits (Optional: 1s)
-        if (chunks.indexOf(chunk) < chunks.length - 1) {
+        if (i < chunks.length - 1) {
             await new Promise(r => setTimeout(r, 1000));
         }
     }
