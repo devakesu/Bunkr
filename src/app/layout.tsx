@@ -101,16 +101,17 @@ export default async function RootLayout({
         >
           Skip to main content
         </a>
-        {/* --- GOOGLE ANALYTICS (Server-side via Measurement Protocol) --- */}
-        {hasGoogleAnalytics && (
-          <Suspense fallback={null}>
-            {/* Client-side tracker component - sends events to /api/analytics/track */}
-            {/* No gtag.js script needed - bypasses CSP inline script restrictions */}
-            <AnalyticsTracker />
-          </Suspense>
-        )}
-
         <ReactQueryProvider>
+          {/* --- GOOGLE ANALYTICS (Server-side via Measurement Protocol) --- */}
+          {/* AnalyticsTracker is placed inside ReactQueryProvider so it can safely */}
+          {/* use TanStack Query hooks in the future without ordering issues.       */}
+          {hasGoogleAnalytics && (
+            <Suspense fallback={null}>
+              {/* Client-side tracker component - sends events to /api/analytics/track */}
+              {/* No gtag.js script needed - bypasses CSP inline script restrictions */}
+              <AnalyticsTracker />
+            </Suspense>
+          )}
           <NextTopLoader 
             color="#a855f7"
             initialPosition={0.08}
