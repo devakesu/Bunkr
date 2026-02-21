@@ -19,17 +19,18 @@ if (!process.env.NODE_ENV) {
 }
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
-// PUBLIC_PATHS: Exact endpoints that are exempt from CSRF validation but NOT from origin validation.
+// PUBLIC_PATHS: Exact endpoints that are exempt from CSRF validation AND from origin validation.
 // Uses full path matching (not prefix) to prevent accidentally exposing sensitive sub-paths.
 // 
-// SECURITY MODEL FOR PUBLIC PATHS (Enhanced in this PR):
+// SECURITY MODEL FOR PUBLIC PATHS:
 // These paths are accessible without authentication but still require proper security controls:
 // 
-// 1. Origin Validation (ALWAYS enforced for write operations - enhancement added):
-//    - NOW APPLIES TO ALL state-changing requests including public paths (see line 224)
-//    - Verifies requests originate from allowed domain (NEXT_PUBLIC_APP_DOMAIN)
-//    - Prevents unauthorized sites from making requests to public endpoints
-//    - Protects against cross-origin attacks even before authentication
+// 1. Origin Validation (SKIPPED for public paths; enforced for all non-public paths):
+//    - Non-public paths require a valid Origin header matching NEXT_PUBLIC_APP_DOMAIN for
+//      both read (GET) and write (POST/PUT/PATCH/DELETE) requests.
+//    - Public paths (e.g. login) are exempt because the user has no session yet.
+//    - Verifies requests originate from the allowed domain (NEXT_PUBLIC_APP_DOMAIN)
+//    - Prevents unauthorized sites from making requests even on GET (data-exfiltration protection)
 //    
 //    ⚠️ IMPORTANT: Origin validation restricts access to web browsers from allowed domains.
 //    Non-browser clients (mobile apps, CLI tools, Postman, curl) will be BLOCKED unless they:
@@ -54,11 +55,9 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 // 
 // VERIFICATION: Each path in PUBLIC_PATHS has been reviewed for security:
 // - "login": Pre-authentication endpoint protected by:
-//   * Origin validation (prevents cross-origin attacks, web-only)
 //   * Rate limiting (prevents brute force)
 //   * Input validation (sanitizes username/password)
 //   * Backend authentication logic (validates credentials)
-//   ⚠️ This endpoint is web-browser-only due to origin validation.
 // 
 // SECURITY: Each path must be explicitly listed - sub-paths are NOT automatically included.
 // Example: "login" matches "/api/backend/login" but NOT "/api/backend/login/admin".
@@ -256,10 +255,14 @@ export async function forward(req: NextRequest, method: string, path: string[]) 
   const fullPath = pathSegments.join("/");
   const isPublic = PUBLIC_PATHS.has(fullPath);
 
-  // Origin validation for ALL state-changing calls (including public paths like login)
-  // This prevents unauthorized sites from making requests, even to public endpoints
+  // Origin validation for ALL non-public requests (reads and writes).
+  // - Writes (POST/PUT/PATCH/DELETE): always enforced to prevent CSRF-style attacks.
+  // - Authenticated GETs (non-public paths): enforced to prevent cross-origin data
+  //   exfiltration (e.g. an attacker forcing a victim's browser to fetch attendance
+  //   records via <img>, <script>, or fetch from a malicious site).
+  // Public paths (e.g. login) are exempt because the user has no session yet.
   // SKIP in development mode for easier local testing with localhost, tunnels, etc.
-  if (isWrite && process.env.NODE_ENV !== "development") {
+  if (!isPublic && process.env.NODE_ENV !== "development") {
     // Validate that NEXT_PUBLIC_APP_DOMAIN is configured
     const allowedHosts = getAllowedHosts();
     if (!allowedHosts) {

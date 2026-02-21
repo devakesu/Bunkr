@@ -34,7 +34,15 @@ export const getCspHeader = (nonce?: string) => {
   const forceStrictCsp = /^(true|1|yes)$/i.test(forceStrictCspValue ?? "");
   const isActualProduction = process.env.NODE_ENV === "production";
   const isDev = !isActualProduction && !forceStrictCsp;
-  const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : "";
+  const supabaseOrigin = (() => {
+    const urlString = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!urlString) return "";
+    try {
+      return new URL(urlString).origin;
+    } catch {
+      return "";
+    }
+  })();
   
   // Supabase WebSocket URL for Realtime features
   const supabaseWsUrl = (() => {
