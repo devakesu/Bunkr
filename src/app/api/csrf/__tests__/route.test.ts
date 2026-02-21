@@ -18,6 +18,11 @@ vi.mock("@/lib/ratelimit", () => ({
   },
 }));
 
+// Mock utils – return a valid IP by default; override per-test when needed
+vi.mock("@/lib/utils", () => ({
+  getClientIp: vi.fn(() => "127.0.0.1"),
+}));
+
 // Mock next/headers
 vi.mock("next/headers", () => ({
   headers: vi.fn(() => ({
@@ -26,8 +31,16 @@ vi.mock("next/headers", () => ({
 }));
 
 describe("CSRF API Route", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Reset getClientIp to return a valid IP by default
+    const { getClientIp } = await import("@/lib/utils");
+    vi.mocked(getClientIp).mockReturnValue("127.0.0.1");
+    // Allow all requests by default; individual tests may override
+    const { authRateLimiter } = await import("@/lib/ratelimit");
+    vi.mocked(authRateLimiter.limit).mockResolvedValue({
+      success: true, limit: 10, reset: 60, remaining: 9,
+    } as any);
   });
 
   afterEach(() => {
@@ -60,6 +73,56 @@ describe("CSRF API Route", () => {
       expect(response.headers.get("Cache-Control")).toBe(
         "no-store, max-age=0"
       );
+    });
+
+    it("should enforce rate limiting", async () => {
+      const { authRateLimiter } = await import("@/lib/ratelimit");
+      const { initializeCsrfToken } = await import("@/lib/security/csrf");
+
+      vi.mocked(authRateLimiter.limit).mockResolvedValue({
+        success: false, limit: 10, reset: 60, remaining: 0,
+      } as any);
+
+      const response = await GET();
+      const data = await response.json();
+
+      expect(response.status).toBe(429);
+      expect(data.error).toContain("Too many CSRF initialization requests");
+      expect(data.retryAfter).toBe(60);
+      expect(response.headers.get("X-RateLimit-Limit")).toBe("10");
+      expect(response.headers.get("X-RateLimit-Remaining")).toBe("0");
+      expect(response.headers.get("X-RateLimit-Reset")).toBe("60");
+      expect(initializeCsrfToken).not.toHaveBeenCalled();
+    });
+
+    it("should use csrf_init_ rate limit key", async () => {
+      const { authRateLimiter } = await import("@/lib/ratelimit");
+      const { getClientIp } = await import("@/lib/utils");
+      const { initializeCsrfToken } = await import("@/lib/security/csrf");
+
+      vi.mocked(getClientIp).mockReturnValue("192.168.1.100");
+      vi.mocked(initializeCsrfToken).mockResolvedValue("token");
+
+      await GET();
+
+      expect(authRateLimiter.limit).toHaveBeenCalledWith("csrf_init_192.168.1.100");
+    });
+
+    it("should continue when IP cannot be determined", async () => {
+      const { getClientIp } = await import("@/lib/utils");
+      const { initializeCsrfToken } = await import("@/lib/security/csrf");
+      const { authRateLimiter } = await import("@/lib/ratelimit");
+
+      vi.mocked(getClientIp).mockReturnValue(null);
+      vi.mocked(initializeCsrfToken).mockResolvedValue("token-no-ip");
+
+      const response = await GET();
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.token).toBe("token-no-ip");
+      // Rate limiter must not be called when IP is unknown
+      expect(authRateLimiter.limit).not.toHaveBeenCalled();
     });
 
     it("should handle initialization errors", async () => {

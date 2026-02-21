@@ -52,6 +52,17 @@ export const encrypt = (text: string) => {
 
   const KEY = getEncryptionKey();
   const iv = crypto.randomBytes(16);
+  // TODO(security): NIST SP 800-38D recommends a 12-byte (96-bit) IV for AES-GCM for
+  // maximum security margin and performance. The current 16-byte IV is cryptographically
+  // valid but requires an extra GHASH step internally.
+  //
+  // Changing to 12 bytes is a BREAKING CHANGE — all existing ciphertext stored in the
+  // database (ezygo_iv, auth_password_iv columns) uses 16-byte IVs and the decrypt()
+  // function validates exactly 32 hex chars (16 bytes). A migration would be needed to:
+  //   1. Re-encrypt all rows with a 12-byte IV (24 hex chars)
+  //   2. Update the decrypt() regex to accept 24 hex chars
+  //   3. Run a database migration
+  // This is deferred until a scheduled maintenance window.
   const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
