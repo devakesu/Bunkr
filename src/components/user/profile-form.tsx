@@ -134,12 +134,11 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
   function onSubmit(formValues: ProfileFormValues) {
     updateProfileMutation.mutate(
       { 
-        id: profile.id,
         data: {
           first_name: formValues.first_name,
           last_name: formValues.last_name,
-          gender: formValues.gender,
-          birth_date: formValues.birth_date || undefined,
+          gender: formValues.gender || null,
+          birth_date: formValues.birth_date || null,
         } 
       },
       {

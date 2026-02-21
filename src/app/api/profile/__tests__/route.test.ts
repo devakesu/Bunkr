@@ -341,7 +341,7 @@ describe("PATCH /api/profile", () => {
     expect(capturedUpdate.birth_date_iv).toBeTruthy();
   });
 
-  it("stores NULL (not empty string) for cleared PII fields", async () => {
+  it("omits PII fields from update payload when not provided", async () => {
     let capturedUpdate: Record<string, unknown> = {};
     mockAdminUpdate.mockImplementation((data: Record<string, unknown>) => {
       capturedUpdate = data;
@@ -349,8 +349,26 @@ describe("PATCH /api/profile", () => {
     });
 
     const { PATCH } = await import("../route");
-    // gender omitted – should be stored as NULL
+    // gender and birth_date omitted – they should not appear in the update payload
     const req = makePatchRequest({ first_name: "Alice" });
+    await PATCH(req);
+
+    expect(capturedUpdate).not.toHaveProperty("gender");
+    expect(capturedUpdate).not.toHaveProperty("gender_iv");
+    expect(capturedUpdate).not.toHaveProperty("birth_date");
+    expect(capturedUpdate).not.toHaveProperty("birth_date_iv");
+  });
+
+  it("stores NULL in DB when PII fields are explicitly cleared", async () => {
+    let capturedUpdate: Record<string, unknown> = {};
+    mockAdminUpdate.mockImplementation((data: Record<string, unknown>) => {
+      capturedUpdate = data;
+      return { eq: vi.fn().mockResolvedValue({ error: null }) };
+    });
+
+    const { PATCH } = await import("../route");
+    // gender and birth_date explicitly set to null – should be stored as NULL
+    const req = makePatchRequest({ first_name: "Alice", gender: null, birth_date: null });
     await PATCH(req);
 
     expect(capturedUpdate.gender).toBeNull();

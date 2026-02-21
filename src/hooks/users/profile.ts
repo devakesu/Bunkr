@@ -7,10 +7,10 @@ import { getCsrfToken } from "@/lib/axios";
 import { CSRF_HEADER } from "@/lib/security/csrf-constants";
 
 interface UpdateProfileData {
-  first_name?: string;
-  last_name?: string;
-  gender?: string;
-  birth_date?: string;
+  first_name: string;
+  last_name?: string | null;
+  gender?: string | null;
+  birth_date?: string | null;
 }
 
 export const useProfile = (options?: { initialData?: UserProfile }) => {
@@ -38,7 +38,7 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ data }: { id: number; data: UpdateProfileData }) => {
+    mutationFn: async ({ data }: { data: UpdateProfileData }) => {
       const csrfToken = getCsrfToken();
       const res = await fetch("/api/profile", {
         method: "PATCH",

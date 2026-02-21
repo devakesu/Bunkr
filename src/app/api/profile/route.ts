@@ -215,19 +215,26 @@ export async function GET() {
   }
 
   // 8. Return plaintext data — never expose ciphertext or IVs to the client
-  return NextResponse.json({
-    id: upsertData.id,
-    username: upsertData.username,
-    email: upsertData.email,
-    first_name: mergedFirst,
-    last_name: mergedLast,
-    phone: mergedPhone,
-    gender: mergedGender,
-    birth_date: mergedBirthDate,
-    avatar_url: upsertData.avatar_url,
-    terms_version: upsertData.terms_version,
-    terms_accepted_at: upsertData.terms_accepted_at,
-  });
+  return NextResponse.json(
+    {
+      id: upsertData.id,
+      username: upsertData.username,
+      email: upsertData.email,
+      first_name: mergedFirst,
+      last_name: mergedLast,
+      phone: mergedPhone,
+      gender: mergedGender,
+      birth_date: mergedBirthDate,
+      avatar_url: upsertData.avatar_url,
+      terms_version: upsertData.terms_version,
+      terms_accepted_at: upsertData.terms_accepted_at,
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    }
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -283,21 +290,29 @@ export async function PATCH(req: NextRequest) {
 
   const { first_name, last_name, gender, birth_date } = parsed.data;
 
-  // 4. Encrypt PII fields before writing to DB
-  const encGender = gender ? encrypt(gender) : null;
-  const encBirthDate = birth_date ? encrypt(birth_date) : null;
+  // 4. Build update payload; only include PII fields that are explicitly provided
+  // so that omitting an optional field doesn't silently clear it in the DB.
+  const updatePayload: Record<string, unknown> = {
+    first_name,
+    last_name: last_name ?? null,
+  };
+
+  if (typeof gender !== "undefined") {
+    const encGender = gender ? encrypt(gender) : null;
+    updatePayload.gender = encGender?.content ?? null;
+    updatePayload.gender_iv = encGender?.iv ?? null;
+  }
+
+  if (typeof birth_date !== "undefined") {
+    const encBirthDate = birth_date ? encrypt(birth_date) : null;
+    updatePayload.birth_date = encBirthDate?.content ?? null;
+    updatePayload.birth_date_iv = encBirthDate?.iv ?? null;
+  }
 
   // 5. Update the DB row (identified by authenticated user's auth_id)
   const { error } = await supabaseAdmin
     .from("users")
-    .update({
-      first_name,
-      last_name: last_name ?? null,
-      gender: encGender?.content ?? null,
-      gender_iv: encGender?.iv ?? null,
-      birth_date: encBirthDate?.content ?? null,
-      birth_date_iv: encBirthDate?.iv ?? null,
-    })
+    .update(updatePayload)
     .eq("auth_id", user.id);
 
   if (error) {
