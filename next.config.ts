@@ -35,6 +35,21 @@ const withSerwist = withSerwistInit({
   cacheOnNavigation: true,
 });
 
+// Resolve the Supabase storage hostname at build time.
+// Throwing here makes missing NEXT_PUBLIC_SUPABASE_URL a hard build failure rather than
+// silently falling back to 'supabase.co', which would permit Next.js Image Optimization
+// to proxy images from *any* Supabase project.
+const supabaseImageHostname = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) {
+    throw new Error(
+      '[next.config.ts] NEXT_PUBLIC_SUPABASE_URL is required at build time for ' +
+      'images.remotePatterns. Set it in your environment before running next build.'
+    );
+  }
+  return new URL(url).hostname;
+})();
+
 const nextConfig: NextConfig = {
   output: "standalone",
   compress: true, // Enable gzip compression for better performance
@@ -61,7 +76,24 @@ const nextConfig: NextConfig = {
       },
       {
         key: "Permissions-Policy",
-        value: "camera=(), microphone=(), geolocation=()",
+        // Disable all hardware/sensor APIs and privacy-sensitive capabilities.
+        // interest-cohort=() opts the site out of Google's FLoC/Topics API.
+        value: [
+          "camera=()",
+          "microphone=()",
+          "geolocation=()",
+          "payment=()",
+          "usb=()",
+          "serial=()",
+          "bluetooth=()",
+          "ambient-light-sensor=()",
+          "accelerometer=()",
+          "gyroscope=()",
+          "magnetometer=()",
+          "autoplay=()",
+          "display-capture=()",
+          "interest-cohort=()",
+        ].join(", "),
       },
     ];
 
@@ -80,6 +112,14 @@ const nextConfig: NextConfig = {
       headersList.push({
         key: "Cross-Origin-Opener-Policy",
         value: "same-origin",
+      });
+      // Prevents this page from loading cross-origin resources that don't opt in via CORP/CORS.
+      // 'credentialless' is chosen over 'require-corp' because Cloudflare Turnstile
+      // (challenges.cloudflare.com) serves its iframe without a CORP header; credentialless
+      // permits it while still enabling Spectre mitigations and completing the COOP/COEP pair.
+      headersList.push({
+        key: "Cross-Origin-Embedder-Policy",
+        value: "credentialless",
       });
       // Define the named reporting endpoint consumed by the CSP report-to directive.
       // The endpoint /api/csp-report receives violation reports sent by the browser.
@@ -111,6 +151,18 @@ const nextConfig: NextConfig = {
           {
             key: "Cache-Control",
             value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      // Prevent cross-origin reads of API JSON responses.
+      // Complements the existing CORS / origin-validation middleware without breaking
+      // same-origin fetch calls from the Next.js frontend.
+      {
+        source: "/api/:path*",
+        headers: [
+          {
+            key: "Cross-Origin-Resource-Policy",
+            value: "same-origin",
           },
         ],
       },
@@ -149,11 +201,14 @@ const nextConfig: NextConfig = {
   },
   
   generateBuildId: async () => {
-    return process.env.APP_COMMIT_SHA ?? "dev";
+    // Prefer the commit SHA injected by CI/CD for stable, traceable build IDs.
+    // Fall back to a random UUID so that two builds without APP_COMMIT_SHA still get
+    // different IDs — preventing Next.js static-asset cache collisions across deployments.
+    return process.env.APP_COMMIT_SHA ?? crypto.randomUUID();
   },
 
   env: {
-    NEXT_PUBLIC_GIT_COMMIT_SHA: process.env.APP_COMMIT_SHA || "dev",
+    NEXT_PUBLIC_GIT_COMMIT_SHA: process.env.APP_COMMIT_SHA || "unknown",
   },
 
   images: {
@@ -161,7 +216,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname : 'supabase.co',
+        hostname: supabaseImageHostname,
         port: '',
         pathname: '/storage/v1/object/public/**',
       },

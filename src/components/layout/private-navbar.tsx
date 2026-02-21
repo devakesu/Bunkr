@@ -48,6 +48,7 @@ import { AddRecordTrigger } from "@/components/attendance/AddRecordTrigger";
 import UserPlaceholder from "@/assets/user.png";
 import { Bell } from "lucide-react";
 import { useNotifications } from "@/hooks/notifications/useNotifications";
+import { isValidAvatarUrl } from "@/lib/utils";
 import { useTopLoader } from "nextjs-toploader";
 
 export const Navbar = () => {
@@ -304,7 +305,7 @@ export const Navbar = () => {
                     <div className="flex h-full w-full items-center justify-center rounded-full bg-muted animate-pulse">
                       <div className="h-5 w-5 rounded-full bg-muted-foreground/20"></div>
                     </div>
-                  ) : profile?.avatar_url ? (
+                  ) : profile?.avatar_url && isValidAvatarUrl(profile.avatar_url) ? (
                     <Image
                       src={profile.avatar_url}
                       alt={`${user?.username || 'User'} profile picture`}
@@ -394,7 +395,7 @@ export const Navbar = () => {
                       <SelectTrigger className="w-20 h-8 text-xs bg-background/50 border-white/10">
                         <SelectValue placeholder={`${currentTarget}%`} />
                       </SelectTrigger>
-                      <SelectContent className="custom-dropdown z-[60]">
+                      <SelectContent className="custom-dropdown z-60">
                           {[75, 80, 85, 90, 95].map((p) => (
                             <SelectItem key={p} value={p.toString()}>{p}%</SelectItem>
                           ))}
@@ -417,7 +418,7 @@ export const Navbar = () => {
                           <Building2 className="h-5 w-5 shrink-0" aria-hidden="true" />
                         </SelectValue>
                       </SelectTrigger>
-                      <SelectContent className="custom-dropdown z-[60]">
+                      <SelectContent className="custom-dropdown z-60">
                         {institutions.map((inst) => (
                           <SelectItem key={inst.id} value={inst.id.toString()}>
                             <span className="font-medium">{inst.institution.name}</span>

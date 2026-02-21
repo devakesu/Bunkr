@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { initializeCsrfToken, regenerateCsrfToken } from "@/lib/security/csrf";
 import { authRateLimiter } from "@/lib/ratelimit";
-import { getClientIp } from "@/lib/utils";
+import { getClientIp } from "@/lib/utils.server";
 import { logger } from "@/lib/logger";
 
 export const dynamic = 'force-dynamic';
@@ -42,6 +42,7 @@ export async function GET() {
           {
             status: 429,
             headers: {
+              'Retry-After': Math.max(0, Math.ceil((reset - Date.now()) / 1000)).toString(),
               'X-RateLimit-Limit': limit.toString(),
               'X-RateLimit-Remaining': remaining.toString(),
               'X-RateLimit-Reset': reset.toString(),
@@ -104,12 +105,15 @@ export async function POST() {
     }
     
     // Apply rate limiting to prevent token regeneration abuse
-    const { success } = await authRateLimiter.limit(`csrf_regen_${ip}`);
+    const { success, reset } = await authRateLimiter.limit(`csrf_regen_${ip}`);
     
     if (!success) {
       return NextResponse.json(
         { error: "Too many token regeneration requests. Please try again later." },
-        { status: 429 }
+        {
+          status: 429,
+          headers: { 'Retry-After': Math.max(0, Math.ceil((reset - Date.now()) / 1000)).toString() },
+        }
       );
     }
     

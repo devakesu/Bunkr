@@ -35,6 +35,19 @@ describe('calculateAttendance - Bunk Calculator', () => {
       const result = calculateAttendance(80, 100, 80)
       expect(result.isExact).toBe(true)
     })
+
+    it('should return isExact=true for 3/4 = 75% despite IEEE 754 rounding', () => {
+      // (3/4)*100 may equal 75.00000000000001 in some JS engines; epsilon comparison must catch it
+      const result = calculateAttendance(3, 4, 75)
+      expect(result.isExact).toBe(true)
+      expect(result.canBunk).toBe(0)
+      expect(result.requiredToAttend).toBe(0)
+    })
+
+    it('should return isExact=true for 18/24 = 75% (real-world fraction)', () => {
+      const result = calculateAttendance(18, 24, 75)
+      expect(result.isExact).toBe(true)
+    })
   })
 
   describe('Below target percentage - need to attend', () => {

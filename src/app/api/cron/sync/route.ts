@@ -1,18 +1,28 @@
 import * as Sentry from "@sentry/nextjs";
 import crypto from "node:crypto";
 import { createClient } from "@/lib/supabase/server"; 
-import axios from "axios";
 import { NextResponse } from "next/server";
 import { decrypt } from "@/lib/crypto";
 import { headers } from "next/headers";
 import { syncRateLimiter } from "@/lib/ratelimit";
-import { toRoman, normalizeSession, redact, getClientIp } from "@/lib/utils"; 
+import { toRoman, normalizeSession } from "@/lib/utils"; 
+import { redact, getClientIp } from "@/lib/utils.server";
 import { Course } from "@/types";
 import { sendEmail } from "@/lib/email";
+import type { SendEmailProps } from "@/lib/email";
 import { renderAttendanceConflictEmail, renderCourseMismatchEmail } from "@/lib/email-templates";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { getAdminClient } from "@/lib/supabase/admin";
+
+// Insert shape for the `notification` table (server-generated fields omitted).
+// Matches the DB schema in supabase/migrations/20260217174834_remote_schema.sql.
+interface NotificationInsert {
+  auth_user_id: string;
+  title: string;
+  description: string;
+  topic: string;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +31,12 @@ const BATCH_SIZE = 10;
 // Each user sync makes 2 API calls (courses + attendance).
 // CONCURRENCY_LIMIT=2 processes 2 users in parallel, limiting peak to 4 concurrent API calls.
 const CONCURRENCY_LIMIT = 2;
+
+// Normalize NEXT_PUBLIC_BACKEND_URL once here (trim whitespace, strip trailing
+// slashes, then add exactly one) so path concatenation is always correct regardless
+// of whether the env value ends with "/" or not. The proxy route does the same via
+// BASE_API_URL; keeping the pattern consistent prevents broken URLs in the cron path.
+const BACKEND_BASE_URL = `${(process.env.NEXT_PUBLIC_BACKEND_URL?.trim().replace(/\/+$/, "") ?? "")}/`;
 
 // Validation schemas
 const UsernameSchema = z.string()
@@ -169,23 +185,37 @@ export async function GET(req: Request) {
     const { success, reset } = await syncRateLimiter.limit(ip);
 
     if (!success) {
-      return new Response(JSON.stringify({ error: "Too many requests", retryAfter: reset }), {
-        status: 429, headers: { "X-RateLimit-Reset": reset.toString() }
-      });
+      return NextResponse.json(
+        { error: "Too many requests", retryAfter: reset },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": Math.max(0, Math.ceil((reset - Date.now()) / 1000)).toString(),
+            "X-RateLimit-Reset": reset.toString(),
+          },
+        }
+      );
     }
   }
 
   try {
-    // 3. Parse query parameters
+    // 3. Parse query parameters.
+    // NOTE: ?username= is only meaningful in the cron path (parsed below inside isCron).
+    // It is intentionally not parsed in the non-cron path to avoid dead code and to
+    // prevent any future accidental use of caller-supplied username in the user query.
     const { searchParams } = new URL(req.url);
-    const targetUsername = searchParams.get('username');
-    if (targetUsername && !UsernameSchema.safeParse(targetUsername).success) {
-       return NextResponse.json({ error: "Invalid username" }, { status: 400 });
-    }
 
     // 4. Fetch Users
     let usersToSync: UserSyncData[] = [];
     if (isCron) {
+        // Parse and validate ?username= here — after cron-secret auth — so the
+        // parameter is never reachable by unauthenticated or user-auth callers.
+        const targetUsername = searchParams.get('username');
+        // Validate username only here — cron secret auth has already been verified above,
+        // so returning 400 for a malformed username does not leak information to unauthenticated callers.
+        if (targetUsername && !UsernameSchema.safeParse(targetUsername).success) {
+          return NextResponse.json({ error: "Invalid username" }, { status: 400 });
+        }
         let query = supabaseAdmin.from("users").select("username, email, ezygo_token, ezygo_iv, auth_id").not("ezygo_token", "is", null);
         if (targetUsername) query = query.eq("username", targetUsername);
         else query = query.order("last_synced_at", { ascending: true, nullsFirst: true }).limit(BATCH_SIZE);
@@ -225,7 +255,7 @@ export async function GET(req: Request) {
     }
 
     // ---------------------------------------------------------
-    // 3. CHUNKED PARALLEL PROCESSING
+    // 5. CHUNKED PARALLEL PROCESSING
     // ---------------------------------------------------------
     const finalResults = createEmptyStats();
     
@@ -249,38 +279,53 @@ export async function GET(req: Request) {
                 if (!decryptedToken) throw new Error("Decryption failed");
 
                 // A. Fetch Courses
-                const courseRes = await axios.get(
-                    `${process.env.NEXT_PUBLIC_BACKEND_URL}institutionuser/courses/withusers`,
-                    { 
-                        headers: { Authorization: `Bearer ${decryptedToken}` }, 
-                        timeout: 8000, 
-                        validateStatus: (status) => status < 500
-                    }
-                );
-                
-                if (courseRes.status !== 200 || !courseRes.data) throw new Error(`Courses API failed: ${courseRes.status}`);
+                // Native fetch used (axios removed) — Next.js 15 / Node 18+ fetch is
+                // sufficient and keeps a single HTTP client across the codebase. fetch never
+                // throws on HTTP error status, so we check res.ok / res.status explicitly.
+                const courseController = new AbortController();
+                const courseTimeout = setTimeout(() => courseController.abort(), 8000);
+                let courseRes: Response;
+                try {
+                    courseRes = await fetch(
+                        `${BACKEND_BASE_URL}institutionuser/courses/withusers`,
+                        { headers: { Authorization: `Bearer ${decryptedToken}` }, signal: courseController.signal }
+                    );
+                } finally {
+                    clearTimeout(courseTimeout);
+                }
+                if (courseRes.status !== 200) throw new Error(`Courses API failed: ${courseRes.status}`);
+                const courseData: unknown = await courseRes.json().catch(() => null);
+                if (!courseData) throw new Error(`Courses API failed: empty or invalid JSON`);
 
-                const validatedCourses = courseRes.data
-                    .map((c: any) => CourseSchema.safeParse(c).success ? c : null)
+                const validatedCourses = (courseData as any[])
+                    .map((c: unknown) => CourseSchema.safeParse(c).success ? c : null)
                     .filter(Boolean) as Course[];
                 
                 const coursesMap = validatedCourses.reduce((acc, c) => ({ ...acc, [c.id]: c }), {} as Record<string, Course>);
 
                 // B. Fetch Attendance
-                const attRes = await axios.post(
-                    `${process.env.NEXT_PUBLIC_BACKEND_URL}attendancereports/student/detailed`, 
-                    {}, 
-                    { 
-                        headers: { Authorization: `Bearer ${decryptedToken}` }, 
-                        timeout: 15000,
-                        validateStatus: (status) => status < 500
-                    }
-                );
-
-                if (attRes.status !== 200 || !attRes.data?.studentAttendanceData) throw new Error(`Attendance API failed: ${attRes.status}`);
+                const attController = new AbortController();
+                const attTimeout = setTimeout(() => attController.abort(), 15000);
+                let attRes: Response;
+                try {
+                    attRes = await fetch(
+                        `${BACKEND_BASE_URL}attendancereports/student/detailed`,
+                        {
+                            method: "POST",
+                            headers: { Authorization: `Bearer ${decryptedToken}`, "content-type": "application/json" },
+                            body: "{}",
+                            signal: attController.signal,
+                        }
+                    );
+                } finally {
+                    clearTimeout(attTimeout);
+                }
+                if (attRes.status !== 200) throw new Error(`Attendance API failed: ${attRes.status}`);
+                const attData: unknown = await attRes.json().catch(() => null);
+                if (!attData || !(attData as any).studentAttendanceData) throw new Error(`Attendance API failed: missing studentAttendanceData`);
 
                 // C. Sync Logic
-                const rawOfficialData = attRes.data.studentAttendanceData;
+                const rawOfficialData = (attData as any).studentAttendanceData;
                 const officialDataResult = OfficialAttendanceDataSchema.safeParse(rawOfficialData);
                 if (!officialDataResult.success) {
                     throw new Error(`Invalid attendance data from EzyGo API: ${officialDataResult.error.message}`);
@@ -308,10 +353,14 @@ export async function GET(req: Request) {
                         });
                     });
 
-                    const toDelete: number[] = [];
+                    // Use Set to prevent duplicate IDs in case the tracker table
+                    // ever contains duplicate rows (e.g. from a retried insert). Postgres
+                    // treats DELETE ... IN (id, id) as harmless, but deduplication here
+                    // keeps userStats.deletions accurate and signals intent clearly.
+                    const toDelete = new Set<number>();
                     const toUpdateStatus: number[] = [];
-                    const notifications: any[] = [];
-                    const emailsToSend: any[] = [];
+                    const notifications: NotificationInsert[] = [];
+                    const emailsToSend: SendEmailProps[] = [];
 
                     for (const item of trackingData) {
                         const normalizedTrackerSession = toRoman(parseInt(normalizeSession(item.session)) || item.session);
@@ -322,7 +371,7 @@ export async function GET(req: Request) {
                             
                             // Course Mismatch
                             if (String(item.course) !== official.course) {
-                                toDelete.push(item.id);
+                                toDelete.add(item.id);
                                 if (item.status === 'extra') {
                                     notifications.push({
                                         auth_user_id: user.auth_id,
@@ -356,7 +405,7 @@ export async function GET(req: Request) {
 
                             // Sync Logic
                             if (isOfficialPositive || officialCode === trackerCode) {
-                                toDelete.push(item.id);
+                                toDelete.add(item.id);
                                 if (isOfficialPositive && !isTrackerPositive) {
                                     notifications.push({
                                         auth_user_id: user.auth_id,
@@ -392,9 +441,9 @@ export async function GET(req: Request) {
                         }
                     }
 
-                    if (toDelete.length > 0) {
-                        await supabaseAdmin.from("tracker").delete().in("id", toDelete);
-                        userStats.deletions += toDelete.length;
+                    if (toDelete.size > 0) {
+                        await supabaseAdmin.from("tracker").delete().in("id", [...toDelete]);
+                        userStats.deletions += toDelete.size;
                     }
                     if (toUpdateStatus.length > 0) {
                         await supabaseAdmin.from("tracker").update({ status: 'correction' }).in("id", toUpdateStatus);
@@ -414,7 +463,10 @@ export async function GET(req: Request) {
                 return userStats;
 
             } catch (err: any) {
-                logger.error(`Sync failed for ${user.username}:`, err.message);
+                // user.username is a student's institutional roll number — log a
+                // redacted hash instead of the plaintext value, consistent with the
+                // redact() usage on user.auth_id in the Sentry capture below.
+                logger.error(`Sync failed for ${redact("id", user.username)}:`, err.message);
                 userStats.errors++;
 
                 // CAPTURE INDIVIDUAL USER FAILURES

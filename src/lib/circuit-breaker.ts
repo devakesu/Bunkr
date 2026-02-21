@@ -25,6 +25,7 @@
  * available via `@/lib/redis`) using atomic INCR/SET operations.
  */
 
+import * as Sentry from '@sentry/nextjs';
 import { logger } from './logger';
 
 type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
@@ -128,7 +129,13 @@ class CircuitBreaker {
       }
       this.halfOpenInFlight++;
     }
-    
+
+    // Capture whether this request consumed a HALF_OPEN slot before entering the
+    // try block. The finally block must use this snapshot — not this.state — because
+    // onSuccess() may have already transitioned the breaker to CLOSED by the time
+    // finally runs, which would cause the CLOSED-state branch to double-decrement.
+    const wasHalfOpen = this.state === 'HALF_OPEN';
+
     try {
       const result = await fn();
       this.onSuccess();
@@ -147,9 +154,10 @@ class CircuitBreaker {
       this.onFailure(error);
       throw error;
     } finally {
-      // Release HALF_OPEN slot if we were using one
-      if (this.state === 'HALF_OPEN' || 
-          (this.state === 'CLOSED' && this.halfOpenInFlight > 0)) {
+      // Release HALF_OPEN slot only if this request actually claimed one.
+      // Using the wasHalfOpen snapshot avoids double-decrement when onSuccess()
+      // transitions the breaker to CLOSED before finally executes.
+      if (wasHalfOpen) {
         this.halfOpenInFlight = Math.max(0, this.halfOpenInFlight - 1);
       }
     }
@@ -211,6 +219,14 @@ class CircuitBreaker {
         threshold: this.failureThreshold,
         error: errorMessage,
       });
+      Sentry.captureMessage('[Circuit Breaker] Circuit opened — EzyGo API failures exceeded threshold', {
+        level: 'error',
+        extra: {
+          failures: this.failures,
+          threshold: this.failureThreshold,
+          error: errorMessage,
+        },
+      });
       this.state = 'OPEN';
       this.halfOpenInFlight = 0;
     } else {
@@ -224,13 +240,22 @@ class CircuitBreaker {
   }
   
   /**
-   * Get current circuit breaker status (for monitoring)
+   * Get current circuit breaker status (for monitoring).
+   *
+   * Raw lastFailTime (Unix ms) is omitted — it would leak information about
+   * when EzyGo last failed if this object is ever surfaced via a health endpoint.
+   * timeUntilReset is the only operationally useful derivative and carries no
+   * additional timing information beyond what the client already knows.
    */
   getStatus() {
+    const timeUntilReset =
+      this.state === 'OPEN'
+        ? Math.max(0, Math.ceil((this.resetTimeout - (Date.now() - this.lastFailTime)) / 1000))
+        : 0;
     return {
       state: this.state,
       failures: this.failures,
-      lastFailTime: this.lastFailTime,
+      timeUntilReset,
       successCount: this.successCount,
       isOpen: this.state === 'OPEN',
     };

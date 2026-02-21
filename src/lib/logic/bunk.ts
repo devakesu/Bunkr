@@ -1,12 +1,24 @@
 // Calculate attendance statistics
 // src/utils/bunk.ts
 
-// Represents less than 1 class of headroom at the smallest meaningful scale.
 // When bunkableExact is in (0, BORDERLINE_THRESHOLD), the user is technically
 // above the target but cannot safely skip even a single class yet.
+//
+// Why 0.9 rather than 1.0 or (1 - PERCENTAGE_EPSILON)?
+// This is a deliberate UX decision: we only surface the "borderline" warning
+// for users who have very little headroom (< 90% of a skip unit). A user who
+// already has 0.9–0.99 of a skip unit is close enough to "almost there" that
+// the borderline label would feel confusing — so we suppress it and let them
+// see canBunk=0 with no additional marker. The 0.9 cutoff gives a 10% dead-zone
+// between "borderline" and "nearly able to skip". Adjust only with a UX review.
 const BORDERLINE_THRESHOLD = 0.9;
 
-interface AttendanceResult {
+// Epsilon for floating-point equality: (present/total)*100 is an IEEE 754 double
+// and can diverge from a round target by a tiny amount (e.g. 75.00000000000001).
+// Values within this band are treated as mathematically exact.
+const PERCENTAGE_EPSILON = 1e-9;
+
+export interface AttendanceResult {
   canBunk: number;
   requiredToAttend: number;
   targetPercentage: number;
@@ -38,7 +50,7 @@ export function calculateAttendance(
 
   const currentPercentage = (present / total) * 100;
 
-  if (currentPercentage === safeTarget) {
+  if (Math.abs(currentPercentage - safeTarget) < PERCENTAGE_EPSILON) {
     result.isExact = true;
     return result;
   }

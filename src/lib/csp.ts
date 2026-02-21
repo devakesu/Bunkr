@@ -15,6 +15,7 @@
 // - External scripts: Restricted to explicitly whitelisted hosts only
 // - This maintains strong XSS protection while allowing Next.js and Cloudflare to function
 import { logger } from "@/lib/logger";
+import * as Sentry from "@sentry/nextjs";
 
 export const getCspHeader = (nonce?: string) => {
   // FORCE_STRICT_CSP / NEXT_PUBLIC_FORCE_STRICT_CSP
@@ -56,7 +57,10 @@ export const getCspHeader = (nonce?: string) => {
       } else if (url.protocol === "http:") {
         url.protocol = "ws:";
       }
-      return url.toString();
+      // Use .origin (protocol + host + port only) — .toString() would include any
+      // path/query present in the env var, which browsers would not match as a
+      // connect-src WebSocket origin.
+      return url.origin;
     } catch {
       return "";
     }
@@ -74,6 +78,13 @@ export const getCspHeader = (nonce?: string) => {
       '3. Check that getCspHeader is called with the nonce parameter from headers ' +
       '4. Confirm middleware matcher includes the current route (see matcher config in src/proxy.ts)'
     );
+
+    // Alert Sentry so operators are paged — a plain logger.error is invisible
+    // outside the server log stream.
+    Sentry.captureException(
+      new Error('[CSP] Nonce missing in production — degraded to unsafe-inline'),
+      { level: 'fatal', tags: { type: 'csp_degraded', location: 'getCspHeader' } }
+    );
     
     // Fallback CSP for production when nonce is missing (not recommended, but better than crashing)
     // This uses 'unsafe-inline' which is less secure than nonce-based CSP
@@ -83,8 +94,9 @@ export const getCspHeader = (nonce?: string) => {
       style-src 'self' 'unsafe-inline';
       style-src-elem 'self' 'unsafe-inline';
       style-src-attr 'unsafe-inline';
-      img-src 'self' blob: data: ${supabaseOrigin};
+      img-src 'self' blob: data: ${supabaseOrigin} https://www.google-analytics.com https://stats.g.doubleclick.net;
       font-src 'self' data:;
+      object-src 'none';
       object-src 'none';
       base-uri 'self';
       form-action 'self';
@@ -291,7 +303,7 @@ export const getCspHeader = (nonce?: string) => {
     `style-src ${styleSrcParts.join(" ")}`,
     `style-src-elem ${styleSrcElemParts.join(" ")}`,
     `style-src-attr ${styleSrcAttrParts.join(" ")}`,
-    `img-src ${["'self'", "blob:", "data:", supabaseOrigin].filter(Boolean).join(" ")}`,
+    `img-src ${["'self'", "blob:", "data:", supabaseOrigin, "https://www.google-analytics.com", "https://stats.g.doubleclick.net"].filter(Boolean).join(" ")}`,
     `font-src 'self' data:`,
     `media-src 'none'`,
     `manifest-src 'self'`,

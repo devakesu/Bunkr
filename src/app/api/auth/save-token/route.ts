@@ -9,7 +9,7 @@ import { createServerClient } from "@supabase/ssr";
 import crypto from "crypto";
 import { z } from "zod";
 import { redis } from "@/lib/redis";
-import { redact, getClientIp } from "@/lib/utils";
+import { redact, getClientIp } from "@/lib/utils.server";
 import { logger } from "@/lib/logger";
 import { validateCsrfToken } from "@/lib/security/csrf";
 import { setAuthCookie } from "@/lib/security/auth-cookie";
@@ -223,17 +223,18 @@ export async function POST(req: Request) {
   const { success, limit, reset, remaining } = await authRateLimiter.limit(ip);
 
   if (!success) {
-    return new Response(JSON.stringify({ 
-        error: "Too many requests. Slow down!",
-        retryAfter: reset 
-    }), {
-      status: 429,
-      headers: {
-        "X-RateLimit-Limit": limit.toString(),
-        "X-RateLimit-Remaining": remaining.toString(),
-        "X-RateLimit-Reset": reset.toString(),
-      },
-    });
+    return NextResponse.json(
+      { error: "Too many requests. Slow down!", retryAfter: reset },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": Math.max(0, Math.ceil((reset - Date.now()) / 1000)).toString(),
+          "X-RateLimit-Limit": limit.toString(),
+          "X-RateLimit-Remaining": remaining.toString(),
+          "X-RateLimit-Reset": reset.toString(),
+        },
+      }
+    );
   }
 
   let verifieduserId = "";

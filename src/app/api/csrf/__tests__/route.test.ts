@@ -18,8 +18,8 @@ vi.mock("@/lib/ratelimit", () => ({
   },
 }));
 
-// Mock utils – return a valid IP by default; override per-test when needed
-vi.mock("@/lib/utils", () => ({
+// Mock utils.server – return a valid IP by default; override per-test when needed.
+vi.mock("@/lib/utils.server", () => ({
   getClientIp: vi.fn(() => "127.0.0.1"),
 }));
 
@@ -34,7 +34,7 @@ describe("CSRF API Route", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     // Reset getClientIp to return a valid IP by default
-    const { getClientIp } = await import("@/lib/utils");
+    const { getClientIp } = await import("@/lib/utils.server");
     vi.mocked(getClientIp).mockReturnValue("127.0.0.1");
     // Allow all requests by default; individual tests may override
     const { authRateLimiter } = await import("@/lib/ratelimit");
@@ -97,7 +97,7 @@ describe("CSRF API Route", () => {
 
     it("should use csrf_init_ rate limit key", async () => {
       const { authRateLimiter } = await import("@/lib/ratelimit");
-      const { getClientIp } = await import("@/lib/utils");
+      const { getClientIp } = await import("@/lib/utils.server");
       const { initializeCsrfToken } = await import("@/lib/security/csrf");
 
       vi.mocked(getClientIp).mockReturnValue("192.168.1.100");
@@ -109,7 +109,7 @@ describe("CSRF API Route", () => {
     });
 
     it("should continue when IP cannot be determined", async () => {
-      const { getClientIp } = await import("@/lib/utils");
+      const { getClientIp } = await import("@/lib/utils.server");
       const { initializeCsrfToken } = await import("@/lib/security/csrf");
       const { authRateLimiter } = await import("@/lib/ratelimit");
 

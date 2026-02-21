@@ -42,7 +42,7 @@ export const Footer = ({ className }: { className?: string }) => {
 
   return (
     <footer className={cn(
-      "w-full py-6 mt-12 border-t border-border/40 bg-background/80 backdrop-blur-md supports-backdrop-filter:bg-background/60",
+      "w-full pt-6 pb-10 mt-12 border-t border-border/40 bg-background/80 backdrop-blur-md supports-backdrop-filter:bg-background/60",
       className
     )} role="contentinfo" aria-label="Site footer">
       <div className="container px-4 md:px-8 flex flex-col-reverse md:flex-row justify-between items-center gap-y-6 gap-x-4 text-sm">

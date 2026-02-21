@@ -13,7 +13,7 @@ would make the migration history impossible to audit or roll back.
 All schema changes after the baseline must be separate, **incrementally
 numbered** migration files, e.g.:
 
-```
+```text
 supabase/migrations/20260218000000_add_column_foo.sql
 supabase/migrations/20260219120000_create_table_bar.sql
 ```

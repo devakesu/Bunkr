@@ -22,8 +22,28 @@ const mockFetch = vi.fn();
 global.fetch = mockFetch as any;
 
 describe('Backend Proxy Route', () => {
-  type ForwardHandler = typeof import('../[...path]/route')['forward'];
-  let forward: ForwardHandler;
+  type RouteModule = typeof import('../[...path]/route');
+  let GET: RouteModule['GET'];
+  let POST: RouteModule['POST'];
+  let PUT: RouteModule['PUT'];
+  let PATCH: RouteModule['PATCH'];
+  let DELETE: RouteModule['DELETE'];
+  let HEAD: RouteModule['HEAD'];
+
+  // Local helper that mirrors the old `forward(request, method, path)` call signature,
+  // routing each call to the corresponding exported HTTP handler.
+  async function forward(request: NextRequest, method: string, path: string[]): Promise<Response> {
+    const ctx = { params: Promise.resolve({ path }) };
+    switch (method.toUpperCase()) {
+      case 'GET':    return GET(request, ctx);
+      case 'POST':   return POST(request, ctx);
+      case 'PUT':    return PUT(request, ctx);
+      case 'PATCH':  return PATCH(request, ctx);
+      case 'DELETE': return DELETE(request, ctx);
+      case 'HEAD':   return HEAD(request, ctx);
+      default: throw new Error(`Unsupported method in test: ${method}`);
+    }
+  }
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -35,9 +55,14 @@ describe('Backend Proxy Route', () => {
     vi.stubEnv('NEXT_PUBLIC_BACKEND_URL', 'https://api.example.com');
     
     // Import module in beforeEach to ensure it uses the correct env vars
-    if (!forward) {
+    if (!GET) {
       const routeModule = await import('../[...path]/route');
-      forward = routeModule.forward;
+      GET = routeModule.GET;
+      POST = routeModule.POST;
+      PUT = routeModule.PUT;
+      PATCH = routeModule.PATCH;
+      DELETE = routeModule.DELETE;
+      HEAD = routeModule.HEAD;
     }
   });
 

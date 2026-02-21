@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { trackGA4Event } from "@/lib/analytics";
 import { syncRateLimiter } from "@/lib/ratelimit";
-import { getClientIp } from "@/lib/utils";
+import { getClientIp } from "@/lib/utils.server";
 import { logger } from "@/lib/logger";
 
 interface GA4Event {
@@ -57,12 +57,15 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    const rateLimitResult = await syncRateLimiter.limit(ip);
+    const { success: rateLimitSuccess, reset: rateLimitReset } = await syncRateLimiter.limit(ip);
     
-    if (!rateLimitResult.success) {
+    if (!rateLimitSuccess) {
       return NextResponse.json(
         { error: "Rate limit exceeded" },
-        { status: 429 }
+        {
+          status: 429,
+          headers: { 'Retry-After': Math.max(0, Math.ceil((rateLimitReset - Date.now()) / 1000)).toString() },
+        }
       );
     }
 

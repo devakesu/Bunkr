@@ -7,7 +7,7 @@ import { logger } from "./logger";
 /**
  * Email sending configuration parameters.
  */
-interface SendEmailProps {
+export interface SendEmailProps {
   /** Recipient email address */
   to: string;
   /** Email subject line */

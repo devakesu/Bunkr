@@ -4,6 +4,15 @@ import AttendanceConflictEmail from "./attendance-conflict";
 
 export { CourseMismatchEmail, AttendanceConflictEmail };
 
+export {
+  renderContactAdminEmail,
+  renderContactConfirmationEmail,
+} from "./contact";
+export type {
+  ContactAdminEmailProps,
+  ContactConfirmationEmailProps,
+} from "./contact";
+
 /**
  * Render email templates to HTML strings
  */
