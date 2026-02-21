@@ -23,8 +23,10 @@ const axiosInstance = axios.create({
  */
 export function getCookie(name: string) {
   if (typeof document === "undefined") return null;
-  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = document.cookie.match(new RegExp(`${escapedName}=([^;]+)`));
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = document.cookie.match(
+    new RegExp(`(?:^|;\\s*)${escapedName}=([^;]*)`)
+  );
   return match ? decodeURIComponent(match[1]) : null;
 }
 
