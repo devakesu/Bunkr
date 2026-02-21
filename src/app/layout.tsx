@@ -73,8 +73,9 @@ export default async function RootLayout({
 }>) {
   // Calling headers() here makes this layout dynamic so that Next.js will read the
   // per-request x-nonce set by middleware. The return value is intentionally discarded;
-  // the app relies on the 'unsafe-inline' CSP2 fallback for inline hydration scripts
-  // because the nonce is not forwarded to any <Script> component.
+  // the nonce is not used directly in this component. In CSP3, the presence of a nonce
+  // in script-src-elem means 'unsafe-inline' is ignored, so any inline scripts must
+  // explicitly receive and use this nonce if they are introduced elsewhere.
   void (await headers()).get("x-nonce");
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
   const hasGoogleAnalytics = !!gaId && gaId !== 'undefined' && gaId.startsWith('G-');

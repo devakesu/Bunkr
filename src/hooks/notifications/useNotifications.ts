@@ -30,8 +30,9 @@ interface FetchResponse {
  * 
  * Features:
  * - Priority query for unread conflicts (auto-refresh every 30s)
+ * - Lightweight head-only unread count (accurate total; refreshed on explicit invalidation)
  * - Infinite scroll pagination for general feed (15 items per page)
- * - Mark as read functionality with optimistic updates
+ * - Mark as read with cache invalidation after server confirmation
  * - Automatic cache invalidation
  * 
  * @example
@@ -120,16 +121,35 @@ export function useNotifications(enabled = true) {
       return { actionNotifications: actions, regularNotifications: regular };
   }, [actionData, feedData]);
 
-  // Derived from the already-fetched feed pages — avoids a separate DB round-trip.
-  // Note: this count reflects only notifications loaded so far; unread items on
-  // un-fetched pages are not included. For the unread *conflict* badge specifically,
-  // the actions query above provides the accurate count independent of pagination.
-  const unreadCount = useMemo(
-    () => feedData?.pages.flatMap(p => p.data).filter(n => !n.is_read).length ?? 0,
-    [feedData]
-  );
+  // 3b. TOTAL UNREAD COUNT — head-only query (no refetchInterval; refreshed on
+  //     explicit cache invalidation triggered by markAsRead / markAllAsRead).
+  //     A dedicated query guarantees an accurate total even before all feed
+  //     pages have been loaded via infinite scroll.
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["notifications", "unreadCount"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return 0;
 
-  // 4. MUTATIONS (With Optimistic Updates)
+      const { error, count } = await supabase
+        .from("notification")
+        .select("*", { count: "exact", head: true })
+        .eq("auth_user_id", user.id)
+        .eq("is_read", false);
+
+      if (error) {
+        Sentry.captureException(error, {
+          tags: { type: "notification_unread_count_failure", location: "useNotifications/unreadCountQuery" },
+        });
+        return 0;
+      }
+
+      return count ?? 0;
+    },
+    enabled: enabled,
+  });
+
+  // 4. MUTATIONS
   const markReadMutation = useMutation({
     mutationFn: async (id?: number) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -146,7 +166,9 @@ export function useNotifications(enabled = true) {
       const { error } = await query;
       if (error) throw error;
     },
-    // Optimistic Update: Update UI instantly
+    // Cancel in-flight queries to avoid stale overwrites once the mutation settles.
+    // A full optimistic cache update is not implemented; the UI reflects the
+    // latest server state after onSettled triggers a cache invalidation.
     onMutate: async () => {
         await queryClient.cancelQueries({ queryKey: ["notifications"] });
     },

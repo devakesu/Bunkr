@@ -44,3 +44,15 @@ REVOKE ALL ON SEQUENCE "public"."notification_id_seq" FROM "anon";
 --          and no TO clause, so it applies to all roles including anon)
 REVOKE ALL    ON TABLE "public"."contact_messages" FROM "anon";
 GRANT  INSERT ON TABLE "public"."contact_messages"  TO  "anon";
+
+-- Step 4: Remove over-permissive default privileges for anon on future objects
+--         The baseline schema sets ALTER DEFAULT PRIVILEGES GRANT ALL ON
+--         TABLES/SEQUENCES TO anon.  Without revoking those defaults, any new
+--         tables or sequences created by later migrations would again give anon
+--         full access.  Explicitly revoke them so anon gets no privileges on
+--         future objects by default.
+ALTER DEFAULT PRIVILEGES IN SCHEMA "public"
+    REVOKE ALL ON TABLES FROM "anon";
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA "public"
+    REVOKE ALL ON SEQUENCES FROM "anon";

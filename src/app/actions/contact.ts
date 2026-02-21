@@ -152,17 +152,16 @@ const getContactEmail = () => {
  */
 export async function submitContactForm(formData: FormData) {
 
-  // HONEYPOT CHECK (anti-bot)
+  // 1. Honeypot check (anti-bot)
   const honeypot = formData.get("website"); 
   if (honeypot) {
     logger.warn("Honeypot triggered");
     return { error: "Invalid submission" };
   }
 
-  // RATE LIMIT BY IP 
   const headerList = await headers();
 
-  // CSRF PROTECTION
+  // 2. CSRF validation
   // Validate CSRF token from FormData against cookie
   const csrfToken = formData.get("csrf_token") as string | null;
   const csrfValid = await validateCsrfToken(csrfToken);
@@ -175,7 +174,7 @@ export async function submitContactForm(formData: FormData) {
   // The framework automatically validates that requests come from the same origin.
   // We enforce additional origin validation below for defense-in-depth.
   
-  // Enforce origin validation for all requests (skip in development)
+  // 3. Origin validation — enforce for all requests (skip in development)
   if (process.env.NODE_ENV !== "development") {
     const origin = headerList.get("origin");
     const host = headerList.get("host");
@@ -196,6 +195,7 @@ export async function submitContactForm(formData: FormData) {
     }
   }
 
+  // 4. IP extraction and rate limiting
   const ip = getClientIp(headerList);
   if (!ip) {
     const relevantHeaders: Record<string, string | null> = {
