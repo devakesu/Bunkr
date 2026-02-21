@@ -443,10 +443,18 @@ export function useUserSettings() {
       // Check current mount state from closure to prevent race conditions
       if (!isMounted) return false;
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data, error } = await supabase.auth.getUser();
+        if (error) {
+          // Log at dev level so auth/network issues are diagnosable while still treating them as "no user"
+          logger.dev("Error fetching auth user in validateActiveSession:", error);
+          return false;
+        }
+        const user = data?.user;
         // Verify user exists, matches, and component is still mounted (re-check after async)
         return !!(user && user.id === expectedUserId && isMounted);
-      } catch {
+      } catch (err) {
+        // Catch any unexpected thrown errors from the Supabase client
+        logger.dev("Unexpected error in validateActiveSession:", err);
         return false;
       }
     };
