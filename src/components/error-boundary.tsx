@@ -105,6 +105,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (!error) return;
 
     const appDomain = getAppDomain();
+    const safeAppDomain = appDomain.replace(/[^a-zA-Z0-9.-]/g, '');
     const subject = encodeURIComponent('Error Report - GhostClass');
     const body = encodeURIComponent(
       `Hi Admin,\n\nI encountered an error while using GhostClass.\n\n` +
@@ -113,7 +114,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       `Please help resolve this issue.\n\nThank you!`
     );
 
-    window.location.href = `mailto:admin@${appDomain}?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:admin@${safeAppDomain}?subject=${subject}&body=${body}`;
   };
 
   render(): ReactNode {
@@ -137,7 +138,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             Something went wrong
           </h2>
           
-          <p className="text-sm text-muted-foreground max-w-100 mb-6" role="alert" aria-live="assertive">
+          <p className="text-sm text-muted-foreground max-w-100 mb-6" role="alert" aria-live="polite">
             We encountered an unexpected error. You can try to recover the component or reload the page.
           </p>
 
