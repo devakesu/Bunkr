@@ -7,8 +7,27 @@ import { syncRateLimiter } from "@/lib/ratelimit";
 import { getClientIp } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 
+interface GA4Event {
+  name: string;
+  params?: Record<string, unknown>;
+}
+
 export async function POST(req: NextRequest) {
   try {
+    // Validate request origin to prevent cross-site analytics pollution
+    const origin = req.headers.get("origin");
+    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (origin && appDomain) {
+      const allowed =
+        origin === appUrl ||
+        origin === `https://${appDomain}` ||
+        origin === `http://${appDomain}`;
+      if (!allowed) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
     // Rate limiting per IP (default: 10 requests per 10 seconds, configurable)
     // (via RATE_LIMIT_REQUESTS and RATE_LIMIT_WINDOW environment variables)
     const ip = getClientIp(req.headers);
@@ -68,7 +87,7 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    const sanitizedEvents = events.map((event: any) => {
+    const sanitizedEvents = events.map((event: GA4Event) => {
       if (!event.name || typeof event.name !== 'string') {
         throw new Error('Invalid event name');
       }
@@ -80,7 +99,7 @@ export async function POST(req: NextRequest) {
       }
       
       // Sanitize event parameters
-      const sanitizedParams: Record<string, any> = {};
+      const sanitizedParams: Record<string, string | number | boolean> = {};
       if (event.params && typeof event.params === 'object') {
         for (const [key, value] of Object.entries(event.params)) {
           const sanitizedKey = key.slice(0, maxParamKeyLength);
@@ -116,15 +135,15 @@ export async function POST(req: NextRequest) {
       const maxUserPropertyKeyLength = 24; // GA4 limit
       const maxUserPropertyValueLength = 36; // GA4 limit
       
-      for (const [key, value] of Object.entries(userProperties)) {
+      for (const [key, value] of Object.entries(userProperties as Record<string, unknown>)) {
         const sanitizedKey = key.slice(0, maxUserPropertyKeyLength);
         
         // Only allow string values for user properties (GA4 requirement)
         if (typeof value === 'string') {
           sanitizedUserProperties[sanitizedKey] = { value: value.slice(0, maxUserPropertyValueLength) };
-        } else if (typeof value === 'object' && value !== null && 'value' in value && typeof value.value === 'string') {
+        } else if (typeof value === 'object' && value !== null && 'value' in value && typeof (value as { value: unknown }).value === 'string') {
           // Already in GA4 format
-          sanitizedUserProperties[sanitizedKey] = { value: value.value.slice(0, maxUserPropertyValueLength) };
+          sanitizedUserProperties[sanitizedKey] = { value: ((value as { value: string }).value).slice(0, maxUserPropertyValueLength) };
         }
       }
     }

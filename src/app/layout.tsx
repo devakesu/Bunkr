@@ -82,7 +82,7 @@ export default function RootLayout({
         <meta name="application-name" content="GhostClass" />
         <meta name="google" content="notranslate" />
         <meta name="format-detection" content="telephone=no" />
-        <meta name="msapplication-TileColor" content="#ffffff" />
+        <meta name="msapplication-TileColor" content="#141414" />
         <meta name="msapplication-tap-highlight" content="no" />
         <meta name="theme-color" content="#141414" />
       </head>
@@ -92,7 +92,7 @@ export default function RootLayout({
         {/* Skip Navigation Link for Accessibility */}
         <a 
           href="#main-content" 
-          className="sr-only focus:not-sr-only"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100000] focus:bg-background focus:text-foreground focus:px-4 focus:py-2 focus:rounded focus:ring-2 focus:ring-ring"
         >
           Skip to main content
         </a>

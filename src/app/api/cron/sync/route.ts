@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import crypto from "node:crypto";
 import { createClient } from "@/lib/supabase/server"; 
 import axios from "axios";
 import { NextResponse } from "next/server";
@@ -12,6 +12,7 @@ import { sendEmail } from "@/lib/email";
 import { renderAttendanceConflictEmail, renderCourseMismatchEmail } from "@/lib/email-templates";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = 'force-dynamic';
 
@@ -56,17 +57,6 @@ function aggregateStats(target: SyncStats, source: SyncStats): void {
   target.errors += source.errors;
 }
 
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    const error = new Error("Missing Supabase Admin credentials");
-    Sentry.captureException(error);
-    throw error;
-  }
-  return createAdminClient(url, key);
-}
-
 interface UserSyncData {
   username: string;
   email: string;
@@ -86,63 +76,85 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
 
-  // 1. Rate Limit
   const headerList = await headers();
 
   // Note: This cron endpoint is typically called by non-browser automation (e.g. Vercel Cron, GitHub Actions),
   // so we do not depend on Origin-based validation here. Authentication is handled via CRON_SECRET below.
 
+  // 1. Authenticate FIRST — check CRON_SECRET before rate limiting to fast-reject
+  // invalid requests without consuming rate-limit quota. Uses constant-time comparison
+  // to prevent timing attacks.
+  const authHeader = req.headers.get('authorization');
+  let isCron = false;
+
+  if (authHeader !== null) {
+    const providedSecret = authHeader.replace('Bearer ', '');
+    const cronSecret = process.env.CRON_SECRET ?? '';
+    // Constant-time comparison: only proceed if lengths match and bytes are equal
+    const isCronValid =
+      cronSecret.length > 0 &&
+      providedSecret.length === cronSecret.length &&
+      crypto.timingSafeEqual(Buffer.from(providedSecret), Buffer.from(cronSecret));
+
+    if (!isCronValid) {
+      // Auth header was present but invalid — reject immediately before rate limiting
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+    isCron = true;
+  }
+
+  // 2. Rate Limit (applied to the non-cron / user-auth path to prevent abuse)
   const ip = getClientIp(headerList);
   
-  if (!ip) {
-    if (process.env.NODE_ENV === "development") {
-      // In development, fail fast if we cannot determine the client IP.
-      // This avoids masking misconfigurations and ensures IP extraction is exercised before production.
-      // Redact IP values to avoid leaking IPs if dev logs are aggregated or NODE_ENV is misconfigured.
-      const cfIp = headerList.get("cf-connecting-ip");
-      const realIp = headerList.get("x-real-ip");
-      logger.warn("Unable to determine client IP in development; failing request to expose configuration issue", {
-        headers: {
-          "cf-connecting-ip": cfIp ? redact("id", cfIp) : null,
-          "x-real-ip": realIp ? redact("id", realIp) : null,
-        },
+  if (!isCron) {
+    if (!ip) {
+      if (process.env.NODE_ENV === "development") {
+        // In development, fail fast if we cannot determine the client IP.
+        // This avoids masking misconfigurations and ensures IP extraction is exercised before production.
+        // Redact IP values to avoid leaking IPs if dev logs are aggregated or NODE_ENV is misconfigured.
+        const cfIp = headerList.get("cf-connecting-ip");
+        const realIp = headerList.get("x-real-ip");
+        logger.warn("Unable to determine client IP in development; failing request to expose configuration issue", {
+          headers: {
+            "cf-connecting-ip": cfIp ? redact("id", cfIp) : null,
+            "x-real-ip": realIp ? redact("id", realIp) : null,
+          },
+        });
+        return NextResponse.json(
+          { error: "Development configuration error: unable to determine client IP address" },
+          { status: 500 },
+        );
+      } else {
+        // In production, reject requests without a determinable IP to prevent rate limiting bypass
+        // Log header presence (boolean) rather than values to avoid IP leakage
+        logger.error("Unable to determine client IP for cron request", {
+          headers: {
+            "cf-connecting-ip": headerList.has("cf-connecting-ip"),
+            "x-real-ip": headerList.has("x-real-ip"),
+          },
+        });
+        return NextResponse.json({ error: "Unable to determine client IP address" }, { status: 400 });
+      }
+    }
+
+    const { success, reset } = await syncRateLimiter.limit(ip);
+
+    if (!success) {
+      return new Response(JSON.stringify({ error: "Too many requests", retryAfter: reset }), {
+        status: 429, headers: { "X-RateLimit-Reset": reset.toString() }
       });
-      return NextResponse.json(
-        { error: "Development configuration error: unable to determine client IP address" },
-        { status: 500 },
-      );
-    } else {
-      // In production, reject requests without a determinable IP to prevent rate limiting bypass
-      // Log header presence (boolean) rather than values to avoid IP leakage
-      logger.error("Unable to determine client IP for cron request", {
-        headers: {
-          "cf-connecting-ip": headerList.has("cf-connecting-ip"),
-          "x-real-ip": headerList.has("x-real-ip"),
-        },
-      });
-      return NextResponse.json({ error: "Unable to determine client IP address" }, { status: 400 });
     }
   }
-  
-  const { success, reset } = await syncRateLimiter.limit(ip);
-
-  if (!success) {
-    return new Response(JSON.stringify({ error: "Too many requests", retryAfter: reset }), {
-      status: 429, headers: { "X-RateLimit-Reset": reset.toString() }
-    });
-  }
-
-  const { searchParams } = new URL(req.url);
-  const targetUsername = searchParams.get('username');
-  if (targetUsername && !UsernameSchema.safeParse(targetUsername).success) {
-     return NextResponse.json({ error: "Invalid username" }, { status: 400 });
-  }
-
-  const authHeader = req.headers.get('authorization');
-  const isCron = authHeader?.replace('Bearer ', '') === process.env.CRON_SECRET;
 
   try {
-    // 2. Fetch Users
+    // 3. Parse query parameters
+    const { searchParams } = new URL(req.url);
+    const targetUsername = searchParams.get('username');
+    if (targetUsername && !UsernameSchema.safeParse(targetUsername).success) {
+       return NextResponse.json({ error: "Invalid username" }, { status: 400 });
+    }
+
+    // 4. Fetch Users
     let usersToSync: UserSyncData[] = [];
     if (isCron) {
         let query = supabaseAdmin.from("users").select("username, email, ezygo_token, ezygo_iv, auth_id").not("ezygo_token", "is", null);

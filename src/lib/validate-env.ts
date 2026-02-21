@@ -35,6 +35,18 @@ export function validateEnvironment() {
     errors.push('❌ CRON_SECRET is required');
   }
 
+  // Request Signing (separate key from ENCRYPTION_KEY for cryptographic key separation)
+  if (!process.env.REQUEST_SIGNING_SECRET) {
+    if (process.env.NODE_ENV === 'production') {
+      errors.push('❌ REQUEST_SIGNING_SECRET is required in production\n' +
+                  '   Used for: API request signature validation (anti-tampering)\n' +
+                  '   Generate with: openssl rand -hex 32\n' +
+                  '   Must be distinct from ENCRYPTION_KEY (key separation principle)');
+    } else {
+      warnings.push('⚠️  REQUEST_SIGNING_SECRET not set — falling back to ENCRYPTION_KEY (set a separate secret for production)');
+    }
+  }
+
   // Supabase
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
     errors.push('❌ NEXT_PUBLIC_SUPABASE_URL is required');
