@@ -80,7 +80,6 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="apple-touch-icon" href="/logo.png" />
         <meta name="application-name" content="GhostClass" />
-        <meta name="google" content="notranslate" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="msapplication-TileColor" content="#141414" />
         <meta name="msapplication-tap-highlight" content="no" />
