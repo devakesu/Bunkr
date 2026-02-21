@@ -46,7 +46,7 @@ export const metadata: Metadata = {
 };
 
 const klick = localFont({
-  src: "../../public/fonts/Klick.woff2",
+  src: "./fonts/Klick.woff2",
   variable: "--font-klick",
   display: "swap",
 });
@@ -71,11 +71,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read the per-request nonce injected by middleware (src/proxy.ts) via the x-nonce header.
-  // Making the layout async and calling headers() here enables Next.js's rendering pipeline
-  // to propagate this nonce to its own internally generated inline bootstrap scripts, so that
-  // script-src-elem 'nonce-{nonce}' in the CSP protects against XSS without blocking hydration.
-  const _nonce = (await headers()).get("x-nonce") ?? undefined;
+  // Calling headers() here makes this layout dynamic so that Next.js will read the
+  // per-request x-nonce set by middleware. The return value is intentionally discarded;
+  // the nonce is not used directly in this component. In CSP3, the presence of a nonce
+  // in script-src-elem means 'unsafe-inline' is ignored, so any inline scripts must
+  // explicitly receive and use this nonce if they are introduced elsewhere.
+  void (await headers()).get("x-nonce");
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
   const hasGoogleAnalytics = !!gaId && gaId !== 'undefined' && gaId.startsWith('G-');
   
