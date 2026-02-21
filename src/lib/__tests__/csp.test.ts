@@ -277,4 +277,54 @@ describe("Content Security Policy", () => {
       expect(header).not.toContain("upgrade-insecure-requests");
     });
   });
+
+  describe("script-src-elem nonce enforcement (SEC-01)", () => {
+    it("should include the nonce in script-src-elem in production (FORCE_STRICT_CSP)", () => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubEnv("FORCE_STRICT_CSP", "true");
+
+      const header = getCspHeader("sec01-nonce");
+
+      // Extract the script-src-elem directive value
+      const match = header.match(/script-src-elem ([^;]+)/);
+      expect(match).not.toBeNull();
+      const directiveValue = match![1];
+
+      // Nonce must be present so CSP3 browsers enforce it and ignore 'unsafe-inline'
+      expect(directiveValue).toContain("'nonce-sec01-nonce'");
+    });
+
+    it("should retain unsafe-inline in script-src-elem as a CSP2 fallback in production", () => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubEnv("FORCE_STRICT_CSP", "true");
+
+      const header = getCspHeader("sec01-nonce");
+
+      const match = header.match(/script-src-elem ([^;]+)/);
+      expect(match).not.toBeNull();
+      const directiveValue = match![1];
+
+      // 'unsafe-inline' must still be present as a CSP Level 2 backward-compat fallback.
+      // CSP3 browsers ignore it when the nonce is also present in the directive.
+      expect(directiveValue).toContain("'unsafe-inline'");
+
+      // But the nonce MUST come before 'unsafe-inline' so the intent is clear
+      const nonceIndex = directiveValue.indexOf("'nonce-sec01-nonce'");
+      const unsafeInlineIndex = directiveValue.indexOf("'unsafe-inline'");
+      expect(nonceIndex).toBeLessThan(unsafeInlineIndex);
+    });
+
+    it("should NOT include the nonce in script-src-elem in development mode", () => {
+      vi.stubEnv("NODE_ENV", "development");
+
+      const header = getCspHeader("dev-nonce");
+
+      const match = header.match(/script-src-elem ([^;]+)/);
+      expect(match).not.toBeNull();
+      const directiveValue = match![1];
+
+      // In development, no nonce in script-src-elem (tooling injects dynamic inline scripts)
+      expect(directiveValue).not.toContain("'nonce-dev-nonce'");
+    });
+  });
 });

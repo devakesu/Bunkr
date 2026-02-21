@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { headers } from "next/headers";
 import ReactQueryProvider from "@/providers/react-query";
 import { Manrope, DM_Mono } from "next/font/google";
 import localFont from "next/font/local";
@@ -65,11 +66,16 @@ const dmMono = DM_Mono({
 });
 
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read the per-request nonce injected by middleware (src/proxy.ts) via the x-nonce header.
+  // Making the layout async and calling headers() here enables Next.js's rendering pipeline
+  // to propagate this nonce to its own internally generated inline bootstrap scripts, so that
+  // script-src-elem 'nonce-{nonce}' in the CSP protects against XSS without blocking hydration.
+  const _nonce = (await headers()).get("x-nonce") ?? undefined;
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
   const hasGoogleAnalytics = !!gaId && gaId !== 'undefined' && gaId.startsWith('G-');
   

@@ -2,18 +2,18 @@
 //
 // NEXT.JS INLINE SCRIPT HANDLING:
 // Next.js App Router generates inline scripts for hydration and client-side navigation.
-// Without the deprecated middleware pattern, we cannot automatically inject nonces into these scripts.
-// Therefore, we use 'unsafe-inline' in script-src-elem to allow Next.js's internal scripts.
+// The root layout reads the per-request nonce from the x-nonce header (set by middleware)
+// so that Next.js's rendering pipeline can apply it to its own inline bootstrap scripts.
 //
 // CLOUDFLARE ZARAZ CSP INTEGRATION:
 // Cloudflare Zaraz can inject inline scripts for analytics and tracking.
-// Our 'unsafe-inline' directive in script-src-elem allows Zaraz scripts to execute.
+// Zaraz scripts that carry the per-request nonce attribute are permitted by the nonce directive.
 //
 // SECURITY POSTURE:
-// - script-src: Uses nonce + 'strict-dynamic' for dynamically loaded external scripts (strict)
-// - script-src-elem: Uses 'unsafe-inline' for inline scripts (allows Next.js hydration)
+// - script-src:      Uses nonce + 'strict-dynamic' for dynamically loaded external scripts (strict)
+// - script-src-elem: Uses nonce (CSP3) / 'unsafe-inline' CSP2-fallback for inline scripts
 // - External scripts: Restricted to explicitly whitelisted hosts only
-// - This maintains reasonable security while allowing Next.js and Cloudflare to function
+// - This maintains strong XSS protection while allowing Next.js and Cloudflare to function
 import { logger } from "@/lib/logger";
 
 export const getCspHeader = (nonce?: string) => {
@@ -193,20 +193,24 @@ export const getCspHeader = (nonce?: string) => {
   // Here we intentionally avoid 'strict-dynamic' and instead rely on explicit host allowlisting
   // so that third-party scripts from Cloudflare can load.
   //
-  // CRITICAL: The nonce must NOT be placed in script-src-elem. When a nonce (or hash) is present
-  // in a directive, CSP3 browsers silently ignore 'unsafe-inline' in that same directive. Since
-  // Next.js App Router injects inline hydration scripts without nonce attributes, placing the
-  // nonce here would block all those inline scripts. The nonce lives in script-src only, where
-  // 'strict-dynamic' handles propagation to dynamically loaded scripts. script-src-elem uses
-  // 'unsafe-inline' to permit Next.js inline scripts and Cloudflare scripts, with external
-  // origins still restricted to the whitelisted hosts below.
+  // In production we use the same nonce + 'unsafe-inline' pattern as script-src:
+  //   - CSP Level 3 browsers: nonce is enforced; 'unsafe-inline' is silently ignored because
+  //     a nonce is present in the directive. Only scripts whose nonce attribute matches the
+  //     per-request nonce are allowed to execute, providing full XSS protection.
+  //   - CSP Level 2 browsers: 'unsafe-inline' acts as a backward-compatibility fallback.
+  // The root layout reads the nonce from the x-nonce request header (set by middleware) so
+  // that Next.js's rendering pipeline can apply it to its own inline bootstrap scripts.
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
   const scriptSrcElemParts = isDev
     ? ["'self'", "'unsafe-inline'"]
     : (() => {
         const parts = [
           "'self'",
-          "'unsafe-inline'", // Effective because no nonce is present in this directive
+          `'nonce-${nonce}'`,
+          // 'unsafe-inline' is ignored by CSP3 browsers when a nonce is present.
+          // It remains here only as a CSP Level 2 backward-compatibility fallback,
+          // matching the same pattern used in script-src above.
+          "'unsafe-inline'",
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
         ];
