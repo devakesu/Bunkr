@@ -179,7 +179,7 @@ export async function GET() {
   );
 
   // 6. Encrypt PII before storing
-  const encPhone = mergedPhone ? encrypt(String(mergedPhone)) : null;
+  const encPhone = mergedPhone ? encrypt(mergedPhone) : null;
   const encGender = mergedGender ? encrypt(mergedGender) : null;
   const encBirthDate = mergedBirthDate ? encrypt(mergedBirthDate) : null;
 
@@ -238,7 +238,11 @@ const patchSchema = z.object({
   first_name: z.string().min(2),
   last_name: z.string().optional().nullable(),
   gender: z.enum(["male", "female", "other"]).optional().nullable(),
-  birth_date: z.string().optional().nullable(),
+  birth_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (expected YYYY-MM-DD)")
+    .optional()
+    .nullable(),
 });
 
 export async function PATCH(req: NextRequest) {
