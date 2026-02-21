@@ -53,7 +53,7 @@ const getSenderEmail = () => {
     Sentry.captureException(err, { tags: { type: "config_error", location: "getSenderEmail" } });
     throw err;
   }
-  return 'admin' + appEmail;
+  return 'admin@' + appEmail.replace(/^@/, '');
 };
 
 // Configuration
@@ -192,7 +192,7 @@ async function sendViaBrevo({ to, subject, html, text }: SendEmailProps): Promis
 /**
  * Main Controller (Load Balancer & Failover)
  */
-export async function sendEmail(props: SendEmailProps) {
+export async function sendEmail(props: SendEmailProps): Promise<ProviderResult> {
   let primary: typeof sendViaSendPulse | typeof sendViaBrevo;
   let secondary: typeof sendViaSendPulse | typeof sendViaBrevo | null = null;
   let primaryName: string;
@@ -243,9 +243,9 @@ export async function sendEmail(props: SendEmailProps) {
       try {
         return await secondary(props);
       } catch (secondaryError: unknown) {
-        const primaryErr = primaryError as Error;
+        const outerErr = primaryError as Error;
         const secondaryErr = secondaryError as Error;
-        const errorMsg = `All email providers failed. Primary: ${primaryErr.message} | Secondary: ${secondaryErr.message}`;
+        const errorMsg = `All email providers failed. Primary: ${outerErr.message} | Secondary: ${secondaryErr.message}`;
         logger.error(errorMsg);
         
         // Report CRITICAL total failure
@@ -261,7 +261,6 @@ export async function sendEmail(props: SendEmailProps) {
         };
       }
     } else {
-      const primaryErr = primaryError as Error;
       Sentry.captureException(primaryError, {
          tags: { type: "email_delivery_fail_no_backup", location: "sendEmail" },
          extra: { provider: primaryName }

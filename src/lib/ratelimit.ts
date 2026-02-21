@@ -39,12 +39,21 @@ if (process.env.NODE_ENV === 'development') {
   logger.dev(`[Auth Rate Limit] ${AUTH_LIMIT} requests per ${AUTH_WINDOW}s`);
 }
 
-// Create rate limiter instances once at module load time
+// Create rate limiter instances once at module load time.
+// Separate prefixes ensure that contact-form traffic cannot starve the cron-sync
+// rate-limit budget (and vice-versa).
 const syncLimiter = new Ratelimit({
   redis: redis,
   limiter: Ratelimit.slidingWindow(RATE_LIMIT_REQUESTS, `${RATE_LIMIT_WINDOW} s`),
   analytics: true,
-  prefix: "@ghostclass/ratelimit",
+  prefix: "@ghostclass/sync-ratelimit",
+});
+
+const contactLimiter = new Ratelimit({
+  redis: redis,
+  limiter: Ratelimit.slidingWindow(RATE_LIMIT_REQUESTS, `${RATE_LIMIT_WINDOW} s`),
+  analytics: true,
+  prefix: "@ghostclass/contact-ratelimit",
 });
 
 const authLimiter = new Ratelimit({
@@ -55,11 +64,20 @@ const authLimiter = new Ratelimit({
 });
 
 /**
- * General rate limiter for sync, contact, and API endpoints
+ * Rate limiter for cron sync endpoint
  */
 export const syncRateLimiter = {
   limit: async (identifier: string) => {
     return syncLimiter.limit(identifier);
+  },
+};
+
+/**
+ * Rate limiter for contact form submissions
+ */
+export const contactRateLimiter = {
+  limit: async (identifier: string) => {
+    return contactLimiter.limit(identifier);
   },
 };
 
