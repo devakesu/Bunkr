@@ -19,16 +19,29 @@ function isGA4UserProperty(val: unknown): val is { value: string } {
 
 export async function POST(req: NextRequest) {
   try {
-    // Validate request origin to prevent cross-site analytics pollution
+    // Validate request origin to prevent cross-site analytics pollution.
+    // Parse NEXT_PUBLIC_APP_URL to normalize trailing slashes/paths before comparing.
     const origin = req.headers.get("origin");
     const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (origin && appDomain) {
-      const allowed =
-        origin === appUrl ||
-        origin === `https://${appDomain}` ||
-        origin === `http://${appDomain}`;
-      if (!allowed) {
+    if (origin && (appDomain || appUrl)) {
+      const allowedOrigins = new Set<string>();
+
+      if (appUrl) {
+        try {
+          const parsedAppUrl = new URL(appUrl);
+          allowedOrigins.add(parsedAppUrl.origin);
+        } catch {
+          // Ignore invalid NEXT_PUBLIC_APP_URL for origin comparison
+        }
+      }
+
+      if (appDomain) {
+        allowedOrigins.add(`https://${appDomain}`);
+        allowedOrigins.add(`http://${appDomain}`);
+      }
+
+      if (allowedOrigins.size > 0 && !allowedOrigins.has(origin)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }

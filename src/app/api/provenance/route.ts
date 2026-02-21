@@ -30,8 +30,8 @@ export function GET(req: NextRequest) {
 
   // Extended CI/build metadata — gated behind a specific Accept header to reduce
   // unnecessary exposure of internal infrastructure details in casual browser requests.
-  const acceptHeader = req.headers.get("accept") ?? "";
-  const includeCI = acceptHeader.includes(FULL_PROVENANCE_ACCEPT);
+  const acceptHeader = (req.headers.get("accept") ?? "").toLowerCase();
+  const includeCI = acceptHeader.includes(FULL_PROVENANCE_ACCEPT.toLowerCase());
 
   const payload = includeCI
     ? {

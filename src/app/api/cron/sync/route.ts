@@ -88,19 +88,34 @@ export async function GET(req: Request) {
   let isCron = false;
 
   if (authHeader !== null) {
-    const providedSecret = authHeader.replace('Bearer ', '');
-    const cronSecret = process.env.CRON_SECRET ?? '';
-    // Constant-time comparison: only proceed if lengths match and bytes are equal
-    const isCronValid =
-      cronSecret.length > 0 &&
-      providedSecret.length === cronSecret.length &&
-      crypto.timingSafeEqual(Buffer.from(providedSecret), Buffer.from(cronSecret));
+    try {
+      if (!authHeader.startsWith('Bearer ')) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+      const providedSecret = authHeader.slice('Bearer '.length);
+      const cronSecret = process.env.CRON_SECRET ?? '';
 
-    if (!isCronValid) {
-      // Auth header was present but invalid — reject immediately before rate limiting
+      // Convert to Buffers to get exact byte lengths (multi-byte chars would cause
+      // timingSafeEqual to throw if we compared JS string lengths instead).
+      const providedBuf = Buffer.from(providedSecret, 'utf8');
+      const cronBuf = Buffer.from(cronSecret, 'utf8');
+
+      // Constant-time comparison: only proceed if lengths match and bytes are equal
+      const isCronValid =
+        cronBuf.length > 0 &&
+        providedBuf.length === cronBuf.length &&
+        crypto.timingSafeEqual(providedBuf, cronBuf);
+
+      if (!isCronValid) {
+        // Auth header was present but invalid — reject immediately before rate limiting
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+      isCron = true;
+    } catch (error) {
+      // Malformed header or unexpected comparison error — treat as unauthorized
+      Sentry.captureException(error, { level: "warning", tags: { type: "cron_auth_error" } });
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
-    isCron = true;
   }
 
   // 2. Rate Limit (applied to the non-cron / user-auth path to prevent abuse)
