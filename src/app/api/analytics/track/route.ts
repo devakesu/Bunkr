@@ -41,6 +41,12 @@ export async function POST(req: NextRequest) {
         allowedOrigins.add(`http://${appDomain}`);
       }
 
+      // Always allow localhost in development
+      if (process.env.NODE_ENV === "development") {
+        allowedOrigins.add("http://localhost:3000");
+        allowedOrigins.add("https://localhost:3000");
+      }
+
       if (allowedOrigins.size > 0 && !allowedOrigins.has(origin)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }

@@ -219,6 +219,35 @@ export function setCsrfToken(token: string | null): void {
   }
 }
 
+// Global 401 response interceptor — handles two race conditions:
+// 1. Supabase session is valid but the EzyGo httpOnly cookie has been cleared/expired
+//    (the backend proxy returns 401 explicitly in that case — see /api/backend/[...path]/route.ts)
+// 2. The EzyGo token stored in the DB has become invalid (EzyGo rejects it with 401)
+// In either case the user's state is irrecoverably inconsistent and a clean logout is the
+// correct recovery path. A singleton flag prevents concurrent logout calls when multiple
+// in-flight requests all receive 401 simultaneously.
+let isLoggingOut401 = false;
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (
+      !isLoggingOut401 &&
+      error?.response?.status === 401 &&
+      typeof window !== "undefined"
+    ) {
+      isLoggingOut401 = true;
+      logger.warn("[axios] 401 received — session/token inconsistency detected, logging out");
+      try {
+        const { handleLogout } = await import("@/lib/security/auth");
+        await handleLogout();
+      } catch {
+        // handleLogout already redirects even on failure; ignore any throw here
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Attach CSRF token from memory (Synchronizer Token Pattern)
 axiosInstance.interceptors.request.use((config) => {
   if (typeof document !== "undefined") {

@@ -86,7 +86,6 @@ const nextConfig: NextConfig = {
           "usb=()",
           "serial=()",
           "bluetooth=()",
-          "ambient-light-sensor=()",
           "accelerometer=()",
           "gyroscope=()",
           "magnetometer=()",

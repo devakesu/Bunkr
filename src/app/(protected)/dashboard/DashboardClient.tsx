@@ -17,7 +17,6 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-// AttendanceCalendar is below-the-fold and heavy – load it lazily
 import { CourseCard } from "@/components/attendance/course-card";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useProfile } from "@/hooks/users/profile";

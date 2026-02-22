@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+﻿import * as Sentry from "@sentry/nextjs";
 import crypto from "node:crypto";
 import { createClient } from "@/lib/supabase/server"; 
 import { NextResponse } from "next/server";
@@ -10,7 +10,7 @@ import { redact, getClientIp } from "@/lib/utils.server";
 import { Course } from "@/types";
 import { sendEmail } from "@/lib/email";
 import type { SendEmailProps } from "@/lib/email";
-import { renderAttendanceConflictEmail, renderCourseMismatchEmail } from "@/lib/email-templates";
+import { renderAttendanceConflictEmail, renderCourseMismatchEmail, renderRevisionClassEmail } from "@/lib/email-templates";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -53,10 +53,10 @@ const CourseSchema = z.object({
 // EzyGo attendance report schemas — validate the shape of officialData before processing
 // so that type changes in the API (e.g. attendance becoming a string) are caught immediately.
 const AttendanceSessionSchema = z.object({
-  class_type: z.string().optional(),
-  session: z.union([z.string(), z.number()]).optional(),
-  attendance: z.union([z.string(), z.number()]),
-  course: z.union([z.string(), z.number()]),
+  class_type: z.string().nullable().optional(),
+  session: z.union([z.string(), z.number()]).nullable().optional(),
+  attendance: z.union([z.string(), z.number()]).nullable(),
+  course: z.union([z.string(), z.number()]).nullable(),
 });
 
 const OfficialAttendanceDataSchema = z.record(
@@ -278,6 +278,8 @@ export async function GET(req: Request) {
                 const decryptedToken = decrypt(user.ezygo_iv, user.ezygo_token);
                 if (!decryptedToken) throw new Error("Decryption failed");
 
+                // A+B. Fetch Courses + Attendance
+
                 // A. Fetch Courses
                 // Native fetch used (axios removed) — Next.js 15 / Node 18+ fetch is
                 // sufficient and keeps a single HTTP client across the codebase. fetch never
@@ -300,7 +302,7 @@ export async function GET(req: Request) {
                 const validatedCourses = (courseData as any[])
                     .map((c: unknown) => CourseSchema.safeParse(c).success ? c : null)
                     .filter(Boolean) as Course[];
-                
+
                 const coursesMap = validatedCourses.reduce((acc, c) => ({ ...acc, [c.id]: c }), {} as Record<string, Course>);
 
                 // B. Fetch Attendance
@@ -323,9 +325,9 @@ export async function GET(req: Request) {
                 if (attRes.status !== 200) throw new Error(`Attendance API failed: ${attRes.status}`);
                 const attData: unknown = await attRes.json().catch(() => null);
                 if (!attData || !(attData as any).studentAttendanceData) throw new Error(`Attendance API failed: missing studentAttendanceData`);
+                const rawOfficialData = (attData as any).studentAttendanceData;
 
                 // C. Sync Logic
-                const rawOfficialData = (attData as any).studentAttendanceData;
                 const officialDataResult = OfficialAttendanceDataSchema.safeParse(rawOfficialData);
                 if (!officialDataResult.success) {
                     throw new Error(`Invalid attendance data from EzyGo API: ${officialDataResult.error.message}`);
@@ -338,14 +340,27 @@ export async function GET(req: Request) {
 
                 if (trackingData && trackingData.length > 0) {
                     const officialMap = new Map<string, { code: number, course: string, course_name: string }>();
-                    
+                    // Keys for slots EzyGo marks as Revision — these don't count toward
+                    // attendance, so any manual tracker entry for them should be removed.
+                    // Stored separately so Revision slots are distinguishable from missing keys.
+                    const revisionKeys = new Set<string>();
+
                     Object.entries(officialData).forEach(([dateStr, dateObj]) => {
                         Object.entries(dateObj).forEach(([sessionKey, session]) => {
-                            if (session.class_type === "Revision") return;
+                            // Skip empty/holiday slots where course or attendance is null
+                            if (session.course == null || session.attendance == null) return;
                             const rawSession = session.session || sessionKey;
                             const normalizedSession = toRoman(parseInt(normalizeSession(rawSession)) || rawSession);
-                            
-                            officialMap.set(`${dateStr}|${normalizedSession}`, { 
+                            const key = `${dateStr}|${normalizedSession}`;
+
+                            if (session.class_type === "Revision") {
+                                // Track but don't add to officialMap — Revision classes
+                                // are not counted for attendance.
+                                revisionKeys.add(key);
+                                return;
+                            }
+
+                            officialMap.set(key, { 
                                 code: Number(session.attendance),
                                 course: String(session.course),
                                 course_name: coursesMap[String(session.course)]?.name || String(session.course)
@@ -365,38 +380,71 @@ export async function GET(req: Request) {
                     for (const item of trackingData) {
                         const normalizedTrackerSession = toRoman(parseInt(normalizeSession(item.session)) || item.session);
                         const key = `${item.date}|${normalizedTrackerSession}`;
-                        
+
+                        // Revision class — EzyGo doesn't count this toward attendance.
+                        // Remove the manual entry. Extra entries get a notification;
+                        // corrections are removed silently (nothing to dispute).
+                        if (revisionKeys.has(key)) {
+                            toDelete.add(item.id);
+                            if (item.status === 'extra') {
+                                const courseName = coursesMap[String(item.course)]?.name || String(item.course);
+                                notifications.push({
+                                    auth_user_id: user.auth_id,
+                                    title: "Revision Class — Not Counted 📚",
+                                    description: `${courseName} - ${item.date} (${item.session}): EzyGo marked this as a Revision class. It won't count toward attendance, so your manual entry was removed.`,
+                                    topic: `revision-${key}`
+                                });
+                                if (user.email) {
+                                    emailsToSend.push({
+                                        to: user.email,
+                                        subject: `📚 Revision Class: ${courseName}`,
+                                        html: await renderRevisionClassEmail({
+                                            username: user.username,
+                                            courseName,
+                                            date: item.date,
+                                            session: item.session,
+                                            dashboardUrl: `${appUrl}/dashboard`
+                                        })
+                                    });
+                                }
+                            }
+                            continue;
+                        }
+
                         if (officialMap.has(key)) {
                             const official = officialMap.get(key)!;
                             
-                            // Course Mismatch
-                            if (String(item.course) !== official.course) {
+                            // Course Mismatch — only relevant for extra entries.
+                            // Corrections are dispute records tied to the official timetable;
+                            // a different course ID there is not actionable.
+                            if (item.status === 'extra' && String(item.course) !== official.course) {
                                 toDelete.add(item.id);
-                                if (item.status === 'extra') {
-                                    notifications.push({
-                                        auth_user_id: user.auth_id,
-                                        title: "Course Mismatch 💀",
-                                        description: `${item.date} (${item.session}): Removed ${coursesMap[String(item.course)]?.name}. Official: ${official.course_name}`,
-                                        topic: `conflict-course-${key}`
-                                    });
+                                notifications.push({
+                                    auth_user_id: user.auth_id,
+                                    title: "Course Mismatch 💀",
+                                    description: `${item.date} (${item.session}): Removed ${coursesMap[String(item.course)]?.name}. Official: ${official.course_name}`,
+                                    topic: `conflict-course-${key}`
+                                });
 
-                                    if (user.email) {
-                                        emailsToSend.push({
-                                            to: user.email,
-                                            subject: `💀 Course Conflict: ${official.course_name}`,
-                                            html: await renderCourseMismatchEmail({
-                                                username: user.username,
-                                                date: item.date,
-                                                session: item.session,
-                                                manualCourseName: coursesMap[String(item.course)]?.name || String(item.course),
-                                                courseLabel: official.course_name,
-                                                dashboardUrl: `${appUrl}/dashboard`
-                                            })
-                                        });
-                                    }
+                                if (user.email) {
+                                    emailsToSend.push({
+                                        to: user.email,
+                                        subject: `💀 Course Conflict: ${official.course_name}`,
+                                        html: await renderCourseMismatchEmail({
+                                            username: user.username,
+                                            date: item.date,
+                                            session: item.session,
+                                            manualCourseName: coursesMap[String(item.course)]?.name || String(item.course),
+                                            courseLabel: official.course_name,
+                                            dashboardUrl: `${appUrl}/dashboard`
+                                        })
+                                    });
                                 }
                                 continue;
                             }
+
+                            // For corrections, proceed to attendance comparison regardless
+                            // of course ID — the user is disputing the absence itself.
 
                             const officialCode = official.code;
                             const trackerCode = Number(item.attendance);

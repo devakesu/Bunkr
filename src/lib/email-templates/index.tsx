@@ -1,8 +1,9 @@
 import { render } from "@react-email/components";
 import CourseMismatchEmail from "./course-mismatch";
 import AttendanceConflictEmail from "./attendance-conflict";
+import RevisionClassEmail from "./revision-class";
 
-export { CourseMismatchEmail, AttendanceConflictEmail };
+export { CourseMismatchEmail, AttendanceConflictEmail, RevisionClassEmail };
 
 export {
   renderContactAdminEmail,
@@ -35,4 +36,14 @@ export const renderAttendanceConflictEmail = async (props: {
   dashboardUrl: string;
 }): Promise<string> => {
   return render(<AttendanceConflictEmail {...props} />);
+};
+
+export const renderRevisionClassEmail = async (props: {
+  username: string;
+  courseName: string;
+  date: string;
+  session: string;
+  dashboardUrl: string;
+}): Promise<string> => {
+  return render(<RevisionClassEmail {...props} />);
 };

@@ -153,7 +153,7 @@ export function useSyncOnMount({
       setIsSyncing(true);
 
       try {
-        const res = await fetch(`/api/cron/sync?username=${username}`, {
+        const res = await fetch(`/api/cron/sync`, {
           signal: abortController.signal,
         });
 

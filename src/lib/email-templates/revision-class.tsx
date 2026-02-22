@@ -9,23 +9,23 @@ import {
   Text,
   Button,
 } from "@react-email/components";
-import { emailStyles, tableStyles, badgeStyles, getLogoUrl, headerLogoStyle } from "./styles";
+import { emailStyles, tableStyles, getLogoUrl, headerLogoStyle } from "./styles";
 
-interface AttendanceConflictEmailProps {
+interface RevisionClassEmailProps {
   username: string;
-  courseLabel: string;
+  courseName: string;
   date: string;
   session: string;
   dashboardUrl: string;
 }
 
-export const AttendanceConflictEmail = ({
+export const RevisionClassEmail = ({
   username,
-  courseLabel,
+  courseName,
   date,
   session,
   dashboardUrl,
-}: AttendanceConflictEmailProps) => (
+}: RevisionClassEmailProps) => (
   <Html>
     <Head />
     <Body style={emailStyles.main}>
@@ -35,12 +35,13 @@ export const AttendanceConflictEmail = ({
         </Section>
 
         <Section style={emailStyles.content}>
-          <Heading style={emailStyles.title}>Attendance Conflict Detected</Heading>
+          <Heading style={emailStyles.title}>Revision Class — Not Counted 📚</Heading>
 
           <Text style={emailStyles.paragraph}>
             Hi <strong>{username}</strong>,<br />
-            We found a discrepancy between your self-marked attendance and the
-            official record.
+            EzyGo marked one of your self-recorded classes as a{" "}
+            <strong>Revision</strong> class. Revision classes are not counted
+            toward attendance, so your manual entry has been removed.
           </Text>
 
           <Section style={emailStyles.conflictBox}>
@@ -48,7 +49,7 @@ export const AttendanceConflictEmail = ({
               <tbody>
                 <tr>
                   <td style={tableStyles.cellLabel}>📚 Course</td>
-                  <td style={tableStyles.cellValue}>{courseLabel}</td>
+                  <td style={tableStyles.cellValue}>{courseName}</td>
                 </tr>
                 <tr>
                   <td style={tableStyles.cellLabel}>📅 Date</td>
@@ -57,25 +58,16 @@ export const AttendanceConflictEmail = ({
                   </td>
                 </tr>
                 <tr>
-                  <td style={tableStyles.cellLabel}>👤 You Marked</td>
-                  <td style={tableStyles.cellValueWithBadge}>
-                    <span style={badgeStyles.present}>Present</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td style={tableStyles.cellLabelLast}>🏫 Official</td>
-                  <td style={tableStyles.cellValueWithBadgeLast}>
-                    <span style={badgeStyles.absent}>Absent</span>
-                  </td>
+                  <td style={tableStyles.cellLabelLast}>🏫 Class Type</td>
+                  <td style={tableStyles.cellValueBoldLast}>Revision</td>
                 </tr>
               </tbody>
             </table>
           </Section>
 
           <Text style={emailStyles.note}>
-            We have automatically flagged this entry as a{" "}
-            <strong>Correction</strong> in your dashboard to keep your stats
-            accurate.
+            This class will <strong>not</strong> affect your attendance
+            percentage. Check your dashboard to review your current standing.
           </Text>
 
           <Section style={emailStyles.buttonContainer}>
@@ -93,4 +85,4 @@ export const AttendanceConflictEmail = ({
   </Html>
 );
 
-export default AttendanceConflictEmail;
+export default RevisionClassEmail;

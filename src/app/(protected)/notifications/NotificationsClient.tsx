@@ -7,6 +7,7 @@ import { useUser } from "@/hooks/users/user";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { CaptureContext } from "@sentry/core";
+
 // Lazy Sentry helpers – deferred import keeps the Sentry SDK (~250 KB) out of the initial bundle.
 const captureSentryException = (error: unknown, context?: CaptureContext) => {
   void import("@sentry/nextjs")
@@ -250,7 +251,7 @@ export default function NotificationsPage() {
   return (
     <div ref={parentRef} className="min-h-screen bg-background relative overflow-auto">
       <header className="sticky top-0 z-20 w-full backdrop-blur-xl bg-background/80 border-b border-border/40">
-        <div className="container mx-auto max-w-2xl p-4 flex items-center justify-between">
+        <div className="container mx-auto max-w-2xl px-4 pt-6 pb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-semibold tracking-tight">Notifications 
               {unreadCount > 0 && <span className="ml-2 bg-primary/10 text-primary text-[11px] font-bold px-1.5 py-0.5 rounded-full" aria-label={`${unreadCount} unread notifications`}>{unreadCount}</span>}

@@ -139,6 +139,11 @@ function parseDateParts(str: string): { y: string; m: string; d: string } | null
   // Strip time component from ISO 8601 strings before further parsing.
   const base = str.includes('T') ? str.split('T')[0] : str;
 
+  // YYYYMMDD (no separator) — e.g. "20251201" returned by EzyGo API
+  if (/^\d{8}$/.test(base)) {
+    return { y: base.slice(0, 4), m: base.slice(4, 6), d: base.slice(6, 8) };
+  }
+
   if (base.includes('-')) {
     const parts = base.split('-');
     if (parts.length === 3) {
@@ -192,15 +197,16 @@ export function normalizeToISODate(str: string): string {
 
 /**
  * Standardizes date to YYYYMMDD format.
- * Handles Date objects, ISO strings, DD-MM-YYYY, and DD/MM/YYYY.
+ * Handles Date objects, ISO strings, YYYYMMDD, DD-MM-YYYY, and DD/MM/YYYY.
  *
- * @param date - Date in various formats (Date object, ISO string, DD-MM-YYYY)
+ * @param date - Date in various formats (Date object, ISO string, YYYYMMDD, DD-MM-YYYY)
  * @returns Date string in YYYYMMDD format, or "" for unrecognised string formats
  * @example
  * ```ts
- * normalizeDate(new Date(2024, 0, 15)) // Returns "20240115"
+ * normalizeDate(new Date(2024, 0, 15))   // Returns "20240115"
  * normalizeDate("2024-01-15T10:30:00Z") // Returns "20240115"
- * normalizeDate("15-01-2024") // Returns "20240115"
+ * normalizeDate("20240115")              // Returns "20240115"
+ * normalizeDate("15-01-2024")           // Returns "20240115"
  * ```
  */
 export const normalizeDate = (date: string | Date): string => {
@@ -220,7 +226,7 @@ export const normalizeDate = (date: string | Date): string => {
   // Unrecognised format — silently stripping non-digit chars could produce
   // a plausible-looking but wrong YYYYMMDD string, poisoning slot-key lookups.
   // console.warn used deliberately — see logger import note at top of file.
-  console.warn(`[normalizeDate] Unrecognised date format "${String(date).trim()}". Expected YYYY-MM-DD, ISO 8601, DD-MM-YYYY, or DD/MM/YYYY. Returning "" to avoid incorrect slot keys.`);
+  console.warn(`[normalizeDate] Unrecognised date format "${String(date).trim()}". Expected YYYYMMDD, YYYY-MM-DD, ISO 8601, DD-MM-YYYY, or DD/MM/YYYY. Returning "" to avoid incorrect slot keys.`);
   return "";
 };
 

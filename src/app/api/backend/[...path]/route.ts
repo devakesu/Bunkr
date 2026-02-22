@@ -318,6 +318,17 @@ async function forward(req: NextRequest, method: string, path: string[]) {
 
   const token = isPublic ? undefined : await getAuthTokenServer();
 
+  // Guard: if the EzyGo auth cookie is missing for a non-public path the request
+  // cannot succeed. Return 401 immediately rather than forwarding
+  // `Authorization: Bearer undefined` to the upstream, which would waste a round-trip
+  // and could confuse the upstream into returning a less descriptive error.
+  if (!isPublic && !token) {
+    return NextResponse.json(
+      { message: "No authentication token – please log in again" },
+      { status: 401 }
+    );
+  }
+
   const target = `${BASE_API_URL}/${pathSegments.join("/")}${req.nextUrl.search}`;
 
   const hasBody = method !== "GET" && method !== "HEAD";

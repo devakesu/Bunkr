@@ -53,9 +53,6 @@ export function validateEnvironment() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     errors.push('❌ SUPABASE_SERVICE_ROLE_KEY is required');
   }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_API_URL) {
-    errors.push('❌ NEXT_PUBLIC_SUPABASE_API_URL is required (typically NEXT_PUBLIC_SUPABASE_URL + "/functions/v1")');
-  }
 
   // Upstash Redis (Rate Limiting)
   if (!process.env.UPSTASH_REDIS_REST_URL) {
@@ -149,7 +146,11 @@ export function validateEnvironment() {
     }
   }
 
-  if (!process.env.NEXT_PUBLIC_AUTHOR_NAME) {
+  // ============================================================================
+  // OPTIONAL - App works but features may be limited
+  // ============================================================================
+
+    if (!process.env.NEXT_PUBLIC_AUTHOR_NAME) {
     warnings.push('⚠️  NEXT_PUBLIC_AUTHOR_NAME not set');
   }
 
@@ -168,10 +169,6 @@ export function validateEnvironment() {
   if (!process.env.NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE) {
     warnings.push('⚠️  NEXT_PUBLIC_LEGAL_EFFECTIVE_DATE not set');
   }
-
-  // ============================================================================
-  // OPTIONAL - App works but features may be limited
-  // ============================================================================
 
   // Sentry (Error Monitoring)
   if (!process.env.NEXT_PUBLIC_SENTRY_DSN) {
