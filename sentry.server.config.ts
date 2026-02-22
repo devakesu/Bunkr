@@ -11,9 +11,16 @@ import * as Sentry from "@sentry/nextjs";
  * before the request leaves the process.
  */
 function scrubGaApiSecret(url: string): string {
-  if (!url.includes("google-analytics.com")) return url;
   try {
     const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    const allowedHosts = new Set([
+      "www.google-analytics.com",
+      "google-analytics.com",
+    ]);
+    if (!allowedHosts.has(hostname)) {
+      return url;
+    }
     if (parsed.searchParams.has("api_secret")) {
       parsed.searchParams.set("api_secret", "[Filtered]");
       return parsed.toString();
