@@ -10,9 +10,20 @@ import * as Sentry from "@sentry/nextjs";
  * Defense-in-depth companion to the ga4-collect.ts isolation strategy.
  */
 function scrubGaApiSecret(url: string): string {
-  if (!url.includes("google-analytics.com")) return url;
   try {
     const parsed = new URL(url);
+    const hostname = parsed.hostname;
+
+    // Only scrub GA Measurement Protocol URLs on google-analytics.com and its subdomains
+    const isGoogleAnalyticsHost =
+      hostname === "google-analytics.com" ||
+      hostname === "www.google-analytics.com" ||
+      hostname.endsWith(".google-analytics.com");
+
+    if (!isGoogleAnalyticsHost) {
+      return url;
+    }
+
     if (parsed.searchParams.has("api_secret")) {
       parsed.searchParams.set("api_secret", "[Filtered]");
       return parsed.toString();
