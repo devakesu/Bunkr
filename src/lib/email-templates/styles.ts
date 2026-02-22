@@ -16,7 +16,8 @@ export const getLogoUrl = (): string => {
 export const headerLogoStyle = {
   display: "block",
   margin: "0 auto",
-  width: "64px",
+  width: "180px",
+  maxWidth: "100%",
   height: "auto",
   border: "0",
 } as const;

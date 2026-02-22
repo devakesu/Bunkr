@@ -37,7 +37,7 @@ const getLogoUrl = (): string => {
 };
 
 /** Renders a responsive logo <img> for the email header, or an empty string if no URL is configured. */
-const renderLogoImg = (size = 72): string => {
+const renderLogoImg = (size = 180): string => {
   const src = getLogoUrl();
   if (!src) return `<span style="color: #ffffff; font-size: 22px; font-weight: 700;">GhostClass</span>`;
   return (
@@ -80,7 +80,7 @@ export const renderContactAdminEmail = ({
   <div style="${CONTAINER_STYLE}">
     <div style="${CARD_STYLE}">
       <div style="${HEADER_STYLE}">
-        ${renderLogoImg(64)}
+        ${renderLogoImg(180)}
         <h2 style="color: #ffffff; margin: 14px 0 0; font-size: 22px; font-weight: 600;">New Contact Submission</h2>
       </div>
       <div style="${BODY_STYLE}">
@@ -138,7 +138,7 @@ export const renderContactConfirmationEmail = ({
   <div style="${CONTAINER_STYLE}">
     <div style="${CARD_STYLE}">
       <div style="${HEADER_STYLE}">
-        ${renderLogoImg(72)}
+        ${renderLogoImg(180)}
       </div>
       <div style="${BODY_STYLE}">
         <h3 style="margin-top: 0; color: #111827; font-size: 20px;">Hi ${name},</h3>

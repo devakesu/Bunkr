@@ -377,13 +377,32 @@ export async function GET(req: Request) {
                     const notifications: NotificationInsert[] = [];
                     const emailsToSend: SendEmailProps[] = [];
 
+                    // ─────────────────────────────────────────────────────────────
+                    // SYNC DECISION TABLE
+                    //
+                    // | Condition                                      | Action              | Notified? |
+                    // |------------------------------------------------|---------------------|-----------|
+                    // Tracker      Official          Action               Notified?
+                    // ──────────────────────────────────────────────────────────────────
+                    // extra(any)      Revision          Delete               ✅ email+alert
+                    // correction(any) Revision          Delete (SILENT)      ❌ (invariant: impossible, defensive guard)
+                    // extra(any)      Wrong course      Delete               ✅ email+alert
+                    // correction(+)   Positive(+)       Delete               ✅ alert
+                    // extra(+)        Positive(+)       Delete               ✅ alert
+                    // extra(111)      Absent(111)       Delete               ✅ alert
+                    // extra(+)        Absent(111)       Update→correction    ✅ email+alert
+                    // correction(+)   Absent(111)       No-op                ❌ (already notified; dispute in tracking page)
+                    // any             Key unknown       No-op                ❌ (EzyGo not yet published)
+                    // ─────────────────────────────────────────────────────────────
+
                     for (const item of trackingData) {
                         const normalizedTrackerSession = toRoman(parseInt(normalizeSession(item.session)) || item.session);
                         const key = `${item.date}|${normalizedTrackerSession}`;
 
                         // Revision class — EzyGo doesn't count this toward attendance.
-                        // Remove the manual entry. Extra entries get a notification;
-                        // corrections are removed silently (nothing to dispute).
+                        // Always delete the manual entry. Only notify for 'extra' — corrections
+                        // can never be revision slots (invariant: corrections are promoted from
+                        // extra by this sync and are always tied to a real timetable slot).
                         if (revisionKeys.has(key)) {
                             toDelete.add(item.id);
                             if (item.status === 'extra') {
@@ -414,9 +433,9 @@ export async function GET(req: Request) {
                         if (officialMap.has(key)) {
                             const official = officialMap.get(key)!;
                             
-                            // Course Mismatch — only relevant for extra entries.
-                            // Corrections are dispute records tied to the official timetable;
-                            // a different course ID there is not actionable.
+                            // Course Mismatch — only for 'extra' entries.
+                            // 'correction' entries are promoted from 'extra' by this same sync, so
+                            // their course ID is guaranteed to match the official record already.
                             if (item.status === 'extra' && String(item.course) !== official.course) {
                                 toDelete.add(item.id);
                                 notifications.push({
@@ -443,26 +462,38 @@ export async function GET(req: Request) {
                                 continue;
                             }
 
-                            // For corrections, proceed to attendance comparison regardless
-                            // of course ID — the user is disputing the absence itself.
-
                             const officialCode = official.code;
                             const trackerCode = Number(item.attendance);
                             const isOfficialPositive = [110, 225, 112].includes(officialCode);
                             const isTrackerPositive = [110, 225, 112].includes(trackerCode);
 
                             // Sync Logic
-                            if (isOfficialPositive || officialCode === trackerCode) {
+                            if (isOfficialPositive) {
+                                // Official is positive (present/DL) — entry is resolved, delete it.
+                                // Covers all tracker states: correction(+), extra(+), extra(111).
+                                // In the correction(+) case this is a "dispute resolved" — EzyGo
+                                // has updated to present. In the extra(111) case this is a
+                                // "surprise present" — EzyGo now shows attendance the user didn't expect.
                                 toDelete.add(item.id);
-                                if (isOfficialPositive && !isTrackerPositive) {
-                                    notifications.push({
-                                        auth_user_id: user.auth_id,
-                                        title: "Attendance Updated 🥳",
-                                        description: `${official.course_name} - ${item.date} (${item.session}): Official record is Present. Manual entry removed.`,
-                                        topic: `sync-surprise-${key}`
-                                    });
-                                }
+                                notifications.push({
+                                    auth_user_id: user.auth_id,
+                                    title: "Attendance Updated 🥳",
+                                    description: `${official.course_name} - ${item.date} (${item.session}): Official record is Present. Manual entry removed.`,
+                                    topic: `sync-surprise-${key}`
+                                });
+                            } else if (officialCode === trackerCode) {
+                                // Both sides have the same non-positive code (e.g. extra(111) + official(111)).
+                                // Manual entry is redundant — delete it.
+                                toDelete.add(item.id);
+                                notifications.push({
+                                    auth_user_id: user.auth_id,
+                                    title: "Attendance Updated 🥳",
+                                    description: `${official.course_name} - ${item.date} (${item.session}): Official record matches. Manual entry removed.`,
+                                    topic: `sync-surprise-${key}`
+                                });
                             } else if (officialCode === 111 && isTrackerPositive && item.status === 'extra') {
+                                // Official absent + tracker present + new (extra) entry → genuine conflict.
+                                // Flip to 'correction' and notify with email.
                                 toUpdateStatus.push(item.id);
                                 userStats.conflicts++;
                                 notifications.push({
@@ -485,8 +516,17 @@ export async function GET(req: Request) {
                                         })
                                     });
                                 }
+                            } else if (officialCode === 111 && isTrackerPositive && item.status === 'correction') {
+                                // Official still absent + already in correction state (ongoing dispute).
+                                // No alert — the user was already notified when the conflict was first
+                                // detected (extra → correction). The tracking page shows pending disputes.
+                                // Sending a repeat alert on every sync run would be noise.
+                                userStats.conflicts++;
                             }
                         }
+                        // Key not in officialMap and not in revisionKeys:
+                        // EzyGo has no record for this slot yet — could be a future/pending class.
+                        // Cannot make a decision; leave the entry untouched.
                     }
 
                     if (toDelete.size > 0) {

@@ -33,7 +33,7 @@ export const CourseMismatchEmail = ({
     <Body style={emailStyles.main}>
       <Container style={emailStyles.container}>
         <Section style={emailStyles.header}>
-          <Img src={getLogoUrl()} alt="GhostClass" width={64} style={headerLogoStyle} />
+          <Img src={getLogoUrl()} alt="GhostClass" width={180} style={headerLogoStyle} />
         </Section>
 
         <Section style={emailStyles.content}>

@@ -271,8 +271,8 @@ afterEach(() => {
 // Test suites
 // ===========================================================================
 
-describe("Cron sync — official present + tracker positive → delete, no notification", () => {
-  it("deletes the correction without sending a notification", async () => {
+describe("Cron sync — official present + tracker positive → delete + alert", () => {
+  it("deletes the correction and sends an Attendance Updated alert", async () => {
     const { deleteInSpy, notificationInsertSpy } = buildAdminMock({
       trackerData: [
         // id=332: correction, attendance=110 (present), course=1005, 2025-10-24 session III
@@ -291,7 +291,9 @@ describe("Cron sync — official present + tracker positive → delete, no notif
     expect(res.status).toBe(200);
     expect(body.deletions).toBe(1);
     expect(deleteInSpy).toHaveBeenCalledWith("id", [101]);
-    expect(notificationInsertSpy).not.toHaveBeenCalled();
+    expect(notificationInsertSpy).toHaveBeenCalledOnce();
+    const [notifications] = notificationInsertSpy.mock.calls[0];
+    expect(notifications[0].title).toContain("Attendance Updated");
   });
 });
 
@@ -448,18 +450,19 @@ describe("Cron sync — course mismatch on an extra entry → delete + Course Mi
 
 // ---------------------------------------------------------------------------
 
-describe("Cron sync — course mismatch on a correction entry → delete, no notification", () => {
-  it("silently deletes a correction when the course ID no longer matches", async () => {
+describe("Cron sync — course mismatch on a correction entry → delete + alert", () => {
+  it("deletes a correction when the official slot is positive (course guard skipped for corrections)", async () => {
+    // Course mismatch guard only runs for 'extra'; corrections fall through to attendance comparison.
+    // Official is 110 (positive) → isOfficialPositive → delete + 'Attendance Updated' alert.
     const { deleteInSpy, notificationInsertSpy } = buildAdminMock({
       trackerData: [
-        // Correction entry; official slot now has a different course → stale, remove silently
         { id: 101, course: "1005", date: "2025-10-24", session: "III", attendance: "110", status: "correction" },
       ],
     });
 
     mockCoursesResponse();
     mockAttendanceResponse({
-      "2025-10-24": { "3": ezygoSession(3, 110, 99999 /* different course */) },
+      "2025-10-24": { "3": ezygoSession(3, 110, 99999 /* different course, ignored for corrections */) },
     });
 
     const res = await GET(makeCronRequest("testuser"));
@@ -468,7 +471,9 @@ describe("Cron sync — course mismatch on a correction entry → delete, no not
     expect(res.status).toBe(200);
     expect(body.deletions).toBe(1);
     expect(deleteInSpy).toHaveBeenCalledWith("id", [101]);
-    expect(notificationInsertSpy).not.toHaveBeenCalled();
+    expect(notificationInsertSpy).toHaveBeenCalledOnce();
+    const [notifications] = notificationInsertSpy.mock.calls[0];
+    expect(notifications[0].title).toBe("Attendance Updated 🥳");
   });
 });
 
@@ -526,11 +531,11 @@ describe("Cron sync — EzyGo Revision class, correction entry → deleted silen
 
 // ---------------------------------------------------------------------------
 
-describe("Cron sync — Duty Leave (225) tracker entry; official confirms present → delete, no notification", () => {
-  it("removes the duty-leave correction when official says 225 (positive)", async () => {
+describe("Cron sync — Duty Leave (225) tracker entry; official confirms present → delete + alert", () => {
+  it("removes the duty-leave correction and sends an alert when official says 225 (codes match)", async () => {
+    // correction(225) + official(225): officialCode === trackerCode → delete + 'Attendance Updated' alert.
     const { deleteInSpy, notificationInsertSpy } = buildAdminMock({
       trackerData: [
-        // id=333: correction, attendance=225 (duty leave), course=1005, 2025-10-24 session IV
         { id: 102, course: "1005", date: "2025-10-24", session: "IV", attendance: "225", status: "correction" },
       ],
     });
@@ -546,7 +551,9 @@ describe("Cron sync — Duty Leave (225) tracker entry; official confirms presen
     expect(res.status).toBe(200);
     expect(body.deletions).toBe(1);
     expect(deleteInSpy).toHaveBeenCalledWith("id", [102]);
-    expect(notificationInsertSpy).not.toHaveBeenCalled();
+    expect(notificationInsertSpy).toHaveBeenCalledOnce();
+    const [notifications] = notificationInsertSpy.mock.calls[0];
+    expect(notifications[0].title).toBe("Attendance Updated 🥳");
   });
 });
 
@@ -556,9 +563,9 @@ describe("Cron sync — mixed batch with multiple outcomes", () => {
   it("correctly processes corrections + extras with varied official responses", async () => {
     const { deleteInSpy, updateTrackerSpy, notificationInsertSpy } = buildAdminMock({
       trackerData: [
-        // A: correction (110) → official present (110) → DELETE, no notif
+        // A: correction (110) → official present (110) → DELETE + alert
         { id: 101, course: "1005", date: "2025-10-24", session: "III", attendance: "110", status: "correction" },
-        // B: correction (225) → official present (225) → DELETE, no notif
+        // B: correction (225) → official present (225) → DELETE + alert
         { id: 102, course: "1005", date: "2025-10-24", session: "IV", attendance: "225", status: "correction" },
         // C: extra (110) → official absent (111) → CONFLICT, update + notif
         { id: 103, course: "1001", date: "2025-12-31", session: "I", attendance: "110", status: "extra" },
@@ -595,8 +602,8 @@ describe("Cron sync — mixed batch with multiple outcomes", () => {
     expect(deletedIds).toEqual(expect.arrayContaining([101, 102]));
     expect(deletedIds).toHaveLength(2);
 
-    // C should become a conflict → update
-    expect(body.conflicts).toBe(1);
+    // C should become a conflict → update; E (correction+absent) also increments conflicts but no notification
+    expect(body.conflicts).toBe(2);
     expect(body.updates).toBe(1);
     const updateChain = updateTrackerSpy.mock.results[0].value;
     expect(updateChain.in).toHaveBeenCalledWith("id", [103]);
@@ -604,12 +611,14 @@ describe("Cron sync — mixed batch with multiple outcomes", () => {
     // D and E should remain untouched — no extra deletes or updates for them
     // Verified implicitly: deletedIds has only 2 entries, updateTrackerSpy called once
 
-    // Notifications: only C (conflict) — A and B are positive/matching so no surprise notification;
-    // D has no official record; E is correction (not extra), so no conflict notification sent
+    // Notifications: A + B (Attendance Updated) + C (Attendance Conflict) = 3
+    // D has no official record → no notif; E is correction+absent → conflicts++ only, no notif
     expect(notificationInsertSpy).toHaveBeenCalledOnce();
     const [notifications] = notificationInsertSpy.mock.calls[0];
-    expect(notifications).toHaveLength(1);
-    expect(notifications[0].title).toBe("Attendance Conflict 💀");
+    expect(notifications).toHaveLength(3);
+    expect(notifications[0].title).toContain("Attendance Updated"); // A
+    expect(notifications[1].title).toContain("Attendance Updated"); // B
+    expect(notifications[2].title).toContain("Attendance Conflict"); // C
   });
 });
 
