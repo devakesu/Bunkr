@@ -49,7 +49,6 @@ import { calculateAttendance } from "@/lib/logic/bunk";
 import { ATTENDANCE_STATUS, isPositive } from "@/lib/logic/attendance-reconciliation";
 import { useSyncOnMount } from "@/hooks/use-sync-on-mount";
 
-import type { AttendanceReport } from "@/types";
 import type {
   captureException as SentryCaptureException,
 } from "@sentry/nextjs";
@@ -378,8 +377,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
   const filteredChartData = useMemo(() => {
     if (!attendanceData) return undefined;
-    // Cast to AttendanceReport: JSON.parse produces `any`; the deep-copy preserves the shape.
-    const newData = JSON.parse(JSON.stringify(attendanceData)) as AttendanceReport;
+    // structuredClone is native and faster than JSON.parse(JSON.stringify()).
+    const newData = structuredClone(attendanceData);
 
     if (newData.studentAttendanceData) {
       Object.keys(newData.studentAttendanceData).forEach(date => {

@@ -49,13 +49,15 @@ export function useNotifications(enabled = true) {
   const { data: actionData, isLoading: isActionLoading } = useQuery({
     queryKey: ["notifications", "actions"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      // getSession() reads the JWT from local storage — no network call.
+      // The Supabase query is RLS-protected; an invalid JWT is rejected by Postgres.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return [];
 
       const { data, error } = await supabase
         .from("notification")
         .select("*")
-        .eq("auth_user_id", user.id)
+        .eq("auth_user_id", session.user.id)
         .ilike("topic", "conflict%") // Only conflicts
         .eq("is_read", false)        // Only unread
         .order("created_at", { ascending: false });
@@ -81,8 +83,8 @@ export function useNotifications(enabled = true) {
   } = useInfiniteQuery<FetchResponse>({
     queryKey: ["notifications", "feed"],
     queryFn: async ({ pageParam = 0 }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { data: [], nextPage: null };
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return { data: [], nextPage: null };
 
       const from = (pageParam as number) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
@@ -90,7 +92,7 @@ export function useNotifications(enabled = true) {
       const { data, error } = await supabase
         .from("notification")
         .select("*")
-        .eq("auth_user_id", user.id)
+        .eq("auth_user_id", session.user.id)
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -128,13 +130,13 @@ export function useNotifications(enabled = true) {
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["notifications", "unreadCount"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return 0;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return 0;
 
       const { error, count } = await supabase
         .from("notification")
         .select("*", { count: "exact", head: true })
-        .eq("auth_user_id", user.id)
+        .eq("auth_user_id", session.user.id)
         .eq("is_read", false);
 
       if (error) {
@@ -152,13 +154,13 @@ export function useNotifications(enabled = true) {
   // 4. MUTATIONS
   const markReadMutation = useMutation({
     mutationFn: async (id?: number) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
 
       let query = supabase
         .from("notification")
         .update({ is_read: true })
-        .eq("auth_user_id", user.id);
+        .eq("auth_user_id", session.user.id);
 
       if (id) query = query.eq("id", id);
       else query = query.eq("is_read", false);

@@ -375,7 +375,9 @@ export async function GET(req: Request) {
                     const toDelete = new Set<number>();
                     const toUpdateStatus: number[] = [];
                     const notifications: NotificationInsert[] = [];
-                    const emailsToSend: SendEmailProps[] = [];
+                    // Deferred render promises — resolved in parallel after the loop
+                    // to avoid awaiting each email render serially inside the for...of.
+                    const emailRenderPromises: Promise<SendEmailProps>[] = [];
 
                     // ─────────────────────────────────────────────────────────────
                     // SYNC DECISION TABLE
@@ -414,17 +416,19 @@ export async function GET(req: Request) {
                                     topic: `revision-${key}`
                                 });
                                 if (user.email) {
-                                    emailsToSend.push({
-                                        to: user.email,
-                                        subject: `📚 Revision Class: ${courseName}`,
-                                        html: await renderRevisionClassEmail({
+                                    emailRenderPromises.push(
+                                        renderRevisionClassEmail({
                                             username: user.username,
                                             courseName,
                                             date: item.date,
                                             session: item.session,
                                             dashboardUrl: `${appUrl}/dashboard`
-                                        })
-                                    });
+                                        }).then(html => ({
+                                            to: user.email!,
+                                            subject: `📚 Revision Class: ${courseName}`,
+                                            html,
+                                        }))
+                                    );
                                 }
                             }
                             continue;
@@ -446,18 +450,20 @@ export async function GET(req: Request) {
                                 });
 
                                 if (user.email) {
-                                    emailsToSend.push({
-                                        to: user.email,
-                                        subject: `💀 Course Conflict: ${official.course_name}`,
-                                        html: await renderCourseMismatchEmail({
+                                    emailRenderPromises.push(
+                                        renderCourseMismatchEmail({
                                             username: user.username,
                                             date: item.date,
                                             session: item.session,
                                             manualCourseName: coursesMap[String(item.course)]?.name || String(item.course),
                                             courseLabel: official.course_name,
                                             dashboardUrl: `${appUrl}/dashboard`
-                                        })
-                                    });
+                                        }).then(html => ({
+                                            to: user.email!,
+                                            subject: `💀 Course Conflict: ${official.course_name}`,
+                                            html,
+                                        }))
+                                    );
                                 }
                                 continue;
                             }
@@ -504,17 +510,19 @@ export async function GET(req: Request) {
                                 });
                                 
                                 if (user.email) {
-                                    emailsToSend.push({
-                                        to: user.email,
-                                        subject: `💀 Attendance Conflict: ${official.course_name}`,
-                                        html: await renderAttendanceConflictEmail({
+                                    emailRenderPromises.push(
+                                        renderAttendanceConflictEmail({
                                             username: user.username,
                                             courseLabel: official.course_name,
                                             date: item.date,
                                             session: item.session,
                                             dashboardUrl: `${appUrl}/dashboard`
-                                        })
-                                    });
+                                        }).then(html => ({
+                                            to: user.email!,
+                                            subject: `💀 Attendance Conflict: ${official.course_name}`,
+                                            html,
+                                        }))
+                                    );
                                 }
                             } else if (officialCode === 111 && isTrackerPositive && item.status === 'correction') {
                                 // Official still absent + already in correction state (ongoing dispute).
@@ -529,20 +537,32 @@ export async function GET(req: Request) {
                         // Cannot make a decision; leave the entry untouched.
                     }
 
-                    if (toDelete.size > 0) {
-                        await supabaseAdmin.from("tracker").delete().in("id", [...toDelete]);
-                        userStats.deletions += toDelete.size;
-                    }
-                    if (toUpdateStatus.length > 0) {
-                        await supabaseAdmin.from("tracker").update({ status: 'correction' }).in("id", toUpdateStatus);
-                        userStats.updates += toUpdateStatus.length;
-                    }
-                    if (notifications.length > 0) {
-                        await supabaseAdmin.from("notification").insert(notifications);
-                    }
-                    if (emailsToSend.length > 0) {
-                        await Promise.allSettled(emailsToSend.map(e => sendEmail(e)));
-                    }
+                    // Accumulate stats before parallel flush (sizes are final after the loop)
+                    userStats.deletions += toDelete.size;
+                    userStats.updates += toUpdateStatus.length;
+
+                    // Resolve all email renders concurrently, then flush all DB writes and
+                    // email sends in parallel — these operate on disjoint rows/tables.
+                    const renderedEmails = emailRenderPromises.length > 0
+                        ? (await Promise.allSettled(emailRenderPromises))
+                            .filter((r): r is PromiseFulfilledResult<SendEmailProps> => r.status === 'fulfilled')
+                            .map(r => r.value)
+                        : [];
+
+                    await Promise.all([
+                        toDelete.size > 0
+                            ? supabaseAdmin.from("tracker").delete().in("id", [...toDelete])
+                            : null,
+                        toUpdateStatus.length > 0
+                            ? supabaseAdmin.from("tracker").update({ status: 'correction' }).in("id", toUpdateStatus)
+                            : null,
+                        notifications.length > 0
+                            ? supabaseAdmin.from("notification").insert(notifications)
+                            : null,
+                        renderedEmails.length > 0
+                            ? Promise.allSettled(renderedEmails.map(e => sendEmail(e)))
+                            : null,
+                    ].filter(p => p !== null) as Promise<unknown>[]);
                 }
 
                 await supabaseAdmin.from("users").update({ last_synced_at: new Date().toISOString() }).eq("auth_id", user.auth_id);
